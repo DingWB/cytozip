@@ -48,6 +48,28 @@ import pandas as pd
 import gzip
 import math
 import multiprocessing
+
+# Mapping from struct format characters to numpy dtype strings.
+# Used for vectorized delta encoding/decoding.
+_STRUCT_TO_NP = {
+	'B': '<u1', 'b': '<i1',
+	'H': '<u2', 'h': '<i2',
+	'I': '<u4', 'i': '<i4',
+	'Q': '<u8', 'q': '<i8',
+	'f': '<f4', 'd': '<f8',
+}
+
+
+def _build_np_record_dtype(formats):
+	"""Build a numpy structured dtype from a list of struct format strings."""
+	dt_list = []
+	for i, f in enumerate(formats):
+		np_dt = _STRUCT_TO_NP.get(f[-1])
+		if np_dt is not None:
+			dt_list.append((f'c{i}', np_dt))
+		else:
+			dt_list.append((f'c{i}', f'S{struct.calcsize(f)}'))
+	return np.dtype(dt_list)
 from loguru import logger
 
 # ---------------------------------------------------------------------------
@@ -88,6 +110,7 @@ try:
 	from .cz_accel import c_block_first_values as _c_block_first_values
 	from .cz_accel import c_extract_c_positions as _c_extract_c_positions
 	from .cz_accel import c_write_c_records as _c_write_c_records
+	logger.info("Cython accelerated functions loaded successfully")
 except Exception:
 	logger.warning("Cython accelerated functions not available, falling back to pure-Python implementations")
 	_c_load_bcz_block = None
@@ -621,8 +644,10 @@ class Reader:
 		self.header['header_size'] = f.tell()
 		if self._delta_cols:
 			self._struct = struct.Struct(f"<{self.fmts}")
+			self._np_record_dtype = _build_np_record_dtype(self.header['Formats'])
 		else:
 			self._struct = None
+			self._np_record_dtype = None
 		self._aligned_block_size = (_BLOCK_MAX_LEN // self._unit_size) * self._unit_size
 		if getattr(self, '_is_remote', False):
 			self.chunk_info = self._summary_from_chunk_index()
@@ -1356,30 +1381,47 @@ class Reader:
 	def _delta_decode_bytes(self, data):
 		"""Undo delta encoding on the marked columns in raw block bytes.
 
-		Delta encoding stores the first record with absolute values,
-		then each subsequent record stores the difference from the
-		previous record for the delta-encoded columns.  This method
-		reconstitutes the absolute values by accumulating the deltas.
+		Uses numpy cumsum for vectorized decoding when possible.
+		Falls back to per-record struct operations for non-numeric formats.
 
 		The data is processed in aligned-block-sized segments to match
 		how the Writer produces blocks.
 		"""
-		st = self._struct
-		unit = st.size
+		unit = self._struct.size
 		block_size = self._aligned_block_size
+		np_dt = self._np_record_dtype
+
+		# Check if numpy dtype matches struct size (no alignment mismatch)
+		if np_dt is not None and np_dt.itemsize == unit:
+			data = bytearray(data)
+			offset = 0
+			while offset < len(data):
+				end = min(offset + block_size, len(data))
+				n_bytes = ((end - offset) // unit) * unit
+				if n_bytes < unit:
+					break
+				n_records = n_bytes // unit
+				arr = np.frombuffer(
+					data, dtype=np_dt, count=n_records, offset=offset
+				).copy()
+				for c in self._delta_cols:
+					col = f'c{c}'
+					arr[col] = np.cumsum(arr[col])
+				data[offset:offset + n_bytes] = arr.tobytes()
+				offset += n_bytes
+			return bytes(data)
+
+		# Fallback: per-record struct operations
+		st = self._struct
 		out = bytearray(len(data))
 		offset = 0
 		while offset < len(data):
-			# Determine this block's size (last block may be shorter)
 			end = min(offset + block_size, len(data))
-			# Ensure we're at a record boundary
-			n_bytes = end - offset
-			n_bytes = (n_bytes // unit) * unit
+			n_bytes = ((end - offset) // unit) * unit
 			end = offset + n_bytes
 			if n_bytes < unit:
 				out[offset:end] = data[offset:end]
 				break
-			# First record: copy as-is (absolute values)
 			out[offset:offset + unit] = data[offset:offset + unit]
 			prev = list(st.unpack_from(data, offset))
 			pos = offset + unit
@@ -1647,8 +1689,6 @@ class Reader:
 			id_end = primary_id  # ID for end position,should be included
 			yield [id_start, id_end]
 
-	# return R
-
 	def query(self, Dimension=None, start=None, end=None, Regions=None,
 			  query_col=[0], reference=None, printout=True):
 		"""
@@ -1765,18 +1805,7 @@ class Reader:
 				sys.stdout.close()
 				self.close()
 			else:
-				records = self._query_regions(Regions, s, e)
-				record = records.__next__()
-				while True:
-					try:
-						record = records.__next__()
-					except:
-						break
-					try:
-						dims, row = record
-						yield list(dims) + list(self._byte2real(row))
-					except ValueError:
-						flag, primary_id, dim = record
+				return self._query_iter(Regions, s, e)
 		else:
 			reference = os.path.abspath(os.path.expanduser(reference))
 			ref_reader = Reader(reference)
@@ -1809,24 +1838,42 @@ class Reader:
 				sys.stdout.close()
 				self.close()
 			else:
-				ref_records = ref_reader._query_regions(Regions, s, e)
-				ref_record = ref_records.__next__()  # 1st should contain primary_id
-				flag, primary_id, dim = ref_record
-				records = self.fetchByStartID(dim, n=primary_id)
-				while True:
-					try:
-						ref_record = ref_records.__next__()
-						record = self._byte2str(records.__next__())
-					except:
-						break
-					try:
-						dims, row = ref_record
-						rows = ref_reader._byte2str(row) + record
-						yield list(dims) + rows
-					except ValueError:  # len(record) ==3: #"primary_id_&_dim:", primary_id, dim
-						flag, primary_id, dim = ref_record  # next block or next dim
-						records = self.fetchByStartID(dim, n=primary_id)
+				return self._query_iter_ref(Regions, s, e, ref_reader)
 			ref_reader.close()
+
+	def _query_iter(self, Regions, s, e):
+		records = self._query_regions(Regions, s, e)
+		record = records.__next__()
+		while True:
+			try:
+				record = records.__next__()
+			except:
+				break
+			try:
+				dims, row = record
+				yield list(dims) + list(self._byte2real(row))
+			except ValueError:
+				flag, primary_id, dim = record
+
+	def _query_iter_ref(self, Regions, s, e, ref_reader):
+		ref_records = ref_reader._query_regions(Regions, s, e)
+		ref_record = ref_records.__next__()  # 1st should contain primary_id
+		flag, primary_id, dim = ref_record
+		records = self.fetchByStartID(dim, n=primary_id)
+		while True:
+			try:
+				ref_record = ref_records.__next__()
+				record = self._byte2str(records.__next__())
+			except:
+				break
+			try:
+				dims, row = ref_record
+				rows = ref_reader._byte2str(row) + record
+				yield list(dims) + rows
+			except ValueError:  # len(record) ==3: #"primary_id_&_dim:", primary_id, dim
+				flag, primary_id, dim = ref_record  # next block or next dim
+				records = self.fetchByStartID(dim, n=primary_id)
+		ref_reader.close()
 
 	def _seek_and_read_1record(self, virtual_offset):
 		if _c_seek_and_read_1record is not None:
@@ -2128,25 +2175,36 @@ class Writer:
 		# Build struct for delta encoding/decoding
 		if self._delta_cols:
 			self._struct = struct.Struct(f"<{self.fmts}")
+			self._np_record_dtype = _build_np_record_dtype(self.Formats)
 		else:
 			self._struct = None
+			self._np_record_dtype = None
 
 	def _delta_encode_block(self, block):
 		"""Delta-encode the marked columns within a block.
 
-		The first record is stored with absolute values.  For each
-		subsequent record, the delta-encoded columns store the
-		difference from the previous record.  This typically yields
-		much smaller values for sorted position columns, improving
-		the DEFLATE compression ratio.
+		Uses numpy diff for vectorized encoding when possible.
+		Falls back to per-record struct operations for non-numeric formats.
 		"""
-		st = self._struct
-		n_records = len(block) // st.size
+		unit = self._struct.size
+		n_records = len(block) // unit
 		if n_records <= 1:
 			return block
+
+		np_dt = self._np_record_dtype
+		if np_dt is not None and np_dt.itemsize == unit:
+			arr = np.frombuffer(block, dtype=np_dt).copy()
+			for c in self._delta_cols:
+				col = f'c{c}'
+				vals = arr[col]
+				arr[col][1:] = np.diff(vals)
+			return arr.tobytes()
+
+		# Fallback: per-record struct operations
+		st = self._struct
 		records = [st.unpack_from(block, i * st.size) for i in range(n_records)]
 		out = bytearray(len(block))
-		st.pack_into(out, 0, *records[0])  # first record: absolute
+		st.pack_into(out, 0, *records[0])
 		for i in range(1, n_records):
 			vals = list(records[i])
 			for c in self._delta_cols:

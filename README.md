@@ -7,6 +7,10 @@ pip install cytozip
 #or
 pip install git+http://github.com/DingWB/cytozip
 ```
+reinstall
+```shell
+pip uninstall -y cytozip && pip install git+http://github.com/DingWB/cytozip
+```
 
 ## Implementation
 |                                  | allcools | ballcools | cytozip |

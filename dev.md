@@ -137,39 +137,7 @@ pip install -e .
 pip uninstall -y cytozip && python3 -m pip install .
 ```
 
-## allc to cz
-```shell
-time cytozip AllC -G ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -n 20 run
-
-rm -f example/example_data/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz
-time cytozip bed2cz example/example_data/FC_E17a_3C_1-1-I3-F13.allc.tsv.gz example/example_data/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz -F Q,H,H -C pos,mc,cov -u 1,4,5
-# 2m5.719s -> 1m32.432s
-
-rm -f example/example_data/FC_E17a_3C_1-1-I3-F13.cz
-time cytozip bed2cz example/example_data/FC_E17a_3C_1-1-I3-F13.allc.tsv.gz example/example_data/FC_E17a_3C_1-1-I3-F13.cz -r ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz
-# 8m40.090s -> 2m0.835s
-
-cytozip Reader -I example/example_data/FC_E17a_3C_1-1-I3-F13.cz print_header
-cytozip Reader -I example/example_data/FC_E17a_3C_1-1-I3-F13.cz view -s 0 |head
-
-cytozip Reader -I ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz summary_chunks | head
-
-cytozip Reader -I example/example_data/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz print_header
-cytozip Reader -I example/example_data/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz view -s 0 |head
-
-cytozip Reader -I example/example_data/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz query -D chr9 -s 3000294 -e 3000472 | awk '$3>50'
-
-```
-
-## Query
-```shell
-
-tabix example/example_data/FC_E17a_3C_1-1-I3-F13.allc.tsv.gz chr9 | awk '$5 > 50' |head
-cytozip Reader -I example/example_data/FC_E17a_3C_1-1-I3-F13.cz query -r ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -D chr9 -s 3000294 -e 3000472 |awk '$5>50'
-```
-
 ## Remote Reading
-
 Read .cz files from a remote HTTP/HTTPS server using HTTP Range requests.
 Requires the file to have a chunk index.
 Initialization takes 2-3 HTTP requests (header + chunk index); each chunk fetch takes ~1 request per 2MB of compressed data.
