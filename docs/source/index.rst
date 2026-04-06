@@ -6,11 +6,13 @@ Chunk ZIP
    :maxdepth: 2
    :caption: Contents:
 
-  quick_start
-  dnam
-  dev
-  benchmark
-  modules
+   quick_start
+   dnam
+   dev
+   benchmark
+   notebooks/python_api
+   notebooks/remote_reading
+   modules
 
 Credits and Thanks
 ========================

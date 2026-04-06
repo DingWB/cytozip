@@ -16,15 +16,13 @@ import sys
 sys.path.insert(0, os.path.abspath("../../"))
 print(sys.path)
 from recommonmark.parser import CommonMarkParser
-import sphinx_rtd_theme
-import sphinx_sizzle_theme, sphinx_pdj_theme
 
 from cytozip import __version__
 
 # -- Project information -----------------------------------------------------
 
 project = "cytozip"
-copyright = "2023, Wubin Ding"
+copyright = "2026, Wubin Ding"
 author = "Wubin Ding"
 
 # The full version, including alpha/beta/rc tags
@@ -53,7 +51,7 @@ templates_path = ["_templates"]
 from recommonmark.parser import CommonMarkParser
 
 source_parsers = {".md": CommonMarkParser}
-source_suffix = [".rst", ".md"]
+source_suffix = {".rst": "restructuredtext", ".md": "restructuredtext"}
 
 master_doc = "index"
 
@@ -65,6 +63,9 @@ exclude_patterns = []
 pygments_style = "sphinx"
 todo_include_todos = False
 
+autosectionlabel_prefix_document = True
+nbsphinx_allow_errors = True
+
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -72,16 +73,12 @@ todo_include_todos = False
 #
 html_theme = "sphinx_rtd_theme"  # Read the Docs; pip install --upgrade sphinx-rtd-theme
 # documentation: https://sphinx-rtd-theme.readthedocs.io/en/stable/configuring.html
-# html_theme = 'sphinx_pdj_theme' #pip install sphinx_sizzle_theme
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-# html_theme_path=[sphinx_pdj_theme.get_html_theme_path()]
+
 html_theme_options = {
     "analytics_id": "G-F0T1MBS19V",
     "collapse_navigation": False,
     "globaltoc_collapse": False,
     "globaltoc_maxdepth": 3,
-    "collapse_navigation": False,
-    "display_version": True,
     "sidebarwidth": 200,  # sidebarwidth
     "navigation_depth": 6,
 }

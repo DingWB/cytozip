@@ -240,7 +240,7 @@ sphinx-quickstart
 # vim index.html: <meta http-equiv="refresh" content="0; url=./build/html/index.html" />
 cd docs
 rm -rf build
-ln -s ~/Projects/Github/czip/notebooks source/notebooks
+ln -s ~/Projects/Github/cytozip/notebooks source/notebooks
 sphinx-apidoc -e -o source -f ../../cytozip
 make html
 rm -rf source/notebooks

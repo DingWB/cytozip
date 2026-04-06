@@ -1,5 +1,5 @@
 cytozip.cz module
-==============
+=================
 
 .. automodule:: cytozip.cz
    :members:

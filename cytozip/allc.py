@@ -490,9 +490,11 @@ def generate_ssi1(input, output=None, pattern="CGN"):
 def generate_ssi2(input, output=None, bed=None,
                   n_jobs=4):  # 2D ssi
     """
-    Generate subset index for a genomic region bed file. For example:
+    Generate subset index for a genomic region bed file. For example::
+
         cytozip generate_ssi2 -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz \
         -o mm10_with_chrL.allc.genes_flank2k.ssi -b genes_flank2k.bed.gz -n 4
+
     Parameters
     ----------
     input :
@@ -558,10 +560,11 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
     Reads a batch of blocks (batch_nblock blocks starting at
     block_idx_start) for every cell/sample sharing the same chrom,
     then either:
-      - Sums mc/cov values across cells (when formats is a list like ['H','H'])
-      - Computes fraction (mc/cov) per cell ('fraction' mode)
-      - Produces a 2D matrix of mc,cov per cell ('2D' mode)
-      - Runs Fisher's exact test per cell ('fisher' mode)
+
+    - Sums mc/cov values across cells (when formats is a list like ['H','H'])
+    - Computes fraction (mc/cov) per cell ('fraction' mode)
+    - Produces a 2D matrix of mc,cov per cell ('2D' mode)
+    - Runs Fisher's exact test per cell ('fisher' mode)
 
     Results are written to per-chrom temporary files.
     """
@@ -907,19 +910,21 @@ def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
 
     Parameters
     ----------
-    cz_path :path
-    outfile :path
+    input : path
+        path to the .cz file.
+    outfile : path
+        output file path.
     ssi : path
         ssi should be ssi to mm10_with_chrL.allc.cz.CGN.ssi, not forward
         strand ssi, but after merge (if merge_cg is True), forward ssi
         mm10_with_chrL.allc.cz.+CGN.ssi should be used to generate
-         reference, one can
-        run: cytozip extract -m mm10_with_chrL.allc.cz
+        reference, one can
+        run: ``cytozip extract -m mm10_with_chrL.allc.cz
         -o mm10_with_chrL.allCG.forward.cz
-        -b mm10_with_chrL.allc.cz.+CGN.ssi and use
+        -b mm10_with_chrL.allc.cz.+CGN.ssi`` and use
         mm10_with_chrL.allCG.forward.cz as new reference.
-    chunksize :int
-    merge_cg: bool
+    chunksize : int
+    merge_cg : bool
         after merging, only forward strand would be kept, reverse strand values
         would be added to the corresponding forward strand.
 
@@ -974,9 +979,11 @@ def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
 def aggregate(Input=None, Outfile=None, ssi=None, intersect=None, exclude=None,
               chunksize=5000, formats=['H', 'H']):
     """
-    Aggregate a given genomic region on a .cz file, for example:
+    Aggregate a given genomic region on a .cz file, for example::
+
         /usr/bin/time -f "%e\t%M\t%P" cytozip aggregate -I test.cz -O test_gene.cz \
         -s mm10_with_chrL.allc.genes_flank2k.ssi
+
     Parameters
     ----------
     Input :

@@ -193,12 +193,15 @@ def SummaryBczBlocks(handle):
 
 	Yields
 	------
-	(start_offset, block_length, data_start, data_len)
-		start_offset : physical file position of the block
-		block_length : total compressed block size (bytes on disk)
-		data_start   : cumulative decompressed data offset (byte position
-		               within the chunk's decompressed stream)
-		data_len     : decompressed data length for this block
+	start_offset : int
+		Physical file position of the block.
+	block_length : int
+		Total compressed block size (bytes on disk).
+	data_start : int
+		Cumulative decompressed data offset (byte position
+		within the chunk's decompressed stream).
+	data_len : int
+		Decompressed data length for this block.
 	"""
 	if isinstance(handle, Reader):
 		raise TypeError("Function BczBlocks expects a binary handle")
@@ -548,21 +551,22 @@ class Reader:
 	def read_header(self):
 		"""Parse the .cz file header and populate ``self.header``.
 
-		Header binary layout (all little-endian):
+		Header binary layout (all little-endian)::
+
 		  magic        : 5 bytes ('BMZIP')
 		  version      : 4 bytes (float)
-		  total_size   : 8 bytes (uint64) – file size written at close time
+		  total_size   : 8 bytes (uint64) - file size written at close time
 		  message_len  : 2 bytes (uint16)
 		  message      : message_len bytes (utf-8 string)
-		  ncols        : 1 byte (uint8)  – number of data columns
+		  ncols        : 1 byte (uint8)  - number of data columns
 		  For each column:
 		    fmt_len    : 1 byte -> format string (e.g. 'H', '3s')
 		  For each column:
 		    name_len   : 1 byte -> column name
-		  ndims        : 1 byte – number of dimension names
+		  ndims        : 1 byte - number of dimension names
 		  For each dim:
 		    dim_len    : 1 byte -> dimension name
-		  n_delta      : 1 byte – number of delta-encoded columns
+		  n_delta      : 1 byte - number of delta-encoded columns
 		  For each delta col:
 		    col_idx    : 1 byte (uint8)
 
@@ -1663,16 +1667,15 @@ class Reader:
 			start position, if None, the entire Dimension would be returned.
 		end : int
 			end position
-		regions : list or file path
+		Regions : list or file path
 			regions=[
-				[Dimension,start,end], [Dimension,start,end]
+			[Dimension,start,end], [Dimension,start,end]
 			],
 			Dimension is a tuple, for example, Dimension=('chr1');
-
 			if regions is a file path (separated by tab and no header),
 			the first len(header['Dimensions']) columns would be
 			used as Dimension, and next two columns would be used as start and end.
-		query_col: list
+		query_col : list
 			index of columns (header['Columns']) to be queried,for example,
 			if header['Columns']=['pos','mv','cov'], then pos is what we want to
 			query, so query_col should be [0], but if
@@ -2069,13 +2072,14 @@ class Writer:
 
 		See Reader.read_header() for the binary layout description.
 		Notable details:
-		  - ``total_size`` is written as 0 here (placeholder) and
-		    updated by ``_write_total_size_eof_close()`` at file close.
-		  - ``_n_dim_offset`` records where the dimension count byte is,
-		    so ``catcz()`` can go back and increment it when merging
-		    files that add a new dimension.
-		  - ``_header_size`` marks the end of the header = start of the
-		    first chunk.
+
+		- ``total_size`` is written as 0 here (placeholder) and
+		  updated by ``_write_total_size_eof_close()`` at file close.
+		- ``_n_dim_offset`` records where the dimension count byte is,
+		  so ``catcz()`` can go back and increment it when merging
+		  files that add a new dimension.
+		- ``_header_size`` marks the end of the header = start of the
+		  first chunk.
 		"""
 		f = self._handle
 		f.write(struct.pack(f"<{self._magic_size}s", _bcz_magic))  # 5 bytes
@@ -2328,7 +2332,8 @@ class Writer:
 			 sep='\t', chunksize=5000, header=None, skiprows=0):
 		"""
 		Pack dataframe, stdin or a file path into .cz file with or without reference
-		coordinates file. For example:
+		coordinates file. For example::
+
 			cytozip Writer -O genes_flank2k.cz -F Q,Q,21s,c,20s,35s -C begin,end,EnsemblID,strand,gene_name,gene_type -D chrom tocz -I genes_flank2k.bed.gz -u 1,2,3,5,6,7
 
 		Parameters
@@ -2440,7 +2445,7 @@ class Writer:
 		Parameters
 		----------
 		Input : str or list
-			Either a str (including *, as input for glob, should be inside the\
+			Either a str (including ``*``, as input for glob, should be inside the
 			double quotation marks if using fire) or a list.
 		dim_order : None, list or path
 			If dim_order=None, Input will be sorted using python sorted.
@@ -2632,11 +2637,12 @@ class Writer:
 
 		This is the main entry point for finalizing a .cz file.
 		Order of operations:
-		  1. Flush any remaining buffered data as a final block.
-		  2. Finalize the current chunk (write chunk tail).
-		  3. Write the chunk index (for O(1) lookup by remote readers).
-		  4. Write total file size into the header + 28-byte EOF.
-		  5. Close the underlying file handle.
+
+		1. Flush any remaining buffered data as a final block.
+		2. Finalize the current chunk (write chunk tail).
+		3. Write the chunk index (for O(1) lookup by remote readers).
+		4. Write total file size into the header + 28-byte EOF.
+		5. Close the underlying file handle.
 		"""
 		if self._buffer:
 			self.flush()

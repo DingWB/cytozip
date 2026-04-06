@@ -1,5 +1,5 @@
 cytozip package
-============
+===============
 
 Submodules
 ----------
@@ -9,6 +9,7 @@ Submodules
 
    cytozip.allc
    cytozip.cz
+   cytozip.cz_accel
 
 Module contents
 ---------------
