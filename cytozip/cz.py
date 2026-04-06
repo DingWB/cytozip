@@ -11,7 +11,7 @@ but uses a two-level hierarchy:
     [Header] [Chunk 0] [Chunk 1] ... [Chunk N] [ChunkIndex] [EOF marker]
 
   - Header:  magic, version, total_size, message, column formats/names,
-             dimension names, delta-encoding mask.
+             dimension names.
   - Chunk:   A sequence of independently compressed *blocks* that share
              the same dimension values (e.g., one chromosome).
              Each block is at most 65535 bytes of raw data, compressed
@@ -31,12 +31,6 @@ the byte offset within the decompressed block data, packed into a single
 64-bit integer:  (block_start << 16) | within_block_offset.
 This allows O(1) random access to any record.
 
-Delta encoding
---------------
-When ``delta_cols`` is set, chosen columns (typically the position column)
-are delta-encoded within each block to improve compression ratio.  The
-first record of each block stores absolute values; subsequent records
-store the difference from the previous record.
 """
 import glob
 import os, sys
@@ -48,39 +42,17 @@ import pandas as pd
 import gzip
 import math
 import multiprocessing
-
-# Mapping from struct format characters to numpy dtype strings.
-# Used for vectorized delta encoding/decoding.
-_STRUCT_TO_NP = {
-	'B': '<u1', 'b': '<i1',
-	'H': '<u2', 'h': '<i2',
-	'I': '<u4', 'i': '<i4',
-	'Q': '<u8', 'q': '<i8',
-	'f': '<f4', 'd': '<f8',
-}
-
-
-def _build_np_record_dtype(formats):
-	"""Build a numpy structured dtype from a list of struct format strings."""
-	dt_list = []
-	for i, f in enumerate(formats):
-		np_dt = _STRUCT_TO_NP.get(f[-1])
-		if np_dt is not None:
-			dt_list.append((f'c{i}', np_dt))
-		else:
-			dt_list.append((f'c{i}', f'S{struct.calcsize(f)}'))
-	return np.dtype(dt_list)
 from loguru import logger
 
 # ---------------------------------------------------------------------------
 # Binary format constants
 # ---------------------------------------------------------------------------
-_bcz_magic = b'BMZIP'            # 5-byte file magic identifying a .cz file
-_block_magic = b"MB"              # 2-byte magic at the start of each block
-_chunk_magic = b"MC"              # 2-byte magic at the start of each chunk
+_cz_magic = b'CZIP'              # 4-byte file magic identifying a .cz file
+_block_magic = b"CB"              # 2-byte magic at the start of each block
+_chunk_magic = b"CC"              # 2-byte magic at the start of each chunk
 _BLOCK_MAX_LEN = 65535            # Maximum uncompressed block size (2^16 - 1)
 # 28-byte BGZF-style EOF marker written at the end of every .cz file.
-_bcz_eof = b"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00BM\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+_cz_eof = b"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00CZ\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 _chunk_index_magic = b"CZIX"      # 4-byte magic for the chunk index section
 
 # Dynamically import the package version produced by setuptools_scm.
@@ -102,7 +74,6 @@ try:
 	from .cz_accel import c_seek_and_read_1record as _c_seek_and_read_1record
 	from .cz_accel import c_query_regions as _c_query_regions
 	from .cz_accel import c_write_chunk_tail as _c_write_chunk_tail
-	from .cz_accel import c_adjust_virtual_offsets as _c_adjust_virtual_offsets
 	from .cz_accel import c_pack_records as _c_pack_records
 	from .cz_accel import c_pack_records_fast as _c_pack_records_fast
 	from .cz_accel import c_fetch_chunk as _c_fetch_chunk
@@ -110,7 +81,7 @@ try:
 	from .cz_accel import c_block_first_values as _c_block_first_values
 	from .cz_accel import c_extract_c_positions as _c_extract_c_positions
 	from .cz_accel import c_write_c_records as _c_write_c_records
-	logger.info("Cython accelerated functions loaded successfully")
+	logger.debug("Cython accelerated functions loaded successfully")
 except Exception:
 	logger.warning("Cython accelerated functions not available, falling back to pure-Python implementations")
 	_c_load_bcz_block = None
@@ -123,7 +94,6 @@ except Exception:
 	_c_seek_and_read_1record = None
 	_c_query_regions = None
 	_c_write_chunk_tail = None
-	_c_adjust_virtual_offsets = None
 	_c_pack_records = None
 	_c_pack_records_fast = None
 	_c_fetch_chunk = None
@@ -576,7 +546,7 @@ class Reader:
 
 		Header binary layout (all little-endian)::
 
-		  magic        : 5 bytes ('BMZIP')
+		  magic        : 4 bytes ('CZIP')
 		  version      : 4 bytes (float)
 		  total_size   : 8 bytes (uint64) - file size written at close time
 		  message_len  : 2 bytes (uint16)
@@ -589,17 +559,15 @@ class Reader:
 		  ndims        : 1 byte - number of dimension names
 		  For each dim:
 		    dim_len    : 1 byte -> dimension name
-		  n_delta      : 1 byte - number of delta-encoded columns
-		  For each delta col:
-		    col_idx    : 1 byte (uint8)
+		  reserved     : 1 byte (always 0, for format compatibility)
 
 		After parsing, ``self.header['header_size']`` points to the byte
 		offset where the first chunk begins.
 		"""
 		self.header = {}
 		f = self._handle
-		magic = struct.unpack("<5s", f.read(5))[0]
-		if magic != _bcz_magic:
+		magic = struct.unpack("<4s", f.read(4))[0]
+		if magic != _cz_magic:
 			raise ValueError("Not a right format?")
 		self.header['magic'] = magic
 		self.header['version'] = struct.unpack("<f", f.read(4))[0]
@@ -633,22 +601,12 @@ class Reader:
 		self.header['header_size'] = f.tell()  # end of header, begin of 1st chunk
 		self.fmts = ''.join(Formats)
 		self._unit_size = struct.calcsize(self.fmts)
-		# read delta column info
-		self._delta_cols = []
-		n_delta = struct.unpack("<B", f.read(1))[0]
-		for _ in range(n_delta):
-			col_idx = struct.unpack("<B", f.read(1))[0]
-			self._delta_cols.append(col_idx)
-		if self._delta_cols:
-			self.header['delta_cols'] = list(self._delta_cols)
+		self._struct_obj = struct.Struct(f"<{self.fmts}")
+		self._unit_nblock = int(self._unit_size / (math.gcd(self._unit_size, _BLOCK_MAX_LEN)))
+		# reserved byte (was delta column count in older versions)
+		n_reserved = struct.unpack("<B", f.read(1))[0]
+		f.read(n_reserved)  # skip reserved bytes
 		self.header['header_size'] = f.tell()
-		if self._delta_cols:
-			self._struct = struct.Struct(f"<{self.fmts}")
-			self._np_record_dtype = _build_np_record_dtype(self.header['Formats'])
-		else:
-			self._struct = None
-			self._np_record_dtype = None
-		self._aligned_block_size = (_BLOCK_MAX_LEN // self._unit_size) * self._unit_size
 		if getattr(self, '_is_remote', False):
 			self.chunk_info = self._summary_from_chunk_index()
 		else:
@@ -820,7 +778,7 @@ class Reader:
 				for result in _c_unpack_records(chunk_bytes, self.fmts):
 					R.append(result)
 			else:
-				for result in struct.iter_unpack(f"<{self.fmts}", chunk_bytes):
+				for result in self._struct_obj.iter_unpack(chunk_bytes):
 					R.append(result)
 			if not chunksize is None and i >= chunksize:
 				df = pd.DataFrame(R, columns=self.header['Columns'])
@@ -1129,18 +1087,16 @@ class Reader:
 	def getRecordsByIds(self, dim=None, reference=None, IDs=None):
 		if reference is None:
 			for record in self._getRecordsByIds(dim, IDs):
-				yield self._byte2real(struct.unpack(
-					f"<{self.fmts}", record
-				))
+				yield self._byte2real(self._struct_obj.unpack(record))
 		else:
 			ref_reader = Reader(os.path.abspath(os.path.expanduser(reference)))
 			ref_records = ref_reader._getRecordsByIds(dim=dim, IDs=IDs)
 			records = self._getRecordsByIds(dim=dim, IDs=IDs)
 			for ref_record, record in zip(ref_records, records):
-				yield ref_reader._byte2real(struct.unpack(
-					f"<{ref_reader.fmts}", ref_record
-				)) + self._byte2real(struct.unpack(
-					f"<{self.fmts}", record
+				yield ref_reader._byte2real(ref_reader._struct_obj.unpack(
+					ref_record
+				)) + self._byte2real(self._struct_obj.unpack(
+					record
 				))
 			ref_reader.close()
 
@@ -1189,17 +1145,17 @@ class Reader:
 		self._load_chunk(self.dim2chunk_start[dim], jump=False)
 		if reference is None:
 			for records in self._getRecordsByIdRegions(dim, IDs):
-				yield np.array([self._byte2real(struct.unpack(
-					f"<{self.fmts}", record)) for record in records])
+				yield np.array([self._byte2real(self._struct_obj.unpack(
+					record)) for record in records])
 		else:
 			ref_reader = Reader(os.path.abspath(os.path.expanduser(reference)))
 			ref_records = ref_reader._getRecordsByIdRegions(dim=dim, IDs=IDs)
 			records = self._getRecordsByIdRegions(dim=dim, IDs=IDs)
 			for ref_records, records in zip(ref_records, records):
-				ref_record = np.array([ref_reader._byte2real(struct.unpack(
-					f"<{ref_reader.fmts}", record)) for record in ref_records])
-				record = np.array([self._byte2real(struct.unpack(
-					f"<{self.fmts}", record)) for record in records])
+				ref_record = np.array([ref_reader._byte2real(ref_reader._struct_obj.unpack(
+					record)) for record in ref_records])
+				record = np.array([self._byte2real(self._struct_obj.unpack(
+					record)) for record in records])
 				yield np.hstack((ref_record, record))
 			ref_reader.close()
 
@@ -1275,7 +1231,7 @@ class Reader:
 				for result in _c_unpack_records(chunk_bytes, self.fmts):
 					yield result[s:e]
 			else:
-				for result in struct.iter_unpack(f"<{self.fmts}", chunk_bytes):
+				for result in self._struct_obj.iter_unpack(chunk_bytes):
 					yield result[s:e]  # a tuple
 			# print(result)
 			self._cached_data = self._cached_data[end_index:]
@@ -1297,7 +1253,7 @@ class Reader:
 		s = 0 if s is None else s  # 0-based
 		e = len(self.header['Columns']) if e is None else e  # 1-based
 		r = self._load_chunk(self.dim2chunk_start[dim], jump=(_c_fetch_chunk is None))
-		unit_nblock = int(self._unit_size / (math.gcd(self._unit_size, _BLOCK_MAX_LEN)))
+		unit_nblock = self._unit_nblock
 		self._load_block(start_offset=self._chunk_start_offset + 10)  #
 		i, _cached_data = 1, self._buffer
 		while self._block_raw_length > 0:
@@ -1308,13 +1264,11 @@ class Reader:
 									self._chunk_block_1st_record_virtual_offsets,
 									self.fmts, self._unit_size)
 				if chunk_bytes:
-					if self._delta_cols:
-						chunk_bytes = self._delta_decode_bytes(chunk_bytes)
 					if _c_unpack_records is not None:
 						for result in _c_unpack_records(chunk_bytes, self.fmts):
 							yield result[s:e]
 					else:
-						for result in struct.iter_unpack(f"<{self.fmts}", chunk_bytes):
+						for result in self._struct_obj.iter_unpack(chunk_bytes):
 							yield result[s:e]
 				# we've consumed the chunk, break out
 				break
@@ -1323,24 +1277,20 @@ class Reader:
 				i += 1
 			else:
 				# unpack the whole buffer
-				if self._delta_cols:
-					_cached_data = self._delta_decode_bytes(_cached_data)
 				if _c_unpack_records is not None:
 					for result in _c_unpack_records(_cached_data, self.fmts):
 						yield result[s:e]
 				else:
-					for result in struct.iter_unpack(f"<{self.fmts}", _cached_data):
-						yield result[s:e]  # a tuple
+					for result in self._struct_obj.iter_unpack(_cached_data):
+						yield result[s:e]
 				i, _cached_data = 1, self._buffer
 		if len(_cached_data) > 0:
-			if self._delta_cols:
-				_cached_data = self._delta_decode_bytes(_cached_data)
 			if _c_unpack_records is not None:
 				for result in _c_unpack_records(_cached_data, self.fmts):
 					yield result[s:e]
 			else:
-				for result in struct.iter_unpack(f"<{self.fmts}", _cached_data):
-					yield result[s:e]  # a tuple
+				for result in self._struct_obj.iter_unpack(_cached_data):
+					yield result[s:e]
 
 	def fetch_chunk_bytes(self, dim):
 		"""
@@ -1374,66 +1324,7 @@ class Reader:
 				self._load_block()
 				chunks.append(self._buffer)
 			raw = b"".join(chunks)
-		if self._delta_cols and raw:
-			raw = self._delta_decode_bytes(raw)
 		return raw
-
-	def _delta_decode_bytes(self, data):
-		"""Undo delta encoding on the marked columns in raw block bytes.
-
-		Uses numpy cumsum for vectorized decoding when possible.
-		Falls back to per-record struct operations for non-numeric formats.
-
-		The data is processed in aligned-block-sized segments to match
-		how the Writer produces blocks.
-		"""
-		unit = self._struct.size
-		block_size = self._aligned_block_size
-		np_dt = self._np_record_dtype
-
-		# Check if numpy dtype matches struct size (no alignment mismatch)
-		if np_dt is not None and np_dt.itemsize == unit:
-			data = bytearray(data)
-			offset = 0
-			while offset < len(data):
-				end = min(offset + block_size, len(data))
-				n_bytes = ((end - offset) // unit) * unit
-				if n_bytes < unit:
-					break
-				n_records = n_bytes // unit
-				arr = np.frombuffer(
-					data, dtype=np_dt, count=n_records, offset=offset
-				).copy()
-				for c in self._delta_cols:
-					col = f'c{c}'
-					arr[col] = np.cumsum(arr[col])
-				data[offset:offset + n_bytes] = arr.tobytes()
-				offset += n_bytes
-			return bytes(data)
-
-		# Fallback: per-record struct operations
-		st = self._struct
-		out = bytearray(len(data))
-		offset = 0
-		while offset < len(data):
-			end = min(offset + block_size, len(data))
-			n_bytes = ((end - offset) // unit) * unit
-			end = offset + n_bytes
-			if n_bytes < unit:
-				out[offset:end] = data[offset:end]
-				break
-			out[offset:offset + unit] = data[offset:offset + unit]
-			prev = list(st.unpack_from(data, offset))
-			pos = offset + unit
-			while pos + unit <= end:
-				rec = list(st.unpack_from(data, pos))
-				for c in self._delta_cols:
-					rec[c] = rec[c] + prev[c]
-				prev = list(rec)
-				st.pack_into(out, pos, *rec)
-				pos += unit
-			offset = end
-		return bytes(out)
 
 	def read_chunk_index(self):
 		"""Read chunk index from end of file for O(1) chunk lookup.
@@ -1569,7 +1460,7 @@ class Reader:
 			self.seek(virtual_start_offset)  # load_block is inside sek
 		while True:
 			# yield self._read_1record()
-			yield struct.unpack(f"<{self.fmts}", self.read(self._unit_size))
+			yield self._struct_obj.unpack(self.read(self._unit_size))
 
 	def _read_1record(self):
 		# accelerated single-record read
@@ -1583,7 +1474,7 @@ class Reader:
 		tmp = self._buffer[
 			  self._within_block_offset:self._within_block_offset + self._unit_size]
 		self._within_block_offset += self._unit_size
-		return struct.unpack(f"<{self.fmts}", tmp)
+		return self._struct_obj.unpack(tmp)
 
 	def _query_regions(self, regions, s, e):
 		dim_tmp = None
@@ -1607,23 +1498,13 @@ class Reader:
 					self._seek_and_read_1record(offset)[s]
 					for offset in self._chunk_block_1st_record_virtual_offsets
 				])
-			# for idx in range(start_block_index_tmp, self._chunk_nblocks-1):
-			#     if block_1st_starts[idx + 1] > start:
-			#         start_block_index = idx
-			#         break
-			#     start_block_index = self._chunk_nblocks - 1
-			while start_block_index < self._chunk_nblocks - 1:
-				if block_1st_starts[start_block_index + 1] > start:
-					break
-				start_block_index += 1
-			# start_block_index=np.argmax(block_1st_starts > start)-1
+			start_block_index = max(0, int(np.searchsorted(block_1st_starts, start, side='right')) - 1)
 			virtual_offset = self._chunk_block_1st_record_virtual_offsets[start_block_index]
 			self.seek(virtual_offset)  # seek to the target block, self._buffer
 			block_start_offset = self._block_start_offset
-			record = struct.unpack(f"<{self.fmts}", self.read(self._unit_size))
+			record = self._struct_obj.unpack(self.read(self._unit_size))
 			while record[s] < start:
-				# record = self._read_1record()
-				record = struct.unpack(f"<{self.fmts}", self.read(self._unit_size))
+				record = self._struct_obj.unpack(self.read(self._unit_size))
 			# here we got the 1st record, return the id (row number) of 1st record.
 			# size of each block is 65535 (2**16-1=_BLOCK_MAX_LEN)
 			# primary_id = int((_BLOCK_MAX_LEN * block_index +
@@ -1638,7 +1519,7 @@ class Reader:
 			yield "primary_id_&_dim:", primary_id, dim
 			while record[e] <= end:
 				yield dim, record
-				record = struct.unpack(f"<{self.fmts}", self.read(self._unit_size))
+				record = self._struct_obj.unpack(self.read(self._unit_size))
 		# start_block_index_tmp = start_block_index
 
 	def pos2id(self, dim, positions, col_to_query=0):  # return IDs (primary_id)
@@ -1666,10 +1547,10 @@ class Reader:
 			virtual_offset = self._chunk_block_1st_record_virtual_offsets[start_block_index]
 			self.seek(virtual_offset)  # seek to the target block, self._buffer
 			block_start_offset = self._block_start_offset
-			record = struct.unpack(f"<{self.fmts}", self.read(self._unit_size))
+			record = self._struct_obj.unpack(self.read(self._unit_size))
 			while record[col_to_query] < start:
 				try:
-					record = struct.unpack(f"<{self.fmts}", self.read(self._unit_size))
+					record = self._struct_obj.unpack(self.read(self._unit_size))
 				except:
 					break
 			if record[col_to_query] < start:
@@ -1682,7 +1563,7 @@ class Reader:
 			id_start = primary_id
 			while record[col_to_query] < end:
 				try:
-					record = struct.unpack(f"<{self.fmts}", self.read(self._unit_size))
+					record = self._struct_obj.unpack(self.read(self._unit_size))
 					primary_id += 1
 				except:
 					break
@@ -1879,7 +1760,7 @@ class Reader:
 		if _c_seek_and_read_1record is not None:
 			return _c_seek_and_read_1record(self._handle, virtual_offset, self.fmts, self._unit_size)
 		self.seek(virtual_offset)
-		return struct.unpack(f"<{self.fmts}", self.read(self._unit_size))
+		return self._struct_obj.unpack(self.read(self._unit_size))
 
 	def tell(self):
 		"""Return a 64-bit unsigned BGZF virtual offset."""
@@ -2039,7 +1920,7 @@ def extract(input=None, outfile=None, ssi=None, chunksize=5000):
 class Writer:
 	def __init__(self, Output=None, mode="wb", Formats=['H', 'H'],
 				 Columns=['mc', 'cov'], Dimensions=['chrom'], fileobj=None,
-				 message='', level=6, verbose=0, delta_cols=None):
+				 message='', level=6, verbose=0):
 		"""
 		cytozip .cz writer.
 
@@ -2068,10 +1949,6 @@ class Writer:
 			compress level (default is 6)
 		verbose : int
 			whether to print debug information
-		delta_cols : list or None
-			list of column indices to delta-encode (e.g., [0] for position column).
-			When set, blocks are aligned to record boundaries,
-			and each block's first record stores absolute values.
 		"""
 		if Output and fileobj:
 			raise ValueError("Supply either Output or fileobj, not both")
@@ -2106,10 +1983,9 @@ class Writer:
 			self.Dimensions = Dimensions.split(',')
 		else:
 			self.Dimensions = list(Dimensions)
-		self._magic_size = len(_bcz_magic)
+		self._magic_size = len(_cz_magic)
 		self.verbose = verbose
 		self.message = message
-		self._delta_cols = list(delta_cols) if delta_cols else []
 		self._chunk_index_entries = []  # for writing chunk index at close
 		if 'a' not in mode:
 			self.write_header()
@@ -2129,7 +2005,7 @@ class Writer:
 		  first chunk.
 		"""
 		f = self._handle
-		f.write(struct.pack(f"<{self._magic_size}s", _bcz_magic))  # 5 bytes
+		f.write(struct.pack(f"<{self._magic_size}s", _cz_magic))  # 4 bytes
 		# Convert version string (e.g. "0.5.2") to float (0.52) for binary format
 		try:
 			_ver_parts = _version.split('.')
@@ -2163,70 +2039,23 @@ class Writer:
 		# two element: new_dname_len (B) and new_dim, then go to
 		# _n_dim_offset,rewrite the n_dim (n_dim = n_dim + 1) and
 		# self.Dimensions.append(new_dim)
-		# write delta column mask (always present)
-		f.write(struct.pack("<B", len(self._delta_cols)))
-		for col_idx in self._delta_cols:
-			f.write(struct.pack("<B", col_idx))
+		# reserved byte (for format compatibility)
+		f.write(struct.pack("<B", 0))
 		self._header_size = f.tell()
 		self.fmts = ''.join(list(self.Formats))
 		self._unit_size = struct.calcsize(self.fmts)
-		# Aligned block size: multiple of unit_size, <= _BLOCK_MAX_LEN
-		self._aligned_block_size = (_BLOCK_MAX_LEN // self._unit_size) * self._unit_size
-		# Build struct for delta encoding/decoding
-		if self._delta_cols:
-			self._struct = struct.Struct(f"<{self.fmts}")
-			self._np_record_dtype = _build_np_record_dtype(self.Formats)
-		else:
-			self._struct = None
-			self._np_record_dtype = None
-
-	def _delta_encode_block(self, block):
-		"""Delta-encode the marked columns within a block.
-
-		Uses numpy diff for vectorized encoding when possible.
-		Falls back to per-record struct operations for non-numeric formats.
-		"""
-		unit = self._struct.size
-		n_records = len(block) // unit
-		if n_records <= 1:
-			return block
-
-		np_dt = self._np_record_dtype
-		if np_dt is not None and np_dt.itemsize == unit:
-			arr = np.frombuffer(block, dtype=np_dt).copy()
-			for c in self._delta_cols:
-				col = f'c{c}'
-				vals = arr[col]
-				arr[col][1:] = np.diff(vals)
-			return arr.tobytes()
-
-		# Fallback: per-record struct operations
-		st = self._struct
-		records = [st.unpack_from(block, i * st.size) for i in range(n_records)]
-		out = bytearray(len(block))
-		st.pack_into(out, 0, *records[0])
-		for i in range(1, n_records):
-			vals = list(records[i])
-			for c in self._delta_cols:
-				vals[c] = records[i][c] - records[i - 1][c]
-			st.pack_into(out, i * st.size, *vals)
-		return bytes(out)
 
 	def _write_block(self, block):
 		"""Compress and write a single block of raw record data.
 
 		Steps:
-		  1. Optionally delta-encode the block.
-		  2. Compress with raw DEFLATE (via Cython or Python zlib).
-		  3. Write block header: magic (2B) + block_size (2B).
-		  4. Write compressed payload.
-		  5. Write uncompressed data length (2B) as trailer.
-		  6. Record the virtual offset of this block's first record in
+		  1. Compress with raw DEFLATE (via Cython or Python zlib).
+		  2. Write block header: magic (2B) + block_size (2B).
+		  3. Write compressed payload.
+		  4. Write uncompressed data length (2B) as trailer.
+		  5. Record the virtual offset of this block's first record in
 		     ``self._block_1st_record_virtual_offsets`` for the chunk index.
 		"""
-		# Apply delta encoding if configured
-		if self._delta_cols and len(block) >= self._unit_size:
-			block = self._delta_encode_block(block)
 		# Use Cython-accelerated compressor if available, otherwise fall back
 		# to the pure-Python zlib.compressobj route.
 		if _c_compress_block is not None:
@@ -2248,13 +2077,9 @@ class Writer:
 		uncompressed_length = struct.pack("<H", data_len)  # 2 bytes
 		data = _block_magic + bsize + compressed + uncompressed_length
 		block_start_offset = self._handle.tell()
-		if self._delta_cols:
-			# Blocks are aligned to record boundaries, so within_block_offset = 0
-			within_block_offset = 0
-		else:
-			within_block_offset = int(
-				np.ceil(self._chunk_data_len / self._unit_size) * self._unit_size
-				- self._chunk_data_len)
+		within_block_offset = int(
+			np.ceil(self._chunk_data_len / self._unit_size) * self._unit_size
+			- self._chunk_data_len)
 		virtual_offset = (block_start_offset << 16) | within_block_offset
 		self._block_1st_record_virtual_offsets.append(virtual_offset)
 		# _block_offsets are real position on disk, not a virtual offset
@@ -2321,8 +2146,7 @@ class Writer:
 		If *dims* differs from the previously written chunk's dims, the
 		previous chunk is finalized (flushed) and a new chunk header is
 		started.  Data is buffered internally and split into blocks of
-		at most ``_BLOCK_MAX_LEN`` (or ``_aligned_block_size`` when
-		delta-encoding is active).
+		at most ``_BLOCK_MAX_LEN``.
 
 		Parameters
 		----------
@@ -2354,10 +2178,9 @@ class Writer:
 			self._buffer += data
 		else:
 			self._buffer += data
-			block_size = self._aligned_block_size if self._delta_cols else _BLOCK_MAX_LEN
-			while len(self._buffer) >= block_size:
-				self._write_block(self._buffer[:block_size])
-				self._buffer = self._buffer[block_size:]
+			while len(self._buffer) >= _BLOCK_MAX_LEN:
+				self._write_block(self._buffer[:_BLOCK_MAX_LEN])
+				self._buffer = self._buffer[_BLOCK_MAX_LEN:]
 
 	def _parse_input_no_ref(self, input_handle):
 		"""Generator that parses input data (DataFrame or file) into
@@ -2597,16 +2420,13 @@ class Writer:
 				# self._handle.write(reader._handle.read(end_offset - start_offset))
 				self._handle.write(reader._handle.read(chunk_size + 16))
 				# modify the chunk_black_1st_record_virtual_offsets
-				if _c_adjust_virtual_offsets is not None:
-					new_block_1st_record_vof = _c_adjust_virtual_offsets(delta_offset, b1str_virtual_offsets)
-				else:
-					new_block_1st_record_vof = []
-					for offset in b1str_virtual_offsets:
-						block_offset, within_block_offset = split_virtual_offset(offset)
-						new_block_offset = delta_offset + block_offset
-						new_1st_rd_vof = make_virtual_offset(new_block_offset,
-								 within_block_offset)
-						new_block_1st_record_vof.append(new_1st_rd_vof)
+				new_block_1st_record_vof = []
+				for offset in b1str_virtual_offsets:
+					block_offset, within_block_offset = split_virtual_offset(offset)
+					new_block_offset = delta_offset + block_offset
+					new_1st_rd_vof = make_virtual_offset(new_block_offset,
+							 within_block_offset)
+					new_block_1st_record_vof.append(new_1st_rd_vof)
 				# write new_block_1st_record_vof
 				for block_offset in new_block_1st_record_vof:
 					self._handle.write(struct.pack("<Q", block_offset))
@@ -2627,10 +2447,9 @@ class Writer:
 
 	def flush(self):
 		"""Flush data explicitally."""
-		block_size = self._aligned_block_size if self._delta_cols else _BLOCK_MAX_LEN
-		while len(self._buffer) >= block_size:
-			self._write_block(self._buffer[:block_size])
-			self._buffer = self._buffer[block_size:]
+		while len(self._buffer) >= _BLOCK_MAX_LEN:
+			self._write_block(self._buffer[:_BLOCK_MAX_LEN])
+			self._buffer = self._buffer[_BLOCK_MAX_LEN:]
 		self._write_block(self._buffer)
 		self._chunk_finished()
 		self._buffer = b""
@@ -2686,7 +2505,7 @@ class Writer:
 		self._handle.seek(self._magic_size + 4)  # magic and version
 		self._handle.write(struct.pack("<Q", cur_offset))  # real offset.
 		self._handle.seek(cur_offset)
-		self._handle.write(_bcz_eof)
+		self._handle.write(_cz_eof)
 		self._handle.flush()
 		self._handle.close()
 

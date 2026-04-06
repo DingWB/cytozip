@@ -13,7 +13,7 @@ operations that would otherwise be bottlenecks in pure Python:
   - Random access:  c_seek_and_read_1record, c_pos2id, c_query_regions
   - Bulk operations: c_fetch_chunk, c_get_records_by_ids, c_block_first_values
   - Genome scanning: c_extract_c_positions, c_write_c_records
-  - Utility:       c_adjust_virtual_offsets, c_write_chunk_tail
+  - Utility:       c_write_chunk_tail
 
 All functions are optional: cz.py gracefully falls back to pure-Python
 implementations if this module is not compiled or importable.
@@ -24,7 +24,7 @@ import zlib
 # ---------------------------------------------------------------------------
 # Constants shared with cz.py (must match exactly).
 # ---------------------------------------------------------------------------
-_block_magic = b"MB"  # 2-byte magic at the start of each compressed block
+_block_magic = b"CB"  # 2-byte magic at the start of each compressed block
 
 cdef unsigned long _BLOCK_MAX_LEN = 65535  # max decompressed block size
 
@@ -554,27 +554,6 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions, col_to_q
     return results
 
 
-def c_adjust_virtual_offsets(delta_offset, offsets):
-    """Adjust virtual offsets when copying chunks between files.
-
-    When merging .cz files (catcz), block start positions change by
-    *delta_offset* bytes.  This function adds that delta to the
-    block-start portion of each virtual offset while preserving the
-    within-block portion.
-    """
-    cdef list out = []
-    cdef unsigned long vo
-    cdef unsigned long block_start
-    cdef unsigned long within
-    for vo in offsets:
-        block_start = vo >> 16
-        within = vo & 0xFFFF
-        new_block = block_start + delta_offset
-        new_vo = (new_block << 16) | within
-        out.append(new_vo)
-    return out
-
-
 def c_pack_records(rows, fmt):
     """Pack a sequence of row tuples into bytes using struct.pack.
 
@@ -754,7 +733,8 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
                 break
         if rec[s] < start:
             continue
-        primary_id = int((_BLOCK_MAX_LEN * start_block_index + off) / unit_size)
+        # +1 to make primary_id 1-based, matching fetchByStartID expectation
+        primary_id = int((_BLOCK_MAX_LEN * start_block_index + off) / unit_size) + 1
         results.append(("primary_id_&_dim:", primary_id, dim))
         while True:
             if rec[e] <= end:
@@ -1030,6 +1010,7 @@ def c_write_c_records(seq_bytes, chunksize=5000):
     N = len(seq_view)
     
     # Format: Q (8 bytes) + c (1 byte) + 3s (3 bytes) = 12 bytes per record
+    # represent: position, strand, context
     cdef Py_ssize_t record_size = 12
     batch_buf = bytearray(chunksize * record_size)
     batch_count = 0

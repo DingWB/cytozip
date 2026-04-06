@@ -35,7 +35,7 @@ from .cz import _c_pack_records_fast as _c_pack_records_fast, _c_pack_records as
 from .cz import _c_write_c_records as _c_write_c_records
 
 # ==========================================================
-def WriteC(record, outdir, chunksize=5000, delta_cols=None):
+def WriteC(record, outdir, chunksize=5000):
     """
     Extract C positions from a BioPython SeqRecord and write to .cz file.
     
@@ -49,8 +49,6 @@ def WriteC(record, outdir, chunksize=5000, delta_cols=None):
         Output directory path
     chunksize : int
         Number of records per chunk (default: 5000)
-    delta_cols : list or None
-        Column indices to delta-encode (e.g., [0] for position column).
     """
     chrom = record.id
     outfile = os.path.join(outdir, chrom + ".cz")
@@ -60,10 +58,10 @@ def WriteC(record, outdir, chunksize=5000, delta_cols=None):
     print(chrom)
     writer = Writer(outfile, Formats=['Q', 'c', '3s'],
                     Columns=['pos', 'strand', 'context'],
-                    Dimensions=['chrom'], delta_cols=delta_cols)
+                    Dimensions=['chrom'])
     
     # Use Cython-accelerated version if available
-    if _c_write_c_records is not None:
+    if _c_write_c_records is not None: # 10 times faster than pure Python
         # Convert sequence to bytes once
         seq_bytes = str(record.seq).encode('ascii')
         for data, count in _c_write_c_records(seq_bytes, chunksize):
@@ -121,7 +119,7 @@ def WriteC(record, outdir, chunksize=5000, delta_cols=None):
 # ==========================================================
 class AllC:
     def __init__(self, Genome=None, Output="hg38_allc.cz",
-                 pattern="C", n_jobs=12, keep_temp=False, delta_cols=None):
+                 pattern="C", n_jobs=12, keep_temp=False):
         """
         Extract position of specific pattern in the reference genome, for example C.
             Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --n_jobs 10 run
@@ -136,9 +134,6 @@ class AllC:
             pattern [C]
         n_jobs: int
             number of CPU used for Pool.
-        delta_cols: list or None
-            Column indices to delta-encode (e.g., [0] for position column).
-            If None, no delta encoding is applied.
         """
         self.genome=os.path.abspath(os.path.expanduser(Genome))
         self.Output=os.path.abspath(os.path.expanduser(Output))
@@ -149,7 +144,6 @@ class AllC:
         self.records = SeqIO.parse(self.genome, "fasta")
         self.n_jobs = n_jobs if not n_jobs is None else os.cpu_count()
         self.keep_temp = keep_temp
-        self.delta_cols = [delta_cols] if isinstance(delta_cols, int) else delta_cols
         if pattern=='C':
             self.func=WriteC
 
@@ -157,7 +151,7 @@ class AllC:
         pool = multiprocessing.Pool(self.n_jobs)
         jobs = []
         for record in self.records:
-            job = pool.apply_async(self.func, (record, self.outdir, 5000, self.delta_cols))
+            job = pool.apply_async(self.func, (record, self.outdir, 5000))
             jobs.append(job)
         for job in jobs:
             job.get()
@@ -167,8 +161,7 @@ class AllC:
     def merge(self):
         writer = Writer(Output=self.Output, Formats=['Q', 'c', '3s'],
                         Columns=['pos', 'strand', 'context'],
-                        Dimensions=['chrom'], message=self.genome,
-                        delta_cols=self.delta_cols)
+                        Dimensions=['chrom'], message=self.genome)
         writer.catcz(Input=f"{self.outdir}/*.cz")
 
     def run(self):
@@ -227,10 +220,36 @@ def _write_np_chunks(writer, arr, chrom, chunksize, unit_size):
         writer.write_chunk(chunk_bytes, [chrom])
 
 
+def _parse_tabix_lines(lines, cols, np_dtypes, sep='\t'):
+    """Parse tabix lines into numpy arrays using pd.read_csv for speed.
+
+    Parameters
+    ----------
+    lines : list of str
+        Lines from pysam.TabixFile.fetch()
+    cols : list of int
+        Column indices to extract (0-based)
+    np_dtypes : list of str
+        Numpy dtypes for each extracted column
+    sep : str
+        Column separator
+
+    Returns
+    -------
+    list of np.ndarray
+        One array per column in `cols`
+    """
+    import io
+    raw = '\n'.join(lines)
+    df = pd.read_csv(io.StringIO(raw), sep=sep, header=None,
+                     usecols=cols, dtype={c: d for c, d in zip(cols, np_dtypes)})
+    return [df[c].values for c in cols]
+
+
 def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
            Formats=['B', 'B'], Columns=['mc', 'cov'], Dimensions=['chrom'],
            usecols=[4, 5], pr=0, pa=1, sep='\t', Path_to_chrom=None,
-           chunksize=5000, delta_cols=None):
+           chunksize=5000):
     """
     convert allc.tsv.gz to .cz file.
 
@@ -266,10 +285,6 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
     Path_to_chrom : path
         path to chrom_size path or similar file containing chromosomes order,
         the first columns should be chromosomes, tab separated and no header.
-    delta_cols : list or None
-        Column indices to delta-encode (e.g., [0] for position column).
-        If None, no delta encoding is applied. Only useful when the specified
-        columns contain sorted values (e.g., coordinates).
 
     Returns
     -------
@@ -296,11 +311,8 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
         message = os.path.basename(reference)
     else:
         message = ''
-    if isinstance(delta_cols, int):
-        delta_cols = [delta_cols]
     writer = Writer(outfile, Formats=Formats, Columns=Columns,
-                    Dimensions=Dimensions, message=message,
-                    delta_cols=delta_cols)
+                    Dimensions=Dimensions, message=message)
     unit_size = writer._unit_size
     use_numpy = _all_numeric_formats(Formats)  # use vectorized numpy path if all columns are numeric
 
@@ -320,7 +332,8 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
             # so packed output bytes are directly compatible.
             struct_dtype = np.dtype([(f'f{i}', dt) for i, dt in enumerate(np_dtypes)])
             mv_arr = np.array(tuple(missing_value), dtype=struct_dtype)  # template for missing values
-            dtfuncs = get_dtfuncs(Formats, tobytes=False)
+            parse_cols = [pa] + list(usecols)  # position col + data cols
+            parse_dtypes = ['<i8'] + np_dtypes  # int64 for pos, user dtypes for data
             for chrom in all_chroms:
                 # FAST PATH: bulk-read all reference positions for this chrom
                 # as a numpy array, then use searchsorted for O(n log n)
@@ -339,13 +352,10 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
                     out = np.full(ref_pos_arr.size, mv_arr, dtype=struct_dtype)
                     _write_np_chunks(writer, out, chrom, chunksize, unit_size)
                     continue
-                query_pos = np.empty(len(lines), dtype=np.int64)
-                query_cols = [np.empty(len(lines), dtype=np_dtypes[ci]) for ci in range(len(usecols))]
-                for li, line in enumerate(lines):
-                    fields = line.rstrip('\n').split(sep)
-                    query_pos[li] = int(fields[pa])
-                    for ci, (col_idx, func) in enumerate(zip(usecols, dtfuncs)):
-                        query_cols[ci][li] = func(fields[col_idx])
+                # Vectorized line parsing via pd.read_csv
+                parsed = _parse_tabix_lines(lines, parse_cols, parse_dtypes, sep)
+                query_pos = parsed[0].astype(np.int64)
+                query_cols = parsed[1:]
                 # Vectorized matching: use searchsorted to find where each
                 # query position falls in the sorted reference position array.
                 # `valid` mask identifies which query positions have an exact
@@ -405,20 +415,16 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
         if use_numpy:
             np_dtypes = [_fmt_to_np_dtype(f[-1]) for f in Formats]
             struct_dtype = np.dtype([(f'f{i}', dt) for i, dt in enumerate(np_dtypes)])
-            dtfuncs = get_dtfuncs(Formats, tobytes=False)
             for chrom in all_chroms:
                 lines = list(tbi.fetch(chrom))
                 if not lines:
                     continue
+                # Vectorized line parsing via pd.read_csv
+                parsed = _parse_tabix_lines(lines, list(usecols), np_dtypes, sep)
                 n = len(lines)
-                cols = [np.empty(n, dtype=np_dtypes[ci]) for ci in range(len(usecols))]
-                for li, line in enumerate(lines):
-                    fields = line.rstrip('\n').split(sep)
-                    for ci, (col_idx, func) in enumerate(zip(usecols, dtfuncs)):
-                        cols[ci][li] = func(fields[col_idx])
                 out = np.empty(n, dtype=struct_dtype)
                 for ci in range(len(usecols)):
-                    out[f'f{ci}'] = cols[ci]
+                    out[f'f{ci}'] = parsed[ci]
                 _write_np_chunks(writer, out, chrom, chunksize, unit_size)
         else:
             dtfuncs = get_dtfuncs(Formats, tobytes=False)

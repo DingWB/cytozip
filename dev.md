@@ -4,13 +4,13 @@
 ```
 ┌──────────────────────────────────────────────┐
 │ FILE HEADER (variable size, ~60 bytes)       │
-│  Magic(5B) Version(4B) TotalSize(8B)         │
+│  Magic(4B) Version(4B) TotalSize(8B)         │
 │  Message + Formats + Columns + Dimensions    │
-│  DeltaCols                                   │
+│  Reserved(1B)                                │
 ├──────────────────────────────────────────────┤
 │ CHUNK #1 (e.g. chr1)                         │
-│  ┌ Chunk Header: "MC"(2B) + ChunkSize(8B)   │
-│  ├ BLOCK #1: "MB"(2B) + BSize(2B)           │
+│  ┌ Chunk Header: "CC"(2B) + ChunkSize(8B)   │
+│  ├ BLOCK #1: "CB"(2B) + BSize(2B)           │
 │  │   + compressed_data + RawLen(2B)          │
 │  ├ BLOCK #2 ...                              │
 │  └ CHUNK TAIL:                               │
@@ -65,24 +65,30 @@ so using `<` avoids byte-swapping overhead on these architectures.
 ## Header Structure
 | Offset | Field | Type | Size | Description |
 |--------|-------|------|------|-------------|
-| 0 | magic | 5s | 5B | `BMZIP` |
-| 5 | version | `<f` | 4B | 0.1 |
-| 9 | total_size | `<Q` | 8B | File size excluding chunk_index + EOF |
-| 17 | msg_len | `<H` | 2B | Message string length |
-| 19 | message | s | var | UTF-8 message (e.g. genome assembly) |
+| 0 | magic | 4s | 4B | `CZIP` |
+| 4 | version | `<f` | 4B | 0.1 |
+| 8 | total_size | `<Q` | 8B | File size excluding chunk_index + EOF |
+| 16 | msg_len | `<H` | 2B | Message string length |
+| 18 | message | s | var | UTF-8 message (e.g. genome assembly) |
 | var | n_cols | `<B` | 1B | Number of columns |
 | var | formats[] | B+s | var | Per column: len(1B) + format string |
 | var | columns[] | B+s | var | Per column: len(1B) + column name |
 | var | n_dims | `<B` | 1B | Number of dimensions |
 | var | dims[] | B+s | var | Per dim: len(1B) + dim name |
-| var | n_delta | `<B` | 1B | Number of delta-encoded columns |
-| var | delta_cols[] | B | var | Column indices with delta encoding |
+| var | reserved | `<B` | 1B | Reserved (always 0, for format compatibility) |
+
+## Chunk Header
+
+| Field | Type | Size | Description |
+|-------|------|------|-------------|
+| magic | 2s | 2B | `CC` |
+| chunk_size | `<Q` | 8B | Byte size from chunk start to chunk tail (excludes tail) |
 
 ## Block Structure (6B overhead per block)
 
 | Field | Type | Size | Description |
 |-------|------|------|-------------|
-| magic | 2s | 2B | `MB` |
+| magic | 2s | 2B | `CB` |
 | block_size | `<H` | 2B | compressed_data + 6 |
 | compressed_data | bytes | var | Raw DEFLATE (-15 wbits) |
 | raw_len | `<H` | 2B | Uncompressed data length |
@@ -114,18 +120,6 @@ For each chunk:
 2. `bytes=(size-36)-(size-1)` → read `chunk_index_offset(8B) + EOF(28B)`
 3. `bytes=idx_offset-(size-37)` → read chunk index → O(1) jump to any chunk/block
 
-## Delta Encoding
-
-For sorted coordinate columns, store differences instead of absolute values.
-Each block's first record stores the absolute value; subsequent records store deltas.
-Blocks are aligned to record boundaries (block_size is a multiple of unit_size).
-
-```
-Example (position column):
-  Absolute:  3012489, 3012491, 3012530, 3012578   (8B each, high entropy)
-  Delta:     3012489,       2,      39,      48   (compresses much better)
-```
-
 ---
 
 ## Installation
@@ -135,6 +129,8 @@ python setup.py build_ext --inplace
 pip install -e .
 # install from local disk
 pip uninstall -y cytozip && python3 -m pip install .
+# rebuild .pyx
+python setup.py build_ext --inplace
 ```
 
 ## Remote Reading

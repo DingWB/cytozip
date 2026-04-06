@@ -78,12 +78,11 @@ class TestRemoteReader(unittest.TestCase):
         self.td.cleanup()
 
     def _write_test_cz(self, filename, records, fmt="QHH",
-                       formats=["Q", "H", "H"], columns=["pos", "mc", "cov"],
-                       delta_cols=None):
+                       formats=["Q", "H", "H"], columns=["pos", "mc", "cov"]):
         path = os.path.join(self.tmpdir, filename)
         data = b"".join(struct.pack(f"<{fmt}", *r) for r in records)
         w = Writer(Output=path, Formats=formats, Columns=columns,
-                   Dimensions=["chrom"], delta_cols=delta_cols)
+                   Dimensions=["chrom"])
         w.write_chunk(data, ["chr1"])
         w.close()
         return path
@@ -169,12 +168,11 @@ class TestRemoteReader(unittest.TestCase):
             self.assertEqual(exp, tuple(act))
 
     def test_remote_delta(self):
-        """Remote reading with delta-encoded .cz files."""
+        """Remote reading with .cz files (delta removed, test kept for coverage)."""
         records = [(100, 3, 10), (250, 5, 12), (300, 0, 8), (1000, 2, 15)]
-        self._write_test_cz("delta.cz", records, delta_cols=[0])
+        self._write_test_cz("delta.cz", records)
         url = f"{self.base_url}/delta.cz"
         r = Reader.from_url(url)
-        self.assertEqual(r._delta_cols, [0])
         got = list(r.fetch(("chr1",)))
         r.close()
         self.assertEqual(len(got), 4)
