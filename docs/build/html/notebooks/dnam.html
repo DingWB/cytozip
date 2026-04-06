@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DNA Methylation Analysis with czip &mdash; cytozip 0.0.4.dev0 documentation</title>
+  <title>DNA Methylation Analysis with czip &mdash; cytozip 0.1.0.dev4 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
@@ -16,7 +16,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=fa0a5e14"></script>
+      <script src="../_static/documentation_options.js?v=6a2eb697"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/js/rtd_search_config.js"></script>
@@ -105,7 +105,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="dev.html#Advanced-Features">Advanced Features</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="dev.html#Delta-Encoding">Delta Encoding</a></li>
 <li class="toctree-l4"><a class="reference internal" href="dev.html#Chunk-Index">Chunk Index</a></li>
 <li class="toctree-l4"><a class="reference internal" href="dev.html#Remote-Reading">Remote Reading</a></li>
 </ul>
@@ -139,9 +138,9 @@
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#Run-cytozip-allc2cz-on-GCP">Run cytozip allc2cz on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#Run-cytozip-extractCG-on-GCP">Run cytozip extractCG on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
-<li class="toctree-l2"><a class="reference internal" href="python_api.html#Delta-Encoding">Delta Encoding</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="python_api.html#Writer-with-delta-encoding">Writer with delta encoding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="python_api.html#bed2cz-with-delta-encoding">bed2cz with delta encoding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Write-and-Read-a-.cz-File">Write and Read a .cz File</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#Writer-example">Writer example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#bed2cz-conversion">bed2cz conversion</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a><ul>
@@ -189,7 +188,6 @@
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../cytozip.cz.html">cytozip.cz module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#delta-encoding">Delta encoding</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.batch_fetch"><code class="docutils literal notranslate"><span class="pre">Reader.batch_fetch()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.category_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.category_ssi()</span></code></a></li>
@@ -254,7 +252,28 @@
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l4"><a class="reference internal" href="../cytozip.cz_accel.html">cytozip.cz_accel module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../cytozip.html#module-cytozip">Module contents</a><ul>
@@ -311,25 +330,22 @@ chr1    3001776 +       CTG     0       1       1
 <p>Columns are chrom, position, strand, context, mc (methylated count), cov (coverage) and fraction. The first four columns are shared among all cells, in this case, we don’t need to store this redundant information for each cell, we can separate the reference and cell data and only store the mc and cov for each cell. However, we can still query and view allc with reference information.</p>
 <section id="Generate-allc-reference-coordinate-.cz-file">
 <h2>Generate allc reference coordinate .cz file<a class="headerlink" href="#Generate-allc-reference-coordinate-.cz-file" title="Link to this heading"></a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>czip<span class="w"> </span>AllC<span class="w"> </span>-G<span class="w"> </span>~/Ref/mm10/mm10_ucsc_with_chrL.fa<span class="w"> </span>-O<span class="w"> </span>mm10_with_chrL.allc.cz<span class="w"> </span>-n<span class="w"> </span><span class="m">20</span><span class="w"> </span>run
-<span class="c1"># took 15 minutes using 20 cpus</span>
-
-<span class="c1"># With delta encoding (smaller output):</span>
-czip<span class="w"> </span>AllC<span class="w"> </span>-G<span class="w"> </span>~/Ref/mm10/mm10_ucsc_with_chrL.fa<span class="w"> </span>-O<span class="w"> </span>mm10_with_chrL.allc.cz<span class="w"> </span>-n<span class="w"> </span><span class="m">20</span><span class="w"> </span>--delta<span class="w"> </span>True<span class="w"> </span>run
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>AllC<span class="w"> </span>-G<span class="w"> </span>~/Ref/mm10/mm10_ucsc_with_chrL.fa<span class="w"> </span>-O<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>-n<span class="w"> </span><span class="m">20</span><span class="w"> </span>run
+<span class="c1"># 0m44.284s</span>
 </pre></div>
 </div>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># create subset index for all CG (including forward and reverse strand)</span>
-czip<span class="w"> </span>generate_ssi1<span class="w"> </span>mm10_with_chrL.allc.cz<span class="w"> </span>-p<span class="w"> </span>CGN<span class="w"> </span>-o<span class="w"> </span>mm10_with_chrL.allc.cz.CGN.ssi
-<span class="c1"># took about 5 minutes with 1 core</span>
+<span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>generate_ssi1<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>-p<span class="w"> </span>CGN<span class="w"> </span>-o<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.ssi
+<span class="c1"># 8m24.544s</span>
 </pre></div>
 </div>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># create subset index for all CG (forward strand only)</span>
-czip<span class="w"> </span>generate_ssi1<span class="w"> </span>mm10_with_chrL.allc.cz<span class="w"> </span>-p<span class="w"> </span>+CGN<span class="w"> </span>-o<span class="w"> </span>mm10_with_chrL.allc.cz.CGN.forward.ssi
+<span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>generate_ssi1<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>-p<span class="w"> </span>+CGN<span class="w"> </span>-o<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.forward.ssi
 <span class="c1"># about 5 minutes</span>
 </pre></div>
 </div>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># using forward CG subset index to extract forward strand CG coordinates from reference</span>
-czip<span class="w"> </span>extract<span class="w"> </span>-i<span class="w"> </span>mm10_with_chrL.allc.cz<span class="w"> </span>-s<span class="w"> </span>mm10_with_chrL.allc.cz.CGN.forward.ssi<span class="w"> </span>-o<span class="w"> </span>mm10_with_chrL.allCG.forward.cz
+<span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>extract<span class="w"> </span>-i<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>-s<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.forward.ssi<span class="w"> </span>-o<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allCG.forward.cz
 <span class="c1"># about 1m23.855s</span>
 </pre></div>
 </div>
@@ -401,6 +417,14 @@ chr17   1146843557      108852498       1255753437      7170    39153472
 </pre></div></div>
 </div>
 <p>Every chunk has a dimension (chrom, sample, cell types or the combination of those dimensions)</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>Reader<span class="w"> </span>-I<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>view<span class="w"> </span>-s<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+</pre></div>
+</div>
+</div>
 </section>
 </section>
 <section id="Converting-.allc.tsv.gz-into-.cz-file">
@@ -476,14 +500,12 @@ INFO: Showing help with the command &#39;czip bed2cz -- --help&#39;.
 </div>
 <section id="Pack-.allc.tsv.gz-to-.cz-with-coordinates">
 <h3>Pack .allc.tsv.gz to .cz with coordinates<a class="headerlink" href="#Pack-.allc.tsv.gz-to-.cz-with-coordinates" title="Link to this heading"></a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>czip<span class="w"> </span>bed2cz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.allc.tsv.gz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.with_coordinate.cz<span class="w"> </span>-F<span class="w"> </span>Q,H,H<span class="w"> </span>-C<span class="w"> </span>pos,mc,cov<span class="w"> </span>-u<span class="w"> </span><span class="m">1</span>,4,5
-
-<span class="c1"># To enable delta encoding (smaller file for sorted coordinates):</span>
-czip<span class="w"> </span>bed2cz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.allc.tsv.gz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.with_coordinate.delta.cz<span class="w"> </span>-F<span class="w"> </span>Q,H,H<span class="w"> </span>-C<span class="w"> </span>pos,mc,cov<span class="w"> </span>-u<span class="w"> </span><span class="m">1</span>,4,5<span class="w"> </span>--delta<span class="w"> </span>True
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>bed2cz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.allc.tsv.gz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.with_coordinate.cz<span class="w"> </span>-F<span class="w"> </span>Q,H,H<span class="w"> </span>-C<span class="w"> </span>pos,mc,cov<span class="w"> </span>-u<span class="w"> </span><span class="m">1</span>,4,5
+<span class="c1"># 0m33.052s</span>
 </pre></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>czip<span class="w"> </span>Reader<span class="w"> </span>-I<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.with_coordinate.cz<span class="w"> </span>view<span class="w"> </span>-s<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="p">|</span>head
@@ -495,21 +517,26 @@ czip<span class="w"> </span>bed2cz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-chrom   pos     mc      cov
-chr1    3001733 0       1
-chr1    3001743 0       1
-chr1    3001746 0       1
-chr1    3001747 0       1
-chr1    3001752 0       1
-chr1    3001758 0       1
-chr1    3001761 0       1
-chr1    3001764 0       1
-chr1    3001768 0       1
+<span class="ansi-green-fg">2026-04-05 21:46:21.300</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.cz</span>:<span class="ansi-cyan-fg">&lt;module&gt;</span>:<span class="ansi-cyan-fg">91</span> - <span class="ansi-bold">Cython accelerated functions loaded successfully</span>
+Traceback (most recent call last):
+  File &#34;/home/x-wding2/Software/conda/m3c/bin/czip&#34;, line 8, in &lt;module&gt;
+    sys.exit(main())
+  File &#34;/anvil/projects/x-mcb130189/Wubin/Github/cytozip/cytozip/__init__.py&#34;, line 33, in main
+    fire.Fire(
+  File &#34;/home/x-wding2/Software/conda/m3c/lib/python3.10/site-packages/fire/core.py&#34;, line 135, in Fire
+    component_trace = _Fire(component, args, parsed_flag_args, context, name)
+  File &#34;/home/x-wding2/Software/conda/m3c/lib/python3.10/site-packages/fire/core.py&#34;, line 468, in _Fire
+    component, remaining_args = _CallAndUpdateTrace(
+  File &#34;/home/x-wding2/Software/conda/m3c/lib/python3.10/site-packages/fire/core.py&#34;, line 684, in _CallAndUpdateTrace
+    component = fn(*varargs, **kwargs)
+  File &#34;/anvil/projects/x-mcb130189/Wubin/Github/cytozip/cytozip/cz.py&#34;, line 543, in __init__
+    handle = _open(Input, &#34;rb&#34;)
+FileNotFoundError: [Errno 2] No such file or directory: &#39;/anvil/projects/x-mcb130189/Wubin/Github/cytozip/notebooks/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz&#39;
 </pre></div></div>
 </div>
 <p>query</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>czip<span class="w"> </span>Reader<span class="w"> </span>-I<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.with_coordinate.cz<span class="w"> </span>query<span class="w"> </span>-D<span class="w"> </span>chr9<span class="w"> </span>-s<span class="w"> </span><span class="m">3000294</span><span class="w"> </span>-e<span class="w"> </span><span class="m">3000472</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">&#39;$3&gt;50&#39;</span>
@@ -521,27 +548,28 @@ chr1    3001768 0       1
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-chrom   pos     mc      cov
-chr9    3000294 54      63
-chr9    3000342 69      85
-chr9    3000354 77      82
-chr9    3000381 52      64
-chr9    3000382 74      87
-chr9    3000399 66      67
-chr9    3000441 84      138
-chr9    3000457 139     162
-chr9    3000458 64      74
-chr9    3000472 161     183
+<span class="ansi-green-fg">2026-04-05 21:46:33.310</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.cz</span>:<span class="ansi-cyan-fg">&lt;module&gt;</span>:<span class="ansi-cyan-fg">91</span> - <span class="ansi-bold">Cython accelerated functions loaded successfully</span>
+Traceback (most recent call last):
+  File &#34;/home/x-wding2/Software/conda/m3c/bin/czip&#34;, line 8, in &lt;module&gt;
+    sys.exit(main())
+  File &#34;/anvil/projects/x-mcb130189/Wubin/Github/cytozip/cytozip/__init__.py&#34;, line 33, in main
+    fire.Fire(
+  File &#34;/home/x-wding2/Software/conda/m3c/lib/python3.10/site-packages/fire/core.py&#34;, line 135, in Fire
+    component_trace = _Fire(component, args, parsed_flag_args, context, name)
+  File &#34;/home/x-wding2/Software/conda/m3c/lib/python3.10/site-packages/fire/core.py&#34;, line 468, in _Fire
+    component, remaining_args = _CallAndUpdateTrace(
+  File &#34;/home/x-wding2/Software/conda/m3c/lib/python3.10/site-packages/fire/core.py&#34;, line 684, in _CallAndUpdateTrace
+    component = fn(*varargs, **kwargs)
+  File &#34;/anvil/projects/x-mcb130189/Wubin/Github/cytozip/cytozip/cz.py&#34;, line 543, in __init__
+    handle = _open(Input, &#34;rb&#34;)
+FileNotFoundError: [Errno 2] No such file or directory: &#39;/anvil/projects/x-mcb130189/Wubin/Github/cytozip/notebooks/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz&#39;
 </pre></div></div>
 </div>
 </section>
 <section id="Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">
 <h3>Pack .allc.tsv.gz to .cz without coordinates (using reference)<a class="headerlink" href="#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)" title="Link to this heading"></a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>czip<span class="w"> </span>bed2cz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.allc.tsv.gz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.cz<span class="w"> </span>-r<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz
-<span class="c1"># Uses numpy-vectorized implementation for fast conversion</span>
-
-<span class="c1"># With delta encoding:</span>
-czip<span class="w"> </span>bed2cz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.allc.tsv.gz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.cz<span class="w"> </span>-r<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>--delta<span class="w"> </span>True
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>bed2cz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.allc.tsv.gz<span class="w"> </span>FC_E17a_3C_1-1-I3-F13.cz<span class="w"> </span>-r<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz
+<span class="c1"># 1m20.012s</span>
 </pre></div>
 </div>
 <div class="nbinput docutils container">
@@ -653,6 +681,14 @@ chr9    3000457 +       CGT     139     162
 chr9    3000458 -       CGA     64      74
 chr9    3000472 +       CGT     161     183
 </pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>czip<span class="w"> </span>Reader<span class="w"> </span>-I<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>query<span class="w"> </span>-D<span class="w"> </span>chr9<span class="w"> </span>-s<span class="w"> </span><span class="m">3000294</span><span class="w"> </span>-e<span class="w"> </span><span class="m">3000472</span>
+</pre></div>
+</div>
 </div>
 </section>
 </section>

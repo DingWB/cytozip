@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.allc &mdash; cytozip 0.0.4.dev0 documentation</title>
+  <title>cytozip.allc &mdash; cytozip 0.1.0.dev4 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
@@ -14,7 +14,7 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=fa0a5e14"></script>
+      <script src="../../_static/documentation_options.js?v=6a2eb697"></script>
       <script src="../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/js/rtd_search_config.js"></script>
@@ -99,7 +99,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Advanced-Features">Advanced Features</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../notebooks/dev.html#Delta-Encoding">Delta Encoding</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
 </ul>
@@ -133,9 +132,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Run-cytozip-allc2cz-on-GCP">Run cytozip allc2cz on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Run-cytozip-extractCG-on-GCP">Run cytozip extractCG on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Delta-Encoding">Delta Encoding</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#Writer-with-delta-encoding">Writer with delta encoding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#bed2cz-with-delta-encoding">bed2cz with delta encoding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Write-and-Read-a-.cz-File">Write and Read a .cz File</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#Writer-example">Writer example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#bed2cz-conversion">bed2cz conversion</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a><ul>
@@ -183,7 +182,6 @@
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz.html">cytozip.cz module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#delta-encoding">Delta encoding</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.batch_fetch"><code class="docutils literal notranslate"><span class="pre">Reader.batch_fetch()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.category_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.category_ssi()</span></code></a></li>
@@ -248,7 +246,28 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz_accel.html">cytozip.cz_accel module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#module-cytozip">Module contents</a><ul>
@@ -327,7 +346,7 @@
 <span class="c1"># ==========================================================</span>
 <div class="viewcode-block" id="WriteC">
 <a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.WriteC">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">WriteC</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">outdir</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">delta_cols</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">WriteC</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">outdir</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="mi">5000</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extract C positions from a BioPython SeqRecord and write to .cz file.</span>
 <span class="sd">    </span>
@@ -341,8 +360,6 @@
 <span class="sd">        Output directory path</span>
 <span class="sd">    chunksize : int</span>
 <span class="sd">        Number of records per chunk (default: 5000)</span>
-<span class="sd">    delta_cols : list or None</span>
-<span class="sd">        Column indices to delta-encode (e.g., [0] for position column).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">chrom</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">id</span>
     <span class="n">outfile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">chrom</span> <span class="o">+</span> <span class="s2">&quot;.cz&quot;</span><span class="p">)</span>
@@ -352,10 +369,10 @@
     <span class="nb">print</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
     <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="n">Formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;3s&#39;</span><span class="p">],</span>
                     <span class="n">Columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="s1">&#39;strand&#39;</span><span class="p">,</span> <span class="s1">&#39;context&#39;</span><span class="p">],</span>
-                    <span class="n">Dimensions</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">delta_cols</span><span class="o">=</span><span class="n">delta_cols</span><span class="p">)</span>
+                    <span class="n">Dimensions</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">])</span>
     
     <span class="c1"># Use Cython-accelerated version if available</span>
-    <span class="k">if</span> <span class="n">_c_write_c_records</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">_c_write_c_records</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># 10 times faster than pure Python</span>
         <span class="c1"># Convert sequence to bytes once</span>
         <span class="n">seq_bytes</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">seq</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">data</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">_c_write_c_records</span><span class="p">(</span><span class="n">seq_bytes</span><span class="p">,</span> <span class="n">chunksize</span><span class="p">):</span>
@@ -416,7 +433,7 @@
 <a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.AllC">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">AllC</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Genome</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Output</span><span class="o">=</span><span class="s2">&quot;hg38_allc.cz&quot;</span><span class="p">,</span>
-                 <span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">keep_temp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+                 <span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">keep_temp</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Extract position of specific pattern in the reference genome, for example C.</span>
 <span class="sd">            Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --n_jobs 10 run</span>
@@ -431,8 +448,6 @@
 <span class="sd">            pattern [C]</span>
 <span class="sd">        n_jobs: int</span>
 <span class="sd">            number of CPU used for Pool.</span>
-<span class="sd">        delta: bool</span>
-<span class="sd">            If True, delta-encode the position column (index 0) to reduce file size.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">genome</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">Genome</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">Output</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">Output</span><span class="p">))</span>
@@ -443,7 +458,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">records</span> <span class="o">=</span> <span class="n">SeqIO</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">genome</span><span class="p">,</span> <span class="s2">&quot;fasta&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span> <span class="o">=</span> <span class="n">n_jobs</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">n_jobs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keep_temp</span> <span class="o">=</span> <span class="n">keep_temp</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">delta_cols</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">delta</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">pattern</span><span class="o">==</span><span class="s1">&#39;C&#39;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="o">=</span><span class="n">WriteC</span>
 
@@ -453,7 +467,7 @@
         <span class="n">pool</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">)</span>
         <span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">records</span><span class="p">:</span>
-            <span class="n">job</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">outdir</span><span class="p">,</span> <span class="mi">5000</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_cols</span><span class="p">))</span>
+            <span class="n">job</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">outdir</span><span class="p">,</span> <span class="mi">5000</span><span class="p">))</span>
             <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">job</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">jobs</span><span class="p">:</span>
             <span class="n">job</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
@@ -466,8 +480,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">merge</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">Output</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Output</span><span class="p">,</span> <span class="n">Formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;3s&#39;</span><span class="p">],</span>
                         <span class="n">Columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="s1">&#39;strand&#39;</span><span class="p">,</span> <span class="s1">&#39;context&#39;</span><span class="p">],</span>
-                        <span class="n">Dimensions</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">message</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">genome</span><span class="p">,</span>
-                        <span class="n">delta_cols</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">delta_cols</span><span class="p">)</span>
+                        <span class="n">Dimensions</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">message</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">genome</span><span class="p">)</span>
         <span class="n">writer</span><span class="o">.</span><span class="n">catcz</span><span class="p">(</span><span class="n">Input</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">outdir</span><span class="si">}</span><span class="s2">/*.cz&quot;</span><span class="p">)</span></div>
 
 
@@ -531,12 +544,38 @@
         <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">chunk_bytes</span><span class="p">,</span> <span class="p">[</span><span class="n">chrom</span><span class="p">])</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_tabix_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">np_dtypes</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse tabix lines into numpy arrays using pd.read_csv for speed.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    lines : list of str</span>
+<span class="sd">        Lines from pysam.TabixFile.fetch()</span>
+<span class="sd">    cols : list of int</span>
+<span class="sd">        Column indices to extract (0-based)</span>
+<span class="sd">    np_dtypes : list of str</span>
+<span class="sd">        Numpy dtypes for each extracted column</span>
+<span class="sd">    sep : str</span>
+<span class="sd">        Column separator</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of np.ndarray</span>
+<span class="sd">        One array per column in `cols`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">raw</span><span class="p">),</span> <span class="n">sep</span><span class="o">=</span><span class="n">sep</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                     <span class="n">usecols</span><span class="o">=</span><span class="n">cols</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="p">{</span><span class="n">c</span><span class="p">:</span> <span class="n">d</span> <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">cols</span><span class="p">,</span> <span class="n">np_dtypes</span><span class="p">)})</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">c</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">]</span>
+
+
 <div class="viewcode-block" id="bed2cz">
 <a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.bed2cz">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">bed2cz</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">outfile</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">missing_value</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
            <span class="n">Formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">],</span> <span class="n">Columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mc&#39;</span><span class="p">,</span> <span class="s1">&#39;cov&#39;</span><span class="p">],</span> <span class="n">Dimensions</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span>
            <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="n">pr</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">pa</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">Path_to_chrom</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-           <span class="n">chunksize</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+           <span class="n">chunksize</span><span class="o">=</span><span class="mi">5000</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    convert allc.tsv.gz to .cz file.</span>
 
@@ -572,10 +611,6 @@
 <span class="sd">    Path_to_chrom : path</span>
 <span class="sd">        path to chrom_size path or similar file containing chromosomes order,</span>
 <span class="sd">        the first columns should be chromosomes, tab separated and no header.</span>
-<span class="sd">    delta : bool</span>
-<span class="sd">        If True, delta-encode the first column (typically position) to reduce</span>
-<span class="sd">        file size. Only useful when the first column contains sorted coordinates</span>
-<span class="sd">        (e.g., Formats=[&#39;Q&#39;,&#39;H&#39;,&#39;H&#39;] without reference).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -602,10 +637,8 @@
         <span class="n">message</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">message</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
-    <span class="n">delta_cols</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">delta</span> <span class="k">else</span> <span class="kc">None</span>
     <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="n">Formats</span><span class="o">=</span><span class="n">Formats</span><span class="p">,</span> <span class="n">Columns</span><span class="o">=</span><span class="n">Columns</span><span class="p">,</span>
-                    <span class="n">Dimensions</span><span class="o">=</span><span class="n">Dimensions</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">,</span>
-                    <span class="n">delta_cols</span><span class="o">=</span><span class="n">delta_cols</span><span class="p">)</span>
+                    <span class="n">Dimensions</span><span class="o">=</span><span class="n">Dimensions</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">)</span>
     <span class="n">unit_size</span> <span class="o">=</span> <span class="n">writer</span><span class="o">.</span><span class="n">_unit_size</span>
     <span class="n">use_numpy</span> <span class="o">=</span> <span class="n">_all_numeric_formats</span><span class="p">(</span><span class="n">Formats</span><span class="p">)</span>  <span class="c1"># use vectorized numpy path if all columns are numeric</span>
 
@@ -625,7 +658,8 @@
             <span class="c1"># so packed output bytes are directly compatible.</span>
             <span class="n">struct_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([(</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">dt</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np_dtypes</span><span class="p">)])</span>
             <span class="n">mv_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">missing_value</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">struct_dtype</span><span class="p">)</span>  <span class="c1"># template for missing values</span>
-            <span class="n">dtfuncs</span> <span class="o">=</span> <span class="n">get_dtfuncs</span><span class="p">(</span><span class="n">Formats</span><span class="p">,</span> <span class="n">tobytes</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">parse_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">pa</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">usecols</span><span class="p">)</span>  <span class="c1"># position col + data cols</span>
+            <span class="n">parse_dtypes</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;&lt;i8&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">np_dtypes</span>  <span class="c1"># int64 for pos, user dtypes for data</span>
             <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">all_chroms</span><span class="p">:</span>
                 <span class="c1"># FAST PATH: bulk-read all reference positions for this chrom</span>
                 <span class="c1"># as a numpy array, then use searchsorted for O(n log n)</span>
@@ -644,13 +678,10 @@
                     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">ref_pos_arr</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">mv_arr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">struct_dtype</span><span class="p">)</span>
                     <span class="n">_write_np_chunks</span><span class="p">(</span><span class="n">writer</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">chunksize</span><span class="p">,</span> <span class="n">unit_size</span><span class="p">)</span>
                     <span class="k">continue</span>
-                <span class="n">query_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-                <span class="n">query_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np_dtypes</span><span class="p">[</span><span class="n">ci</span><span class="p">])</span> <span class="k">for</span> <span class="n">ci</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">usecols</span><span class="p">))]</span>
-                <span class="k">for</span> <span class="n">li</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
-                    <span class="n">fields</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">sep</span><span class="p">)</span>
-                    <span class="n">query_pos</span><span class="p">[</span><span class="n">li</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fields</span><span class="p">[</span><span class="n">pa</span><span class="p">])</span>
-                    <span class="k">for</span> <span class="n">ci</span><span class="p">,</span> <span class="p">(</span><span class="n">col_idx</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">usecols</span><span class="p">,</span> <span class="n">dtfuncs</span><span class="p">)):</span>
-                        <span class="n">query_cols</span><span class="p">[</span><span class="n">ci</span><span class="p">][</span><span class="n">li</span><span class="p">]</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">fields</span><span class="p">[</span><span class="n">col_idx</span><span class="p">])</span>
+                <span class="c1"># Vectorized line parsing via pd.read_csv</span>
+                <span class="n">parsed</span> <span class="o">=</span> <span class="n">_parse_tabix_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">parse_cols</span><span class="p">,</span> <span class="n">parse_dtypes</span><span class="p">,</span> <span class="n">sep</span><span class="p">)</span>
+                <span class="n">query_pos</span> <span class="o">=</span> <span class="n">parsed</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+                <span class="n">query_cols</span> <span class="o">=</span> <span class="n">parsed</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
                 <span class="c1"># Vectorized matching: use searchsorted to find where each</span>
                 <span class="c1"># query position falls in the sorted reference position array.</span>
                 <span class="c1"># `valid` mask identifies which query positions have an exact</span>
@@ -710,20 +741,16 @@
         <span class="k">if</span> <span class="n">use_numpy</span><span class="p">:</span>
             <span class="n">np_dtypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">_fmt_to_np_dtype</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Formats</span><span class="p">]</span>
             <span class="n">struct_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([(</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">dt</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np_dtypes</span><span class="p">)])</span>
-            <span class="n">dtfuncs</span> <span class="o">=</span> <span class="n">get_dtfuncs</span><span class="p">(</span><span class="n">Formats</span><span class="p">,</span> <span class="n">tobytes</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">all_chroms</span><span class="p">:</span>
                 <span class="n">lines</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tbi</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">chrom</span><span class="p">))</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">lines</span><span class="p">:</span>
                     <span class="k">continue</span>
+                <span class="c1"># Vectorized line parsing via pd.read_csv</span>
+                <span class="n">parsed</span> <span class="o">=</span> <span class="n">_parse_tabix_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">usecols</span><span class="p">),</span> <span class="n">np_dtypes</span><span class="p">,</span> <span class="n">sep</span><span class="p">)</span>
                 <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
-                <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np_dtypes</span><span class="p">[</span><span class="n">ci</span><span class="p">])</span> <span class="k">for</span> <span class="n">ci</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">usecols</span><span class="p">))]</span>
-                <span class="k">for</span> <span class="n">li</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
-                    <span class="n">fields</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">sep</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">ci</span><span class="p">,</span> <span class="p">(</span><span class="n">col_idx</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">usecols</span><span class="p">,</span> <span class="n">dtfuncs</span><span class="p">)):</span>
-                        <span class="n">cols</span><span class="p">[</span><span class="n">ci</span><span class="p">][</span><span class="n">li</span><span class="p">]</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">fields</span><span class="p">[</span><span class="n">col_idx</span><span class="p">])</span>
                 <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">struct_dtype</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">ci</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">usecols</span><span class="p">)):</span>
-                    <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">ci</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cols</span><span class="p">[</span><span class="n">ci</span><span class="p">]</span>
+                    <span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">ci</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">parsed</span><span class="p">[</span><span class="n">ci</span><span class="p">]</span>
                 <span class="n">_write_np_chunks</span><span class="p">(</span><span class="n">writer</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">chunksize</span><span class="p">,</span> <span class="n">unit_size</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">dtfuncs</span> <span class="o">=</span> <span class="n">get_dtfuncs</span><span class="p">(</span><span class="n">Formats</span><span class="p">,</span> <span class="n">tobytes</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>

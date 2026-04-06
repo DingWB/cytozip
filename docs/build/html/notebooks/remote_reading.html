@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Remote Reading with cytozip &mdash; cytozip 0.0.4.dev0 documentation</title>
+  <title>Remote Reading with cytozip &mdash; cytozip 0.1.0.dev4 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
@@ -16,7 +16,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=fa0a5e14"></script>
+      <script src="../_static/documentation_options.js?v=6a2eb697"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/js/rtd_search_config.js"></script>
@@ -105,7 +105,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="dev.html#Advanced-Features">Advanced Features</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="dev.html#Delta-Encoding">Delta Encoding</a></li>
 <li class="toctree-l4"><a class="reference internal" href="dev.html#Chunk-Index">Chunk Index</a></li>
 <li class="toctree-l4"><a class="reference internal" href="dev.html#Remote-Reading">Remote Reading</a></li>
 </ul>
@@ -139,9 +138,9 @@
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#Run-cytozip-allc2cz-on-GCP">Run cytozip allc2cz on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#Run-cytozip-extractCG-on-GCP">Run cytozip extractCG on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
-<li class="toctree-l2"><a class="reference internal" href="python_api.html#Delta-Encoding">Delta Encoding</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="python_api.html#Writer-with-delta-encoding">Writer with delta encoding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="python_api.html#bed2cz-with-delta-encoding">bed2cz with delta encoding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Write-and-Read-a-.cz-File">Write and Read a .cz File</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#Writer-example">Writer example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#bed2cz-conversion">bed2cz conversion</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a><ul>
@@ -189,7 +188,6 @@
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../cytozip.cz.html">cytozip.cz module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#delta-encoding">Delta encoding</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.batch_fetch"><code class="docutils literal notranslate"><span class="pre">Reader.batch_fetch()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.category_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.category_ssi()</span></code></a></li>
@@ -254,7 +252,28 @@
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l4"><a class="reference internal" href="../cytozip.cz_accel.html">cytozip.cz_accel module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../cytozip.html#module-cytozip">Module contents</a><ul>
@@ -335,19 +354,20 @@ pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com
 </pre></div>
 </div>
 </div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-04-05 23:45:56.648</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.cz</span>:<span class="ansi-cyan-fg">&lt;module&gt;</span>:<span class="ansi-cyan-fg">84</span> - <span class="ansi-blue-intense-fg ansi-bold">Cython accelerated functions loaded successfully</span>
+</pre></div></div>
+</div>
 <div class="nboutput nblast docutils container">
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">ModuleNotFoundError</span>                       Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In[1], line 1</span>
-<span class="ansi-green-fg">----&gt; 1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">import</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,0,255)">cytozip</span>
-<span class="ansi-green-intense-fg ansi-bold">      2</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,0,255)">cytozip</span><span class="ansi-bold" style="color: rgb(0,0,255)">.</span><span class="ansi-bold" style="color: rgb(0,0,255)">cz</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> RemoteFile
-<span class="ansi-green-intense-fg ansi-bold">      3</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">cytozip version: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>cytozip<span style="color: rgb(98,98,98)">.</span>__version__<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
-
-<span class="ansi-red-fg">ModuleNotFoundError</span>: No module named &#39;cytozip&#39;
+cytozip version: 0.1.0.dev4
 </pre></div></div>
 </div>
 <section id="Example:-Open-and-inspect-a-remote-file">
@@ -457,21 +477,21 @@ All Reader methods (fetch, query, summary_chunks, etc.) work on remote files.
 <div class="output_area docutils container">
 <div class="highlight"><pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
+<span class="ansi-red-fg">TypeError</span>                                 Traceback (most recent call last)
 Cell <span class="ansi-green-fg">In[4], line 6</span>
 <span class="ansi-green-intense-fg ansi-bold">      4</span> <span style="color: rgb(95,135,135)"># Create a .cz file with chunk index</span>
 <span class="ansi-green-intense-fg ansi-bold">      5</span> tmpfile <span style="color: rgb(98,98,98)">=</span> tempfile<span style="color: rgb(98,98,98)">.</span>mktemp(suffix<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">.cz</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-fg">----&gt; 6</span> w <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">cytozip</span><span style="color: rgb(98,98,98)">.</span>Writer(
-<span class="ansi-green-intense-fg ansi-bold">      7</span>     Output<span style="color: rgb(98,98,98)">=</span>tmpfile,
-<span class="ansi-green-intense-fg ansi-bold">      8</span>     Formats<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Q</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">H</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">H</span><span style="color: rgb(175,0,0)">&#34;</span>],
-<span class="ansi-green-intense-fg ansi-bold">      9</span>     Columns<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">pos</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">mc</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">cov</span><span style="color: rgb(175,0,0)">&#34;</span>],
-<span class="ansi-green-intense-fg ansi-bold">     10</span>     Dimensions<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chrom</span><span style="color: rgb(175,0,0)">&#34;</span>],
-<span class="ansi-green-intense-fg ansi-bold">     11</span>     delta_cols<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(98,98,98)">0</span>],
-<span class="ansi-green-intense-fg ansi-bold">     12</span> )
+<span class="ansi-green-fg">----&gt; 6</span> w <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">cytozip</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">Writer</span><span class="ansi-yellow-bg">(</span>
+<span class="ansi-green-intense-fg ansi-bold">      7</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">Output</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">tmpfile</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">      8</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">Formats</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">Q</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">H</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">H</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">      9</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">Columns</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">pos</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">mc</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">cov</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     10</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">Dimensions</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">chrom</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     11</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">delta_cols</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     12</span> <span class="ansi-yellow-bg">)</span>
 <span class="ansi-green-intense-fg ansi-bold">     13</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> chrom <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> [<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr1</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr2</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr3</span><span style="color: rgb(175,0,0)">&#34;</span>]:
 <span class="ansi-green-intense-fg ansi-bold">     14</span>     records <span style="color: rgb(98,98,98)">=</span> [(<span style="color: rgb(98,98,98)">100</span>, <span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">10</span>), (<span style="color: rgb(98,98,98)">200</span>, <span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">15</span>), (<span style="color: rgb(98,98,98)">350</span>, <span style="color: rgb(98,98,98)">3</span>, <span style="color: rgb(98,98,98)">20</span>)]
 
-<span class="ansi-red-fg">NameError</span>: name &#39;cytozip&#39; is not defined
+<span class="ansi-red-fg">TypeError</span>: Writer.__init__() got an unexpected keyword argument &#39;delta_cols&#39;
 </pre></div></div>
 </div>
 </section>
@@ -522,19 +542,13 @@ Cell <span class="ansi-green-fg">In[4], line 6</span>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">ModuleNotFoundError</span>                       Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In[5], line 1</span>
-<span class="ansi-green-fg">----&gt; 1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,0,255)">cytozip</span><span class="ansi-bold" style="color: rgb(0,0,255)">.</span><span class="ansi-bold" style="color: rgb(0,0,255)">cz</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> RemoteFile
-<span class="ansi-green-intense-fg ansi-bold">      3</span> <span style="color: rgb(95,135,135)"># Usage:</span>
-<span class="ansi-green-intense-fg ansi-bold">      4</span> <span style="color: rgb(95,135,135)"># rf = RemoteFile(&#34;https://your-server.com/data/file.cz&#34;, cache_size=2*1024*1024)</span>
-<span class="ansi-green-intense-fg ansi-bold">      5</span> <span style="color: rgb(95,135,135)"># print(f&#34;File size: {rf.size} bytes&#34;)</span>
-<span class="ansi-green-fg">   (...)</span>
-<span class="ansi-green-intense-fg ansi-bold">     17</span> <span style="color: rgb(95,135,135)">#</span>
-<span class="ansi-green-intense-fg ansi-bold">     18</span> <span style="color: rgb(95,135,135)"># rf.close()</span>
-<span class="ansi-green-intense-fg ansi-bold">     20</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">RemoteFile API:</span><span style="color: rgb(175,0,0)">&#34;</span>)
-
-<span class="ansi-red-fg">ModuleNotFoundError</span>: No module named &#39;cytozip&#39;
+RemoteFile API:
+  RemoteFile(url, cache_size=2*1024*1024)
+  .read(size)     - read bytes with read-ahead caching
+  .seek(off, wh)  - seek to position (SEEK_SET/CUR/END)
+  .tell()         - return current file position
+  .size           - total file size (Content-Length)
+  .close()        - close the connection
 </pre></div></div>
 </div>
 </section>
@@ -572,7 +586,6 @@ python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;<
     <span class="n">Formats</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Q&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span>
     <span class="n">Columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">],</span>
     <span class="n">Dimensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">],</span>
-    <span class="n">delta_cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
 <span class="p">)</span>
 <span class="n">data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;QHH&quot;</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span> <span class="p">(</span><span class="mi">350</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">20</span><span class="p">)])</span>
@@ -622,23 +635,27 @@ python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;<
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In[6], line 8</span>
-<span class="ansi-green-intense-fg ansi-bold">      6</span> tmpdir <span style="color: rgb(98,98,98)">=</span> tempfile<span style="color: rgb(98,98,98)">.</span>mkdtemp()
-<span class="ansi-green-intense-fg ansi-bold">      7</span> czfile <span style="color: rgb(98,98,98)">=</span> os<span style="color: rgb(98,98,98)">.</span>path<span style="color: rgb(98,98,98)">.</span>join(tmpdir, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">demo.cz</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-fg">----&gt; 8</span> w <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">cytozip</span><span style="color: rgb(98,98,98)">.</span>Writer(
-<span class="ansi-green-intense-fg ansi-bold">      9</span>     Output<span style="color: rgb(98,98,98)">=</span>czfile,
-<span class="ansi-green-intense-fg ansi-bold">     10</span>     Formats<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Q</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">H</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">H</span><span style="color: rgb(175,0,0)">&#34;</span>],
-<span class="ansi-green-intense-fg ansi-bold">     11</span>     Columns<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">pos</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">mc</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">cov</span><span style="color: rgb(175,0,0)">&#34;</span>],
-<span class="ansi-green-intense-fg ansi-bold">     12</span>     Dimensions<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chrom</span><span style="color: rgb(175,0,0)">&#34;</span>],
-<span class="ansi-green-intense-fg ansi-bold">     13</span>     delta_cols<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(98,98,98)">0</span>],
-<span class="ansi-green-intense-fg ansi-bold">     14</span> )
-<span class="ansi-green-intense-fg ansi-bold">     15</span> data <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(175,0,0)">b</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(98,98,98)">.</span>join(struct<span style="color: rgb(98,98,98)">.</span>pack(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">&lt;QHH</span><span style="color: rgb(175,0,0)">&#34;</span>, pos, mc, cov)
-<span class="ansi-green-intense-fg ansi-bold">     16</span>                 <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> pos, mc, cov <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> [(<span style="color: rgb(98,98,98)">100</span>, <span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">10</span>), (<span style="color: rgb(98,98,98)">200</span>, <span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">15</span>), (<span style="color: rgb(98,98,98)">350</span>, <span style="color: rgb(98,98,98)">3</span>, <span style="color: rgb(98,98,98)">20</span>)])
-<span class="ansi-green-intense-fg ansi-bold">     17</span> w<span style="color: rgb(98,98,98)">.</span>write_chunk(data, [<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr1</span><span style="color: rgb(175,0,0)">&#34;</span>])
+Created: /tmp/tmpx6hhtc6_/demo.cz (310 bytes)
+Serving on port 42935
 
-<span class="ansi-red-fg">NameError</span>: name &#39;cytozip&#39; is not defined
+Remote is_remote: True
+Chunks: [(&#39;chr1&#39;,), (&#39;chr2&#39;,)]
+
+--- chr1 records (remote) ---
+[100, 1, 10]
+[200, 2, 15]
+[350, 3, 20]
+[100, 1, 10]
+[200, 2, 15]
+[350, 3, 20]
+
+--- chr2 records (remote) ---
+[50, 0, 5]
+[150, 1, 8]
+[50, 0, 5]
+[150, 1, 8]
+
+Demo complete!
 </pre></div></div>
 </div>
 </section>

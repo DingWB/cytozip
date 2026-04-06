@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.cz_accel module &mdash; cytozip 0.0.4.dev0 documentation</title>
+  <title>cytozip.cz_accel module &mdash; cytozip 0.1.0.dev4 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
@@ -15,7 +15,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=fa0a5e14"></script>
+      <script src="_static/documentation_options.js?v=6a2eb697"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/js/rtd_search_config.js"></script>
@@ -102,7 +102,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="notebooks/dev.html#Advanced-Features">Advanced Features</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#Delta-Encoding">Delta Encoding</a></li>
 <li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
 <li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
 </ul>
@@ -136,9 +135,9 @@
 <li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Run-cytozip-allc2cz-on-GCP">Run cytozip allc2cz on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Run-cytozip-extractCG-on-GCP">Run cytozip extractCG on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Delta-Encoding">Delta Encoding</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Writer-with-delta-encoding">Writer with delta encoding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#bed2cz-with-delta-encoding">bed2cz with delta encoding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Write-and-Read-a-.cz-File">Write and Read a .cz File</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Writer-example">Writer example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#bed2cz-conversion">bed2cz conversion</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a><ul>
@@ -186,7 +185,6 @@
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.cz.html">cytozip.cz module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#delta-encoding">Delta encoding</a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.batch_fetch"><code class="docutils literal notranslate"><span class="pre">Reader.batch_fetch()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.category_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.category_ssi()</span></code></a></li>
@@ -251,7 +249,28 @@
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l4 current"><a class="current reference internal" href="#">cytozip.cz_accel module</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="cytozip.html#module-cytozip">Module contents</a><ul>
@@ -291,8 +310,276 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="cytozip-cz-accel-module">
-<h1>cytozip.cz_accel module<a class="headerlink" href="#cytozip-cz-accel-module" title="Link to this heading"></a></h1>
+  <section id="module-cytozip.cz_accel">
+<span id="cytozip-cz-accel-module"></span><h1>cytozip.cz_accel module<a class="headerlink" href="#module-cytozip.cz_accel" title="Link to this heading"></a></h1>
+<p>cz_accel.pyx — Cython-accelerated hot-path functions for the cytozip format.</p>
+<p>This module provides C-level implementations of performance-critical
+operations that would otherwise be bottlenecks in pure Python:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Block I/O:     load_bcz_block, compress_block (raw DEFLATE via zlib C API)</p></li>
+<li><p>Record packing: c_pack_records, c_pack_records_fast</p></li>
+<li><p>Sequential read: c_read, c_readline, c_read_1record</p></li>
+<li><p>Random access:  c_seek_and_read_1record, c_pos2id, c_query_regions</p></li>
+<li><p>Bulk operations: c_fetch_chunk, c_get_records_by_ids, c_block_first_values</p></li>
+<li><p>Genome scanning: c_extract_c_positions, c_write_c_records</p></li>
+<li><p>Utility:       c_write_chunk_tail</p></li>
+</ul>
+</div></blockquote>
+<p>All functions are optional: cz.py gracefully falls back to pure-Python
+implementations if this module is not compiled or importable.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_block_first_values">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_block_first_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_virtual_offsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_block_first_values" title="Link to this definition"></a></dt>
+<dd><p>Read the first record of each block and return column <em>s</em> values.</p>
+<p>Used by query and pos2id to build a sorted array of block-starting
+positions for efficient binary search.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_deflate_raw">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_deflate_raw</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_deflate_raw" title="Link to this definition"></a></dt>
+<dd><p>Compress bytes into raw DEFLATE format using the zlib C API.</p>
+<p>Uses <a href="#id1"><span class="problematic" id="id2">deflateInit2_</span></a> with windowBits=-15 (raw deflate, no header).
+This produces the same output as Python’s
+<code class="docutils literal notranslate"><span class="pre">zlib.compressobj(level,</span> <span class="pre">zlib.DEFLATED,</span> <span class="pre">-15)</span></code> but with lower
+per-call overhead.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>block</strong> (<em>bytes</em>) – Data to compress.</p></li>
+<li><p><strong>level</strong> (<em>int</em>) – Compression level (1-9, default 6).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>bytes</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>raw DEFLATE compressed data.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_extract_c_positions">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_extract_c_positions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seq_bytes</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_extract_c_positions" title="Link to this definition"></a></dt>
+<dd><p>Extract all C positions (forward and reverse strand) from a DNA sequence.</p>
+<p>This is the core hot loop of WriteC, optimized in Cython.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>seq_bytes</strong> (<em>bytes</em>) – DNA sequence as bytes (from record.seq.__str__().encode() or str(record.seq).encode())</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>list of tuples</strong> – pos: 1-based position (int)
+strand_byte: b’+’ or b’-’
+context_bytes: 3-byte context (e.g., b’CGA’)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[(pos, strand_byte, context_bytes), …]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_fetch_chunk">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_fetch_chunk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_start_offset_plus10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_virtual_offsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_fetch_chunk" title="Link to this definition"></a></dt>
+<dd><p>Read and decompress all blocks of a chunk into one bytes object.</p>
+<p>Iterates over the block virtual offset array, seeks to each block’s
+physical position, decompresses it, and concatenates the results.
+This is used by Reader.__fetch__() for the fast path.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_get_records_by_ids">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_get_records_by_ids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_block_virtual_offsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">IDs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_get_records_by_ids" title="Link to this definition"></a></dt>
+<dd><p>Fetch raw record bytes for given 1-based primary IDs.</p>
+<p>Caches the currently decompressed block to avoid redundant I/O
+when consecutive IDs fall in the same block.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_inflate_bytes">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_inflate_bytes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_inflate_bytes" title="Link to this definition"></a></dt>
+<dd><p>Decompress raw deflate bytes using the zlib C API.</p>
+<p>Uses <a href="#id3"><span class="problematic" id="id4">inflateInit2_</span></a> with windowBits=-15 (raw deflate, no header).
+Automatically grows the output buffer if the initial allocation
+is too small.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>bytes</em>) – Raw DEFLATE compressed data (no zlib/gzip header).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>bytes</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>decompressed data.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_pack_records">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_pack_records</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rows</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmt</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_pack_records" title="Link to this definition"></a></dt>
+<dd><p>Pack a sequence of row tuples into bytes using struct.pack.</p>
+<p>Pre-compiles the struct format for repeated use.  This is faster
+than calling struct.pack() in a Python loop because the Struct
+object caches the compiled format.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_pack_records_fast">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_pack_records_fast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rows</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmt</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_pack_records_fast" title="Link to this definition"></a></dt>
+<dd><p>Pack rows into bytes using a pre-allocated buffer.</p>
+<p>Allocates a single bytearray of exactly (n_rows * unit_size) bytes
+and uses <code class="docutils literal notranslate"><span class="pre">pack_into()</span></code> to write directly into the buffer without
+intermediate allocations.  ~2x faster than <code class="docutils literal notranslate"><span class="pre">c_pack_records</span></code> for
+large row counts.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_pos2id">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_pos2id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_virtual_offsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">positions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">col_to_query</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_pos2id" title="Link to this definition"></a></dt>
+<dd><p>Map genomic position ranges to primary record IDs.</p>
+<p>For each (start, end) pair in <em>positions</em>, finds the first and last
+record whose <code class="docutils literal notranslate"><span class="pre">col_to_query</span></code> value falls within [start, end).
+Returns a list of [id_start, id_end] pairs (or None if not found).</p>
+<dl class="simple">
+<dt>Algorithm:</dt><dd><ol class="arabic simple">
+<li><p>Read the first record of each block to build a sorted array
+of block-starting positions.</p></li>
+<li><p>For each query range, binary-search to find the starting block,
+then scan records forward.</p></li>
+</ol>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_query_regions">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_query_regions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_virtual_offsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_query_regions" title="Link to this definition"></a></dt>
+<dd><p>Accelerated query for a single dim.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_read">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_read</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_raw_length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">within_block_offset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_read" title="Link to this definition"></a></dt>
+<dd><p>Read <em>size</em> bytes from a BGZF-like block stream.</p>
+<p>Handles the case where the requested data spans multiple blocks:
+reads from the current buffer, then loads subsequent blocks as
+needed via <code class="docutils literal notranslate"><span class="pre">load_bcz_block</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(data_bytes, new_block_raw_length, new_buffer, new_within_block_offset)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_read_1record">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_read_1record</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_raw_length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">within</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_read_1record" title="Link to this definition"></a></dt>
+<dd><p>Read a single record (unpacked tuple) from the stream, updating buffer state.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_readline">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_readline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_raw_length</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">within_block_offset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">newline</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">b'\n'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_readline" title="Link to this definition"></a></dt>
+<dd><p>Read a single line (including the newline character) from a block stream.</p>
+<p>Handles lines that span block boundaries by accumulating bytes
+until the newline is found.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(line_bytes, new_block_raw_length, new_buffer, new_within_block_offset)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_seek_and_read_1record">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_seek_and_read_1record</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">virtual_offset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_seek_and_read_1record" title="Link to this definition"></a></dt>
+<dd><p>Seek to virtual offset and read one record (unpacked tuple).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_write_c_records">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_write_c_records</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seq_bytes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_write_c_records" title="Link to this definition"></a></dt>
+<dd><p>Generator version that yields batches of packed records for WriteC.</p>
+<p>This extracts C positions and packs them into binary format suitable for
+direct writing with Writer.write_chunk().</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>seq_bytes</strong> (<em>bytes</em>) – DNA sequence as bytes</p></li>
+<li><p><strong>chunksize</strong> (<em>int</em>) – Number of records per batch</p></li>
+</ul>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>tuple</strong> (<em>(packed_data_bytes, count)</em>) – packed_data_bytes: binary data packed as ‘&lt;Qc3s’ format
+count: number of records in this batch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.c_write_chunk_tail">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_write_chunk_tail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_data_len</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_1st_record_virtual_offsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_dims</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_write_chunk_tail" title="Link to this definition"></a></dt>
+<dd><p>Write chunk tail metadata in a single batched I/O call.</p>
+<p>Packs the header (data_len + nblocks) and all block virtual offsets
+into one struct.pack() call to minimize write() syscalls.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.compress_block">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">compress_block</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.compress_block" title="Link to this definition"></a></dt>
+<dd><p>Compress a block using raw DEFLATE (no zlib/gzip header).</p>
+<p>This is the counterpart of <code class="docutils literal notranslate"><span class="pre">_c_inflate</span></code> used by Writer._write_block().</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.load_bcz_block">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">load_bcz_block</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decompress</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.load_bcz_block" title="Link to this definition"></a></dt>
+<dd><p>Read a single BCZ block from <em>handle</em>.</p>
+<dl class="simple">
+<dt>Block binary layout:</dt><dd><p>[magic 2B ‘MB’] [block_size 2B] [deflate_data …] [data_len 2B]</p>
+</dd>
+</dl>
+<p>block_size includes magic(2) + block_size(2) + data_len(2) = 6 extra
+bytes beyond the deflate payload.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>handle</strong> (<em>file-like</em>) – Binary file handle positioned at the start of a block.</p></li>
+<li><p><strong>decompress</strong> (<em>bool</em>) – If True, decompress and return the raw bytes; otherwise
+just skip ahead and return the uncompressed length.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>(block_size, data_or_data_len)</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>StopIteration  on EOF</strong><strong> or </strong><strong>non-block magic.</strong> – </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz_accel.unpack_records">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">unpack_records</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmt</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.unpack_records" title="Link to this definition"></a></dt>
+<dd><p>Unpack concatenated binary record data into a list of tuples.</p>
+<p>Uses struct.Struct for efficient repeated unpacking with
+<code class="docutils literal notranslate"><span class="pre">unpack_from()</span></code> to avoid repeated format string parsing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>bytes</em>) – Concatenated packed records.</p></li>
+<li><p><strong>fmt</strong> (<em>str</em>) – Struct format string (without ‘&lt;’ prefix).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of tuples, one per record.</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 
 

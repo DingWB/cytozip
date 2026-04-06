@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.cz &mdash; cytozip 0.0.4.dev0 documentation</title>
+  <title>cytozip.cz &mdash; cytozip 0.1.0.dev4 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
@@ -14,7 +14,7 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=fa0a5e14"></script>
+      <script src="../../_static/documentation_options.js?v=6a2eb697"></script>
       <script src="../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/js/rtd_search_config.js"></script>
@@ -99,7 +99,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Advanced-Features">Advanced Features</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../notebooks/dev.html#Delta-Encoding">Delta Encoding</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
 </ul>
@@ -133,9 +132,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Run-cytozip-allc2cz-on-GCP">Run cytozip allc2cz on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Run-cytozip-extractCG-on-GCP">Run cytozip extractCG on GCP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Delta-Encoding">Delta Encoding</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#Writer-with-delta-encoding">Writer with delta encoding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#bed2cz-with-delta-encoding">bed2cz with delta encoding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Write-and-Read-a-.cz-File">Write and Read a .cz File</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#Writer-example">Writer example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#bed2cz-conversion">bed2cz conversion</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a><ul>
@@ -183,7 +182,6 @@
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz.html">cytozip.cz module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#delta-encoding">Delta encoding</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.batch_fetch"><code class="docutils literal notranslate"><span class="pre">Reader.batch_fetch()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.category_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.category_ssi()</span></code></a></li>
@@ -248,7 +246,28 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz_accel.html">cytozip.cz_accel module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#module-cytozip">Module contents</a><ul>
@@ -301,7 +320,7 @@
 <span class="sd">    [Header] [Chunk 0] [Chunk 1] ... [Chunk N] [ChunkIndex] [EOF marker]</span>
 
 <span class="sd">  - Header:  magic, version, total_size, message, column formats/names,</span>
-<span class="sd">             dimension names, delta-encoding mask.</span>
+<span class="sd">             dimension names.</span>
 <span class="sd">  - Chunk:   A sequence of independently compressed *blocks* that share</span>
 <span class="sd">             the same dimension values (e.g., one chromosome).</span>
 <span class="sd">             Each block is at most 65535 bytes of raw data, compressed</span>
@@ -321,12 +340,6 @@
 <span class="sd">64-bit integer:  (block_start &lt;&lt; 16) | within_block_offset.</span>
 <span class="sd">This allows O(1) random access to any record.</span>
 
-<span class="sd">Delta encoding</span>
-<span class="sd">--------------</span>
-<span class="sd">When ``delta_cols`` is set, chosen columns (typically the position column)</span>
-<span class="sd">are delta-encoded within each block to improve compression ratio.  The</span>
-<span class="sd">first record of each block stores absolute values; subsequent records</span>
-<span class="sd">store the difference from the previous record.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">sys</span>
@@ -343,12 +356,12 @@
 <span class="c1"># ---------------------------------------------------------------------------</span>
 <span class="c1"># Binary format constants</span>
 <span class="c1"># ---------------------------------------------------------------------------</span>
-<span class="n">_bcz_magic</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;BMZIP&#39;</span>            <span class="c1"># 5-byte file magic identifying a .cz file</span>
-<span class="n">_block_magic</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;MB&quot;</span>              <span class="c1"># 2-byte magic at the start of each block</span>
-<span class="n">_chunk_magic</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;MC&quot;</span>              <span class="c1"># 2-byte magic at the start of each chunk</span>
+<span class="n">_cz_magic</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;CZIP&#39;</span>              <span class="c1"># 4-byte file magic identifying a .cz file</span>
+<span class="n">_block_magic</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;CB&quot;</span>              <span class="c1"># 2-byte magic at the start of each block</span>
+<span class="n">_chunk_magic</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;CC&quot;</span>              <span class="c1"># 2-byte magic at the start of each chunk</span>
 <span class="n">_BLOCK_MAX_LEN</span> <span class="o">=</span> <span class="mi">65535</span>            <span class="c1"># Maximum uncompressed block size (2^16 - 1)</span>
 <span class="c1"># 28-byte BGZF-style EOF marker written at the end of every .cz file.</span>
-<span class="n">_bcz_eof</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00</span><span class="s2">BM</span><span class="se">\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00</span><span class="s2">&quot;</span>
+<span class="n">_cz_eof</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00</span><span class="s2">CZ</span><span class="se">\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00</span><span class="s2">&quot;</span>
 <span class="n">_chunk_index_magic</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;CZIX&quot;</span>      <span class="c1"># 4-byte magic for the chunk index section</span>
 
 <span class="c1"># Dynamically import the package version produced by setuptools_scm.</span>
@@ -370,7 +383,6 @@
 	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_seek_and_read_1record</span> <span class="k">as</span> <span class="n">_c_seek_and_read_1record</span>
 	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_query_regions</span> <span class="k">as</span> <span class="n">_c_query_regions</span>
 	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_write_chunk_tail</span> <span class="k">as</span> <span class="n">_c_write_chunk_tail</span>
-	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_adjust_virtual_offsets</span> <span class="k">as</span> <span class="n">_c_adjust_virtual_offsets</span>
 	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_pack_records</span> <span class="k">as</span> <span class="n">_c_pack_records</span>
 	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_pack_records_fast</span> <span class="k">as</span> <span class="n">_c_pack_records_fast</span>
 	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_fetch_chunk</span> <span class="k">as</span> <span class="n">_c_fetch_chunk</span>
@@ -378,6 +390,7 @@
 	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_block_first_values</span> <span class="k">as</span> <span class="n">_c_block_first_values</span>
 	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_extract_c_positions</span> <span class="k">as</span> <span class="n">_c_extract_c_positions</span>
 	<span class="kn">from</span><span class="w"> </span><span class="nn">.cz_accel</span><span class="w"> </span><span class="kn">import</span> <span class="n">c_write_c_records</span> <span class="k">as</span> <span class="n">_c_write_c_records</span>
+	<span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Cython accelerated functions loaded successfully&quot;</span><span class="p">)</span>
 <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
 	<span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Cython accelerated functions not available, falling back to pure-Python implementations&quot;</span><span class="p">)</span>
 	<span class="n">_c_load_bcz_block</span> <span class="o">=</span> <span class="kc">None</span>
@@ -390,7 +403,6 @@
 	<span class="n">_c_seek_and_read_1record</span> <span class="o">=</span> <span class="kc">None</span>
 	<span class="n">_c_query_regions</span> <span class="o">=</span> <span class="kc">None</span>
 	<span class="n">_c_write_chunk_tail</span> <span class="o">=</span> <span class="kc">None</span>
-	<span class="n">_c_adjust_virtual_offsets</span> <span class="o">=</span> <span class="kc">None</span>
 	<span class="n">_c_pack_records</span> <span class="o">=</span> <span class="kc">None</span>
 	<span class="n">_c_pack_records_fast</span> <span class="o">=</span> <span class="kc">None</span>
 	<span class="n">_c_fetch_chunk</span> <span class="o">=</span> <span class="kc">None</span>
@@ -880,7 +892,7 @@
 
 <span class="sd">		Header binary layout (all little-endian)::</span>
 
-<span class="sd">		  magic        : 5 bytes (&#39;BMZIP&#39;)</span>
+<span class="sd">		  magic        : 4 bytes (&#39;CZIP&#39;)</span>
 <span class="sd">		  version      : 4 bytes (float)</span>
 <span class="sd">		  total_size   : 8 bytes (uint64) - file size written at close time</span>
 <span class="sd">		  message_len  : 2 bytes (uint16)</span>
@@ -893,17 +905,15 @@
 <span class="sd">		  ndims        : 1 byte - number of dimension names</span>
 <span class="sd">		  For each dim:</span>
 <span class="sd">		    dim_len    : 1 byte -&gt; dimension name</span>
-<span class="sd">		  n_delta      : 1 byte - number of delta-encoded columns</span>
-<span class="sd">		  For each delta col:</span>
-<span class="sd">		    col_idx    : 1 byte (uint8)</span>
+<span class="sd">		  reserved     : 1 byte (always 0, for format compatibility)</span>
 
 <span class="sd">		After parsing, ``self.header[&#39;header_size&#39;]`` points to the byte</span>
 <span class="sd">		offset where the first chunk begins.</span>
 <span class="sd">		&quot;&quot;&quot;</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="p">{}</span>
 		<span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span>
-		<span class="n">magic</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;&lt;5s&quot;</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">5</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
-		<span class="k">if</span> <span class="n">magic</span> <span class="o">!=</span> <span class="n">_bcz_magic</span><span class="p">:</span>
+		<span class="n">magic</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;&lt;4s&quot;</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="k">if</span> <span class="n">magic</span> <span class="o">!=</span> <span class="n">_cz_magic</span><span class="p">:</span>
 			<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not a right format?&quot;</span><span class="p">)</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;magic&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">magic</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;version&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;&lt;f&quot;</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
@@ -937,20 +947,12 @@
 		<span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;header_size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">tell</span><span class="p">()</span>  <span class="c1"># end of header, begin of 1st chunk</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">fmts</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Formats</span><span class="p">)</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">)</span>
-		<span class="c1"># read delta column info</span>
-		<span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span> <span class="o">=</span> <span class="p">[]</span>
-		<span class="n">n_delta</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;&lt;B&quot;</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
-		<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_delta</span><span class="p">):</span>
-			<span class="n">col_idx</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;&lt;B&quot;</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
-			<span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">col_idx</span><span class="p">)</span>
-		<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-			<span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;delta_cols&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_unit_nblock</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span> <span class="o">/</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">,</span> <span class="n">_BLOCK_MAX_LEN</span><span class="p">)))</span>
+		<span class="c1"># reserved byte (was delta column count in older versions)</span>
+		<span class="n">n_reserved</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;&lt;B&quot;</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">n_reserved</span><span class="p">)</span>  <span class="c1"># skip reserved bytes</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;header_size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">tell</span><span class="p">()</span>
-		<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-			<span class="bp">self</span><span class="o">.</span><span class="n">_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-		<span class="k">else</span><span class="p">:</span>
-			<span class="bp">self</span><span class="o">.</span><span class="n">_struct</span> <span class="o">=</span> <span class="kc">None</span>
-		<span class="bp">self</span><span class="o">.</span><span class="n">_aligned_block_size</span> <span class="o">=</span> <span class="p">(</span><span class="n">_BLOCK_MAX_LEN</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span>
 		<span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_is_remote&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
 			<span class="bp">self</span><span class="o">.</span><span class="n">chunk_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_summary_from_chunk_index</span><span class="p">()</span>
 		<span class="k">else</span><span class="p">:</span>
@@ -1137,7 +1139,7 @@
 				<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">_c_unpack_records</span><span class="p">(</span><span class="n">chunk_bytes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">):</span>
 					<span class="n">R</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 			<span class="k">else</span><span class="p">:</span>
-				<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">chunk_bytes</span><span class="p">):</span>
+				<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="n">chunk_bytes</span><span class="p">):</span>
 					<span class="n">R</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 			<span class="k">if</span> <span class="ow">not</span> <span class="n">chunksize</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">chunksize</span><span class="p">:</span>
 				<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;Columns&#39;</span><span class="p">])</span>
@@ -1464,18 +1466,16 @@
 	<span class="k">def</span><span class="w"> </span><span class="nf">getRecordsByIds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">IDs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 		<span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 			<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getRecordsByIds</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">IDs</span><span class="p">):</span>
-				<span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
-					<span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">record</span>
-				<span class="p">))</span>
+				<span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">record</span><span class="p">))</span>
 		<span class="k">else</span><span class="p">:</span>
 			<span class="n">ref_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">reference</span><span class="p">)))</span>
 			<span class="n">ref_records</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_getRecordsByIds</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">IDs</span><span class="o">=</span><span class="n">IDs</span><span class="p">)</span>
 			<span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getRecordsByIds</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">IDs</span><span class="o">=</span><span class="n">IDs</span><span class="p">)</span>
 			<span class="k">for</span> <span class="n">ref_record</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ref_records</span><span class="p">,</span> <span class="n">records</span><span class="p">):</span>
-				<span class="k">yield</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
-					<span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ref_record</span>
-				<span class="p">))</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
-					<span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">record</span>
+				<span class="k">yield</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
+					<span class="n">ref_record</span>
+				<span class="p">))</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
+					<span class="n">record</span>
 				<span class="p">))</span>
 			<span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
@@ -1527,17 +1527,17 @@
 		<span class="bp">self</span><span class="o">.</span><span class="n">_load_chunk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim2chunk_start</span><span class="p">[</span><span class="n">dim</span><span class="p">],</span> <span class="n">jump</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 		<span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 			<span class="k">for</span> <span class="n">records</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getRecordsByIdRegions</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">IDs</span><span class="p">):</span>
-				<span class="k">yield</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
-					<span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">record</span><span class="p">))</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">])</span>
+				<span class="k">yield</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
+					<span class="n">record</span><span class="p">))</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">])</span>
 		<span class="k">else</span><span class="p">:</span>
 			<span class="n">ref_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">reference</span><span class="p">)))</span>
 			<span class="n">ref_records</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_getRecordsByIdRegions</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">IDs</span><span class="o">=</span><span class="n">IDs</span><span class="p">)</span>
 			<span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getRecordsByIdRegions</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">IDs</span><span class="o">=</span><span class="n">IDs</span><span class="p">)</span>
 			<span class="k">for</span> <span class="n">ref_records</span><span class="p">,</span> <span class="n">records</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ref_records</span><span class="p">,</span> <span class="n">records</span><span class="p">):</span>
-				<span class="n">ref_record</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
-					<span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">record</span><span class="p">))</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">ref_records</span><span class="p">])</span>
-				<span class="n">record</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
-					<span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">record</span><span class="p">))</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">])</span>
+				<span class="n">ref_record</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
+					<span class="n">record</span><span class="p">))</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">ref_records</span><span class="p">])</span>
+				<span class="n">record</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
+					<span class="n">record</span><span class="p">))</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">])</span>
 				<span class="k">yield</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">ref_record</span><span class="p">,</span> <span class="n">record</span><span class="p">))</span>
 			<span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
@@ -1617,7 +1617,7 @@
 				<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">_c_unpack_records</span><span class="p">(</span><span class="n">chunk_bytes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">):</span>
 					<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>
 			<span class="k">else</span><span class="p">:</span>
-				<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">chunk_bytes</span><span class="p">):</span>
+				<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="n">chunk_bytes</span><span class="p">):</span>
 					<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>  <span class="c1"># a tuple</span>
 			<span class="c1"># print(result)</span>
 			<span class="bp">self</span><span class="o">.</span><span class="n">_cached_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_data</span><span class="p">[</span><span class="n">end_index</span><span class="p">:]</span>
@@ -1639,7 +1639,7 @@
 		<span class="n">s</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">s</span>  <span class="c1"># 0-based</span>
 		<span class="n">e</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;Columns&#39;</span><span class="p">])</span> <span class="k">if</span> <span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">e</span>  <span class="c1"># 1-based</span>
 		<span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_chunk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim2chunk_start</span><span class="p">[</span><span class="n">dim</span><span class="p">],</span> <span class="n">jump</span><span class="o">=</span><span class="p">(</span><span class="n">_c_fetch_chunk</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">))</span>
-		<span class="n">unit_nblock</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span> <span class="o">/</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">,</span> <span class="n">_BLOCK_MAX_LEN</span><span class="p">)))</span>
+		<span class="n">unit_nblock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_nblock</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_load_block</span><span class="p">(</span><span class="n">start_offset</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_chunk_start_offset</span> <span class="o">+</span> <span class="mi">10</span><span class="p">)</span>  <span class="c1">#</span>
 		<span class="n">i</span><span class="p">,</span> <span class="n">_cached_data</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span>
 		<span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_block_raw_length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -1650,13 +1650,11 @@
 									<span class="bp">self</span><span class="o">.</span><span class="n">_chunk_block_1st_record_virtual_offsets</span><span class="p">,</span>
 									<span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">)</span>
 				<span class="k">if</span> <span class="n">chunk_bytes</span><span class="p">:</span>
-					<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-						<span class="n">chunk_bytes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_decode_bytes</span><span class="p">(</span><span class="n">chunk_bytes</span><span class="p">)</span>
 					<span class="k">if</span> <span class="n">_c_unpack_records</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 						<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">_c_unpack_records</span><span class="p">(</span><span class="n">chunk_bytes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">):</span>
 							<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>
 					<span class="k">else</span><span class="p">:</span>
-						<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">chunk_bytes</span><span class="p">):</span>
+						<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="n">chunk_bytes</span><span class="p">):</span>
 							<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>
 				<span class="c1"># we&#39;ve consumed the chunk, break out</span>
 				<span class="k">break</span>
@@ -1665,24 +1663,20 @@
 				<span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
 			<span class="k">else</span><span class="p">:</span>
 				<span class="c1"># unpack the whole buffer</span>
-				<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-					<span class="n">_cached_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_decode_bytes</span><span class="p">(</span><span class="n">_cached_data</span><span class="p">)</span>
 				<span class="k">if</span> <span class="n">_c_unpack_records</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 					<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">_c_unpack_records</span><span class="p">(</span><span class="n">_cached_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">):</span>
 						<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>
 				<span class="k">else</span><span class="p">:</span>
-					<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">_cached_data</span><span class="p">):</span>
-						<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>  <span class="c1"># a tuple</span>
+					<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="n">_cached_data</span><span class="p">):</span>
+						<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>
 				<span class="n">i</span><span class="p">,</span> <span class="n">_cached_data</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span>
 		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">_cached_data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-			<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-				<span class="n">_cached_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_decode_bytes</span><span class="p">(</span><span class="n">_cached_data</span><span class="p">)</span>
 			<span class="k">if</span> <span class="n">_c_unpack_records</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 				<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">_c_unpack_records</span><span class="p">(</span><span class="n">_cached_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">):</span>
 					<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>
 			<span class="k">else</span><span class="p">:</span>
-				<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">_cached_data</span><span class="p">):</span>
-					<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>  <span class="c1"># a tuple</span>
+				<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">iter_unpack</span><span class="p">(</span><span class="n">_cached_data</span><span class="p">):</span>
+					<span class="k">yield</span> <span class="n">result</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">]</span>
 
 <div class="viewcode-block" id="Reader.fetch_chunk_bytes">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes">[docs]</a>
@@ -1718,50 +1712,8 @@
 				<span class="bp">self</span><span class="o">.</span><span class="n">_load_block</span><span class="p">()</span>
 				<span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">)</span>
 			<span class="n">raw</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
-		<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span> <span class="ow">and</span> <span class="n">raw</span><span class="p">:</span>
-			<span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_decode_bytes</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
 		<span class="k">return</span> <span class="n">raw</span></div>
 
-
-	<span class="k">def</span><span class="w"> </span><span class="nf">_delta_decode_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-<span class="w">		</span><span class="sd">&quot;&quot;&quot;Undo delta encoding on the marked columns in raw block bytes.</span>
-
-<span class="sd">		Delta encoding stores the first record with absolute values,</span>
-<span class="sd">		then each subsequent record stores the difference from the</span>
-<span class="sd">		previous record for the delta-encoded columns.  This method</span>
-<span class="sd">		reconstitutes the absolute values by accumulating the deltas.</span>
-
-<span class="sd">		The data is processed in aligned-block-sized segments to match</span>
-<span class="sd">		how the Writer produces blocks.</span>
-<span class="sd">		&quot;&quot;&quot;</span>
-		<span class="n">st</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct</span>
-		<span class="n">unit</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">size</span>
-		<span class="n">block_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aligned_block_size</span>
-		<span class="n">out</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
-		<span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
-		<span class="k">while</span> <span class="n">offset</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
-			<span class="c1"># Determine this block&#39;s size (last block may be shorter)</span>
-			<span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">offset</span> <span class="o">+</span> <span class="n">block_size</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
-			<span class="c1"># Ensure we&#39;re at a record boundary</span>
-			<span class="n">n_bytes</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">offset</span>
-			<span class="n">n_bytes</span> <span class="o">=</span> <span class="p">(</span><span class="n">n_bytes</span> <span class="o">//</span> <span class="n">unit</span><span class="p">)</span> <span class="o">*</span> <span class="n">unit</span>
-			<span class="n">end</span> <span class="o">=</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">n_bytes</span>
-			<span class="k">if</span> <span class="n">n_bytes</span> <span class="o">&lt;</span> <span class="n">unit</span><span class="p">:</span>
-				<span class="n">out</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
-				<span class="k">break</span>
-			<span class="c1"># First record: copy as-is (absolute values)</span>
-			<span class="n">out</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span> <span class="o">+</span> <span class="n">unit</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span> <span class="o">+</span> <span class="n">unit</span><span class="p">]</span>
-			<span class="n">prev</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">offset</span><span class="p">))</span>
-			<span class="n">pos</span> <span class="o">=</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">unit</span>
-			<span class="k">while</span> <span class="n">pos</span> <span class="o">+</span> <span class="n">unit</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">:</span>
-				<span class="n">rec</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pos</span><span class="p">))</span>
-				<span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-					<span class="n">rec</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">+</span> <span class="n">prev</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
-				<span class="n">prev</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span>
-				<span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="o">*</span><span class="n">rec</span><span class="p">)</span>
-				<span class="n">pos</span> <span class="o">+=</span> <span class="n">unit</span>
-			<span class="n">offset</span> <span class="o">=</span> <span class="n">end</span>
-		<span class="k">return</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Reader.read_chunk_index">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index">[docs]</a>
@@ -1911,7 +1863,7 @@
 			<span class="bp">self</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">virtual_start_offset</span><span class="p">)</span>  <span class="c1"># load_block is inside sek</span>
 		<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
 			<span class="c1"># yield self._read_1record()</span>
-			<span class="k">yield</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span></div>
+			<span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span></div>
 
 
 	<span class="k">def</span><span class="w"> </span><span class="nf">_read_1record</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1926,7 +1878,7 @@
 		<span class="n">tmp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span>
 			  <span class="bp">self</span><span class="o">.</span><span class="n">_within_block_offset</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">_within_block_offset</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">]</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_within_block_offset</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span>
-		<span class="k">return</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">tmp</span><span class="p">)</span>
+		<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">tmp</span><span class="p">)</span>
 
 	<span class="k">def</span><span class="w"> </span><span class="nf">_query_regions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">regions</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
 		<span class="n">dim_tmp</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1950,23 +1902,13 @@
 					<span class="bp">self</span><span class="o">.</span><span class="n">_seek_and_read_1record</span><span class="p">(</span><span class="n">offset</span><span class="p">)[</span><span class="n">s</span><span class="p">]</span>
 					<span class="k">for</span> <span class="n">offset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_block_1st_record_virtual_offsets</span>
 				<span class="p">])</span>
-			<span class="c1"># for idx in range(start_block_index_tmp, self._chunk_nblocks-1):</span>
-			<span class="c1">#     if block_1st_starts[idx + 1] &gt; start:</span>
-			<span class="c1">#         start_block_index = idx</span>
-			<span class="c1">#         break</span>
-			<span class="c1">#     start_block_index = self._chunk_nblocks - 1</span>
-			<span class="k">while</span> <span class="n">start_block_index</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_nblocks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-				<span class="k">if</span> <span class="n">block_1st_starts</span><span class="p">[</span><span class="n">start_block_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">start</span><span class="p">:</span>
-					<span class="k">break</span>
-				<span class="n">start_block_index</span> <span class="o">+=</span> <span class="mi">1</span>
-			<span class="c1"># start_block_index=np.argmax(block_1st_starts &gt; start)-1</span>
+			<span class="n">start_block_index</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">block_1st_starts</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
 			<span class="n">virtual_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_block_1st_record_virtual_offsets</span><span class="p">[</span><span class="n">start_block_index</span><span class="p">]</span>
 			<span class="bp">self</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">virtual_offset</span><span class="p">)</span>  <span class="c1"># seek to the target block, self._buffer</span>
 			<span class="n">block_start_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_block_start_offset</span>
-			<span class="n">record</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
+			<span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
 			<span class="k">while</span> <span class="n">record</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">start</span><span class="p">:</span>
-				<span class="c1"># record = self._read_1record()</span>
-				<span class="n">record</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
+				<span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
 			<span class="c1"># here we got the 1st record, return the id (row number) of 1st record.</span>
 			<span class="c1"># size of each block is 65535 (2**16-1=_BLOCK_MAX_LEN)</span>
 			<span class="c1"># primary_id = int((_BLOCK_MAX_LEN * block_index +</span>
@@ -1981,7 +1923,7 @@
 			<span class="k">yield</span> <span class="s2">&quot;primary_id_&amp;_dim:&quot;</span><span class="p">,</span> <span class="n">primary_id</span><span class="p">,</span> <span class="n">dim</span>
 			<span class="k">while</span> <span class="n">record</span><span class="p">[</span><span class="n">e</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">:</span>
 				<span class="k">yield</span> <span class="n">dim</span><span class="p">,</span> <span class="n">record</span>
-				<span class="n">record</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
+				<span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
 		<span class="c1"># start_block_index_tmp = start_block_index</span>
 
 <div class="viewcode-block" id="Reader.pos2id">
@@ -2011,10 +1953,10 @@
 			<span class="n">virtual_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_block_1st_record_virtual_offsets</span><span class="p">[</span><span class="n">start_block_index</span><span class="p">]</span>
 			<span class="bp">self</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">virtual_offset</span><span class="p">)</span>  <span class="c1"># seek to the target block, self._buffer</span>
 			<span class="n">block_start_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_block_start_offset</span>
-			<span class="n">record</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
+			<span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
 			<span class="k">while</span> <span class="n">record</span><span class="p">[</span><span class="n">col_to_query</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">start</span><span class="p">:</span>
 				<span class="k">try</span><span class="p">:</span>
-					<span class="n">record</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
+					<span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
 				<span class="k">except</span><span class="p">:</span>
 					<span class="k">break</span>
 			<span class="k">if</span> <span class="n">record</span><span class="p">[</span><span class="n">col_to_query</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">start</span><span class="p">:</span>
@@ -2027,15 +1969,13 @@
 			<span class="n">id_start</span> <span class="o">=</span> <span class="n">primary_id</span>
 			<span class="k">while</span> <span class="n">record</span><span class="p">[</span><span class="n">col_to_query</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">:</span>
 				<span class="k">try</span><span class="p">:</span>
-					<span class="n">record</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
+					<span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
 					<span class="n">primary_id</span> <span class="o">+=</span> <span class="mi">1</span>
 				<span class="k">except</span><span class="p">:</span>
 					<span class="k">break</span>
 			<span class="n">id_end</span> <span class="o">=</span> <span class="n">primary_id</span>  <span class="c1"># ID for end position,should be included</span>
 			<span class="k">yield</span> <span class="p">[</span><span class="n">id_start</span><span class="p">,</span> <span class="n">id_end</span><span class="p">]</span></div>
 
-
-	<span class="c1"># return R</span>
 
 <div class="viewcode-block" id="Reader.query">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.query">[docs]</a>
@@ -2155,18 +2095,7 @@
 				<span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 				<span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 			<span class="k">else</span><span class="p">:</span>
-				<span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_query_regions</span><span class="p">(</span><span class="n">Regions</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-				<span class="n">record</span> <span class="o">=</span> <span class="n">records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span>
-				<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-					<span class="k">try</span><span class="p">:</span>
-						<span class="n">record</span> <span class="o">=</span> <span class="n">records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span>
-					<span class="k">except</span><span class="p">:</span>
-						<span class="k">break</span>
-					<span class="k">try</span><span class="p">:</span>
-						<span class="n">dims</span><span class="p">,</span> <span class="n">row</span> <span class="o">=</span> <span class="n">record</span>
-						<span class="k">yield</span> <span class="nb">list</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">row</span><span class="p">))</span>
-					<span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-						<span class="n">flag</span><span class="p">,</span> <span class="n">primary_id</span><span class="p">,</span> <span class="n">dim</span> <span class="o">=</span> <span class="n">record</span>
+				<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_query_iter</span><span class="p">(</span><span class="n">Regions</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 		<span class="k">else</span><span class="p">:</span>
 			<span class="n">reference</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">reference</span><span class="p">))</span>
 			<span class="n">ref_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
@@ -2199,31 +2128,49 @@
 				<span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 				<span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 			<span class="k">else</span><span class="p">:</span>
-				<span class="n">ref_records</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_query_regions</span><span class="p">(</span><span class="n">Regions</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-				<span class="n">ref_record</span> <span class="o">=</span> <span class="n">ref_records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span>  <span class="c1"># 1st should contain primary_id</span>
-				<span class="n">flag</span><span class="p">,</span> <span class="n">primary_id</span><span class="p">,</span> <span class="n">dim</span> <span class="o">=</span> <span class="n">ref_record</span>
-				<span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetchByStartID</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">primary_id</span><span class="p">)</span>
-				<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-					<span class="k">try</span><span class="p">:</span>
-						<span class="n">ref_record</span> <span class="o">=</span> <span class="n">ref_records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span>
-						<span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_byte2str</span><span class="p">(</span><span class="n">records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">())</span>
-					<span class="k">except</span><span class="p">:</span>
-						<span class="k">break</span>
-					<span class="k">try</span><span class="p">:</span>
-						<span class="n">dims</span><span class="p">,</span> <span class="n">row</span> <span class="o">=</span> <span class="n">ref_record</span>
-						<span class="n">rows</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_byte2str</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">+</span> <span class="n">record</span>
-						<span class="k">yield</span> <span class="nb">list</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">+</span> <span class="n">rows</span>
-					<span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1"># len(record) ==3: #&quot;primary_id_&amp;_dim:&quot;, primary_id, dim</span>
-						<span class="n">flag</span><span class="p">,</span> <span class="n">primary_id</span><span class="p">,</span> <span class="n">dim</span> <span class="o">=</span> <span class="n">ref_record</span>  <span class="c1"># next block or next dim</span>
-						<span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetchByStartID</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">primary_id</span><span class="p">)</span>
+				<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_query_iter_ref</span><span class="p">(</span><span class="n">Regions</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">ref_reader</span><span class="p">)</span>
 			<span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
+
+	<span class="k">def</span><span class="w"> </span><span class="nf">_query_iter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Regions</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
+		<span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_query_regions</span><span class="p">(</span><span class="n">Regions</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+		<span class="n">record</span> <span class="o">=</span> <span class="n">records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span>
+		<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+			<span class="k">try</span><span class="p">:</span>
+				<span class="n">record</span> <span class="o">=</span> <span class="n">records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span>
+			<span class="k">except</span><span class="p">:</span>
+				<span class="k">break</span>
+			<span class="k">try</span><span class="p">:</span>
+				<span class="n">dims</span><span class="p">,</span> <span class="n">row</span> <span class="o">=</span> <span class="n">record</span>
+				<span class="k">yield</span> <span class="nb">list</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_byte2real</span><span class="p">(</span><span class="n">row</span><span class="p">))</span>
+			<span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+				<span class="n">flag</span><span class="p">,</span> <span class="n">primary_id</span><span class="p">,</span> <span class="n">dim</span> <span class="o">=</span> <span class="n">record</span>
+
+	<span class="k">def</span><span class="w"> </span><span class="nf">_query_iter_ref</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Regions</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">ref_reader</span><span class="p">):</span>
+		<span class="n">ref_records</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_query_regions</span><span class="p">(</span><span class="n">Regions</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+		<span class="n">ref_record</span> <span class="o">=</span> <span class="n">ref_records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span>  <span class="c1"># 1st should contain primary_id</span>
+		<span class="n">flag</span><span class="p">,</span> <span class="n">primary_id</span><span class="p">,</span> <span class="n">dim</span> <span class="o">=</span> <span class="n">ref_record</span>
+		<span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetchByStartID</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">primary_id</span><span class="p">)</span>
+		<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+			<span class="k">try</span><span class="p">:</span>
+				<span class="n">ref_record</span> <span class="o">=</span> <span class="n">ref_records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span>
+				<span class="n">record</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_byte2str</span><span class="p">(</span><span class="n">records</span><span class="o">.</span><span class="fm">__next__</span><span class="p">())</span>
+			<span class="k">except</span><span class="p">:</span>
+				<span class="k">break</span>
+			<span class="k">try</span><span class="p">:</span>
+				<span class="n">dims</span><span class="p">,</span> <span class="n">row</span> <span class="o">=</span> <span class="n">ref_record</span>
+				<span class="n">rows</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_byte2str</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">+</span> <span class="n">record</span>
+				<span class="k">yield</span> <span class="nb">list</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">+</span> <span class="n">rows</span>
+			<span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1"># len(record) ==3: #&quot;primary_id_&amp;_dim:&quot;, primary_id, dim</span>
+				<span class="n">flag</span><span class="p">,</span> <span class="n">primary_id</span><span class="p">,</span> <span class="n">dim</span> <span class="o">=</span> <span class="n">ref_record</span>  <span class="c1"># next block or next dim</span>
+				<span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetchByStartID</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">primary_id</span><span class="p">)</span>
+		<span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
 	<span class="k">def</span><span class="w"> </span><span class="nf">_seek_and_read_1record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">virtual_offset</span><span class="p">):</span>
 		<span class="k">if</span> <span class="n">_c_seek_and_read_1record</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 			<span class="k">return</span> <span class="n">_c_seek_and_read_1record</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="p">,</span> <span class="n">virtual_offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">)</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">virtual_offset</span><span class="p">)</span>
-		<span class="k">return</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
+		<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct_obj</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">))</span>
 
 <div class="viewcode-block" id="Reader.tell">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.tell">[docs]</a>
@@ -2413,7 +2360,7 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">Writer</span><span class="p">:</span>
 	<span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;wb&quot;</span><span class="p">,</span> <span class="n">Formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="s1">&#39;H&#39;</span><span class="p">],</span>
 				 <span class="n">Columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mc&#39;</span><span class="p">,</span> <span class="s1">&#39;cov&#39;</span><span class="p">],</span> <span class="n">Dimensions</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">fileobj</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-				 <span class="n">message</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">delta_cols</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+				 <span class="n">message</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">		cytozip .cz writer.</span>
 
@@ -2442,10 +2389,6 @@
 <span class="sd">			compress level (default is 6)</span>
 <span class="sd">		verbose : int</span>
 <span class="sd">			whether to print debug information</span>
-<span class="sd">		delta_cols : list or None</span>
-<span class="sd">			list of column indices to delta-encode (e.g., [0] for position column).</span>
-<span class="sd">			When set, blocks are aligned to record boundaries,</span>
-<span class="sd">			and each block&#39;s first record stores absolute values.</span>
 <span class="sd">		&quot;&quot;&quot;</span>
 		<span class="k">if</span> <span class="n">Output</span> <span class="ow">and</span> <span class="n">fileobj</span><span class="p">:</span>
 			<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Supply either Output or fileobj, not both&quot;</span><span class="p">)</span>
@@ -2480,10 +2423,9 @@
 			<span class="bp">self</span><span class="o">.</span><span class="n">Dimensions</span> <span class="o">=</span> <span class="n">Dimensions</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
 		<span class="k">else</span><span class="p">:</span>
 			<span class="bp">self</span><span class="o">.</span><span class="n">Dimensions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Dimensions</span><span class="p">)</span>
-		<span class="bp">self</span><span class="o">.</span><span class="n">_magic_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_bcz_magic</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_magic_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_cz_magic</span><span class="p">)</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
-		<span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">delta_cols</span><span class="p">)</span> <span class="k">if</span> <span class="n">delta_cols</span> <span class="k">else</span> <span class="p">[]</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_chunk_index_entries</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># for writing chunk index at close</span>
 		<span class="k">if</span> <span class="s1">&#39;a&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mode</span><span class="p">:</span>
 			<span class="bp">self</span><span class="o">.</span><span class="n">write_header</span><span class="p">()</span>
@@ -2505,7 +2447,7 @@
 <span class="sd">		  first chunk.</span>
 <span class="sd">		&quot;&quot;&quot;</span>
 		<span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span>
-		<span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_magic_size</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">,</span> <span class="n">_bcz_magic</span><span class="p">))</span>  <span class="c1"># 5 bytes</span>
+		<span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_magic_size</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">,</span> <span class="n">_cz_magic</span><span class="p">))</span>  <span class="c1"># 4 bytes</span>
 		<span class="c1"># Convert version string (e.g. &quot;0.5.2&quot;) to float (0.52) for binary format</span>
 		<span class="k">try</span><span class="p">:</span>
 			<span class="n">_ver_parts</span> <span class="o">=</span> <span class="n">_version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
@@ -2539,60 +2481,24 @@
 		<span class="c1"># two element: new_dname_len (B) and new_dim, then go to</span>
 		<span class="c1"># _n_dim_offset,rewrite the n_dim (n_dim = n_dim + 1) and</span>
 		<span class="c1"># self.Dimensions.append(new_dim)</span>
-		<span class="c1"># write delta column mask (always present)</span>
-		<span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;B&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">)))</span>
-		<span class="k">for</span> <span class="n">col_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-			<span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;B&quot;</span><span class="p">,</span> <span class="n">col_idx</span><span class="p">))</span>
+		<span class="c1"># reserved byte (for format compatibility)</span>
+		<span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;B&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_header_size</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">tell</span><span class="p">()</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">fmts</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Formats</span><span class="p">))</span>
-		<span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">)</span>
-		<span class="c1"># Aligned block size: multiple of unit_size, &lt;= _BLOCK_MAX_LEN</span>
-		<span class="bp">self</span><span class="o">.</span><span class="n">_aligned_block_size</span> <span class="o">=</span> <span class="p">(</span><span class="n">_BLOCK_MAX_LEN</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span>
-		<span class="c1"># Build struct for delta encoding/decoding</span>
-		<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-			<span class="bp">self</span><span class="o">.</span><span class="n">_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-		<span class="k">else</span><span class="p">:</span>
-			<span class="bp">self</span><span class="o">.</span><span class="n">_struct</span> <span class="o">=</span> <span class="kc">None</span></div>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fmts</span><span class="p">)</span></div>
 
-
-	<span class="k">def</span><span class="w"> </span><span class="nf">_delta_encode_block</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">):</span>
-<span class="w">		</span><span class="sd">&quot;&quot;&quot;Delta-encode the marked columns within a block.</span>
-
-<span class="sd">		The first record is stored with absolute values.  For each</span>
-<span class="sd">		subsequent record, the delta-encoded columns store the</span>
-<span class="sd">		difference from the previous record.  This typically yields</span>
-<span class="sd">		much smaller values for sorted position columns, improving</span>
-<span class="sd">		the DEFLATE compression ratio.</span>
-<span class="sd">		&quot;&quot;&quot;</span>
-		<span class="n">st</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_struct</span>
-		<span class="n">n_records</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="p">)</span> <span class="o">//</span> <span class="n">st</span><span class="o">.</span><span class="n">size</span>
-		<span class="k">if</span> <span class="n">n_records</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
-			<span class="k">return</span> <span class="n">block</span>
-		<span class="n">records</span> <span class="o">=</span> <span class="p">[</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">i</span> <span class="o">*</span> <span class="n">st</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_records</span><span class="p">)]</span>
-		<span class="n">out</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="p">))</span>
-		<span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">*</span><span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># first record: absolute</span>
-		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_records</span><span class="p">):</span>
-			<span class="n">vals</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">records</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-			<span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-				<span class="n">vals</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">records</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">c</span><span class="p">]</span> <span class="o">-</span> <span class="n">records</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">c</span><span class="p">]</span>
-			<span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">i</span> <span class="o">*</span> <span class="n">st</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="o">*</span><span class="n">vals</span><span class="p">)</span>
-		<span class="k">return</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
 
 	<span class="k">def</span><span class="w"> </span><span class="nf">_write_block</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;Compress and write a single block of raw record data.</span>
 
 <span class="sd">		Steps:</span>
-<span class="sd">		  1. Optionally delta-encode the block.</span>
-<span class="sd">		  2. Compress with raw DEFLATE (via Cython or Python zlib).</span>
-<span class="sd">		  3. Write block header: magic (2B) + block_size (2B).</span>
-<span class="sd">		  4. Write compressed payload.</span>
-<span class="sd">		  5. Write uncompressed data length (2B) as trailer.</span>
-<span class="sd">		  6. Record the virtual offset of this block&#39;s first record in</span>
+<span class="sd">		  1. Compress with raw DEFLATE (via Cython or Python zlib).</span>
+<span class="sd">		  2. Write block header: magic (2B) + block_size (2B).</span>
+<span class="sd">		  3. Write compressed payload.</span>
+<span class="sd">		  4. Write uncompressed data length (2B) as trailer.</span>
+<span class="sd">		  5. Record the virtual offset of this block&#39;s first record in</span>
 <span class="sd">		     ``self._block_1st_record_virtual_offsets`` for the chunk index.</span>
 <span class="sd">		&quot;&quot;&quot;</span>
-		<span class="c1"># Apply delta encoding if configured</span>
-		<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">:</span>
-			<span class="n">block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_encode_block</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
 		<span class="c1"># Use Cython-accelerated compressor if available, otherwise fall back</span>
 		<span class="c1"># to the pure-Python zlib.compressobj route.</span>
 		<span class="k">if</span> <span class="n">_c_compress_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -2614,13 +2520,9 @@
 		<span class="n">uncompressed_length</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;H&quot;</span><span class="p">,</span> <span class="n">data_len</span><span class="p">)</span>  <span class="c1"># 2 bytes</span>
 		<span class="n">data</span> <span class="o">=</span> <span class="n">_block_magic</span> <span class="o">+</span> <span class="n">bsize</span> <span class="o">+</span> <span class="n">compressed</span> <span class="o">+</span> <span class="n">uncompressed_length</span>
 		<span class="n">block_start_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">tell</span><span class="p">()</span>
-		<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span><span class="p">:</span>
-			<span class="c1"># Blocks are aligned to record boundaries, so within_block_offset = 0</span>
-			<span class="n">within_block_offset</span> <span class="o">=</span> <span class="mi">0</span>
-		<span class="k">else</span><span class="p">:</span>
-			<span class="n">within_block_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
-				<span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chunk_data_len</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span>
-				<span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_data_len</span><span class="p">)</span>
+		<span class="n">within_block_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+			<span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chunk_data_len</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unit_size</span>
+			<span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_data_len</span><span class="p">)</span>
 		<span class="n">virtual_offset</span> <span class="o">=</span> <span class="p">(</span><span class="n">block_start_offset</span> <span class="o">&lt;&lt;</span> <span class="mi">16</span><span class="p">)</span> <span class="o">|</span> <span class="n">within_block_offset</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_block_1st_record_virtual_offsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">virtual_offset</span><span class="p">)</span>
 		<span class="c1"># _block_offsets are real position on disk, not a virtual offset</span>
@@ -2689,8 +2591,7 @@
 <span class="sd">		If *dims* differs from the previously written chunk&#39;s dims, the</span>
 <span class="sd">		previous chunk is finalized (flushed) and a new chunk header is</span>
 <span class="sd">		started.  Data is buffered internally and split into blocks of</span>
-<span class="sd">		at most ``_BLOCK_MAX_LEN`` (or ``_aligned_block_size`` when</span>
-<span class="sd">		delta-encoding is active).</span>
+<span class="sd">		at most ``_BLOCK_MAX_LEN``.</span>
 
 <span class="sd">		Parameters</span>
 <span class="sd">		----------</span>
@@ -2722,10 +2623,9 @@
 			<span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">+=</span> <span class="n">data</span>
 		<span class="k">else</span><span class="p">:</span>
 			<span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">+=</span> <span class="n">data</span>
-			<span class="n">block_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aligned_block_size</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span> <span class="k">else</span> <span class="n">_BLOCK_MAX_LEN</span>
-			<span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">block_size</span><span class="p">:</span>
-				<span class="bp">self</span><span class="o">.</span><span class="n">_write_block</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:</span><span class="n">block_size</span><span class="p">])</span>
-				<span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="n">block_size</span><span class="p">:]</span></div>
+			<span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">_BLOCK_MAX_LEN</span><span class="p">:</span>
+				<span class="bp">self</span><span class="o">.</span><span class="n">_write_block</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:</span><span class="n">_BLOCK_MAX_LEN</span><span class="p">])</span>
+				<span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="n">_BLOCK_MAX_LEN</span><span class="p">:]</span></div>
 
 
 	<span class="k">def</span><span class="w"> </span><span class="nf">_parse_input_no_ref</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_handle</span><span class="p">):</span>
@@ -2974,16 +2874,13 @@
 				<span class="c1"># self._handle.write(reader._handle.read(end_offset - start_offset))</span>
 				<span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">chunk_size</span> <span class="o">+</span> <span class="mi">16</span><span class="p">))</span>
 				<span class="c1"># modify the chunk_black_1st_record_virtual_offsets</span>
-				<span class="k">if</span> <span class="n">_c_adjust_virtual_offsets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-					<span class="n">new_block_1st_record_vof</span> <span class="o">=</span> <span class="n">_c_adjust_virtual_offsets</span><span class="p">(</span><span class="n">delta_offset</span><span class="p">,</span> <span class="n">b1str_virtual_offsets</span><span class="p">)</span>
-				<span class="k">else</span><span class="p">:</span>
-					<span class="n">new_block_1st_record_vof</span> <span class="o">=</span> <span class="p">[]</span>
-					<span class="k">for</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">b1str_virtual_offsets</span><span class="p">:</span>
-						<span class="n">block_offset</span><span class="p">,</span> <span class="n">within_block_offset</span> <span class="o">=</span> <span class="n">split_virtual_offset</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
-						<span class="n">new_block_offset</span> <span class="o">=</span> <span class="n">delta_offset</span> <span class="o">+</span> <span class="n">block_offset</span>
-						<span class="n">new_1st_rd_vof</span> <span class="o">=</span> <span class="n">make_virtual_offset</span><span class="p">(</span><span class="n">new_block_offset</span><span class="p">,</span>
-								 <span class="n">within_block_offset</span><span class="p">)</span>
-						<span class="n">new_block_1st_record_vof</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_1st_rd_vof</span><span class="p">)</span>
+				<span class="n">new_block_1st_record_vof</span> <span class="o">=</span> <span class="p">[]</span>
+				<span class="k">for</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">b1str_virtual_offsets</span><span class="p">:</span>
+					<span class="n">block_offset</span><span class="p">,</span> <span class="n">within_block_offset</span> <span class="o">=</span> <span class="n">split_virtual_offset</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+					<span class="n">new_block_offset</span> <span class="o">=</span> <span class="n">delta_offset</span> <span class="o">+</span> <span class="n">block_offset</span>
+					<span class="n">new_1st_rd_vof</span> <span class="o">=</span> <span class="n">make_virtual_offset</span><span class="p">(</span><span class="n">new_block_offset</span><span class="p">,</span>
+							 <span class="n">within_block_offset</span><span class="p">)</span>
+					<span class="n">new_block_1st_record_vof</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_1st_rd_vof</span><span class="p">)</span>
 				<span class="c1"># write new_block_1st_record_vof</span>
 				<span class="k">for</span> <span class="n">block_offset</span> <span class="ow">in</span> <span class="n">new_block_1st_record_vof</span><span class="p">:</span>
 					<span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;Q&quot;</span><span class="p">,</span> <span class="n">block_offset</span><span class="p">))</span>
@@ -3007,10 +2904,9 @@
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Writer.flush">[docs]</a>
 	<span class="k">def</span><span class="w"> </span><span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;Flush data explicitally.&quot;&quot;&quot;</span>
-		<span class="n">block_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aligned_block_size</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delta_cols</span> <span class="k">else</span> <span class="n">_BLOCK_MAX_LEN</span>
-		<span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">block_size</span><span class="p">:</span>
-			<span class="bp">self</span><span class="o">.</span><span class="n">_write_block</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:</span><span class="n">block_size</span><span class="p">])</span>
-			<span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="n">block_size</span><span class="p">:]</span>
+		<span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">_BLOCK_MAX_LEN</span><span class="p">:</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">_write_block</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:</span><span class="n">_BLOCK_MAX_LEN</span><span class="p">])</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="n">_BLOCK_MAX_LEN</span><span class="p">:]</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_write_block</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">)</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_chunk_finished</span><span class="p">()</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
@@ -3067,7 +2963,7 @@
 		<span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_magic_size</span> <span class="o">+</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># magic and version</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;Q&quot;</span><span class="p">,</span> <span class="n">cur_offset</span><span class="p">))</span>  <span class="c1"># real offset.</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">cur_offset</span><span class="p">)</span>
-		<span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">_bcz_eof</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">_cz_eof</span><span class="p">)</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
