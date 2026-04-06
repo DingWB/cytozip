@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools_scm", "cython", 'pandas', 'fire', 'numpy', "pysam",
+    'biopython']
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_scheme = "release-branch-semver" #"guess-next-dev"
+local_scheme = "no-local-version"
+write_to = 'cytozip/_version.py'
+
+[project]
+name = "cytozip"
+dynamic = ["version"]
+dependencies = ['pandas', 'fire', 'numpy', 'cython', 'fast-fisher']
+authors = [
+  { name="Wubin Ding", email="ding.wu.bin.gm@gmail.com" },
+]
+description = "cytozip: Chunk based ZIP for cytosine data"
+keywords = ["zip", "methylation",'cytosine','allc']
+readme = "README.md"
+requires-python = ">=3.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+license = {file = "LICENSE"}
+
+[project.scripts]
+czip="cytozip:main"
+
+[project.urls]
+"Homepage" = "https://github.com/DingWB/cytozip"
+repository = "https://github.com/DingWB/cytozip"
+"Bug Tracker" = "https://github.com/DingWB/cytozip/issues"
+documentation = "https://dingwb.github.io/cytozip"

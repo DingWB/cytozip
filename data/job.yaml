@@ -1,0 +1,28 @@
+name: allc2mz
+workdir: "."
+num_nodes: 10
+resources:
+  cloud: gcp
+  region: us-west1
+  instance_type: n1-highcpu-96
+  #  use_spot: True
+  disk_size: 250
+  disk_tier: 'medium'
+  image_id: projects/ecker-wding/global/images/myimage
+
+file_mounts:
+  ~/bmzip: ~/Projects/Github/bmzip
+  ~/MySnakemake: ~/MySnakemake
+
+setup: |
+  conda activate yap && cd ~/bmzip && python setup.py install
+
+run: |
+  conda activate base
+  bmzip copy_smk -o allc2mz.smk
+  #gsutil ls gs://mouse_pfc/allc/*.gz > allc.path.tsv
+  #split -n l/10 -d allc.path.tsv allc.path.
+  echo "SkypilotNode: $SKYPILOT_NODE_RANK"
+  echo "SkypilotNode: $SKYPILOT_NODE_RANK" > node
+  snakemake --use-conda --printshellcmds -s ~/MySnakemake/workflow/rules/extractCG.smk --config indir=allc files_path=allc.path".0$SKYPILOT_NODE_RANK" outdir=allc-CGN chrom=mm10_ucsc.nochrM.sizes chrom_prefix=gs://wubin_ref/mm10 gcp=True --default-remote-prefix mouse_pfc --default-remote-provider GS --google-lifesciences-region us-west1 --scheduler greedy -j 96
+  #--batch target_all=1/2 --immediate-submit --notemp
