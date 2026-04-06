@@ -1,0 +1,57 @@
+# This workflow will upload a Python Package using Twine when a release is created
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: Upload Python Package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Fetch tags
+      run: |
+        git fetch --tags --force
+        echo "Git tags found:"
+        git tag -l
+        echo "Git describe:"
+        git describe --tags --long || echo "git describe failed"
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: |
+        sudo apt-get install -y libbz2-dev liblzma-dev libcurl4-openssl-dev zlib1g-dev
+        python -m pip install --upgrade pip
+        pip install build setuptools setuptools_scm cython numpy
+    - name: Build package
+      run: |
+        rm -rf dist/
+        python -m build --sdist
+        echo "Built packages:"
+        ls -la dist/
+        echo "Version detected by setuptools_scm:"
+        python -c "from setuptools_scm import get_version; print(get_version())"
+    - name: Publish package
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        verbose: true
+        skip-existing: true
