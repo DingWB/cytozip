@@ -6,7 +6,7 @@ allc.py — DNA methylation-specific tools built on top of the cytozip format.
 This module provides:
   - AllC:  Extract all C (cytosine) positions from a reference genome
            and store them as a .cz coordinate file.
-  - bed2cz:  Convert allc.tsv.gz (tabix-indexed) to .cz format,
+  - allc2cz:  Convert allc.tsv.gz (tabix-indexed) to .cz format,
              optionally using a reference .cz for coordinate alignment.
   - generate_ssi1 / generate_ssi2:  Build subset indexes (SSI) for
              pattern matching (CpG, CpH) or genomic region lookup.
@@ -20,17 +20,14 @@ This module provides:
 @author: DingWB
 """
 import itertools
+import os
 import sys
-import os, sys
 import struct
-import pandas as pd
-import pysam
 import multiprocessing
-from Bio import SeqIO
-import numpy as np
 import math
 from .cz import (Reader, Writer, get_dtfuncs,
-                 _BLOCK_MAX_LEN, _chunk_magic)
+                 _BLOCK_MAX_LEN, _chunk_magic,
+                 np, pd)
 from .cz import _c_pack_records_fast as _c_pack_records_fast, _c_pack_records as _c_pack_records
 from .cz import _c_write_c_records as _c_write_c_records
 
@@ -100,14 +97,16 @@ def WriteC(record, outdir, chunksize=5000):
             if writer._pack_records is not None:
                 data = writer._pack_records(rows_buf, writer.fmts)
             else:
-                data = b''.join(struct.pack(writer.fmts, *r) for r in rows_buf)
+                st = struct.Struct(writer.fmts)
+                data = b''.join(st.pack(*r) for r in rows_buf)
             writer.write_chunk(data, [chrom])
             rows_buf = []
     if len(rows_buf) > 0:
         if writer._pack_records is not None:
             data = writer._pack_records(rows_buf, writer.fmts)
         else:
-            data = b''.join(struct.pack(writer.fmts, *r) for r in rows_buf)
+            st = struct.Struct(writer.fmts)
+            data = b''.join(st.pack(*r) for r in rows_buf)
         writer.write_chunk(data, [chrom])
     writer.close()
 
@@ -137,6 +136,7 @@ class AllC:
         if not os.path.exists(self.outdir):
             os.mkdir(self.outdir)
         self.pattern=pattern
+        from Bio import SeqIO
         self.records = SeqIO.parse(self.genome, "fasta")
         self.n_jobs = n_jobs if not n_jobs is None else os.cpu_count()
         self.keep_temp = keep_temp
@@ -169,7 +169,7 @@ class AllC:
 
 # ---------------------------------------------------------------------------
 # Struct format -> numpy dtype mapping for fast vectorized packing.
-# Used by bed2cz and merge_cz when all columns are numeric.
+# Used by allc2cz and merge_cz when all columns are numeric.
 # ---------------------------------------------------------------------------
 _STRUCT_TO_NP_DTYPE = {
     'B': '<u1', 'b': '<i1',
@@ -240,7 +240,7 @@ def _parse_tabix_lines(lines, cols, np_dtypes, sep='\t'):
     return [df[c].values for c in cols]
 
 
-def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
+def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
            formats=['B', 'B'], columns=['mc', 'cov'], dimensions=['chrom'],
            usecols=[4, 5], pr=0, pa=1, sep='\t', path_to_chrom=None,
            chunksize=5000):
@@ -291,6 +291,7 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
     if not os.path.exists(allc_path + '.tbi'):
         raise ValueError(f"index file .tbi not existed, please create index first.")
     print(allc_path)
+    import pysam
     tbi = pysam.TabixFile(allc_path)
     contigs = tbi.contigs
     if not path_to_chrom is None:
@@ -582,13 +583,15 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         r = reader1._load_chunk(reader1.dim2chunk_start[dim], jump=False)
         block_start_offset = reader1._chunk_block_1st_record_virtual_offsets[
                                  block_idx_start] >> 16
-        buffer = b''
+        buf_parts = []
         for i in range(batch_nblock):
             reader1._load_block(start_offset=block_start_offset)
-            buffer += reader1._buffer
+            buf_parts.append(reader1._buffer)
             block_start_offset = None
-        values = np.array([result[:2] for result in struct.iter_unpack(
-            f"<{reader1.fmts}", buffer)])  # values for batch_nblock (23) blocks
+        buffer = b''.join(buf_parts)
+        st_unpack = struct.Struct(f"<{reader1.fmts}")
+        values = np.array([result[:2] for result in st_unpack.iter_unpack(
+            buffer)])  # values for batch_nblock (23) blocks
         if formats == 'fraction':
             values = np.array([[0] if v[1] == 0 else ['%.3g' % (v[0] / v[1])] for v in values])
         if data is None:
@@ -618,17 +621,17 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
                      columns=reader1.header['columns'],
                      dimensions=reader1.header['dimensions'][:1],
                      message=outfile_cat)
-    byte_data, i = b'', 0
+    data_parts, i = [], 0
     dtfuncs = get_dtfuncs(writer1.formats)
     for values in data.tolist():
-        byte_data += struct.pack(f"<{writer1.fmts}",
-                                 *[func(v) for v, func in zip(values, dtfuncs)])
+        data_parts.append(struct.pack(f"<{writer1.fmts}",
+                                 *[func(v) for v, func in zip(values, dtfuncs)]))
         i += 1
         if i > chunksize:
-            writer1.write_chunk(byte_data, [chrom])
-            byte_data, i = b'', 0
-    if len(byte_data) > 0:
-        writer1.write_chunk(byte_data, [chrom])
+            writer1.write_chunk(b''.join(data_parts), [chrom])
+            data_parts, i = [], 0
+    if len(data_parts) > 0:
+        writer1.write_chunk(b''.join(data_parts), [chrom])
     writer1.close()
     reader1.close()
     # print(chrom, block_idx_start, "done", "\t" * 8, end='\r')
@@ -802,16 +805,16 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
                 reader = Reader(infile)
                 reader._load_chunk(reader.header['header_size'])
                 block_start_offset = reader._chunk_start_offset + 10
-                writer._buffer = b''
+                writer._buffer = bytearray()
                 for i in range(reader._chunk_nblocks):
                     reader._load_block(start_offset=block_start_offset)  #
                     if len(writer._buffer) + len(reader._buffer) < _BLOCK_MAX_LEN:
-                        writer._buffer += reader._buffer
+                        writer._buffer.extend(reader._buffer)
                     else:
-                        writer._buffer += reader._buffer
+                        writer._buffer.extend(reader._buffer)
                         while len(writer._buffer) >= _BLOCK_MAX_LEN:
-                            writer._write_block(writer._buffer[:_BLOCK_MAX_LEN])
-                            writer._buffer = writer._buffer[_BLOCK_MAX_LEN:]
+                            writer._write_block(bytes(writer._buffer[:_BLOCK_MAX_LEN]))
+                            del writer._buffer[:_BLOCK_MAX_LEN]
                     block_start_offset = None
                 reader.close()
                 block_idx_start += batch_nblock
@@ -949,7 +952,7 @@ def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
         if len(IDs.shape) != 1:
             raise ValueError("Only support 1D ssi now!")
         records = reader._getRecordsByIds(dim, IDs)
-        data, count = b'', 0
+        data_parts, count = [], 0
         # for CG, if pos is forward (+), then pos+1 is reverse strand (-)
         if merge_cg:
             for i, record in enumerate(records):  # unpacked bytes
@@ -958,21 +961,21 @@ def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
                 else:
                     v1 = struct.unpack(f"<{reader.fmts}", record)
                     values = [r1 + r2 for r1, r2 in zip(v0, v1)]
-                    data += struct.pack(writer.fmts,
-                                        *[func(v) for v, func in zip(values, dtfuncs)])
+                    data_parts.append(struct.pack(writer.fmts,
+                                        *[func(v) for v, func in zip(values, dtfuncs)]))
                     count += 1
                 if count > chunksize:
-                    writer.write_chunk(data, dim)
-                    data, count = b'', 0
+                    writer.write_chunk(b''.join(data_parts), dim)
+                    data_parts, count = [], 0
         else:
             for record in records:  # unpacked bytes
-                data += record
+                data_parts.append(record)
                 count += 1
                 if count > chunksize:
-                    writer.write_chunk(data, dim)
-                    data, count = b'', 0
-        if len(data) > 0:
-            writer.write_chunk(data, dim)
+                    writer.write_chunk(b''.join(data_parts), dim)
+                    data_parts, count = [], 0
+        if len(data_parts) > 0:
+            writer.write_chunk(b''.join(data_parts), dim)
     writer.close()
     reader.close()
     ssi_reader.close()
@@ -1019,25 +1022,35 @@ def aggregate(input=None, outfile=None, ssi=None, intersect=None, exclude=None,
         #     records = reader._getRecordsByIds(dim, IDs)
         assert len(IDs.shape) == 2
         records = reader._getRecordsByIdRegions(dim=dim, IDs=IDs)
-        data, count = b'', 0
+        data_parts, count = [], 0
+        st_reader = struct.Struct(f"<{reader.fmts}")
+        st_writer = struct.Struct(f"<{writer.fmts}")
+        agg_dtype = np.dtype(
+            [(f'f{i}', _fmt_to_np_dtype(f[-1])) for i, f in enumerate(reader.header['formats'])])
+        n_fields = len(reader.header['formats'])
         for record in records:  # unpacked bytes, many values, zip with names
             # record is an array, nrows, two columns (mc and cov)
-            sum_v = np.array([0, 0])
-            for r in record:  # for every C in a gene region
-                sum_v += np.array(struct.unpack(f"<{reader.fmts}", r))
-            data += struct.pack(f"<{writer.fmts}",
-                                *[func(v) for v, func in zip(sum_v, dtfuncs)])
+            # Bulk unpack all records in one pass and sum via numpy
+            if record:
+                raw = b''.join(record)
+                arr = np.frombuffer(raw, dtype=agg_dtype)
+                sum_v = tuple(int(arr[f'f{i}'].sum()) for i in range(n_fields))
+            else:
+                sum_v = tuple(0 for _ in reader.header['formats'])
+            data_parts.append(st_writer.pack(
+                *[func(v) for v, func in zip(sum_v, dtfuncs)]))
             count += 1
             if count > chunksize:
-                writer.write_chunk(data, dim)
-                data, count = b'', 0
-        if len(data) > 0:
-            writer.write_chunk(data, dim)
+                writer.write_chunk(b''.join(data_parts), dim)
+                data_parts, count = [], 0
+        if len(data_parts) > 0:
+            writer.write_chunk(b''.join(data_parts), dim)
     writer.close()
     reader.close()
     ssi_reader.close()
 
 def __split_mat(infile, chrom, snames, outdir, n_ref):
+    import pysam
     tbi = pysam.TabixFile(infile)
     records = tbi.fetch(reference=chrom)
     N = n_ref + len(snames) * 2
@@ -1107,6 +1120,7 @@ def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
         os.mkdir(outdir)
     columns = pd.read_csv(infile, sep='\t', nrows=1).columns.tolist()
     snames = [col[:-5] for col in columns[4:] if col.endswith('.pval')]
+    import pysam
     tbi = pysam.TabixFile(infile)
     chroms = sorted(tbi.contigs)
     tbi.close()
@@ -1235,7 +1249,5 @@ def annot_dmr(input="merged_dmr.txt", matrix="merged_dmr.cell_class.beta.txt",
                    sep='\t', index=False)
 
 if __name__ == "__main__":
-    import fire
-
-    fire.core.Display = lambda lines, out: print(*lines, file=out)
-    fire.Fire()
+    from cytozip import main
+    main()

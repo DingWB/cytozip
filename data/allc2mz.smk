@@ -117,5 +117,5 @@ rule run_allc2mz:
 
     shell:
         """
-        cytozip bed2cz {input.allc_file} {output} {params.reference} {params.chrom}
+        cytozip allc2cz {input.allc_file} {output} {params.reference} {params.chrom}
         """
