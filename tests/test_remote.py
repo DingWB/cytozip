@@ -81,8 +81,8 @@ class TestRemoteReader(unittest.TestCase):
                        formats=["Q", "H", "H"], columns=["pos", "mc", "cov"]):
         path = os.path.join(self.tmpdir, filename)
         data = b"".join(struct.pack(f"<{fmt}", *r) for r in records)
-        w = Writer(Output=path, Formats=formats, Columns=columns,
-                   Dimensions=["chrom"])
+        w = Writer(output=path, formats=formats, columns=columns,
+                   dimensions=["chrom"])
         w.write_chunk(data, ["chr1"])
         w.close()
         return path
@@ -147,8 +147,8 @@ class TestRemoteReader(unittest.TestCase):
         """Remote reading with multiple chunks."""
         path = os.path.join(self.tmpdir, "multi.cz")
         fmt = "QHH"
-        w = Writer(Output=path, Formats=["Q", "H", "H"],
-                   Columns=["pos", "mc", "cov"], Dimensions=["chrom"])
+        w = Writer(output=path, formats=["Q", "H", "H"],
+                   columns=["pos", "mc", "cov"], dimensions=["chrom"])
         chr1 = [(100, 1, 5), (200, 2, 10)]
         chr2 = [(50, 3, 15), (300, 4, 20), (500, 5, 25)]
         w.write_chunk(b"".join(struct.pack(f"<{fmt}", *r) for r in chr1), ["chr1"])
@@ -186,7 +186,7 @@ class TestRemoteReader(unittest.TestCase):
         self._write_test_cz("query.cz", records)
         url = f"{self.base_url}/query.cz"
         r = Reader.from_url(url)
-        got = list(r.query(Dimension="chr1", start=200, end=400,
+        got = list(r.query(dimension="chr1", start=200, end=400,
                            query_col=[0], printout=False))
         # query returns records where record[s] >= start and record[e] <= end
         # Records with pos 200, 300 should match (pos >= 200 and pos <= 400)

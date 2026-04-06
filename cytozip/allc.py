@@ -46,7 +46,7 @@ def WriteC(record, outdir, chunksize=5000):
     record : Bio.SeqRecord.SeqRecord
         A BioPython sequence record (chromosome)
     outdir : str
-        Output directory path
+        output directory path
     chunksize : int
         Number of records per chunk (default: 5000)
     """
@@ -56,9 +56,9 @@ def WriteC(record, outdir, chunksize=5000):
         print(f"{outfile} existed, skip.")
         return None
     print(chrom)
-    writer = Writer(outfile, Formats=['Q', 'c', '3s'],
-                    Columns=['pos', 'strand', 'context'],
-                    Dimensions=['chrom'])
+    writer = Writer(outfile, formats=['Q', 'c', '3s'],
+                    columns=['pos', 'strand', 'context'],
+                    dimensions=['chrom'])
     
     # Use Cython-accelerated version if available
     if _c_write_c_records is not None: # 10 times faster than pure Python
@@ -71,11 +71,11 @@ def WriteC(record, outdir, chunksize=5000):
         return
     
     # Fallback to pure Python implementation
-    dtfuncs = get_dtfuncs(writer.Formats)
-    N = record.seq.__len__()
+    dtfuncs = get_dtfuncs(writer.formats)
+    seq_length = len(record.seq)
     rows_buf = []
     data = b''
-    for i in range(N):  # 0-based
+    for i in range(seq_length):  # 0-based
         base = record.seq[i:i + 1].upper()
         if base.__str__() == 'C':  # forward strand
             context = record.seq[i: i + 3].upper().__str__()  # pos, left l1 base pair and right l2 base pair
@@ -85,31 +85,27 @@ def WriteC(record, outdir, chunksize=5000):
             strand = '-'
         else:
             continue
-        L = len(context)
-        if L < 3:
-            if L == 0:
+        context_len = len(context)
+        if context_len < 3:
+            if context_len == 0:
                 context = "CNN"
             else:
-                context = context + 'N' * (3 - L)
+                context = context + 'N' * (3 - context_len)
 
         # f.write(f"{chrom}\t{i}\t{i + 1}\t{context}\t{strand}\n")
         values = [func(v) for v, func in zip([i + 1, strand, context], dtfuncs)]
         rows_buf.append(values)
         # position is 0-based (start) 1-based (end position, i+1)
         if (i % chunksize == 0 and len(rows_buf) > 0):
-            if _c_pack_records_fast is not None:
-                data = _c_pack_records_fast(rows_buf, writer.fmts)
-            elif _c_pack_records is not None:
-                data = _c_pack_records(rows_buf, writer.fmts)
+            if writer._pack_records is not None:
+                data = writer._pack_records(rows_buf, writer.fmts)
             else:
                 data = b''.join(struct.pack(writer.fmts, *r) for r in rows_buf)
             writer.write_chunk(data, [chrom])
             rows_buf = []
     if len(rows_buf) > 0:
-        if _c_pack_records_fast is not None:
-            data = _c_pack_records_fast(rows_buf, writer.fmts)
-        elif _c_pack_records is not None:
-            data = _c_pack_records(rows_buf, writer.fmts)
+        if writer._pack_records is not None:
+            data = writer._pack_records(rows_buf, writer.fmts)
         else:
             data = b''.join(struct.pack(writer.fmts, *r) for r in rows_buf)
         writer.write_chunk(data, [chrom])
@@ -118,7 +114,7 @@ def WriteC(record, outdir, chunksize=5000):
 
 # ==========================================================
 class AllC:
-    def __init__(self, Genome=None, Output="hg38_allc.cz",
+    def __init__(self, genome=None, output="hg38_allc.cz",
                  pattern="C", n_jobs=12, keep_temp=False):
         """
         Extract position of specific pattern in the reference genome, for example C.
@@ -135,9 +131,9 @@ class AllC:
         n_jobs: int
             number of CPU used for Pool.
         """
-        self.genome=os.path.abspath(os.path.expanduser(Genome))
-        self.Output=os.path.abspath(os.path.expanduser(Output))
-        self.outdir=self.Output+'.tmp'
+        self.genome=os.path.abspath(os.path.expanduser(genome))
+        self.output=os.path.abspath(os.path.expanduser(output))
+        self.outdir=self.output+'.tmp'
         if not os.path.exists(self.outdir):
             os.mkdir(self.outdir)
         self.pattern=pattern
@@ -159,10 +155,10 @@ class AllC:
         pool.join()
 
     def merge(self):
-        writer = Writer(Output=self.Output, Formats=['Q', 'c', '3s'],
-                        Columns=['pos', 'strand', 'context'],
-                        Dimensions=['chrom'], message=self.genome)
-        writer.catcz(Input=f"{self.outdir}/*.cz")
+        writer = Writer(output=self.output, formats=['Q', 'c', '3s'],
+                        columns=['pos', 'strand', 'context'],
+                        dimensions=['chrom'], message=self.genome)
+        writer.catcz(input=f"{self.outdir}/*.cz")
 
     def run(self):
         self.writePattern()
@@ -198,10 +194,8 @@ def _pack_chunk_data(rows_buf, writer):
     """Pack a list of row tuples into binary bytes using the fastest
     available method (Cython fast > Cython > pure Python struct.pack).
     """
-    if _c_pack_records_fast is not None:
-        return _c_pack_records_fast(rows_buf, writer.fmts)
-    elif _c_pack_records is not None:
-        return _c_pack_records(rows_buf, writer.fmts)
+    if writer._pack_records is not None:
+        return writer._pack_records(rows_buf, writer.fmts)
     else:
         return b''.join(struct.pack(f"<{writer.fmts}", *r) for r in rows_buf)
 
@@ -247,8 +241,8 @@ def _parse_tabix_lines(lines, cols, np_dtypes, sep='\t'):
 
 
 def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
-           Formats=['B', 'B'], Columns=['mc', 'cov'], Dimensions=['chrom'],
-           usecols=[4, 5], pr=0, pa=1, sep='\t', Path_to_chrom=None,
+           formats=['B', 'B'], columns=['mc', 'cov'], dimensions=['chrom'],
+           usecols=[4, 5], pr=0, pa=1, sep='\t', path_to_chrom=None,
            chunksize=5000):
     """
     convert allc.tsv.gz to .cz file.
@@ -261,16 +255,16 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
         output .cz file
     reference : path
         path to reference coordinates.
-    Formats: list
+    formats: list
         When reference is provided, we only need to pack mc and cov,
         ['H', 'H'] is suggested (H is unsigned short integer, only 2 bytes),
         if reference is not provided, we also need to pack position (Q is
-        recommanded), in this case, Formats should be ['Q','H','H'].
-    Columns: list
-        Columns names, in default is ['mc','cov'] (reference is provided), if no
+        recommanded), in this case, formats should be ['Q','H','H'].
+    columns: list
+        columns names, in default is ['mc','cov'] (reference is provided), if no
         referene provided, one should use ['pos','mc','cov'].
-    Dimensions: list
-        Dimensions passed to cytozip.Writer, dimension name, for allc file, dimension
+    dimensions: list
+        dimensions passed to cytozip.Writer, dimension name, for allc file, dimension
         is chrom.
     usecols: list
         default is [4, 5], for a typical .allc.tsv.gz, if no reference is provided,
@@ -282,7 +276,7 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
         index of position column in input input or bed column.
     chunksize : int
         default is 5000
-    Path_to_chrom : path
+    path_to_chrom : path
         path to chrom_size path or similar file containing chromosomes order,
         the first columns should be chromosomes, tab separated and no header.
 
@@ -299,9 +293,9 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
     print(allc_path)
     tbi = pysam.TabixFile(allc_path)
     contigs = tbi.contigs
-    if not Path_to_chrom is None:
-        Path_to_chrom = os.path.abspath(os.path.expanduser(Path_to_chrom))
-        df = pd.read_csv(Path_to_chrom, sep='\t', header=None, usecols=[0])
+    if not path_to_chrom is None:
+        path_to_chrom = os.path.abspath(os.path.expanduser(path_to_chrom))
+        df = pd.read_csv(path_to_chrom, sep='\t', header=None, usecols=[0])
         chroms = df.iloc[:, 0].tolist()
         all_chroms = [c for c in chroms if c in contigs]
     else:
@@ -311,23 +305,23 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
         message = os.path.basename(reference)
     else:
         message = ''
-    writer = Writer(outfile, Formats=Formats, Columns=Columns,
-                    Dimensions=Dimensions, message=message)
+    writer = Writer(outfile, formats=formats, columns=columns,
+                    dimensions=dimensions, message=message)
     unit_size = writer._unit_size
-    use_numpy = _all_numeric_formats(Formats)  # use vectorized numpy path if all columns are numeric
+    use_numpy = _all_numeric_formats(formats)  # use vectorized numpy path if all columns are numeric
 
     if not reference is None:
         ref_reader = Reader(reference)
         # Build a numpy structured dtype from the reference file's column
         # formats so we can bulk-read reference positions via np.frombuffer
         # instead of iterating record-by-record in Python.
-        ref_fmts = ref_reader.header['Formats']
+        ref_fmts = ref_reader.header['formats']
         ref_record_dtype = np.dtype(
             [(f'c{i}', _fmt_to_np_dtype(f[-1]) if _fmt_to_np_dtype(f[-1]) else f'S{struct.calcsize(f)}')
              for i, f in enumerate(ref_fmts)]
         )
         if use_numpy:
-            np_dtypes = [_fmt_to_np_dtype(f[-1]) for f in Formats]
+            np_dtypes = [_fmt_to_np_dtype(f[-1]) for f in formats]
             # Build a structured dtype matching the Writer's struct layout
             # so packed output bytes are directly compatible.
             struct_dtype = np.dtype([(f'f{i}', dt) for i, dt in enumerate(np_dtypes)])
@@ -371,7 +365,7 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
                 _write_np_chunks(writer, out, chrom, chunksize, unit_size)
         else:
             # Fallback: non-numeric formats, use original per-row logic
-            dtfuncs = get_dtfuncs(Formats, tobytes=False)
+            dtfuncs = get_dtfuncs(formats, tobytes=False)
             for chrom in all_chroms:
                 ref_positions = ref_reader.__fetch__(tuple([chrom]), s=pr, e=pr + 1)
                 records = tbi.fetch(chrom)
@@ -413,7 +407,7 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
         ref_reader.close()
     else:
         if use_numpy:
-            np_dtypes = [_fmt_to_np_dtype(f[-1]) for f in Formats]
+            np_dtypes = [_fmt_to_np_dtype(f[-1]) for f in formats]
             struct_dtype = np.dtype([(f'f{i}', dt) for i, dt in enumerate(np_dtypes)])
             for chrom in all_chroms:
                 lines = list(tbi.fetch(chrom))
@@ -427,7 +421,7 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
                     out[f'f{ci}'] = parsed[ci]
                 _write_np_chunks(writer, out, chrom, chunksize, unit_size)
         else:
-            dtfuncs = get_dtfuncs(Formats, tobytes=False)
+            dtfuncs = get_dtfuncs(formats, tobytes=False)
             for chrom in all_chroms:
                 rows_buf = []
                 i = 0
@@ -468,7 +462,7 @@ def generate_ssi1(input, output=None, pattern="CGN"):
 
     Parameters
     ----------
-    Input : .cz
+    input : .cz
     output : .ssi
     pattern : CGN, CHN, +CGN, -CGN
 
@@ -545,9 +539,9 @@ def _fisher_worker(df):
     def cal_fisher_or_p(x):
         uc = int(x[f"{sname}.cov"] - x[f"{sname}.mc"])
         a, b, c, d = int(x[f"{sname}.mc"]), uc, int(x.mc_sum - x[f"{sname}.mc"]), int(x.uc_sum - uc)
-        Or = odds_ratio(a, b, c, d)
-        Pval = fast_fisher_exact(a, b, c, d)
-        return tuple(['%.3g' % Or, '%.3g' % Pval])
+        or_val = odds_ratio(a, b, c, d)
+        p_val = fast_fisher_exact(a, b, c, d)
+        return tuple(['%.3g' % or_val, '%.3g' % p_val])
 
     for sname in snames:
         df[sname] = df.apply(cal_fisher_or_p, axis=1)
@@ -620,12 +614,12 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         # print(chrom, block_idx_start, "done")
         return
 
-    writer1 = Writer(outname, Formats=formats,
-                     Columns=reader1.header['Columns'],
-                     Dimensions=reader1.header['Dimensions'][:1],
+    writer1 = Writer(outname, formats=formats,
+                     columns=reader1.header['columns'],
+                     dimensions=reader1.header['dimensions'][:1],
                      message=outfile_cat)
     byte_data, i = b'', 0
-    dtfuncs = get_dtfuncs(writer1.Formats)
+    dtfuncs = get_dtfuncs(writer1.formats)
     for values in data.tolist():
         byte_data += struct.pack(f"<{writer1.fmts}",
                                  *[func(v) for v, func in zip(values, dtfuncs)])
@@ -658,7 +652,7 @@ def catchr(outdir, chrom, ext, batch_nblock, chunksize):
 
 def merge_cz(indir=None, cz_paths=None, class_table=None,
              outfile=None, prefix=None, n_jobs=12, formats=['H', 'H'],
-             Path_to_chrom=None, reference=None,
+             path_to_chrom=None, reference=None,
              keep_cat=False, batchsize=10, temp=False, bgzip=True,
              chunksize=50000, ext='.cz'):
     """
@@ -684,7 +678,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
         otherwise, if formats=='fraction', summed mc divided by summed cov
         will be calculated and written to .txt file. If formats=='2D', mc and cov
         will be kept and write to .txt matrix file.
-    Path_to_chrom : path
+    path_to_chrom : path
         path to chrom size file.
     reference : path
         path to reference .cz file, only need if fraction="fraction" or "2D".
@@ -703,14 +697,14 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
                                names=['sname', 'cell_class'])
         snames = [file.replace(ext, '') for file in os.listdir(indir)]
         df_class = df_class.loc[df_class.sname.isin(snames)]
-        D = df_class.groupby('cell_class').sname.apply(
+        class_groups = df_class.groupby('cell_class').sname.apply(
             lambda x: x.tolist()).to_dict()
-        for key in D:
+        for key in class_groups:
             print(key)
-            cz_paths = [sname + ext for sname in D[key]]
+            cz_paths = [sname + ext for sname in class_groups[key]]
             merge_cz(indir, cz_paths, class_table=None,
                      outfile=None, prefix=f"{prefix}.{key}", n_jobs=n_jobs,
-                     formats=formats, Path_to_chrom=Path_to_chrom,
+                     formats=formats, path_to_chrom=path_to_chrom,
                      reference=reference, keep_cat=keep_cat,
                      batchsize=batchsize, temp=temp, bgzip=bgzip,
                      chunksize=chunksize, ext=ext)
@@ -732,22 +726,22 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     reader.close()
     outfile_cat = outfile + '.cat.cz'
     # cat all .cz files into one .cz file, add a dimension to chunk (filename)
-    writer = Writer(Output=outfile_cat, Formats=header['Formats'],
-                    Columns=header['Columns'], Dimensions=header['Dimensions'],
+    writer = Writer(output=outfile_cat, formats=header['formats'],
+                    columns=header['columns'], dimensions=header['dimensions'],
                     message="catcz")
-    writer.catcz(Input=[os.path.join(indir, cz_path) for cz_path in cz_paths],
+    writer.catcz(input=[os.path.join(indir, cz_path) for cz_path in cz_paths],
                  add_dim=True)
 
     reader = Reader(outfile_cat)
-    chrom_col = reader.header['Dimensions'][0]
+    chrom_col = reader.header['dimensions'][0]
     chunk_info = reader.chunk_info
     reader.close()
 
     # get chromosomes order
     input_chroms = chunk_info[chrom_col].unique().tolist()
-    if not Path_to_chrom is None:
-        Path_to_chrom = os.path.abspath(os.path.expanduser(Path_to_chrom))
-        df = pd.read_csv(Path_to_chrom, sep='\t', header=None, usecols=[0])
+    if not path_to_chrom is None:
+        path_to_chrom = os.path.abspath(os.path.expanduser(path_to_chrom))
+        df = pd.read_csv(path_to_chrom, sep='\t', header=None, usecols=[0])
         chroms = [chrom for chrom in df.iloc[:, 0].tolist() if chrom in input_chroms]
     else:
         chroms = sorted(input_chroms)
@@ -792,8 +786,8 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
         for chrom in chroms:
             # merge batches into chrom (chunk)
             outname = os.path.join(outdir, f"{chrom}.{out_ext}")
-            writer = Writer(Output=outname, Formats=formats,
-                            Columns=header['Columns'], Dimensions=header['Dimensions'],
+            writer = Writer(output=outname, formats=formats,
+                            columns=header['columns'], dimensions=header['dimensions'],
                             message=outfile_cat)
             writer._chunk_start_offset = writer._handle.tell()
             writer._handle.write(_chunk_magic)
@@ -838,10 +832,10 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
 
     # Second, merge chromosomes to outfile
     if out_ext == 'cz':  # merge chroms into final output
-        writer = Writer(Output=outfile, Formats=formats,
-                        Columns=header['Columns'], Dimensions=header['Dimensions'],
+        writer = Writer(output=outfile, formats=formats,
+                        columns=header['columns'], dimensions=header['dimensions'],
                         message="merged")
-        writer.catcz(Input=[f"{outdir}/{chrom}.cz" for chrom in chroms])
+        writer.catcz(input=[f"{outdir}/{chrom}.cz" for chrom in chroms])
     else:  # txt
         filenames = chunk_info.filename.unique().tolist()
         if formats == 'fraction':
@@ -864,7 +858,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
             if not reference is None:
                 df_ref = pd.DataFrame([
                     record for record in reader.fetch(tuple([chrom]))
-                ], columns=reader.header['Columns'])
+                ], columns=reader.header['columns'])
                 # insert a column 'start'
                 df_ref.insert(0, chrom_col, chrom)
                 df_ref.insert(1, 'start', df_ref.iloc[:, 1].map(int) - 1)
@@ -893,12 +887,12 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
         os.system(cmd)
 
 def merge_cell_type(indir=None, cell_table=None, outdir=None,
-                    n_jobs=64, Path_to_chrom=None, ext='.CGN.merged.cz'):
+                    n_jobs=64, path_to_chrom=None, ext='.CGN.merged.cz'):
     indir = os.path.abspath(os.path.expanduser(indir))
     outdir = os.path.abspath(os.path.expanduser(outdir))
     if not os.path.exists(outdir):
         os.mkdir(outdir)
-    Path_to_chrom = os.path.abspath(os.path.expanduser(Path_to_chrom))
+    path_to_chrom = os.path.abspath(os.path.expanduser(path_to_chrom))
     df_ct = pd.read_csv(cell_table, sep='\t', header=None, names=['cell', 'ct'])
     for ct in df_ct.ct.unique():
         outfile = os.path.join(outdir, ct + '.cz')
@@ -909,7 +903,7 @@ def merge_cell_type(indir=None, cell_table=None, outdir=None,
         snames = df_ct.loc[df_ct.ct == ct, 'cell'].tolist()
         cz_paths = [os.path.join(indir, sname + ext) for sname in snames]
         merge_cz(indir=indir, cz_paths=cz_paths, bgzip=False,
-                 outfile=outfile, n_jobs=n_jobs, Path_to_chrom=Path_to_chrom)
+                 outfile=outfile, n_jobs=n_jobs, path_to_chrom=path_to_chrom)
 # ==========================================================
 def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
               merge_cg=False):
@@ -944,11 +938,11 @@ def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
     ssi_path = os.path.abspath(os.path.expanduser(ssi))
     ssi_reader = Reader(ssi_path)
     reader = Reader(cz_path)
-    writer = Writer(outfile, Formats=reader.header['Formats'],
-                    Columns=reader.header['Columns'],
-                    Dimensions=reader.header['Dimensions'],
+    writer = Writer(outfile, formats=reader.header['formats'],
+                    columns=reader.header['columns'],
+                    dimensions=reader.header['dimensions'],
                     message=ssi_path)
-    dtfuncs = get_dtfuncs(writer.Formats)
+    dtfuncs = get_dtfuncs(writer.formats)
     for dim in reader.dim2chunk_start.keys():
         # print(dim)
         IDs = ssi_reader.get_ids_from_ssi(dim)
@@ -984,7 +978,7 @@ def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
     ssi_reader.close()
 
 
-def aggregate(Input=None, Outfile=None, ssi=None, intersect=None, exclude=None,
+def aggregate(input=None, outfile=None, ssi=None, intersect=None, exclude=None,
               chunksize=5000, formats=['H', 'H']):
     """
     Aggregate a given genomic region on a .cz file, for example::
@@ -994,8 +988,8 @@ def aggregate(Input=None, Outfile=None, ssi=None, intersect=None, exclude=None,
 
     Parameters
     ----------
-    Input :
-    Outfile :
+    input :
+    outfile :
     ssi :
     intersect :
     exclude :
@@ -1006,15 +1000,15 @@ def aggregate(Input=None, Outfile=None, ssi=None, intersect=None, exclude=None,
     -------
 
     """
-    cz_path = os.path.abspath(os.path.expanduser(Input))
+    cz_path = os.path.abspath(os.path.expanduser(input))
     ssi_path = os.path.abspath(os.path.expanduser(ssi))
     ssi_reader = Reader(ssi_path)
     reader = Reader(cz_path)
-    writer = Writer(Outfile, Formats=formats,
-                    Columns=reader.header['Columns'],
-                    Dimensions=reader.header['Dimensions'],
+    writer = Writer(outfile, formats=formats,
+                    columns=reader.header['columns'],
+                    dimensions=reader.header['dimensions'],
                     message=os.path.basename(ssi_path))
-    dtfuncs = get_dtfuncs(writer.Formats)
+    dtfuncs = get_dtfuncs(writer.formats)
     for dim in reader.dim2chunk_start.keys():
         if dim not in ssi_reader.dim2chunk_start.keys():
             continue
@@ -1217,11 +1211,11 @@ def annot_dmr(input="merged_dmr.txt", matrix="merged_dmr.cell_class.beta.txt",
     # assert data.shape[0] == df_dmr.shape[0]
     # data = data.loc[df_dmr.index.tolist()]
     cols = data.columns.tolist()
-    a = data.values
-    df_rows['Hypo'] = [cols[i] for i in np.argmin(a, axis=1)]
-    df_rows['Hyper'] = [cols[i] for i in np.argmax(a, axis=1)]
-    df_rows['Max'] = np.max(a, axis=1)
-    df_rows['Min'] = np.min(a, axis=1)
+    values_arr = data.values
+    df_rows['Hypo'] = [cols[i] for i in np.argmin(values_arr, axis=1)]
+    df_rows['Hyper'] = [cols[i] for i in np.argmax(values_arr, axis=1)]
+    df_rows['Max'] = np.max(values_arr, axis=1)
+    df_rows['Min'] = np.min(values_arr, axis=1)
     df_rows['delta_beta'] = df_rows.Max - df_rows.Min
     df_dmr = pd.read_csv(os.path.expanduser(input), sep='\t')
     cols = df_dmr.columns.tolist()

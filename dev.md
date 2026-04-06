@@ -6,7 +6,6 @@
 │ FILE HEADER (variable size, ~60 bytes)       │
 │  Magic(4B) Version(4B) TotalSize(8B)         │
 │  Message + Formats + Columns + Dimensions    │
-│  Reserved(1B)                                │
 ├──────────────────────────────────────────────┤
 │ CHUNK #1 (e.g. chr1)                         │
 │  ┌ Chunk Header: "CC"(2B) + ChunkSize(8B)   │
@@ -23,7 +22,8 @@
 │ CHUNK INDEX (for O(1) chunk lookup)          │
 │  "CZIX"(4B) + NChunks(8B)                   │
 │  For each chunk:                             │
-│    DimValues + Offsets + BlockVirtualOffsets  │
+│    DimValues + Start + Size + DataLen        │
+│    + NBlocks                                 │
 ├──────────────────────────────────────────────┤
 │ ChunkIndexOffset (8B)                        │
 │ EOF marker (28B, BGZF compatible)            │
@@ -75,7 +75,6 @@ so using `<` avoids byte-swapping overhead on these architectures.
 | var | columns[] | B+s | var | Per column: len(1B) + column name |
 | var | n_dims | `<B` | 1B | Number of dimensions |
 | var | dims[] | B+s | var | Per dim: len(1B) + dim name |
-| var | reserved | `<B` | 1B | Reserved (always 0, for format compatibility) |
 
 ## Chunk Header
 
@@ -112,8 +111,10 @@ For each chunk:
   chunk_size (Q, 8B)
   chunk_data_len (Q, 8B)
   chunk_nblocks (Q, 8B)
-  [block_virtual_offset (Q)] × n_blocks
 ```
+
+Block virtual offsets are stored only in each chunk's tail (not duplicated here)
+and are read on demand via `_load_chunk()`.
 
 **Remote reading workflow (3 HTTP Range requests):**
 1. `bytes=0-200` → parse header
