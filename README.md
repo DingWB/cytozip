@@ -3,7 +3,7 @@
 ## Installation
 
 ```shell
-pip install ChunkZIP
+pip install cytozip
 #or
 pip install git+http://github.com/DingWB/cytozip
 ```

@@ -121,7 +121,7 @@ def WriteC(record, outdir, chunksize=5000, delta_cols=None):
 # ==========================================================
 class AllC:
     def __init__(self, Genome=None, Output="hg38_allc.cz",
-                 pattern="C", n_jobs=12, keep_temp=False, delta=False):
+                 pattern="C", n_jobs=12, keep_temp=False, delta_cols=None):
         """
         Extract position of specific pattern in the reference genome, for example C.
             Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --n_jobs 10 run
@@ -136,8 +136,9 @@ class AllC:
             pattern [C]
         n_jobs: int
             number of CPU used for Pool.
-        delta: bool
-            If True, delta-encode the position column (index 0) to reduce file size.
+        delta_cols: list or None
+            Column indices to delta-encode (e.g., [0] for position column).
+            If None, no delta encoding is applied.
         """
         self.genome=os.path.abspath(os.path.expanduser(Genome))
         self.Output=os.path.abspath(os.path.expanduser(Output))
@@ -148,7 +149,7 @@ class AllC:
         self.records = SeqIO.parse(self.genome, "fasta")
         self.n_jobs = n_jobs if not n_jobs is None else os.cpu_count()
         self.keep_temp = keep_temp
-        self.delta_cols = [0] if delta else None
+        self.delta_cols = [delta_cols] if isinstance(delta_cols, int) else delta_cols
         if pattern=='C':
             self.func=WriteC
 
@@ -229,7 +230,7 @@ def _write_np_chunks(writer, arr, chrom, chunksize, unit_size):
 def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
            Formats=['B', 'B'], Columns=['mc', 'cov'], Dimensions=['chrom'],
            usecols=[4, 5], pr=0, pa=1, sep='\t', Path_to_chrom=None,
-           chunksize=5000, delta=False):
+           chunksize=5000, delta_cols=None):
     """
     convert allc.tsv.gz to .cz file.
 
@@ -265,10 +266,10 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
     Path_to_chrom : path
         path to chrom_size path or similar file containing chromosomes order,
         the first columns should be chromosomes, tab separated and no header.
-    delta : bool
-        If True, delta-encode the first column (typically position) to reduce
-        file size. Only useful when the first column contains sorted coordinates
-        (e.g., Formats=['Q','H','H'] without reference).
+    delta_cols : list or None
+        Column indices to delta-encode (e.g., [0] for position column).
+        If None, no delta encoding is applied. Only useful when the specified
+        columns contain sorted values (e.g., coordinates).
 
     Returns
     -------
@@ -295,7 +296,8 @@ def bed2cz(input, outfile, reference=None, missing_value=[0, 0],
         message = os.path.basename(reference)
     else:
         message = ''
-    delta_cols = [0] if delta else None
+    if isinstance(delta_cols, int):
+        delta_cols = [delta_cols]
     writer = Writer(outfile, Formats=Formats, Columns=Columns,
                     Dimensions=Dimensions, message=message,
                     delta_cols=delta_cols)
