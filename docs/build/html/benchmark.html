@@ -1,0 +1,344 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benchmark &mdash; cytozip 0.0.4.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=161b7e8c" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=fa0a5e14"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/js/rtd_search_config.js"></script>
+      <script src="_static/js/rtd_sphinx_search.min.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="cytozip Python API" href="notebooks/python_api.html" />
+    <link rel="prev" title="cytozip Developer Guide" href="notebooks/dev.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            cytozip
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#2.-Writer">2. Writer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#3.-Reader">3. Reader</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#4.-Query">4. Query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#5.-Subset">5. Subset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#6.-Python-API-(Quick-Overview)">6. Python API (Quick Overview)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.-Remote-Reading-(from-URL)">7. Remote Reading (from URL)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dnam.html">DNA methylation data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/dnam.html">DNA Methylation Analysis with czip</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Generate-allc-reference-coordinate-.cz-file">Generate allc reference coordinate .cz file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#View-reference-.cz-file">View reference .cz file</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#view-header">view header</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#summary-chunks">summary chunks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Converting-.allc.tsv.gz-into-.cz-file">Converting .allc.tsv.gz into .cz file</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#Pack-.allc.tsv.gz-to-.cz-with-coordinates">Pack .allc.tsv.gz to .cz with coordinates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#Query">Query</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="notebooks/dnam.html#query-allc.tsv.gz-using-tabix">query allc.tsv.gz using tabix</a></li>
+<li class="toctree-l5"><a class="reference internal" href="notebooks/dnam.html#query-allc.cz-using-czip">query allc.cz using czip</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Cat-multiple-.cz-files-into-one-.cz-file">Cat multiple .cz files into one .cz file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Extract-CG-from-.cz-and-merge-strand">Extract CG from .cz and merge strand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Merge-multiple-.cz-files-into-one-.cz-file">Merge multiple .cz files into one .cz file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Merge-.cz-files-belonging-to-the-same-cell-type">Merge .cz files belonging to the same cell type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Run-czip-allc2cz-on-GCP">Run czip allc2cz on GCP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Run-czip-extractCG-on-GCP">Run czip extractCG on GCP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dev.html">Under Development</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/dev.html">cytozip Developer Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dev.html#Generate-2D-subset-index-for-a-genomic-region">Generate 2D subset index for a genomic region</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dev.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dev.html#Call-DMR-pipeline">Call DMR pipeline</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#(1).Merge-cell-types">(1).Merge cell types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#(2).merge-multiple-.cz-files-into-matrix-(fraction,-2D-or-fisher-exact-test)">(2).merge multiple .cz files into matrix (fraction, 2D or fisher exact test)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#(3).Call-DMR-using-comb-p">(3).Call DMR using comb-p</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dev.html#Advanced-Features">Advanced Features</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#Delta-Encoding">Delta Encoding</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Benchmark</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#storage">1.Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/python_api.html">cytozip Python API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Download-example-dataset">Download example dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#View-reference-.cz-file">View reference .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#view-header">view header</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#summary-chunks-&amp;-blocks">summary chunks &amp; blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#query">query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Query-.cz-using-cytozip">Query .cz using cytozip</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/python_api.html#query-allc.tsv.gz-using-tabix">query allc.tsv.gz using tabix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/python_api.html#query-allc.cz-using-cytozip">query allc.cz using cytozip</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Cat-multiple-.cz-files-into-one-.cz-file">Cat multiple .cz files into one .cz file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Extract-CG-from-.cz-and-merge-strand">Extract CG from .cz and merge strand</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Merge-multiple-.cz-files-into-one-.cz-file">Merge multiple .cz files into one .cz file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Merge-.cz-files-belonging-to-the-same-cell-type">Merge .cz files belonging to the same cell type</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Run-cytozip-allc2cz-on-GCP">Run cytozip allc2cz on GCP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Run-cytozip-extractCG-on-GCP">Run cytozip extractCG on GCP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Delta-Encoding">Delta Encoding</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Writer-with-delta-encoding">Writer with delta encoding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#bed2cz-with-delta-encoding">bed2cz with delta encoding</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Low-level-RemoteFile-usage">Low-level RemoteFile usage</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cytozip.html">cytozip package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cytozip.html#submodules">Submodules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.allc.html">cytozip.allc module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.bed2cz"><code class="docutils literal notranslate"><span class="pre">bed2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.catchr"><code class="docutils literal notranslate"><span class="pre">catchr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.combp"><code class="docutils literal notranslate"><span class="pre">combp()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.generate_ssi1"><code class="docutils literal notranslate"><span class="pre">generate_ssi1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.generate_ssi2"><code class="docutils literal notranslate"><span class="pre">generate_ssi2()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.cz.html">cytozip.cz module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#delta-encoding">Delta encoding</a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.batch_fetch"><code class="docutils literal notranslate"><span class="pre">Reader.batch_fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.category_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.category_ssi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fetchByStartID"><code class="docutils literal notranslate"><span class="pre">Reader.fetchByStartID()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fileno"><code class="docutils literal notranslate"><span class="pre">Reader.fileno()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.getRecordsByIdRegions"><code class="docutils literal notranslate"><span class="pre">Reader.getRecordsByIdRegions()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.getRecordsByIds"><code class="docutils literal notranslate"><span class="pre">Reader.getRecordsByIds()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.get_ids_from_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_ssi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.isatty"><code class="docutils literal notranslate"><span class="pre">Reader.isatty()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.regions_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.regions_ssi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.regions_ssi_worker"><code class="docutils literal notranslate"><span class="pre">Reader.regions_ssi_worker()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.seekable"><code class="docutils literal notranslate"><span class="pre">Reader.seekable()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.fileno"><code class="docutils literal notranslate"><span class="pre">Writer.fileno()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.isatty"><code class="docutils literal notranslate"><span class="pre">Writer.isatty()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.seekable"><code class="docutils literal notranslate"><span class="pre">Writer.seekable()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.cz_accel.html">cytozip.cz_accel module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cytozip.html#module-cytozip">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="setup.html">setup module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">cytozip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Benchmark</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/benchmark.md" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="benchmark">
+<h1>Benchmark<a class="headerlink" href="#benchmark" title="Link to this heading"></a></h1>
+<section id="storage">
+<h2>1.Storage<a class="headerlink" href="#storage" title="Link to this heading"></a></h2>
+<p>We converted 1000 allc.tsv.gz files into .ballc and .cz in the following example. <br>
+<br>
+<img alt="img.png" src="_images/storage.png" /></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="notebooks/dev.html" class="btn btn-neutral float-left" title="cytozip Developer Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="notebooks/python_api.html" class="btn btn-neutral float-right" title="cytozip Python API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Wubin Ding.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-F0T1MBS19V', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

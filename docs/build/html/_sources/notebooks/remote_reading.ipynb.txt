@@ -1,0 +1,364 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "c49abcf8",
+   "metadata": {},
+   "source": [
+    "# Remote Reading with cytozip\n",
+    "\n",
+    "cytozip supports reading `.cz` files directly from HTTP/HTTPS URLs without downloading the entire file.\n",
+    "This is achieved through:\n",
+    "- **HTTP Range requests** — only the required bytes are fetched from the server\n",
+    "- **Chunk index** — enables O(1) lookup of chunk positions (no sequential scanning)\n",
+    "- **Read-ahead cache** — minimizes the number of HTTP requests via a 2MB cache\n",
+    "\n",
+    "Requirements:\n",
+    "- The `.cz` file must include a chunk index (written by default)\n",
+    "- The HTTP server must support Range requests (most modern servers do)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f704ae38",
+   "metadata": {},
+   "source": [
+    "## 1. Installation"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e2ba4cfd",
+   "metadata": {},
+   "source": [
+    "```shell\n",
+    "pip install ChunkZIP\n",
+    "# or\n",
+    "pip install git+https://github.com/DingWB/cytozip.git\n",
+    "```"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9c4f237e",
+   "metadata": {},
+   "source": [
+    "## 2. Opening a remote .cz file"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ad0bdb0a",
+   "metadata": {},
+   "source": [
+    "There are two ways to open a remote `.cz` file:\n",
+    "\n",
+    "**Method 1: `Reader.from_url()` (recommended)**\n",
+    "```python\n",
+    "reader = cytozip.Reader.from_url(url, cache_size=2*1024*1024)\n",
+    "```\n",
+    "\n",
+    "**Method 2: Pass URL directly to `Reader()` (auto-detected)**\n",
+    "```python\n",
+    "reader = cytozip.Reader(url)\n",
+    "```\n",
+    "\n",
+    "Both methods detect `http://` or `https://` prefixes and automatically use the `RemoteFile` backend."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f6b8c52f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import cytozip\n",
+    "from cytozip.cz import RemoteFile\n",
+    "print(f\"cytozip version: {cytozip.__version__}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "04d86234",
+   "metadata": {},
+   "source": [
+    "### Example: Open and inspect a remote file\n",
+    "\n",
+    "Replace `url` below with the URL of your `.cz` file:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4e6816d4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Uncomment and replace with your URL:\n",
+    "# url = \"https://your-server.com/data/sample.cz\"\n",
+    "# reader = cytozip.Reader.from_url(url)\n",
+    "# reader.print_header()\n",
+    "print(\"Replace the URL above with a real .cz file URL to test remote reading.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3f7a3d00",
+   "metadata": {},
+   "source": [
+    "## 3. Querying remote files\n",
+    "\n",
+    "Once opened, all Reader methods work identically on remote and local files:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "197e7c13",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# reader = cytozip.Reader.from_url(url)\n",
+    "#\n",
+    "# # Summary of all chunks\n",
+    "# reader.summary_chunks()\n",
+    "#\n",
+    "# # Fetch all records for a chunk\n",
+    "# for record in reader.fetch((\"chr1\",)):\n",
+    "#     print(record)\n",
+    "#\n",
+    "# # Query by coordinate range\n",
+    "# for record in reader.query(Dimension=\"chr1\", start=3000000, end=3001000, printout=False):\n",
+    "#     print(record)\n",
+    "#\n",
+    "# # Fetch raw bytes for numpy processing\n",
+    "# import numpy as np\n",
+    "# raw_bytes = reader.fetch_chunk_bytes((\"chr1\",))\n",
+    "# # Parse with np.frombuffer based on your format\n",
+    "#\n",
+    "# reader.close()\n",
+    "print(\"All Reader methods (fetch, query, summary_chunks, etc.) work on remote files.\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "df289b78",
+   "metadata": {},
+   "source": [
+    "## 4. Chunk Index\n",
+    "\n",
+    "The chunk index (written at the end of .cz files) maps each dimension tuple to its file offset.\n",
+    "This enables O(1) chunk lookup without scanning the entire file — critical for remote access."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d8dc4068",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Read chunk index from a local .cz file\n",
+    "import struct, tempfile, os\n",
+    "\n",
+    "# Create a .cz file with chunk index\n",
+    "tmpfile = tempfile.mktemp(suffix=\".cz\")\n",
+    "w = cytozip.Writer(\n",
+    "    Output=tmpfile,\n",
+    "    Formats=[\"Q\", \"H\", \"H\"],\n",
+    "    Columns=[\"pos\", \"mc\", \"cov\"],\n",
+    "    Dimensions=[\"chrom\"],\n",
+    "    delta_cols=[0],\n",
+    ")\n",
+    "for chrom in [\"chr1\", \"chr2\", \"chr3\"]:\n",
+    "    records = [(100, 1, 10), (200, 2, 15), (350, 3, 20)]\n",
+    "    data = b\"\".join(struct.pack(\"<QHH\", *r) for r in records)\n",
+    "    w.write_chunk(data, [chrom])\n",
+    "w.close()\n",
+    "\n",
+    "# Read chunk index\n",
+    "r = cytozip.Reader(tmpfile)\n",
+    "idx = r.read_chunk_index()\n",
+    "if idx:\n",
+    "    print(\"Chunk index entries:\")\n",
+    "    for dim, offset in idx.items():\n",
+    "        print(f\"  {dim} -> offset {offset}\")\n",
+    "r.close()\n",
+    "os.unlink(tmpfile)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "03b6970f",
+   "metadata": {},
+   "source": [
+    "## 5. RemoteFile (Low-Level API)\n",
+    "\n",
+    "`RemoteFile` is a file-like object that reads from HTTP URLs using Range requests.\n",
+    "It implements `read()`, `seek()`, `tell()`, and `close()`, making it a drop-in replacement for `open(path, 'rb')`.\n",
+    "\n",
+    "Features:\n",
+    "- **Read-ahead cache**: Pre-fetches data in configurable chunks (default 2MB) to minimize HTTP requests\n",
+    "- **Seek support**: `SEEK_SET`, `SEEK_CUR`, and `SEEK_END` are all supported\n",
+    "- **Size property**: Total file size from Content-Length header"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "17c905dc",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from cytozip.cz import RemoteFile\n",
+    "\n",
+    "# Usage:\n",
+    "# rf = RemoteFile(\"https://your-server.com/data/file.cz\", cache_size=2*1024*1024)\n",
+    "# print(f\"File size: {rf.size} bytes\")\n",
+    "#\n",
+    "# # Read first 100 bytes\n",
+    "# header = rf.read(100)\n",
+    "#\n",
+    "# # Seek to a specific position\n",
+    "# rf.seek(1000)\n",
+    "# data = rf.read(50)\n",
+    "#\n",
+    "# # Seek from end (e.g., read last 100 bytes for chunk index)\n",
+    "# rf.seek(-100, 2)\n",
+    "# tail = rf.read(100)\n",
+    "#\n",
+    "# rf.close()\n",
+    "\n",
+    "print(\"RemoteFile API:\")\n",
+    "print(\"  RemoteFile(url, cache_size=2*1024*1024)\")\n",
+    "print(\"  .read(size)     - read bytes with read-ahead caching\")\n",
+    "print(\"  .seek(off, wh)  - seek to position (SEEK_SET/CUR/END)\")\n",
+    "print(\"  .tell()         - return current file position\")\n",
+    "print(\"  .size           - total file size (Content-Length)\")\n",
+    "print(\"  .close()        - close the connection\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e2aa4127",
+   "metadata": {},
+   "source": [
+    "## 6. Local Demo with HTTP Server\n",
+    "\n",
+    "For testing, you can serve local `.cz` files via Python's built-in HTTP server:"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e595eede",
+   "metadata": {},
+   "source": [
+    "```shell\n",
+    "# In one terminal: serve the current directory\n",
+    "cd /path/to/cz/files\n",
+    "python -m http.server 8765\n",
+    "\n",
+    "# In another terminal or Python session:\n",
+    "python -c \"\n",
+    "import cytozip\n",
+    "r = cytozip.Reader.from_url('http://localhost:8765/sample.cz')\n",
+    "r.print_header()\n",
+    "for record in r.fetch(('chr1',)):\n",
+    "    print(record)\n",
+    "r.close()\n",
+    "\"\n",
+    "```"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d2dff80b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Full local demo (creates a temp file, serves it, reads remotely)\n",
+    "import struct, tempfile, os, threading, time\n",
+    "from http.server import HTTPServer, SimpleHTTPRequestHandler\n",
+    "\n",
+    "# 1. Create a .cz file\n",
+    "tmpdir = tempfile.mkdtemp()\n",
+    "czfile = os.path.join(tmpdir, \"demo.cz\")\n",
+    "w = cytozip.Writer(\n",
+    "    Output=czfile,\n",
+    "    Formats=[\"Q\", \"H\", \"H\"],\n",
+    "    Columns=[\"pos\", \"mc\", \"cov\"],\n",
+    "    Dimensions=[\"chrom\"],\n",
+    "    delta_cols=[0],\n",
+    ")\n",
+    "data = b\"\".join(struct.pack(\"<QHH\", pos, mc, cov)\n",
+    "                for pos, mc, cov in [(100, 1, 10), (200, 2, 15), (350, 3, 20)])\n",
+    "w.write_chunk(data, [\"chr1\"])\n",
+    "data = b\"\".join(struct.pack(\"<QHH\", pos, mc, cov)\n",
+    "                for pos, mc, cov in [(50, 0, 5), (150, 1, 8)])\n",
+    "w.write_chunk(data, [\"chr2\"])\n",
+    "w.close()\n",
+    "print(f\"Created: {czfile} ({os.path.getsize(czfile)} bytes)\")\n",
+    "\n",
+    "# 2. Start HTTP server in background\n",
+    "os.chdir(tmpdir)\n",
+    "handler = SimpleHTTPRequestHandler\n",
+    "handler.log_message = lambda *args: None  # suppress logs\n",
+    "server = HTTPServer((\"\", 0), handler)\n",
+    "port = server.server_address[1]\n",
+    "thread = threading.Thread(target=server.serve_forever, daemon=True)\n",
+    "thread.start()\n",
+    "print(f\"Serving on port {port}\")\n",
+    "\n",
+    "# 3. Read remotely\n",
+    "url = f\"http://localhost:{port}/demo.cz\"\n",
+    "reader = cytozip.Reader.from_url(url)\n",
+    "print(f\"\\nRemote is_remote: {reader._is_remote}\")\n",
+    "print(f\"Chunks: {list(reader.dim2chunk_start.keys())}\")\n",
+    "\n",
+    "print(\"\\n--- chr1 records (remote) ---\")\n",
+    "for record in reader.fetch((\"chr1\",)):\n",
+    "    print(record)\n",
+    "\n",
+    "print(\"\\n--- chr2 records (remote) ---\")\n",
+    "for record in reader.fetch((\"chr2\",)):\n",
+    "    print(record)\n",
+    "\n",
+    "reader.close()\n",
+    "server.shutdown()\n",
+    "\n",
+    "# Cleanup\n",
+    "os.unlink(czfile)\n",
+    "os.rmdir(tmpdir)\n",
+    "print(\"\\nDemo complete!\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "52da24c2",
+   "metadata": {},
+   "source": [
+    "## 7. Performance Tips\n",
+    "\n",
+    "- **Cache size**: Increase `cache_size` for sequential reads over large chunks:\n",
+    "  ```python\n",
+    "  reader = cytozip.Reader.from_url(url, cache_size=10*1024*1024)  # 10MB cache\n",
+    "  ```\n",
+    "- **Chunk index**: .cz files include a chunk index by default. Without it, the reader must scan the entire file sequentially.\n",
+    "- **Query vs fetch**: For large files, prefer `query()` with coordinate ranges over `fetch()` on the entire chunk — this minimizes data transferred.\n",
+    "- **Server requirements**: The HTTP server must support:\n",
+    "  - `Range` request header\n",
+    "  - `Content-Length` response header\n",
+    "  - `206 Partial Content` response status"
+   ]
+  }
+ ],
+ "metadata": {
+  "language_info": {
+   "name": "python"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

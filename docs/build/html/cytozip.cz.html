@@ -1,0 +1,961 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cytozip.cz module &mdash; cytozip 0.0.4.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=161b7e8c" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=fa0a5e14"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/js/rtd_search_config.js"></script>
+      <script src="_static/js/rtd_sphinx_search.min.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="cytozip.cz_accel module" href="cytozip.cz_accel.html" />
+    <link rel="prev" title="cytozip.allc module" href="cytozip.allc.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            cytozip
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#2.-Writer">2. Writer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#3.-Reader">3. Reader</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#4.-Query">4. Query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#5.-Subset">5. Subset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#6.-Python-API-(Quick-Overview)">6. Python API (Quick Overview)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.-Remote-Reading-(from-URL)">7. Remote Reading (from URL)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dnam.html">DNA methylation data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/dnam.html">DNA Methylation Analysis with czip</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Generate-allc-reference-coordinate-.cz-file">Generate allc reference coordinate .cz file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#View-reference-.cz-file">View reference .cz file</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#view-header">view header</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#summary-chunks">summary chunks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Converting-.allc.tsv.gz-into-.cz-file">Converting .allc.tsv.gz into .cz file</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#Pack-.allc.tsv.gz-to-.cz-with-coordinates">Pack .allc.tsv.gz to .cz with coordinates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dnam.html#Query">Query</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="notebooks/dnam.html#query-allc.tsv.gz-using-tabix">query allc.tsv.gz using tabix</a></li>
+<li class="toctree-l5"><a class="reference internal" href="notebooks/dnam.html#query-allc.cz-using-czip">query allc.cz using czip</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Cat-multiple-.cz-files-into-one-.cz-file">Cat multiple .cz files into one .cz file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Extract-CG-from-.cz-and-merge-strand">Extract CG from .cz and merge strand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Merge-multiple-.cz-files-into-one-.cz-file">Merge multiple .cz files into one .cz file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Merge-.cz-files-belonging-to-the-same-cell-type">Merge .cz files belonging to the same cell type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Run-czip-allc2cz-on-GCP">Run czip allc2cz on GCP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Run-czip-extractCG-on-GCP">Run czip extractCG on GCP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dev.html">Under Development</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/dev.html">cytozip Developer Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dev.html#Generate-2D-subset-index-for-a-genomic-region">Generate 2D subset index for a genomic region</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dev.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dev.html#Call-DMR-pipeline">Call DMR pipeline</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#(1).Merge-cell-types">(1).Merge cell types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#(2).merge-multiple-.cz-files-into-matrix-(fraction,-2D-or-fisher-exact-test)">(2).merge multiple .cz files into matrix (fraction, 2D or fisher exact test)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#(3).Call-DMR-using-comb-p">(3).Call DMR using comb-p</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/dev.html#Advanced-Features">Advanced Features</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#Delta-Encoding">Delta Encoding</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">Benchmark</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="benchmark.html#storage">1.Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/python_api.html">cytozip Python API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Download-example-dataset">Download example dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#View-reference-.cz-file">View reference .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#view-header">view header</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#summary-chunks-&amp;-blocks">summary chunks &amp; blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#query">query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Query-.cz-using-cytozip">Query .cz using cytozip</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/python_api.html#query-allc.tsv.gz-using-tabix">query allc.tsv.gz using tabix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="notebooks/python_api.html#query-allc.cz-using-cytozip">query allc.cz using cytozip</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Cat-multiple-.cz-files-into-one-.cz-file">Cat multiple .cz files into one .cz file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Extract-CG-from-.cz-and-merge-strand">Extract CG from .cz and merge strand</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Merge-multiple-.cz-files-into-one-.cz-file">Merge multiple .cz files into one .cz file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Merge-.cz-files-belonging-to-the-same-cell-type">Merge .cz files belonging to the same cell type</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Run-cytozip-allc2cz-on-GCP">Run cytozip allc2cz on GCP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Run-cytozip-extractCG-on-GCP">Run cytozip extractCG on GCP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Delta-Encoding">Delta Encoding</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Writer-with-delta-encoding">Writer with delta encoding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#bed2cz-with-delta-encoding">bed2cz with delta encoding</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Low-level-RemoteFile-usage">Low-level RemoteFile usage</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">cytozip</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="cytozip.html">cytozip package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="cytozip.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="cytozip.allc.html">cytozip.allc module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.bed2cz"><code class="docutils literal notranslate"><span class="pre">bed2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.catchr"><code class="docutils literal notranslate"><span class="pre">catchr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.combp"><code class="docutils literal notranslate"><span class="pre">combp()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.generate_ssi1"><code class="docutils literal notranslate"><span class="pre">generate_ssi1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.generate_ssi2"><code class="docutils literal notranslate"><span class="pre">generate_ssi2()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">cytozip.cz module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#virtual-offsets">Virtual offsets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="#delta-encoding">Delta encoding</a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.batch_fetch"><code class="docutils literal notranslate"><span class="pre">Reader.batch_fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.category_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.category_ssi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.fetchByStartID"><code class="docutils literal notranslate"><span class="pre">Reader.fetchByStartID()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.fileno"><code class="docutils literal notranslate"><span class="pre">Reader.fileno()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.getRecordsByIdRegions"><code class="docutils literal notranslate"><span class="pre">Reader.getRecordsByIdRegions()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.getRecordsByIds"><code class="docutils literal notranslate"><span class="pre">Reader.getRecordsByIds()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.get_ids_from_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_ssi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.isatty"><code class="docutils literal notranslate"><span class="pre">Reader.isatty()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.regions_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.regions_ssi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.regions_ssi_worker"><code class="docutils literal notranslate"><span class="pre">Reader.regions_ssi_worker()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.seekable"><code class="docutils literal notranslate"><span class="pre">Reader.seekable()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.fileno"><code class="docutils literal notranslate"><span class="pre">Writer.fileno()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.isatty"><code class="docutils literal notranslate"><span class="pre">Writer.isatty()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.seekable"><code class="docutils literal notranslate"><span class="pre">Writer.seekable()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.cz_accel.html">cytozip.cz_accel module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cytozip.html#module-cytozip">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="setup.html">setup module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">cytozip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">cytozip</a></li>
+          <li class="breadcrumb-item"><a href="cytozip.html">cytozip package</a></li>
+      <li class="breadcrumb-item active">cytozip.cz module</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/cytozip.cz.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-cytozip.cz">
+<span id="cytozip-cz-module"></span><h1>cytozip.cz module<a class="headerlink" href="#module-cytozip.cz" title="Link to this heading"></a></h1>
+<p>cz.py — Core module for the cytozip (ChunkZIP) binary format.</p>
+<p>The .cz file format is a columnar, chunk-based binary format designed for
+efficient storage and random access of large tabular data (e.g., DNA
+methylation allc tables).  The format is inspired by BGZF (blocked gzip)
+but uses a two-level hierarchy:</p>
+<blockquote>
+<div><dl class="simple">
+<dt>File layout:</dt><dd><p>[Header] [Chunk 0] [Chunk 1] … [Chunk N] [ChunkIndex] [EOF marker]</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Header:  magic, version, total_size, message, column formats/names,</dt><dd><p>dimension names, delta-encoding mask.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Chunk:   A sequence of independently compressed <em>blocks</em> that share</dt><dd><p>the same dimension values (e.g., one chromosome).
+Each block is at most 65535 bytes of raw data, compressed
+with raw DEFLATE.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Chunk tail:  Appended after the last block of a chunk; stores</dt><dd><p>total uncompressed length, number of blocks, per-block
+virtual offsets, and dimension values.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Chunk index:  Written at end-of-file before the EOF marker so that</dt><dd><p>remote/HTTP readers can locate chunks in O(1) without
+scanning the whole file.</p>
+</dd>
+</dl>
+</li>
+<li><p>EOF marker: 28-byte sentinel (borrowed from BGZF EOF).</p></li>
+</ul>
+</div></blockquote>
+<section id="virtual-offsets">
+<h2>Virtual offsets<a class="headerlink" href="#virtual-offsets" title="Link to this heading"></a></h2>
+<p>A virtual offset encodes both the physical file position of a block and
+the byte offset within the decompressed block data, packed into a single
+64-bit integer:  (block_start &lt;&lt; 16) | within_block_offset.
+This allows O(1) random access to any record.</p>
+</section>
+<section id="delta-encoding">
+<h2>Delta encoding<a class="headerlink" href="#delta-encoding" title="Link to this heading"></a></h2>
+<p>When <code class="docutils literal notranslate"><span class="pre">delta_cols</span></code> is set, chosen columns (typically the position column)
+are delta-encoded within each block to improve compression ratio.  The
+first record of each block stores absolute values; subsequent records
+store the difference from the previous record.</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="cytozip.cz.Reader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">Reader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rb'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileobj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Reader for .cz (ChunkZIP) files.</p>
+<p>Supports both local and remote (HTTP) files.  On open, the header
+and chunk index are parsed so that any chunk can be accessed by its
+dimension key (e.g., chromosome name) in O(1) time.</p>
+<dl class="simple">
+<dt>Key concepts:</dt><dd><ul class="simple">
+<li><p><em>Chunk</em>: a group of blocks sharing the same dimension values.</p></li>
+<li><p><em>Block</em>: a single DEFLATE-compressed payload (max 64 KB uncompressed).</p></li>
+<li><p><em>Virtual offset</em>: a 64-bit value encoding both the block’s file
+position (upper 48 bits) and the byte offset within the
+decompressed block (lower 16 bits).</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.batch_fetch">
+<span class="sig-name descname"><span class="pre">batch_fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.batch_fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.batch_fetch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.category_ssi">
+<span class="sig-name descname"><span class="pre">category_ssi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">output=None,</span> <span class="pre">formats=['I'],</span> <span class="pre">columns=['ID'],</span> <span class="pre">dimensions=['chrom'],</span> <span class="pre">match_func=&lt;function</span> <span class="pre">_isForwardCG&gt;,</span> <span class="pre">chunksize=2000</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.category_ssi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.category_ssi" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.chunk2df">
+<span class="sig-name descname"><span class="pre">chunk2df</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reformat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.chunk2df"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.chunk2df" title="Link to this definition"></a></dt>
+<dd><p>Read an entire chunk into a pandas DataFrame.</p>
+<p>Decompresses all blocks for the chunk identified by <em>dims</em>,
+unpacks the binary records, and returns a DataFrame with columns
+matching the file header.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dims</strong> (<em>tuple</em>) – Dimension key identifying the chunk (e.g., (‘chr1’,)).</p></li>
+<li><p><strong>reformat</strong> (<em>bool</em>) – If True, decode bytes-type columns (s/c formats) into strings.</p></li>
+<li><p><strong>chunksize</strong> (<em>int</em><em> or </em><em>None</em>) – If set, yield DataFrames of at most <em>chunksize</em> blocks instead
+of returning a single DataFrame.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.close" title="Link to this definition"></a></dt>
+<dd><p>Close BGZF file.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.fetch">
+<span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.fetch" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.fetchByStartID">
+<span class="sig-name descname"><span class="pre">fetchByStartID</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.fetchByStartID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.fetchByStartID" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.fetch_chunk_bytes">
+<span class="sig-name descname"><span class="pre">fetch_chunk_bytes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.fetch_chunk_bytes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.fetch_chunk_bytes" title="Link to this definition"></a></dt>
+<dd><p>Return all decompressed bytes for a given chunk as a single bytes object.
+This allows efficient numpy-based processing via np.frombuffer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dim</strong> (<em>tuple</em>) – Chunk dimension key.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bytes</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.fileno">
+<span class="sig-name descname"><span class="pre">fileno</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.fileno"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.fileno" title="Link to this definition"></a></dt>
+<dd><p>Return integer file descriptor.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.from_url">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2097152</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.from_url"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.from_url" title="Link to this definition"></a></dt>
+<dd><p>Open a remote .cz file via HTTP Range requests.</p>
+<p>Uses chunk index for O(1) chunk lookup, requiring only 2-3 HTTP
+requests to initialise (header + chunk index).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>url</strong> (<em>str</em>) – HTTP/HTTPS URL to the .cz file.</p></li>
+<li><p><strong>cache_size</strong> (<em>int</em>) – Read-ahead cache size per HTTP request (default 2MB).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#cytozip.cz.Reader" title="cytozip.cz.Reader">Reader</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.getRecordsByIdRegions">
+<span class="sig-name descname"><span class="pre">getRecordsByIdRegions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">IDs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.getRecordsByIdRegions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.getRecordsByIdRegions" title="Link to this definition"></a></dt>
+<dd><p>Get .cz content for a given dim and IDs
+:param dim:
+:type dim: tuple
+:param reference:
+:type reference: path
+:param IDs: every element of IDs is a list or tuple with length=2, id_start and id_end
+:type IDs: list or np.ndarray</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>generator</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.getRecordsByIds">
+<span class="sig-name descname"><span class="pre">getRecordsByIds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">IDs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.getRecordsByIds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.getRecordsByIds" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.get_chunks">
+<span class="sig-name descname"><span class="pre">get_chunks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.get_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.get_chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.get_ids_from_ssi">
+<span class="sig-name descname"><span class="pre">get_ids_from_ssi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.get_ids_from_ssi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.get_ids_from_ssi" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.isatty">
+<span class="sig-name descname"><span class="pre">isatty</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.isatty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.isatty" title="Link to this definition"></a></dt>
+<dd><p>Return True if connected to a TTY device.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.pos2id">
+<span class="sig-name descname"><span class="pre">pos2id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">positions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">col_to_query</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.pos2id"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.pos2id" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.print_header">
+<span class="sig-name descname"><span class="pre">print_header</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.print_header"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.print_header" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.query">
+<span class="sig-name descname"><span class="pre">query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Dimension</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Regions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">printout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.query"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.query" title="Link to this definition"></a></dt>
+<dd><p>query .cz file by Dimension, start and end, if regions provided, Dimension, start and
+end should be None, regions should be a list, each element of regions
+is a list, for example, regions=[[(‘cell1’,’chr1’),1,10],
+[(‘cell10’,’chr22’),100,200]],and so on.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Dimension</strong> (<em>str</em>) – dimension, such as chr1 (if Dimensions ‘chrom’ is inlcuded in
+header[‘Dimensions’]), or sample1 (if something like ‘sampleID’ is
+included in header[‘Dimensions’] and chunk contains such dimension)</p></li>
+<li><p><strong>start</strong> (<em>int</em>) – start position, if None, the entire Dimension would be returned.</p></li>
+<li><p><strong>end</strong> (<em>int</em>) – end position</p></li>
+<li><p><strong>Regions</strong> (<em>list</em><em> or </em><em>file path</em>) – regions=[
+[Dimension,start,end], [Dimension,start,end]
+],
+Dimension is a tuple, for example, Dimension=(‘chr1’);
+if regions is a file path (separated by tab and no header),
+the first len(header[‘Dimensions’]) columns would be
+used as Dimension, and next two columns would be used as start and end.</p></li>
+<li><p><strong>query_col</strong> (<em>list</em>) – index of columns (header[‘Columns’]) to be queried,for example,
+if header[‘Columns’]=[‘pos’,’mv’,’cov’], then pos is what we want to
+query, so query_col should be [0], but if
+header[‘Columns’]=[‘start’,’end’,’peak’], then start and end are what
+we would like to query, query_col should be [0,1]</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.read"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.read" title="Link to this definition"></a></dt>
+<dd><p>Read method for the BGZF module.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.read_chunk_index">
+<span class="sig-name descname"><span class="pre">read_chunk_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.read_chunk_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.read_chunk_index" title="Link to this definition"></a></dt>
+<dd><p>Read chunk index from end of file for O(1) chunk lookup.</p>
+<p>Returns dict mapping dim tuple -&gt; {start, size, data_len, nblocks, block_vos}</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.read_header">
+<span class="sig-name descname"><span class="pre">read_header</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.read_header"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.read_header" title="Link to this definition"></a></dt>
+<dd><p>Parse the .cz file header and populate <code class="docutils literal notranslate"><span class="pre">self.header</span></code>.</p>
+<p>Header binary layout (all little-endian):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">magic</span>        <span class="p">:</span> <span class="mi">5</span> <span class="nb">bytes</span> <span class="p">(</span><span class="s1">&#39;BMZIP&#39;</span><span class="p">)</span>
+<span class="n">version</span>      <span class="p">:</span> <span class="mi">4</span> <span class="nb">bytes</span> <span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">total_size</span>   <span class="p">:</span> <span class="mi">8</span> <span class="nb">bytes</span> <span class="p">(</span><span class="n">uint64</span><span class="p">)</span> <span class="o">-</span> <span class="n">file</span> <span class="n">size</span> <span class="n">written</span> <span class="n">at</span> <span class="n">close</span> <span class="n">time</span>
+<span class="n">message_len</span>  <span class="p">:</span> <span class="mi">2</span> <span class="nb">bytes</span> <span class="p">(</span><span class="n">uint16</span><span class="p">)</span>
+<span class="n">message</span>      <span class="p">:</span> <span class="n">message_len</span> <span class="nb">bytes</span> <span class="p">(</span><span class="n">utf</span><span class="o">-</span><span class="mi">8</span> <span class="n">string</span><span class="p">)</span>
+<span class="n">ncols</span>        <span class="p">:</span> <span class="mi">1</span> <span class="n">byte</span> <span class="p">(</span><span class="n">uint8</span><span class="p">)</span>  <span class="o">-</span> <span class="n">number</span> <span class="n">of</span> <span class="n">data</span> <span class="n">columns</span>
+<span class="n">For</span> <span class="n">each</span> <span class="n">column</span><span class="p">:</span>
+  <span class="n">fmt_len</span>    <span class="p">:</span> <span class="mi">1</span> <span class="n">byte</span> <span class="o">-&gt;</span> <span class="nb">format</span> <span class="n">string</span> <span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">g</span><span class="o">.</span> <span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="s1">&#39;3s&#39;</span><span class="p">)</span>
+<span class="n">For</span> <span class="n">each</span> <span class="n">column</span><span class="p">:</span>
+  <span class="n">name_len</span>   <span class="p">:</span> <span class="mi">1</span> <span class="n">byte</span> <span class="o">-&gt;</span> <span class="n">column</span> <span class="n">name</span>
+<span class="n">ndims</span>        <span class="p">:</span> <span class="mi">1</span> <span class="n">byte</span> <span class="o">-</span> <span class="n">number</span> <span class="n">of</span> <span class="n">dimension</span> <span class="n">names</span>
+<span class="n">For</span> <span class="n">each</span> <span class="n">dim</span><span class="p">:</span>
+  <span class="n">dim_len</span>    <span class="p">:</span> <span class="mi">1</span> <span class="n">byte</span> <span class="o">-&gt;</span> <span class="n">dimension</span> <span class="n">name</span>
+<span class="n">n_delta</span>      <span class="p">:</span> <span class="mi">1</span> <span class="n">byte</span> <span class="o">-</span> <span class="n">number</span> <span class="n">of</span> <span class="n">delta</span><span class="o">-</span><span class="n">encoded</span> <span class="n">columns</span>
+<span class="n">For</span> <span class="n">each</span> <span class="n">delta</span> <span class="n">col</span><span class="p">:</span>
+  <span class="n">col_idx</span>    <span class="p">:</span> <span class="mi">1</span> <span class="n">byte</span> <span class="p">(</span><span class="n">uint8</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After parsing, <code class="docutils literal notranslate"><span class="pre">self.header['header_size']</span></code> points to the byte
+offset where the first chunk begins.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.readline">
+<span class="sig-name descname"><span class="pre">readline</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.readline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.readline" title="Link to this definition"></a></dt>
+<dd><p>Read a single line for the BGZF file.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.regions_ssi">
+<span class="sig-name descname"><span class="pre">regions_ssi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">formats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['I',</span> <span class="pre">'I']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['ID_start',</span> <span class="pre">'ID_end']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['chrom']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.regions_ssi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.regions_ssi" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.regions_ssi_worker">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">regions_ssi_worker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Formats</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Columns</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunksize</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.regions_ssi_worker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.regions_ssi_worker" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.seek">
+<span class="sig-name descname"><span class="pre">seek</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">virtual_offset</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.seek"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.seek" title="Link to this definition"></a></dt>
+<dd><p>Seek to a 64-bit unsigned BGZF virtual offset.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.seekable">
+<span class="sig-name descname"><span class="pre">seekable</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.seekable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.seekable" title="Link to this definition"></a></dt>
+<dd><p>Return True indicating the BGZF supports random access.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.subset">
+<span class="sig-name descname"><span class="pre">subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ssi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">IDs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">printout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.subset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.subset" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.summary_blocks">
+<span class="sig-name descname"><span class="pre">summary_blocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">printout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.summary_blocks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.summary_blocks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.summary_chunks">
+<span class="sig-name descname"><span class="pre">summary_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">printout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.summary_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.summary_chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.tell">
+<span class="sig-name descname"><span class="pre">tell</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.tell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.tell" title="Link to this definition"></a></dt>
+<dd><p>Return a 64-bit unsigned BGZF virtual offset.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Reader.view">
+<span class="sig-name descname"><span class="pre">view</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">show_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">header</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dimension</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.view"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.view" title="Link to this definition"></a></dt>
+<dd><p>View .cz file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>show_dim</strong> (<em>str</em>) – index of dims given to writer.write_chunk, separated by comma,
+default is None, dims[show_dim] will be shown in each row (such as sampleID
+and chrom)</p></li>
+<li><p><strong>header</strong> (<em>bool</em>) – whether to print the header.</p></li>
+<li><p><strong>Dimension</strong> (<em>None</em><em>, </em><em>bool</em><em>, </em><em>list</em><em> or </em><em>file path</em>) – If None (default): use the default chunk order in .cz file;                     If list: use this Dimension (dims) as order and print records.                  If path: use the first len(Dimension) columns as dim order, there should be                             no header in file path and use   as separator.                  If Dimension is dictionary,such as -D “{‘sampleID’:’cell1’,’chrom’:’chr1’}”,                    will filter chunk using sampleID=cell1 and chrom=chr1.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="cytozip.cz.RemoteFile">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">RemoteFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2097152</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#RemoteFile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.RemoteFile" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>File-like object backed by HTTP Range requests with read-ahead caching.</p>
+<p>Implements read(), seek(), tell(), close() so it can be used as a drop-in
+replacement for a local binary file handle in Reader.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>url</strong> (<em>str</em>) – HTTP or HTTPS URL to the file.</p></li>
+<li><p><strong>cache_size</strong> (<em>int</em>) – Read-ahead cache size in bytes (default 2MB). Each HTTP request
+fetches at least this many bytes to reduce request count.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.RemoteFile.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#RemoteFile.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.RemoteFile.close" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.RemoteFile.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#RemoteFile.read"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.RemoteFile.read" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.RemoteFile.seek">
+<span class="sig-name descname"><span class="pre">seek</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">offset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">whence</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#RemoteFile.seek"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.RemoteFile.seek" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cytozip.cz.RemoteFile.size">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#cytozip.cz.RemoteFile.size" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.RemoteFile.tell">
+<span class="sig-name descname"><span class="pre">tell</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#RemoteFile.tell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.RemoteFile.tell" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz.SummaryBczBlocks">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">SummaryBczBlocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#SummaryBczBlocks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.SummaryBczBlocks" title="Link to this definition"></a></dt>
+<dd><p>Iterate over all blocks in the file, yielding per-block summary info.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>start_offset</strong> (<em>int</em>) – Physical file position of the block.</p></li>
+<li><p><strong>block_length</strong> (<em>int</em>) – Total compressed block size (bytes on disk).</p></li>
+<li><p><strong>data_start</strong> (<em>int</em>) – Cumulative decompressed data offset (byte position
+within the chunk’s decompressed stream).</p></li>
+<li><p><strong>data_len</strong> (<em>int</em>) – Decompressed data length for this block.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="cytozip.cz.Writer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">Writer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'wb'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Formats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['H',</span> <span class="pre">'H']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['mc',</span> <span class="pre">'cov']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['chrom']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileobj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.catcz">
+<span class="sig-name descname"><span class="pre">catcz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'filename'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.catcz"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.catcz" title="Link to this definition"></a></dt>
+<dd><p>Cat multiple .cz files into one .cz file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Input</strong> (<em>str</em><em> or </em><em>list</em>) – Either a str (including <code class="docutils literal notranslate"><span class="pre">*</span></code>, as input for glob, should be inside the
+double quotation marks if using fire) or a list.</p></li>
+<li><p><strong>dim_order</strong> (<em>None</em><em>, </em><em>list</em><em> or </em><em>path</em>) – If dim_order=None, Input will be sorted using python sorted.
+If dim_order is a list, tuple or array of basename.rstrip(.cz), sorted as dim_order.
+If dim_order is a file path (for example, chrom size path to dim_order chroms
+or only use selected chroms) will be sorted as
+the 1st column of the input file path (without header, tab-separated).
+default is None</p></li>
+<li><p><strong>add_dim</strong> (<em>bool</em><em> or </em><em>function</em>) – whether to add .cz file names as an new dimension to the merged
+.cz file. For example, we have multiple .cz files for many cells, in
+each .cz file, the dimensions are [‘chrom’], after merged, we would
+like to add file name of .cz as a new dimension [‘cell_id’]. In this case,
+the dimensions in the merged header would be [“chrom”,”cell_id”], and
+in each chunk, in addition to the previous dim [‘chr1’] or [‘chr22’].., a
+new dim would also be append to the previous dim, like [‘chr1’,’cell_1’],
+[‘chr22’,’cell_100’].
+However, if add_dim is a function, the input to this function is the .cz
+file basename, the returned value from this funcion would be used
+as new dim and added into the chunk_dims. The default function to
+convert filename to dim name is self.create_new_dim.</p></li>
+<li><p><strong>title</strong> (<em>str</em>) – if add_dim is True or a python function, title would be append to
+the header[‘Dimensions’] of the merged .cz file’s header. If the title of
+new dimension had already given in Writer Dimensions,
+title can be None, otherwise, title should be provided.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.close" title="Link to this definition"></a></dt>
+<dd><p>Flush remaining data, write chunk index and EOF marker, then close.</p>
+<p>This is the main entry point for finalizing a .cz file.
+Order of operations:</p>
+<ol class="arabic simple">
+<li><p>Flush any remaining buffered data as a final block.</p></li>
+<li><p>Finalize the current chunk (write chunk tail).</p></li>
+<li><p>Write the chunk index (for O(1) lookup by remote readers).</p></li>
+<li><p>Write total file size into the header + 28-byte EOF.</p></li>
+<li><p>Close the underlying file handle.</p></li>
+</ol>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.create_new_dim">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create_new_dim</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">basename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.create_new_dim"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.create_new_dim" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.fileno">
+<span class="sig-name descname"><span class="pre">fileno</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.fileno"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.fileno" title="Link to this definition"></a></dt>
+<dd><p>Return integer file descriptor.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.flush">
+<span class="sig-name descname"><span class="pre">flush</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.flush"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.flush" title="Link to this definition"></a></dt>
+<dd><p>Flush data explicitally.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.isatty">
+<span class="sig-name descname"><span class="pre">isatty</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.isatty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.isatty" title="Link to this definition"></a></dt>
+<dd><p>Return True if connected to a TTY device.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.seekable">
+<span class="sig-name descname"><span class="pre">seekable</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.seekable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.seekable" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.tell">
+<span class="sig-name descname"><span class="pre">tell</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.tell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.tell" title="Link to this definition"></a></dt>
+<dd><p>Return a BGZF 64-bit virtual offset.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.tocz">
+<span class="sig-name descname"><span class="pre">tocz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">usecols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[4,</span> <span class="pre">5]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'\t'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">header</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skiprows</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.tocz"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.tocz" title="Link to this definition"></a></dt>
+<dd><p>Pack dataframe, stdin or a file path into .cz file with or without reference
+coordinates file. For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cytozip</span> <span class="n">Writer</span> <span class="o">-</span><span class="n">O</span> <span class="n">genes_flank2k</span><span class="o">.</span><span class="n">cz</span> <span class="o">-</span><span class="n">F</span> <span class="n">Q</span><span class="p">,</span><span class="n">Q</span><span class="p">,</span><span class="mi">21</span><span class="n">s</span><span class="p">,</span><span class="n">c</span><span class="p">,</span><span class="mi">20</span><span class="n">s</span><span class="p">,</span><span class="mi">35</span><span class="n">s</span> <span class="o">-</span><span class="n">C</span> <span class="n">begin</span><span class="p">,</span><span class="n">end</span><span class="p">,</span><span class="n">EnsemblID</span><span class="p">,</span><span class="n">strand</span><span class="p">,</span><span class="n">gene_name</span><span class="p">,</span><span class="n">gene_type</span> <span class="o">-</span><span class="n">D</span> <span class="n">chrom</span> <span class="n">tocz</span> <span class="o">-</span><span class="n">I</span> <span class="n">genes_flank2k</span><span class="o">.</span><span class="n">bed</span><span class="o">.</span><span class="n">gz</span> <span class="o">-</span><span class="n">u</span> <span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Input</strong> (<em>input</em>) – list, tuple, np.ndarray or dataframe, stdin (Input is None, “stdin” or “-“),
+or a file path (need to specify sep,header and skiprows).</p></li>
+<li><p><strong>usecols</strong> (<em>list</em>) – usecols is the index of columns to be packed into .cz Columns.</p></li>
+<li><p><strong>dim_cols</strong> (<em>list</em>) – index of columns to be set as Dimensions of Writer, such as chrom
+columns.</p></li>
+<li><p><strong>sep</strong> (<em>str</em>) – defauls is “    “, used as separator for the input file path.</p></li>
+<li><p><strong>chunksize</strong> (<em>int</em>) – Chunk Input dataframe of file path.</p></li>
+<li><p><strong>header</strong> (<em>bool</em>) – whether the input file path contain header.</p></li>
+<li><p><strong>skiprows</strong> (<em>int</em>) – number of rows to skip for input file path.</p></li>
+<li><p><strong>pr</strong> (<em>int</em><em> or </em><em>str</em>) – If reference was given, use the <cite>pr</cite> column as coordinates, which
+would be used to match the <cite>p</cite> column in the Input file or df.
+If Input is a file path, then <cite>pr</cite> should be int, if Input is a dataframe with
+custom columns names, then <cite>pr</cite> should be string matching the column
+name in dataframe.</p></li>
+<li><p><strong>p</strong> (<em>int</em><em> or </em><em>str</em>) – Similar as <cite>pr</cite>, <cite>p</cite> is the column in Input to match the coordinate in
+the reference file. When Input is a file path or stdin, p should be int,
+but if Input is a dataframe, p should be the name appear in the dataframe
+header columns.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.write_chunk">
+<span class="sig-name descname"><span class="pre">write_chunk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dims</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.write_chunk"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.write_chunk" title="Link to this definition"></a></dt>
+<dd><p>Write data into one chunk with the given dimension values.</p>
+<p>If <em>dims</em> differs from the previously written chunk’s dims, the
+previous chunk is finalized (flushed) and a new chunk header is
+started.  Data is buffered internally and split into blocks of
+at most <code class="docutils literal notranslate"><span class="pre">_BLOCK_MAX_LEN</span></code> (or <code class="docutils literal notranslate"><span class="pre">_aligned_block_size</span></code> when
+delta-encoding is active).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>bytes</em>) – Packed binary record data.</p></li>
+<li><p><strong>dims</strong> (<em>list</em><em> or </em><em>tuple</em>) – Dimension values for this chunk (e.g., [‘chr1’]).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.cz.Writer.write_header">
+<span class="sig-name descname"><span class="pre">write_header</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Writer.write_header"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Writer.write_header" title="Link to this definition"></a></dt>
+<dd><p>Write the .cz file header.</p>
+<p>See Reader.read_header() for the binary layout description.
+Notable details:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">total_size</span></code> is written as 0 here (placeholder) and
+updated by <code class="docutils literal notranslate"><span class="pre">_write_total_size_eof_close()</span></code> at file close.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_n_dim_offset</span></code> records where the dimension count byte is,
+so <code class="docutils literal notranslate"><span class="pre">catcz()</span></code> can go back and increment it when merging
+files that add a new dimension.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_header_size</span></code> marks the end of the header = start of the
+first chunk.</p></li>
+</ul>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz.dtype_func">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">dtype_func</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#dtype_func"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.dtype_func" title="Link to this definition"></a></dt>
+<dd><p>Return a type-casting function for a given struct format character.</p>
+<p>For float formats (‘f’, ‘d’) returns <code class="docutils literal notranslate"><span class="pre">float</span></code>.
+For string formats (‘s’, ‘c’) returns a function converting str -&gt; bytes.
+For integer formats returns a function that clamps values to the maximum
+representable value of the format (e.g. 255 for ‘B’, 65535 for ‘H’).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz.extract">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ssi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#extract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.extract" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz.get_dtfuncs">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">get_dtfuncs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">formats</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tobytes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#get_dtfuncs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.get_dtfuncs" title="Link to this definition"></a></dt>
+<dd><p>Build a list of type-casting functions matching the given struct formats.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>formats</strong> (<em>list</em><em> of </em><em>str</em>) – Struct format strings (e.g. [‘H’, ‘3s’, ‘I’]).</p></li>
+<li><p><strong>tobytes</strong> (<em>bool</em>) – If True (default), string formats ‘s’/’c’ produce bytes;
+if False they produce str.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of callables, one per format.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz.make_virtual_offset">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">make_virtual_offset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block_start_offset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">within_block_offset</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#make_virtual_offset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.make_virtual_offset" title="Link to this definition"></a></dt>
+<dd><p>Encode a (block_start, within_block) pair into a 64-bit virtual offset.</p>
+<p>The upper 48 bits store the physical file offset of the compressed
+block; the lower 16 bits store the byte offset within the <em>decompressed</em>
+block data.  This scheme is the same as BGZF virtual offsets.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz.open1">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">open1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">infile</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#open1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.open1" title="Link to this definition"></a></dt>
+<dd><p>Open a text file or gzip file for line-by-line reading.</p>
+<p>If <em>infile</em> is already a file-like object (has <code class="docutils literal notranslate"><span class="pre">readline</span></code>), return
+it as-is.  Otherwise open the path, auto-detecting gzip by the
+<code class="docutils literal notranslate"><span class="pre">.gz</span></code> extension.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz.split_virtual_offset">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">split_virtual_offset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">virtual_offset</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#split_virtual_offset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.split_virtual_offset" title="Link to this definition"></a></dt>
+<dd><p>Decode a 64-bit virtual offset into (block_start_offset, within_block_offset).</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="cytozip.allc.html" class="btn btn-neutral float-left" title="cytozip.allc module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="cytozip.cz_accel.html" class="btn btn-neutral float-right" title="cytozip.cz_accel module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Wubin Ding.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-F0T1MBS19V', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

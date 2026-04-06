@@ -1,0 +1,708 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Remote Reading with cytozip &mdash; cytozip 0.0.4.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=161b7e8c" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=fa0a5e14"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/js/rtd_search_config.js"></script>
+      <script src="../_static/js/rtd_sphinx_search.min.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="cytozip" href="../modules.html" />
+    <link rel="prev" title="cytozip Python API" href="python_api.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            cytozip
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../quick_start.html">Quick Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quick_start.html#2.-Writer">2. Writer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quick_start.html#3.-Reader">3. Reader</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quick_start.html#4.-Query">4. Query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quick_start.html#5.-Subset">5. Subset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quick_start.html#6.-Python-API-(Quick-Overview)">6. Python API (Quick Overview)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="quick_start.html#7.-Remote-Reading-(from-URL)">7. Remote Reading (from URL)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../dnam.html">DNA methylation data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dnam.html">DNA Methylation Analysis with czip</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#Generate-allc-reference-coordinate-.cz-file">Generate allc reference coordinate .cz file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#View-reference-.cz-file">View reference .cz file</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dnam.html#view-header">view header</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dnam.html#summary-chunks">summary chunks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#Converting-.allc.tsv.gz-into-.cz-file">Converting .allc.tsv.gz into .cz file</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dnam.html#Pack-.allc.tsv.gz-to-.cz-with-coordinates">Pack .allc.tsv.gz to .cz with coordinates</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dnam.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dnam.html#Query">Query</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="dnam.html#query-allc.tsv.gz-using-tabix">query allc.tsv.gz using tabix</a></li>
+<li class="toctree-l5"><a class="reference internal" href="dnam.html#query-allc.cz-using-czip">query allc.cz using czip</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#Cat-multiple-.cz-files-into-one-.cz-file">Cat multiple .cz files into one .cz file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#Extract-CG-from-.cz-and-merge-strand">Extract CG from .cz and merge strand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#Merge-multiple-.cz-files-into-one-.cz-file">Merge multiple .cz files into one .cz file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#Merge-.cz-files-belonging-to-the-same-cell-type">Merge .cz files belonging to the same cell type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#Run-czip-allc2cz-on-GCP">Run czip allc2cz on GCP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#Run-czip-extractCG-on-GCP">Run czip extractCG on GCP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../dev.html">Under Development</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dev.html">cytozip Developer Guide</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dev.html#Generate-2D-subset-index-for-a-genomic-region">Generate 2D subset index for a genomic region</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dev.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dev.html#Call-DMR-pipeline">Call DMR pipeline</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dev.html#(1).Merge-cell-types">(1).Merge cell types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dev.html#(2).merge-multiple-.cz-files-into-matrix-(fraction,-2D-or-fisher-exact-test)">(2).merge multiple .cz files into matrix (fraction, 2D or fisher exact test)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dev.html#(3).Call-DMR-using-comb-p">(3).Call DMR using comb-p</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="dev.html#Advanced-Features">Advanced Features</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dev.html#Delta-Encoding">Delta Encoding</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dev.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dev.html#Remote-Reading">Remote Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmark.html">Benchmark</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../benchmark.html#storage">1.Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="python_api.html">cytozip Python API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Download-example-dataset">Download example dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#View-reference-.cz-file">View reference .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#view-header">view header</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#summary-chunks-&amp;-blocks">summary chunks &amp; blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#query">query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#Query-.cz-using-cytozip">Query .cz using cytozip</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="python_api.html#query-allc.tsv.gz-using-tabix">query allc.tsv.gz using tabix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="python_api.html#query-allc.cz-using-cytozip">query allc.cz using cytozip</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Cat-multiple-.cz-files-into-one-.cz-file">Cat multiple .cz files into one .cz file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Extract-CG-from-.cz-and-merge-strand">Extract CG from .cz and merge strand</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Merge-multiple-.cz-files-into-one-.cz-file">Merge multiple .cz files into one .cz file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Merge-.cz-files-belonging-to-the-same-cell-type">Merge .cz files belonging to the same cell type</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Run-cytozip-allc2cz-on-GCP">Run cytozip allc2cz on GCP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Run-cytozip-extractCG-on-GCP">Run cytozip extractCG on GCP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Converting-.cz-file-back-to-allc.tsv.gz">Converting .cz file back to allc.tsv.gz</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Delta-Encoding">Delta Encoding</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#Writer-with-delta-encoding">Writer with delta encoding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#bed2cz-with-delta-encoding">bed2cz with delta encoding</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="python_api.html#Low-level-RemoteFile-usage">Low-level RemoteFile usage</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#7.-Performance-Tips">7. Performance Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cytozip.html">cytozip package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cytozip.html#submodules">Submodules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.allc.html">cytozip.allc module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.bed2cz"><code class="docutils literal notranslate"><span class="pre">bed2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.catchr"><code class="docutils literal notranslate"><span class="pre">catchr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.combp"><code class="docutils literal notranslate"><span class="pre">combp()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.generate_ssi1"><code class="docutils literal notranslate"><span class="pre">generate_ssi1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.generate_ssi2"><code class="docutils literal notranslate"><span class="pre">generate_ssi2()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.cz.html">cytozip.cz module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#delta-encoding">Delta encoding</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.batch_fetch"><code class="docutils literal notranslate"><span class="pre">Reader.batch_fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.category_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.category_ssi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.fetchByStartID"><code class="docutils literal notranslate"><span class="pre">Reader.fetchByStartID()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.fileno"><code class="docutils literal notranslate"><span class="pre">Reader.fileno()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.getRecordsByIdRegions"><code class="docutils literal notranslate"><span class="pre">Reader.getRecordsByIdRegions()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.getRecordsByIds"><code class="docutils literal notranslate"><span class="pre">Reader.getRecordsByIds()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.get_ids_from_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_ssi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.isatty"><code class="docutils literal notranslate"><span class="pre">Reader.isatty()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.regions_ssi"><code class="docutils literal notranslate"><span class="pre">Reader.regions_ssi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.regions_ssi_worker"><code class="docutils literal notranslate"><span class="pre">Reader.regions_ssi_worker()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.seekable"><code class="docutils literal notranslate"><span class="pre">Reader.seekable()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.fileno"><code class="docutils literal notranslate"><span class="pre">Writer.fileno()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.isatty"><code class="docutils literal notranslate"><span class="pre">Writer.isatty()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.seekable"><code class="docutils literal notranslate"><span class="pre">Writer.seekable()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.cz_accel.html">cytozip.cz_accel module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../cytozip.html#module-cytozip">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../setup.html">setup module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">cytozip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Remote Reading with cytozip</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/notebooks/remote_reading.ipynb" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="Remote-Reading-with-cytozip">
+<h1>Remote Reading with cytozip<a class="headerlink" href="#Remote-Reading-with-cytozip" title="Link to this heading"></a></h1>
+<p>cytozip supports reading <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files directly from HTTP/HTTPS URLs without downloading the entire file. This is achieved through:</p>
+<ul class="simple">
+<li><p><strong>HTTP Range requests</strong> — only the required bytes are fetched from the server</p></li>
+<li><p><strong>Chunk index</strong> — enables O(1) lookup of chunk positions (no sequential scanning)</p></li>
+<li><p><strong>Read-ahead cache</strong> — minimizes the number of HTTP requests via a 2MB cache</p></li>
+</ul>
+<p>Requirements:</p>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file must include a chunk index (written by default)</p></li>
+<li><p>The HTTP server must support Range requests (most modern servers do)</p></li>
+</ul>
+<section id="1.-Installation">
+<h2>1. Installation<a class="headerlink" href="#1.-Installation" title="Link to this heading"></a></h2>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>ChunkZIP
+<span class="c1"># or</span>
+pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/DingWB/cytozip.git
+</pre></div>
+</div>
+</section>
+<section id="2.-Opening-a-remote-.cz-file">
+<h2>2. Opening a remote .cz file<a class="headerlink" href="#2.-Opening-a-remote-.cz-file" title="Link to this heading"></a></h2>
+<p>There are two ways to open a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file:</p>
+<p><strong>Method 1: ``Reader.from_url()`` (recommended)</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">cache_size</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Method 2: Pass URL directly to ``Reader()`` (auto-detected)</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Both methods detect <code class="docutils literal notranslate"><span class="pre">http://</span></code> or <code class="docutils literal notranslate"><span class="pre">https://</span></code> prefixes and automatically use the <code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code> backend.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cytozip.cz</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteFile</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cytozip version: </span><span class="si">{</span><span class="n">cytozip</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">ModuleNotFoundError</span>                       Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In[1], line 1</span>
+<span class="ansi-green-fg">----&gt; 1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">import</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,0,255)">cytozip</span>
+<span class="ansi-green-intense-fg ansi-bold">      2</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,0,255)">cytozip</span><span class="ansi-bold" style="color: rgb(0,0,255)">.</span><span class="ansi-bold" style="color: rgb(0,0,255)">cz</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> RemoteFile
+<span class="ansi-green-intense-fg ansi-bold">      3</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">cytozip version: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>cytozip<span style="color: rgb(98,98,98)">.</span>__version__<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
+
+<span class="ansi-red-fg">ModuleNotFoundError</span>: No module named &#39;cytozip&#39;
+</pre></div></div>
+</div>
+<section id="Example:-Open-and-inspect-a-remote-file">
+<h3>Example: Open and inspect a remote file<a class="headerlink" href="#Example:-Open-and-inspect-a-remote-file" title="Link to this heading"></a></h3>
+<p>Replace <code class="docutils literal notranslate"><span class="pre">url</span></code> below with the URL of your <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Uncomment and replace with your URL:</span>
+<span class="c1"># url = &quot;https://your-server.com/data/sample.cz&quot;</span>
+<span class="c1"># reader = cytozip.Reader.from_url(url)</span>
+<span class="c1"># reader.print_header()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Replace the URL above with a real .cz file URL to test remote reading.&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Replace the URL above with a real .cz file URL to test remote reading.
+</pre></div></div>
+</div>
+</section>
+</section>
+<section id="3.-Querying-remote-files">
+<h2>3. Querying remote files<a class="headerlink" href="#3.-Querying-remote-files" title="Link to this heading"></a></h2>
+<p>Once opened, all Reader methods work identically on remote and local files:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># reader = cytozip.Reader.from_url(url)</span>
+<span class="c1">#</span>
+<span class="c1"># # Summary of all chunks</span>
+<span class="c1"># reader.summary_chunks()</span>
+<span class="c1">#</span>
+<span class="c1"># # Fetch all records for a chunk</span>
+<span class="c1"># for record in reader.fetch((&quot;chr1&quot;,)):</span>
+<span class="c1">#     print(record)</span>
+<span class="c1">#</span>
+<span class="c1"># # Query by coordinate range</span>
+<span class="c1"># for record in reader.query(Dimension=&quot;chr1&quot;, start=3000000, end=3001000, printout=False):</span>
+<span class="c1">#     print(record)</span>
+<span class="c1">#</span>
+<span class="c1"># # Fetch raw bytes for numpy processing</span>
+<span class="c1"># import numpy as np</span>
+<span class="c1"># raw_bytes = reader.fetch_chunk_bytes((&quot;chr1&quot;,))</span>
+<span class="c1"># # Parse with np.frombuffer based on your format</span>
+<span class="c1">#</span>
+<span class="c1"># reader.close()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;All Reader methods (fetch, query, summary_chunks, etc.) work on remote files.&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+All Reader methods (fetch, query, summary_chunks, etc.) work on remote files.
+</pre></div></div>
+</div>
+</section>
+<section id="4.-Chunk-Index">
+<h2>4. Chunk Index<a class="headerlink" href="#4.-Chunk-Index" title="Link to this heading"></a></h2>
+<p>The chunk index (written at the end of .cz files) maps each dimension tuple to its file offset. This enables O(1) chunk lookup without scanning the entire file — critical for remote access.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Read chunk index from a local .cz file</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">struct</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span><span class="o">,</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="c1"># Create a .cz file with chunk index</span>
+<span class="n">tmpfile</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mktemp</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.cz&quot;</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Writer</span><span class="p">(</span>
+    <span class="n">Output</span><span class="o">=</span><span class="n">tmpfile</span><span class="p">,</span>
+    <span class="n">Formats</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Q&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span>
+    <span class="n">Columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">],</span>
+    <span class="n">Dimensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">],</span>
+    <span class="n">delta_cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;chr1&quot;</span><span class="p">,</span> <span class="s2">&quot;chr2&quot;</span><span class="p">,</span> <span class="s2">&quot;chr3&quot;</span><span class="p">]:</span>
+    <span class="n">records</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span> <span class="p">(</span><span class="mi">350</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">20</span><span class="p">)]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;QHH&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">records</span><span class="p">)</span>
+    <span class="n">w</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="n">chrom</span><span class="p">])</span>
+<span class="n">w</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="c1"># Read chunk index</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="n">tmpfile</span><span class="p">)</span>
+<span class="n">idx</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">read_chunk_index</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">idx</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Chunk index entries:&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">idx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2"> -&gt; offset </span><span class="si">{</span><span class="n">offset</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">r</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">tmpfile</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In[4], line 6</span>
+<span class="ansi-green-intense-fg ansi-bold">      4</span> <span style="color: rgb(95,135,135)"># Create a .cz file with chunk index</span>
+<span class="ansi-green-intense-fg ansi-bold">      5</span> tmpfile <span style="color: rgb(98,98,98)">=</span> tempfile<span style="color: rgb(98,98,98)">.</span>mktemp(suffix<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">.cz</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-fg">----&gt; 6</span> w <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">cytozip</span><span style="color: rgb(98,98,98)">.</span>Writer(
+<span class="ansi-green-intense-fg ansi-bold">      7</span>     Output<span style="color: rgb(98,98,98)">=</span>tmpfile,
+<span class="ansi-green-intense-fg ansi-bold">      8</span>     Formats<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Q</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">H</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">H</span><span style="color: rgb(175,0,0)">&#34;</span>],
+<span class="ansi-green-intense-fg ansi-bold">      9</span>     Columns<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">pos</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">mc</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">cov</span><span style="color: rgb(175,0,0)">&#34;</span>],
+<span class="ansi-green-intense-fg ansi-bold">     10</span>     Dimensions<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chrom</span><span style="color: rgb(175,0,0)">&#34;</span>],
+<span class="ansi-green-intense-fg ansi-bold">     11</span>     delta_cols<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(98,98,98)">0</span>],
+<span class="ansi-green-intense-fg ansi-bold">     12</span> )
+<span class="ansi-green-intense-fg ansi-bold">     13</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> chrom <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> [<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr1</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr2</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr3</span><span style="color: rgb(175,0,0)">&#34;</span>]:
+<span class="ansi-green-intense-fg ansi-bold">     14</span>     records <span style="color: rgb(98,98,98)">=</span> [(<span style="color: rgb(98,98,98)">100</span>, <span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">10</span>), (<span style="color: rgb(98,98,98)">200</span>, <span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">15</span>), (<span style="color: rgb(98,98,98)">350</span>, <span style="color: rgb(98,98,98)">3</span>, <span style="color: rgb(98,98,98)">20</span>)]
+
+<span class="ansi-red-fg">NameError</span>: name &#39;cytozip&#39; is not defined
+</pre></div></div>
+</div>
+</section>
+<section id="5.-RemoteFile-(Low-Level-API)">
+<h2>5. RemoteFile (Low-Level API)<a class="headerlink" href="#5.-RemoteFile-(Low-Level-API)" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code> is a file-like object that reads from HTTP URLs using Range requests. It implements <code class="docutils literal notranslate"><span class="pre">read()</span></code>, <code class="docutils literal notranslate"><span class="pre">seek()</span></code>, <code class="docutils literal notranslate"><span class="pre">tell()</span></code>, and <code class="docutils literal notranslate"><span class="pre">close()</span></code>, making it a drop-in replacement for <code class="docutils literal notranslate"><span class="pre">open(path,</span> <span class="pre">'rb')</span></code>.</p>
+<p>Features:</p>
+<ul class="simple">
+<li><p><strong>Read-ahead cache</strong>: Pre-fetches data in configurable chunks (default 2MB) to minimize HTTP requests</p></li>
+<li><p><strong>Seek support</strong>: <code class="docutils literal notranslate"><span class="pre">SEEK_SET</span></code>, <code class="docutils literal notranslate"><span class="pre">SEEK_CUR</span></code>, and <code class="docutils literal notranslate"><span class="pre">SEEK_END</span></code> are all supported</p></li>
+<li><p><strong>Size property</strong>: Total file size from Content-Length header</p></li>
+</ul>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cytozip.cz</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteFile</span>
+
+<span class="c1"># Usage:</span>
+<span class="c1"># rf = RemoteFile(&quot;https://your-server.com/data/file.cz&quot;, cache_size=2*1024*1024)</span>
+<span class="c1"># print(f&quot;File size: {rf.size} bytes&quot;)</span>
+<span class="c1">#</span>
+<span class="c1"># # Read first 100 bytes</span>
+<span class="c1"># header = rf.read(100)</span>
+<span class="c1">#</span>
+<span class="c1"># # Seek to a specific position</span>
+<span class="c1"># rf.seek(1000)</span>
+<span class="c1"># data = rf.read(50)</span>
+<span class="c1">#</span>
+<span class="c1"># # Seek from end (e.g., read last 100 bytes for chunk index)</span>
+<span class="c1"># rf.seek(-100, 2)</span>
+<span class="c1"># tail = rf.read(100)</span>
+<span class="c1">#</span>
+<span class="c1"># rf.close()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;RemoteFile API:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  RemoteFile(url, cache_size=2*1024*1024)&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .read(size)     - read bytes with read-ahead caching&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .seek(off, wh)  - seek to position (SEEK_SET/CUR/END)&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .tell()         - return current file position&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .size           - total file size (Content-Length)&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .close()        - close the connection&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">ModuleNotFoundError</span>                       Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In[5], line 1</span>
+<span class="ansi-green-fg">----&gt; 1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,0,255)">cytozip</span><span class="ansi-bold" style="color: rgb(0,0,255)">.</span><span class="ansi-bold" style="color: rgb(0,0,255)">cz</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> RemoteFile
+<span class="ansi-green-intense-fg ansi-bold">      3</span> <span style="color: rgb(95,135,135)"># Usage:</span>
+<span class="ansi-green-intense-fg ansi-bold">      4</span> <span style="color: rgb(95,135,135)"># rf = RemoteFile(&#34;https://your-server.com/data/file.cz&#34;, cache_size=2*1024*1024)</span>
+<span class="ansi-green-intense-fg ansi-bold">      5</span> <span style="color: rgb(95,135,135)"># print(f&#34;File size: {rf.size} bytes&#34;)</span>
+<span class="ansi-green-fg">   (...)</span>
+<span class="ansi-green-intense-fg ansi-bold">     17</span> <span style="color: rgb(95,135,135)">#</span>
+<span class="ansi-green-intense-fg ansi-bold">     18</span> <span style="color: rgb(95,135,135)"># rf.close()</span>
+<span class="ansi-green-intense-fg ansi-bold">     20</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">RemoteFile API:</span><span style="color: rgb(175,0,0)">&#34;</span>)
+
+<span class="ansi-red-fg">ModuleNotFoundError</span>: No module named &#39;cytozip&#39;
+</pre></div></div>
+</div>
+</section>
+<section id="6.-Local-Demo-with-HTTP-Server">
+<h2>6. Local Demo with HTTP Server<a class="headerlink" href="#6.-Local-Demo-with-HTTP-Server" title="Link to this heading"></a></h2>
+<p>For testing, you can serve local <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files via Python’s built-in HTTP server:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># In one terminal: serve the current directory</span>
+<span class="nb">cd</span><span class="w"> </span>/path/to/cz/files
+python<span class="w"> </span>-m<span class="w"> </span>http.server<span class="w"> </span><span class="m">8765</span>
+
+<span class="c1"># In another terminal or Python session:</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
+<span class="s2">import cytozip</span>
+<span class="s2">r = cytozip.Reader.from_url(&#39;http://localhost:8765/sample.cz&#39;)</span>
+<span class="s2">r.print_header()</span>
+<span class="s2">for record in r.fetch((&#39;chr1&#39;,)):</span>
+<span class="s2">    print(record)</span>
+<span class="s2">r.close()</span>
+<span class="s2">&quot;</span>
+</pre></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Full local demo (creates a temp file, serves it, reads remotely)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">struct</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span><span class="o">,</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">threading</span><span class="o">,</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">http.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTTPServer</span><span class="p">,</span> <span class="n">SimpleHTTPRequestHandler</span>
+
+<span class="c1"># 1. Create a .cz file</span>
+<span class="n">tmpdir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+<span class="n">czfile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="s2">&quot;demo.cz&quot;</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Writer</span><span class="p">(</span>
+    <span class="n">Output</span><span class="o">=</span><span class="n">czfile</span><span class="p">,</span>
+    <span class="n">Formats</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Q&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span>
+    <span class="n">Columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">],</span>
+    <span class="n">Dimensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">],</span>
+    <span class="n">delta_cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;QHH&quot;</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span> <span class="p">(</span><span class="mi">350</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">20</span><span class="p">)])</span>
+<span class="n">w</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;chr1&quot;</span><span class="p">])</span>
+<span class="n">data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;QHH&quot;</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">150</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">)])</span>
+<span class="n">w</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;chr2&quot;</span><span class="p">])</span>
+<span class="n">w</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created: </span><span class="si">{</span><span class="n">czfile</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">czfile</span><span class="p">)</span><span class="si">}</span><span class="s2"> bytes)&quot;</span><span class="p">)</span>
+
+<span class="c1"># 2. Start HTTP server in background</span>
+<span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">)</span>
+<span class="n">handler</span> <span class="o">=</span> <span class="n">SimpleHTTPRequestHandler</span>
+<span class="n">handler</span><span class="o">.</span><span class="n">log_message</span> <span class="o">=</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="kc">None</span>  <span class="c1"># suppress logs</span>
+<span class="n">server</span> <span class="o">=</span> <span class="n">HTTPServer</span><span class="p">((</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">handler</span><span class="p">)</span>
+<span class="n">port</span> <span class="o">=</span> <span class="n">server</span><span class="o">.</span><span class="n">server_address</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">server</span><span class="o">.</span><span class="n">serve_forever</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Serving on port </span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 3. Read remotely</span>
+<span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">/demo.cz&quot;</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Remote is_remote: </span><span class="si">{</span><span class="n">reader</span><span class="o">.</span><span class="n">_is_remote</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Chunks: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">dim2chunk_start</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- chr1 records (remote) ---&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch</span><span class="p">((</span><span class="s2">&quot;chr1&quot;</span><span class="p">,)):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- chr2 records (remote) ---&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch</span><span class="p">((</span><span class="s2">&quot;chr2&quot;</span><span class="p">,)):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+
+<span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="n">server</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+
+<span class="c1"># Cleanup</span>
+<span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">czfile</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">rmdir</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Demo complete!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In[6], line 8</span>
+<span class="ansi-green-intense-fg ansi-bold">      6</span> tmpdir <span style="color: rgb(98,98,98)">=</span> tempfile<span style="color: rgb(98,98,98)">.</span>mkdtemp()
+<span class="ansi-green-intense-fg ansi-bold">      7</span> czfile <span style="color: rgb(98,98,98)">=</span> os<span style="color: rgb(98,98,98)">.</span>path<span style="color: rgb(98,98,98)">.</span>join(tmpdir, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">demo.cz</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-fg">----&gt; 8</span> w <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">cytozip</span><span style="color: rgb(98,98,98)">.</span>Writer(
+<span class="ansi-green-intense-fg ansi-bold">      9</span>     Output<span style="color: rgb(98,98,98)">=</span>czfile,
+<span class="ansi-green-intense-fg ansi-bold">     10</span>     Formats<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Q</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">H</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">H</span><span style="color: rgb(175,0,0)">&#34;</span>],
+<span class="ansi-green-intense-fg ansi-bold">     11</span>     Columns<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">pos</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">mc</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">cov</span><span style="color: rgb(175,0,0)">&#34;</span>],
+<span class="ansi-green-intense-fg ansi-bold">     12</span>     Dimensions<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chrom</span><span style="color: rgb(175,0,0)">&#34;</span>],
+<span class="ansi-green-intense-fg ansi-bold">     13</span>     delta_cols<span style="color: rgb(98,98,98)">=</span>[<span style="color: rgb(98,98,98)">0</span>],
+<span class="ansi-green-intense-fg ansi-bold">     14</span> )
+<span class="ansi-green-intense-fg ansi-bold">     15</span> data <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(175,0,0)">b</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(98,98,98)">.</span>join(struct<span style="color: rgb(98,98,98)">.</span>pack(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">&lt;QHH</span><span style="color: rgb(175,0,0)">&#34;</span>, pos, mc, cov)
+<span class="ansi-green-intense-fg ansi-bold">     16</span>                 <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> pos, mc, cov <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> [(<span style="color: rgb(98,98,98)">100</span>, <span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">10</span>), (<span style="color: rgb(98,98,98)">200</span>, <span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">15</span>), (<span style="color: rgb(98,98,98)">350</span>, <span style="color: rgb(98,98,98)">3</span>, <span style="color: rgb(98,98,98)">20</span>)])
+<span class="ansi-green-intense-fg ansi-bold">     17</span> w<span style="color: rgb(98,98,98)">.</span>write_chunk(data, [<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr1</span><span style="color: rgb(175,0,0)">&#34;</span>])
+
+<span class="ansi-red-fg">NameError</span>: name &#39;cytozip&#39; is not defined
+</pre></div></div>
+</div>
+</section>
+<section id="7.-Performance-Tips">
+<h2>7. Performance Tips<a class="headerlink" href="#7.-Performance-Tips" title="Link to this heading"></a></h2>
+<ul>
+<li><p><strong>Cache size</strong>: Increase <code class="docutils literal notranslate"><span class="pre">cache_size</span></code> for sequential reads over large chunks:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">cache_size</span><span class="o">=</span><span class="mi">10</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">)</span>  <span class="c1"># 10MB cache</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Chunk index</strong>: .cz files include a chunk index by default. Without it, the reader must scan the entire file sequentially.</p></li>
+<li><p><strong>Query vs fetch</strong>: For large files, prefer <code class="docutils literal notranslate"><span class="pre">query()</span></code> with coordinate ranges over <code class="docutils literal notranslate"><span class="pre">fetch()</span></code> on the entire chunk — this minimizes data transferred.</p></li>
+<li><p><strong>Server requirements</strong>: The HTTP server must support:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Range</span></code> request header</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Content-Length</span></code> response header</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">206</span> <span class="pre">Partial</span> <span class="pre">Content</span></code> response status</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="python_api.html" class="btn btn-neutral float-left" title="cytozip Python API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../modules.html" class="btn btn-neutral float-right" title="cytozip" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Wubin Ding.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-F0T1MBS19V', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>
