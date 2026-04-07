@@ -9,6 +9,21 @@ except ImportError:
 from pathlib import Path
 from Cython.Build import cythonize
 from setuptools import Extension
+from setuptools.command.build_ext import build_ext as _build_ext
+import os
+
+class build_ext(_build_ext):
+    """Override build_ext to force plain gcc, ignoring CC=mpicc or similar
+    wrappers set by HPC/conda environments.  cz_accel has no MPI dependency
+    and linking against libmpi makes the .so unportable."""
+    def build_extensions(self):
+        cc = self.compiler.compiler[0] if self.compiler.compiler else 'gcc'
+        if 'mpi' in os.path.basename(cc).lower():
+            self.compiler.set_executable('compiler', ['gcc'])
+            self.compiler.set_executable('compiler_so', ['gcc', '-fPIC'])
+            self.compiler.set_executable('compiler_cxx', ['g++'])
+            self.compiler.set_executable('linker_so', ['gcc', '-shared'])
+        super().build_extensions()
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
@@ -34,7 +49,7 @@ setup(
                 'czip=cytozip:main',
             ],
     },
-
+    cmdclass={'build_ext': build_ext},
     ext_modules=cythonize(
         [
             Extension(
