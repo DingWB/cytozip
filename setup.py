@@ -35,9 +35,6 @@ setup(
             ],
     },
 
-    # Build the acceleration extension(s). If Cython is available this will
-    # compile the .pyx module we added (`cytozip/cz_accel.pyx`). Silence a few
-    # clang warnings that are benign on macOS by passing extra compile args.
     ext_modules=cythonize(
         [
             Extension(
