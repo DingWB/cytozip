@@ -461,15 +461,47 @@ class RemoteFile:
 					"Chrome/120.0.0.0 Safari/537.36"
 				),
 				"Accept": "*/*",
+				"Accept-Language": "en-US,en;q=0.9",
 			})
-		# HEAD request to get file size
+		# HEAD request to get file size. Some servers (eg. behind WAF) may
+		# return a 202/challenge or omit Content-Length for HEAD — in that
+		# case fall back to a small Range GET to probe for Content-Range or
+		# Content-Length.
 		resp = self._session.head(url, allow_redirects=True)
-		resp.raise_for_status()
 		cl = resp.headers.get('Content-Length')
-		if cl is None:
-			raise ValueError(
-				"Server did not return Content-Length for %s" % url)
-		self._size = int(cl)
+		if cl is None or resp.status_code == 202:
+			# Try a minimal range request to obtain total size from
+			# Content-Range: 'bytes 0-0/12345' or Content-Length headers.
+			# Build probe headers without mutating user session headers. Ensure
+			# Accept-Language is present for better chance to bypass simple
+			# checks (some servers treat requests without it differently).
+			probe_headers = {'Range': 'bytes=0-0'}
+			if 'Accept-Language' in self._session.headers:
+				probe_headers['Accept-Language'] = self._session.headers['Accept-Language']
+			else:
+				probe_headers['Accept-Language'] = 'en-US,en;q=0.9'
+			rg = self._session.get(url, headers=probe_headers, allow_redirects=True)
+			# If server still responds with a challenge (202) raise a clear error
+			if rg.status_code == 202:
+				raise ValueError(
+					"Server returned 202/Challenge for %s; try supplying a session "
+					"with browser cookies or use a browser-based fetch." % url)
+			cr = rg.headers.get('Content-Range')
+			if cr and '/' in cr:
+				try:
+					self._size = int(cr.split('/')[-1])
+				except Exception:
+					pass
+			else:
+				cl2 = rg.headers.get('Content-Length')
+				if cl2:
+					self._size = int(cl2)
+			# If still not found, raise
+			if not hasattr(self, '_size'):
+				raise ValueError(
+					"Server did not return Content-Length or Content-Range for %s" % url)
+		else:
+			self._size = int(cl)
 
 	def read(self, size=-1):
 		if size == 0:
