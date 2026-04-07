@@ -463,6 +463,16 @@ class RemoteFile:
 				"Accept": "*/*",
 				"Accept-Language": "en-US,en;q=0.9",
 			})
+
+		# Build a reusable headers template for Range requests so we don't
+		# reconstruct the same set on every read(). This improves performance
+		# when performing many small range fetches.
+		self._range_headers_template = {}
+		for h in ('User-Agent', 'Referer', 'Accept', 'Accept-Language', 'Authorization', 'X-Requested-With'):
+			if h in self._session.headers:
+				self._range_headers_template[h] = self._session.headers[h]
+		if 'Accept-Language' not in self._range_headers_template:
+			self._range_headers_template['Accept-Language'] = 'en-US,en;q=0.9'
 		# HEAD request to get file size. Some servers (eg. behind WAF) may
 		# return a 202/challenge or omit Content-Length for HEAD — in that
 		# case fall back to a small Range GET to probe for Content-Range or
@@ -475,11 +485,8 @@ class RemoteFile:
 			# Build probe headers without mutating user session headers. Ensure
 			# Accept-Language is present for better chance to bypass simple
 			# checks (some servers treat requests without it differently).
-			probe_headers = {'Range': 'bytes=0-0'}
-			if 'Accept-Language' in self._session.headers:
-				probe_headers['Accept-Language'] = self._session.headers['Accept-Language']
-			else:
-				probe_headers['Accept-Language'] = 'en-US,en;q=0.9'
+			probe_headers = self._range_headers_template.copy()
+			probe_headers['Range'] = 'bytes=0-0'
 			rg = self._session.get(url, headers=probe_headers, allow_redirects=True)
 			# If server still responds with a challenge (202) raise a clear error
 			if rg.status_code == 202:
@@ -525,11 +532,14 @@ class RemoteFile:
 		# + index_offset + EOF are fetched in a single request)
 		if end - start + 1 < fetch_size:
 			start = max(0, end - fetch_size + 1)
-		resp = self._session.get(
-			self.url,
-			headers={'Range': 'bytes=%d-%d' % (start, end)},
-			allow_redirects=True,
-		)
+		# Build Range headers and copy helpful session headers so the
+		# request resembles a normal browser request. Some servers (e.g.
+		# Figshare/WAF) require specific headers to be present for Range
+		# requests to succeed.
+		# Reuse the cached headers template and only set the Range value.
+		headers = self._range_headers_template.copy()
+		headers['Range'] = 'bytes=%d-%d' % (start, end)
+		resp = self._session.get(self.url, headers=headers, allow_redirects=True)
 		resp.raise_for_status()
 		self._cache = resp.content
 		# If server does not support Range (returns 200 not 206),
@@ -640,7 +650,23 @@ class Reader:
 		"""
 		self.header = {}
 		f = self._handle
-		magic = struct.unpack("<4s", f.read(4))[0]
+		magic_bytes = f.read(4)
+		if len(magic_bytes) != 4:
+			# Provide a helpful error if we received an unexpected response
+			# (commonly an HTML challenge or error page served by the host)
+			try:
+				# attempt to show a short sample to aid diagnosis
+				if hasattr(f, 'seek'):
+					f.seek(0)
+				sample = f.read(512)
+			except Exception:
+				sample = b''
+			raise ValueError(
+				f"Failed to read .cz header: expected 4 bytes but got {len(magic_bytes)}. "
+				"The server may have returned an HTML/error page or a WAF challenge. "
+				f"First bytes (up to 512): {sample!r}"
+			)
+		magic = struct.unpack("<4s", magic_bytes)[0]
 		if magic != _cz_magic:
 			raise ValueError("Not a right format?")
 		self.header['magic'] = magic
