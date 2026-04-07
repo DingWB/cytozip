@@ -28,6 +28,43 @@ _block_magic = b"CB"  # 2-byte magic at the start of each compressed block
 
 cdef unsigned long _BLOCK_MAX_LEN = 65535  # max decompressed block size
 
+# Module-level Struct cache to avoid re-parsing format strings on every call.
+_struct_cache = {}
+
+cdef object _get_struct(str fmts):
+    """Return a cached struct.Struct for the given format string."""
+    st = _struct_cache.get(fmts)
+    if st is None:
+        st = struct.Struct(f"<{fmts}")
+        _struct_cache[fmts] = st
+    return st
+
+
+cdef bytes _parse_blocks_from_buffer(bytes raw_all):
+    """Parse and decompress all BCZ blocks from an in-memory buffer.
+
+    This avoids N seek+read syscalls by processing the pre-read buffer
+    directly. Each block is: magic(2B) + bsize(2B) + deflate_data + data_len(2B).
+    """
+    cdef list chunks = []
+    cdef Py_ssize_t offset = 0
+    cdef Py_ssize_t total = len(raw_all)
+    cdef unsigned short bsize
+    cdef Py_ssize_t deflate_size
+    while offset + 4 <= total:
+        # Check block magic 'CB' (0x43, 0x42)
+        if raw_all[offset] != 67 or raw_all[offset + 1] != 66:
+            break
+        bsize = (<unsigned char>raw_all[offset + 2]) | ((<unsigned char>raw_all[offset + 3]) << 8)
+        if offset + bsize > total:
+            break
+        deflate_size = bsize - 6
+        chunks.append(_c_inflate(raw_all[offset + 4:offset + 4 + deflate_size]))
+        offset += bsize
+    if not chunks:
+        return b""
+    return b"".join(chunks)
+
 
 # ---------------------------------------------------------------------------
 # Low-level zlib C API declarations.
@@ -337,7 +374,7 @@ def unpack_records(data, fmt):
     """
     if not data:
         return []
-    cdef object st = struct.Struct(f"<{fmt}")
+    cdef object st = _get_struct(fmt)
     cdef Py_ssize_t unit = st.size
     cdef Py_ssize_t n = len(data) // unit
     cdef list res = [None] * n
@@ -475,7 +512,7 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions, col_to_q
     cdef Py_ssize_t id_start, id_end
 
     # Pre-build struct for repeated use
-    cdef object st = struct.Struct(f"<{fmts}")
+    cdef object st = _get_struct(fmts)
     unpack_from = st.unpack_from
 
     # read first record of each block to get starting positions
@@ -569,7 +606,7 @@ def c_pack_records(rows, fmt):
     than calling struct.pack() in a Python loop because the Struct
     object caches the compiled format.
     """
-    cdef object st = struct.Struct(f"<{fmt}")
+    cdef object st = _get_struct(fmt)
     cdef bytearray out = bytearray()
     cdef object row
     pack = st.pack
@@ -589,7 +626,7 @@ def c_pack_records_fast(rows, fmt):
     cdef object rows_list = list(rows)
     if not rows_list:
         return b""
-    cdef object st = struct.Struct(f"<{fmt}")
+    cdef object st = _get_struct(fmt)
     cdef Py_ssize_t unit = st.size
     cdef Py_ssize_t n = len(rows_list)
     cdef bytearray out = bytearray(unit * n)
@@ -612,7 +649,7 @@ def c_block_first_values(handle, block_virtual_offsets, fmts, unit_size, s):
     cdef unsigned long within
     cdef object block_size_data
     cdef bytes data
-    cdef object st = struct.Struct(f"<{fmts}")
+    cdef object st = _get_struct(fmts)
     unpack_from = st.unpack_from
     for vo in block_virtual_offsets:
         block_start = vo >> 16
@@ -636,7 +673,7 @@ def c_read_1record(handle, block_raw_length, buffer, within, fmts, unit_size):
     """Read a single record (unpacked tuple) from the stream, updating buffer state."""
     cdef bytes buf = buffer if buffer is not None else b""
     cdef Py_ssize_t buflen = len(buf)
-    cdef object st = struct.Struct(f"<{fmts}")
+    cdef object st = _get_struct(fmts)
     if within + unit_size <= buflen:
         rec = st.unpack_from(buf, within)
         within += unit_size
@@ -665,7 +702,7 @@ def c_seek_and_read_1record(handle, virtual_offset, fmts, unit_size):
     start = virtual_offset >> 16
     within = virtual_offset & 0xFFFF
     handle.seek(start)
-    cdef object st = struct.Struct(f"<{fmts}")
+    cdef object st = _get_struct(fmts)
     try:
         block_size_data = load_bcz_block(handle, True)
     except StopIteration:
@@ -705,7 +742,7 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
     cdef object rec
     cdef Py_ssize_t primary_id
 
-    cdef object st = struct.Struct(f"<{fmts}")
+    cdef object st = _get_struct(fmts)
     unpack_from = st.unpack_from
 
     for start, end in regions:
@@ -786,27 +823,24 @@ def c_write_chunk_tail(handle, chunk_data_len, block_1st_record_virtual_offsets,
     return None
 
 
-def c_fetch_chunk(handle, chunk_start_offset_plus10, block_virtual_offsets, fmts, unit_size):
+def c_fetch_chunk(handle, chunk_start_offset_plus10, block_virtual_offsets, fmts, unit_size, chunk_compressed_size=None):
     """Read and decompress all blocks of a chunk into one bytes object.
 
-    Since blocks within a chunk are stored contiguously on disk,
-    reads the entire compressed region in one I/O call, then parses
-    and decompresses individual blocks from the in-memory buffer.
-    This dramatically reduces the number of read() and seek() syscalls
-    (from 3N to 1 for N blocks).
+    When *chunk_compressed_size* is provided, reads the entire compressed
+    region in one I/O call, then parses and decompresses individual
+    blocks from the in-memory buffer.  This reduces N seek+read syscalls
+    to a single read.
     """
     cdef list block_offsets = list(block_virtual_offsets)
     if not block_offsets:
         return b""
-    # All blocks are contiguous starting at chunk_start_offset + 10.
-    # Seek to the first block and read all block data at once.
     cdef unsigned long first_block_start = block_offsets[0] >> 16
     handle.seek(first_block_start)
-    # We don't know the exact total compressed size, but we can read
-    # block-by-block from the handle. However, if the handle supports
-    # bulk reading (local file), reading a larger chunk is faster.
-    # For simplicity and correctness across local/remote, parse sequentially
-    # from the current position (handle is already at first block).
+    # Bulk I/O path: read all compressed block data in one syscall
+    if chunk_compressed_size is not None and chunk_compressed_size > 0:
+        raw_all = handle.read(chunk_compressed_size)
+        return _parse_blocks_from_buffer(raw_all)
+    # Fallback: sequential block reads (when compressed size is unknown)
     cdef list chunks = []
     cdef object block_size_data
     cdef Py_ssize_t nblocks = len(block_offsets)

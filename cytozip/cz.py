@@ -709,6 +709,9 @@ class Reader:
 		# math.gcd(_unit_size, _BLOCK_MAX_LEN)：The greatest common divisor of the two
 		self._unit_nblock = int(self._unit_size / (math.gcd(self._unit_size, _BLOCK_MAX_LEN)))
 		# _unit_nblock: 每隔多少个 block，record 边界会重新与 block 边界对齐
+		# Pre-compute which columns need bytes→str decoding.
+		# Avoids checking format strings on every record in _byte2real/_byte2str.
+		self._str_col_mask = tuple(f[-1] in ('s', 'c') for f in formats)
 		if getattr(self, '_is_remote', False):
 			self._chunk_rows = None
 			self._summary_from_chunk_index()
@@ -987,7 +990,7 @@ class Reader:
 		if _c_fetch_chunk is not None and chunksize is None:
 			chunk_bytes = _c_fetch_chunk(self._handle, self._chunk_start_offset + 10,
 								self._chunk_block_1st_record_virtual_offsets,
-								self.fmts, self._unit_size)
+								self.fmts, self._unit_size, self._chunk_size - 10)
 			if chunk_bytes:
 				if _c_unpack_records is not None:
 					rows = _c_unpack_records(chunk_bytes, self.fmts)
@@ -1000,14 +1003,15 @@ class Reader:
 					if fmt[-1] in ['c', 's']:
 						df[col] = df[col].apply(lambda x: str(x, 'utf-8'))
 				return df
-		# Fallback: block-by-block with record alignment
+		# When chunksize is set, delegate to the generator helper.
+		if chunksize is not None:
+			return self._chunk2df_gen(dims, reformat, chunksize)
+		# Fallback (no Cython, chunksize=None): block-by-block in memory
 		self._cached_data = b''
-		self._load_block(start_offset=self._chunk_start_offset + 10)  #
+		self._load_block(start_offset=self._chunk_start_offset + 10)
 		rows = []
-		i = 0
 		unpack_fn = _c_unpack_records if _c_unpack_records is not None else None
 		while self._block_raw_length > 0:
-			# deal with such case: unit_size is 10, but data(_buffer) size is 18,
 			self._cached_data += self._buffer
 			end_index = len(self._cached_data) - (len(self._cached_data) % self._unit_size)
 			chunk_bytes = self._cached_data[:end_index]
@@ -1015,27 +1019,41 @@ class Reader:
 				rows.extend(unpack_fn(chunk_bytes, self.fmts))
 			else:
 				rows.extend(self._struct_obj.iter_unpack(chunk_bytes))
-			if not chunksize is None and i >= chunksize:
-				df = pd.DataFrame(rows, columns=self.header['columns'])
+			self._cached_data = self._cached_data[end_index:]
+			self._load_block()
+		df = pd.DataFrame(rows, columns=self.header['columns'])
+		if not reformat:
+			return df
+		for col, fmt in zip(df.columns.tolist(), self.header['formats']):
+			if fmt[-1] in ['c', 's']:
+				df[col] = df[col].apply(lambda x: str(x, 'utf-8'))
+		return df
+
+	def _chunk2df_gen(self, dims, reformat, chunksize):
+		"""Generator variant of chunk2df when chunksize is set."""
+		r = self._load_chunk(self.dim2chunk_start[dims], jump=False)
+		self._cached_data = b''
+		self._load_block(start_offset=self._chunk_start_offset + 10)
+		rows = []
+		i = 0
+		unpack_fn = _c_unpack_records if _c_unpack_records is not None else None
+		while self._block_raw_length > 0:
+			self._cached_data += self._buffer
+			end_index = len(self._cached_data) - (len(self._cached_data) % self._unit_size)
+			chunk_bytes = self._cached_data[:end_index]
+			if unpack_fn is not None:
+				rows.extend(unpack_fn(chunk_bytes, self.fmts))
+			else:
+				rows.extend(self._struct_obj.iter_unpack(chunk_bytes))
+			if i >= chunksize:
+				yield pd.DataFrame(rows, columns=self.header['columns'])
 				rows = []
 				i = 0
-				yield df
 			self._cached_data = self._cached_data[end_index:]
 			self._load_block()
 			i += 1
-		if chunksize is None:
-			df = pd.DataFrame(rows, columns=self.header['columns'])
-			if not reformat:
-				return df
-			for col, fmt in zip(df.columns.tolist(), self.header['formats']):
-				# print(col,fmt)
-				if fmt[-1] in ['c', 's']:
-					df[col] = df[col].apply(lambda x: str(x, 'utf-8'))
-			return df
-		else:
-			if len(rows) > 0:
-				df = pd.DataFrame(rows, columns=self.header['columns'])
-				yield df
+		if len(rows) > 0:
+			yield pd.DataFrame(rows, columns=self.header['columns'])
 
 	def _load_block(self, start_offset=None):
 		"""Load and decompress a single block into ``self._buffer``.
@@ -1070,15 +1088,15 @@ class Reader:
 		Bytes-type fields (s/c formats) are decoded to UTF-8 strings;
 		numeric fields are converted via ``str()``.
 		"""
-		return [str(v, 'utf-8') if f[-1] in ['s', 'c'] else str(v)
-				for v, f in zip(values, self.header['formats'])]
+		mask = self._str_col_mask
+		return [str(v, 'utf-8') if mask[i] else str(v) for i, v in enumerate(values)]
 
 	def _byte2real(self, values):
 		"""Convert a record tuple, decoding bytes fields to strings but
 		leaving numeric fields as their native Python types.
 		"""
-		return [str(v, 'utf-8') if f[-1] in ['s', 'c'] else v
-				for v, f in zip(values, self.header['formats'])]
+		mask = self._str_col_mask
+		return [str(v, 'utf-8') if mask[i] else v for i, v in enumerate(values)]
 
 	def _empty_generator(self):
 		while True:
@@ -1658,7 +1676,7 @@ class Reader:
 		if _c_fetch_chunk is not None:
 			chunk_bytes = _c_fetch_chunk(self._handle, self._chunk_start_offset + 10,
 								self._chunk_block_1st_record_virtual_offsets,
-								self.fmts, self._unit_size)
+								self.fmts, self._unit_size, self._chunk_size - 10)
 			if chunk_bytes:
 				if _c_unpack_records is not None:
 					for result in _c_unpack_records(chunk_bytes, self.fmts):
@@ -1667,25 +1685,23 @@ class Reader:
 					for result in self._struct_obj.iter_unpack(chunk_bytes):
 						yield result[s:e]
 			return
-		# Fallback: block-by-block decompression with record alignment
-		unit_nblock = self._unit_nblock
-		self._load_block(start_offset=self._chunk_start_offset + 10)
-		i, _cached_data = 1, self._buffer
-		while self._block_raw_length > 0:
-			self._load_block()
-			if i < unit_nblock:
-				_cached_data += self._buffer
-				i += 1
-			else:
-				# unpack the whole buffer
-				if _c_unpack_records is not None:
-					for result in _c_unpack_records(_cached_data, self.fmts):
-						yield result[s:e]
-				else:
-					for result in self._struct_obj.iter_unpack(_cached_data):
-						yield result[s:e]
-				i, _cached_data = 1, self._buffer
-		if len(_cached_data) > 0:
+		# Fallback: bulk-read all compressed blocks in one I/O, then
+		# decompress and unpack in memory (avoids N seek+read syscalls).
+		self._handle.seek(self._chunk_start_offset + 10)
+		_all_compressed = self._handle.read(self._chunk_size - 10)
+		_parts = []
+		_off = 0
+		while _off + 4 <= len(_all_compressed):
+			if _all_compressed[_off:_off + 2] != _block_magic:
+				break
+			_bsize = _struct_H.unpack_from(_all_compressed, _off + 2)[0]
+			if _off + _bsize > len(_all_compressed):
+				break
+			_parts.append(zlib.decompress(
+				_all_compressed[_off + 4:_off + _bsize - 2], -15))
+			_off += _bsize
+		_cached_data = b"".join(_parts)
+		if _cached_data:
 			if _c_unpack_records is not None:
 				for result in _c_unpack_records(_cached_data, self.fmts):
 					yield result[s:e]
@@ -1728,17 +1744,24 @@ class Reader:
 			raw = _c_fetch_chunk(
 				self._handle, self._chunk_start_offset + 10,
 				self._chunk_block_1st_record_virtual_offsets,
-				self.fmts, self._unit_size
+				self.fmts, self._unit_size, self._chunk_size - 10
 			)
 		else:
-			# Fallback: decompress blocks one at a time in Python and
-			# concatenate the resulting buffers.
+			# Fallback: bulk-read all compressed data in one I/O, then
+			# decompress blocks from the in-memory buffer.
+			self._handle.seek(self._chunk_start_offset + 10)
+			_all_compressed = self._handle.read(self._chunk_size - 10)
 			chunks = []
-			self._load_block(start_offset=self._chunk_start_offset + 10)
-			chunks.append(self._buffer)
-			while self._block_raw_length > 0:
-				self._load_block()
-				chunks.append(self._buffer)
+			_off = 0
+			while _off + 4 <= len(_all_compressed):
+				if _all_compressed[_off:_off + 2] != _block_magic:
+					break
+				_bsize = _struct_H.unpack_from(_all_compressed, _off + 2)[0]
+				if _off + _bsize > len(_all_compressed):
+					break
+				chunks.append(zlib.decompress(
+					_all_compressed[_off + 4:_off + _bsize - 2], -15))
+				_off += _bsize
 			raw = b"".join(chunks)
 		return raw
 
@@ -2585,14 +2608,18 @@ class Writer:
 			# usecols and dim_cols should be in the columns of this dataframe.
 			if self.chunksize is None:
 				for dim, df1 in input_handle.groupby(self.dim_cols)[self.usecols]:
-					if not isinstance(dim, list):
+					if isinstance(dim, tuple):
+						dim = list(dim)
+					elif not isinstance(dim, list):
 						dim = [dim]
 					yield df1, dim
 			else:
 				while input_handle.shape[0] > 0:
 					df = input_handle.iloc[:self.chunksize]
 					for dim, df1 in df.groupby(self.dim_cols)[self.usecols]:
-						if not isinstance(dim, list):
+						if isinstance(dim, tuple):
+							dim = list(dim)
+						elif not isinstance(dim, list):
 							dim = [dim]
 						yield df1, dim
 					input_handle = input_handle.iloc[self.chunksize:]
@@ -2669,7 +2696,7 @@ class Writer:
 		# if self.verbose > 0:
 		#     print("input: ", type(input), input)
 
-		if input is None or input == 'stdin':
+		if input is None or (isinstance(input, str) and input == 'stdin'):
 			data_generator = self._parse_input_no_ref(sys.stdin)
 		elif isinstance(input, str):
 			input_path = os.path.abspath(os.path.expanduser(input))
@@ -2691,8 +2718,30 @@ class Writer:
 		# if self.verbose > 0:
 		#     print(self.usecols, self.dim_cols)
 		#     print(type(self.usecols), type(self.dim_cols))
+		# Pre-check whether all columns are numeric (no string/char).
+		# If so, use a numpy structured array for zero-copy packing
+		# which avoids df.values.tolist() and per-row struct.pack overhead.
+		_NP_FMT_MAP = {'B': '<u1', 'b': '<i1', 'H': '<u2', 'h': '<i2',
+					   'I': '<u4', 'i': '<i4', 'Q': '<u8', 'q': '<i8',
+					   'f': '<f4', 'd': '<f8'}
+		_all_numeric = all(f in _NP_FMT_MAP for f in self.formats)
+		_np_dt = None
+		if _all_numeric:
+			try:
+				_np_dt = np.dtype([(c, _NP_FMT_MAP[f])
+								   for c, f in zip(self.columns, self.formats)])
+			except Exception:
+				_np_dt = None
+
 		for df, dim in data_generator:
-			if self._pack_records is not None:
+			if _np_dt is not None:
+				# Numpy fast path: pack via structured array (no tolist)
+				vals = df.values
+				arr = np.empty(len(df), dtype=_np_dt)
+				for j in range(len(self.columns)):
+					arr[self.columns[j]] = vals[:, j]
+				data = arr.tobytes()
+			elif self._pack_records is not None:
 				rows = df.values.tolist()
 				data = self._pack_records(rows, self.fmts)
 			else:

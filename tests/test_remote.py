@@ -215,5 +215,94 @@ class TestRemoteReader(unittest.TestCase):
             self.assertEqual(exp, tuple(act))
 
 
+def _figshare_session():
+    """Create a requests.Session configured for Figshare downloads."""
+    import requests
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://figshare.com/",
+        "Accept": "*/*",
+    })
+    session.get("https://figshare.com")  # acquire cookies
+    return session
+
+
+@unittest.skipUnless(
+    os.environ.get("CYTOZIP_TEST_FIGSHARE", "0") == "1",
+    "Set CYTOZIP_TEST_FIGSHARE=1 to run Figshare remote tests",
+)
+class TestFigshareRemote(unittest.TestCase):
+    """Integration tests against real Figshare-hosted .cz files."""
+
+    # UCI2424_CX1718BS0102_MGM1_1_P10-1-I17-A16.with_coordinate.cz
+    URL_WITH_COORD = "https://figshare.com/ndownloader/files/63531984"
+    # FC_E17a_3C_1-1-I3-F13.cz  (no coordinates)
+    URL_NO_COORD = "https://figshare.com/ndownloader/files/63531981"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.session = _figshare_session()
+
+    def test_figshare_with_coordinate_header(self):
+        """Read header from Figshare .cz file with coordinates."""
+        reader = Reader.from_url(self.URL_WITH_COORD, session=self.session)
+        self.assertTrue(reader._is_remote)
+        self.assertIn("formats", reader.header)
+        self.assertIn("columns", reader.header)
+        self.assertGreater(len(reader.header["formats"]), 0)
+        reader.close()
+
+    def test_figshare_with_coordinate_summary(self):
+        """summary_chunks returns a DataFrame for Figshare .cz file."""
+        import pandas as pd
+        reader = Reader.from_url(self.URL_WITH_COORD, session=self.session)
+        df = reader.summary_chunks(printout=False)
+        self.assertIsInstance(df, pd.DataFrame)
+        self.assertGreater(len(df), 0)
+        reader.close()
+
+    def test_figshare_with_coordinate_query(self):
+        """query() on Figshare .cz file with coordinates returns records."""
+        reader = Reader.from_url(self.URL_WITH_COORD, session=self.session)
+        records = list(reader.query(
+            dimension="chr9", start=60610139, end=60610151, printout=False,
+        ))
+        self.assertGreater(len(records), 0)
+        reader.close()
+
+    def test_figshare_no_coordinate_header(self):
+        """Read header from Figshare .cz file without coordinates."""
+        reader = Reader.from_url(self.URL_NO_COORD, session=self.session)
+        self.assertTrue(reader._is_remote)
+        self.assertIn("formats", reader.header)
+        reader.close()
+
+    def test_figshare_no_coordinate_summary(self):
+        """summary_chunks returns a DataFrame for Figshare .cz (no coords)."""
+        import pandas as pd
+        reader = Reader.from_url(self.URL_NO_COORD, session=self.session)
+        df = reader.summary_chunks(printout=False)
+        self.assertIsInstance(df, pd.DataFrame)
+        self.assertGreater(len(df), 0)
+        reader.close()
+
+    def test_figshare_no_coordinate_fetch(self):
+        """fetch() on Figshare .cz file returns records."""
+        reader = Reader.from_url(self.URL_NO_COORD, session=self.session)
+        dims = list(reader.dim2chunk_start.keys())
+        self.assertGreater(len(dims), 0)
+        # Fetch first chunk, read a few records
+        records = []
+        for i, rec in enumerate(reader.fetch(dims[0])):
+            records.append(rec)
+            if i >= 9:
+                break
+        self.assertEqual(len(records), 10)
+        reader.close()
+
+
 if __name__ == "__main__":
     unittest.main()
