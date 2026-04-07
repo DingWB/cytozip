@@ -421,25 +421,55 @@ class RemoteFile:
 	cache_size : int
 		Read-ahead cache size in bytes (default 2MB). Each HTTP request
 		fetches at least this many bytes to reduce request count.
+	session : requests.Session, optional
+		A pre-configured ``requests.Session`` to use for all HTTP calls.
+		If *None* (default), a new session is created automatically with
+		browser-like headers.  For servers that require cookies or special
+		auth (e.g. Figshare), construct a ``requests.Session``, set up the
+		necessary headers/cookies, and pass it here.  Example for Figshare::
+		```
+		    import requests
+		    session = requests.Session()
+		    session.headers.update({
+		        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+		                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+		                      "Chrome/120.0.0.0 Safari/537.36",
+		        "Referer": "https://figshare.com/",
+		        "Accept": "*/*",
+		    })
+		    session.get("https://figshare.com")  # acquire cookies
+		    rf = RemoteFile(url, session=session)
+		```
 	"""
 
-	def __init__(self, url, cache_size=2 * 1024 * 1024):
-		import urllib.request
-		self._urllib = urllib.request
+	def __init__(self, url, cache_size=2 * 1024 * 1024, session=None):
+		import requests
 		self.url = url
 		self._pos = 0
 		self._cache_size = cache_size
 		self._cache_start = -1
 		self._cache = b""
 		self._closed = False
+		if session is not None:
+			self._session = session
+		else:
+			self._session = requests.Session()
+			self._session.headers.update({
+				"User-Agent": (
+					"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+					"AppleWebKit/537.36 (KHTML, like Gecko) "
+					"Chrome/120.0.0.0 Safari/537.36"
+				),
+				"Accept": "*/*",
+			})
 		# HEAD request to get file size
-		req = urllib.request.Request(url, method='HEAD')
-		with urllib.request.urlopen(req) as resp:
-			cl = resp.headers.get('Content-Length')
-			if cl is None:
-				raise ValueError(
-					"Server did not return Content-Length for %s" % url)
-			self._size = int(cl)
+		resp = self._session.head(url, allow_redirects=True)
+		resp.raise_for_status()
+		cl = resp.headers.get('Content-Length')
+		if cl is None:
+			raise ValueError(
+				"Server did not return Content-Length for %s" % url)
+		self._size = int(cl)
 
 	def read(self, size=-1):
 		if size == 0:
@@ -463,17 +493,20 @@ class RemoteFile:
 		# + index_offset + EOF are fetched in a single request)
 		if end - start + 1 < fetch_size:
 			start = max(0, end - fetch_size + 1)
-		req = self._urllib.Request(self.url)
-		req.add_header('Range', 'bytes=%d-%d' % (start, end))
-		with self._urllib.urlopen(req) as resp:
-			self._cache = resp.read()
-			# If server does not support Range (returns 200 not 206),
-			# it sent the full file from offset 0.
-			cr = resp.headers.get('Content-Range')
-			if cr and cr.startswith('bytes '):
-				self._cache_start = start
-			else:
-				self._cache_start = 0
+		resp = self._session.get(
+			self.url,
+			headers={'Range': 'bytes=%d-%d' % (start, end)},
+			allow_redirects=True,
+		)
+		resp.raise_for_status()
+		self._cache = resp.content
+		# If server does not support Range (returns 200 not 206),
+		# it sent the full file from offset 0.
+		cr = resp.headers.get('Content-Range', '')
+		if cr.startswith('bytes '):
+			self._cache_start = start
+		else:
+			self._cache_start = 0
 		local_off = self._pos - self._cache_start
 		data = self._cache[local_off:local_off + size]
 		self._pos += len(data)
@@ -1652,7 +1685,7 @@ class Reader:
 		return raw
 
 	@classmethod
-	def from_url(cls, url, cache_size=2 * 1024 * 1024):
+	def from_url(cls, url, cache_size=2 * 1024 * 1024, session=None):
 		"""Open a remote .cz file via HTTP Range requests.
 
 		Uses chunk index for O(1) chunk lookup, requiring only 2-3 HTTP
@@ -1664,12 +1697,30 @@ class Reader:
 			HTTP/HTTPS URL to the .cz file.
 		cache_size : int
 			Read-ahead cache size per HTTP request (default 2MB).
+		session : requests.Session, optional
+			A pre-configured ``requests.Session`` to use for all HTTP calls.
+			If *None* (default), a new session is created automatically with
+			browser-like headers.  For servers that require cookies or special
+			auth (e.g. Figshare), construct a ``requests.Session``, set up the
+			necessary headers/cookies, and pass it here.  Example for Figshare::
+
+			    import requests
+			    session = requests.Session()
+			    session.headers.update({
+			        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+			                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+			                      "Chrome/120.0.0.0 Safari/537.36",
+			        "Referer": "https://figshare.com/",
+			        "Accept": "*/*",
+			    })
+			    session.get("https://figshare.com")  # acquire cookies
+			    reader = Reader.from_url(url, session=session)
 
 		Returns
 		-------
 		Reader
 		"""
-		remote = RemoteFile(url, cache_size=cache_size)
+		remote = RemoteFile(url, cache_size=cache_size, session=session)
 		reader = cls.__new__(cls)
 		reader._handle = remote
 		reader._is_remote = True
@@ -1677,6 +1728,7 @@ class Reader:
 		reader.max_cache = 100
 		reader._block_start_offset = None
 		reader._block_raw_length = None
+		reader._chunk_tail_cache = {}
 		reader.read_header()
 		return reader
 
