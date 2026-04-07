@@ -866,8 +866,8 @@ class Reader:
 				pass
 			finally:
 				self.close()
-		else:
-			return chunk_info
+		# Return the DataFrame in both cases so callers can inspect it programmatically.
+		return chunk_info
 
 	def read_chunk_index(self):
 		"""Read chunk index from end of file for O(1) chunk lookup.
