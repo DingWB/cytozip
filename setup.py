@@ -9,6 +9,15 @@ except ImportError:
 from pathlib import Path
 from Cython.Build import cythonize
 from setuptools import Extension
+import os
+
+# Prefer plain gcc/g++ for building the extension to avoid linking against
+# MPI compilers (mpicc) that may be present in some environments. This
+# forces a more portable .so that does not depend on libmpi.
+os.environ['CC'] = os.environ.get('CC', 'gcc')
+os.environ['CXX'] = os.environ.get('CXX', 'g++')
+if 'mpicc' in os.path.basename(os.environ.get('CC', '')):
+    print('WARNING: CC appears to be mpicc; consider building with CC=gcc CXX=g++ to avoid MPI linkage')
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 

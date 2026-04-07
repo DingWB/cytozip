@@ -5,6 +5,7 @@
 ```shell
 pip install cytozip
 #or
+conda install libzlib zlib
 pip install git+http://github.com/DingWB/cytozip
 ```
 reinstall
