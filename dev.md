@@ -132,6 +132,7 @@ pip install -e .
 pip uninstall -y cytozip && python3 -m pip install .
 # rebuild .pyx
 python setup.py build_ext --inplace
+python -c "import cytozip.cz_accel"
 ```
 
 ## Reference file
