@@ -32,7 +32,7 @@ setup(
     author_email="ding.wu.bin.gm@gmail.com",
     url="https://github.com/DingWB/cytozip",
     packages=find_packages(exclude=('docs',)),
-    install_requires=['pandas', 'numpy', 'cython', 'pysam','fast-fisher'],
+    install_requires=['pandas', 'numpy', 'cython', 'pysam','fast-fisher','loguru'],
     include_package_data=True,
     package_data={
         '': ['*.txt', '*.tsv', '*.csv', '*.fa', '*Snakefile', '*ipynb']
