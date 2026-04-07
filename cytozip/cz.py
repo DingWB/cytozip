@@ -868,7 +868,8 @@ class Reader:
 		except BrokenPipeError:
 			pass
 		finally:
-			self.close()
+			if printout:
+				self.close()
 		if not printout:
 			df = pd.DataFrame(rows, columns=header)
 			return df
@@ -1089,6 +1090,169 @@ class Reader:
 		self.close()
 		if not reference is None:
 			ref_reader.close()
+
+	def to_allc(self, output, reference=None, dimension=None, 
+			 tabix=True, cov_col=None):
+		"""Convert a .cz file to allc.tsv.gz format.
+
+		Produces a bgzip-compressed, tab-separated file whose columns are::
+
+		  chrom  [ref_columns...]  [data_columns...]  1
+
+		The trailing ``1`` is the *methylated* flag required by the allc
+		format.  When a *reference* .cz is supplied, its columns (typically
+		``pos``, ``strand``, ``context``) are prepended to the data columns
+		so the output matches the standard allc layout::
+
+		  chrom  pos  strand  context  mc  cov  1
+
+		Performance
+		-----------
+		Instead of iterating record-by-record via :meth:`fetch`, this
+		method uses a vectorised pipeline:
+
+		1. :meth:`fetch_chunk_bytes` — bulk-decompress the entire chunk
+		   into a single ``bytes`` object (Cython fast path if available).
+		2. ``np.frombuffer`` — zero-copy cast to a structured numpy array.
+		3. ``pd.DataFrame`` → ``df.to_csv`` — vectorised string conversion
+		   and concatenation in C, avoiding per-row Python overhead.
+		4. ``pysam.BGZFile`` — write directly to bgzip without an
+		   intermediate plain-text file.
+
+		Parameters
+		----------
+		output : str
+			Output file path.  If it does not end with ``.gz``, the suffix
+			is appended automatically.
+		reference : str, optional
+			Path to a reference .cz file.  Each reference chunk must
+			contain the same number of records as the corresponding
+			data chunk (row-aligned).
+		dimension : None, dict, str, list
+			Filter which chunks to convert (same semantics as
+			:meth:`view`).  *None* converts all chunks.
+		tabix : bool
+			If True (default), create a tabix index (``.tbi``) after
+			writing via ``pysam.tabix_index``.
+		cov_col : str, optional
+			Name of the coverage column.  Rows where this column is
+			zero are dropped.  Defaults to the last data column
+			(``self.header['columns'][-1]``).
+			Use `czip header` (or `Reader.header['columns']`) to view the header of a .cz file.
+		"""
+		import pysam
+		output = os.path.abspath(os.path.expanduser(output))
+		if not output.endswith('.gz'):
+			output = output + '.gz'
+
+		# ---- Resolve which dimension tuples (chunks) to convert -----------
+		if dimension is None or isinstance(dimension, dict):
+			chunk_info = self.chunk_info.copy()
+			if isinstance(dimension, dict):
+				# Progressively filter: {'chrom':'chr1','sample':'A'}
+				for d, v in dimension.items():
+					chunk_info = chunk_info.loc[chunk_info[d] == v]
+			dims = chunk_info.index.tolist()
+		elif isinstance(dimension, str):
+			# Comma-separated string: 'chr1,chr2' → [('chr1',), ('chr2',)]
+			dims = [tuple([d]) for d in dimension.split(',')]
+		elif isinstance(dimension, (list, tuple)):
+			if isinstance(dimension[0], str):
+				dims = [tuple([d]) for d in dimension]
+			else:
+				dims = list(dimension)
+		else:
+			raise ValueError("dimension format not recognized")
+
+		ref_reader = None
+		if reference is not None:
+			reference = os.path.abspath(os.path.expanduser(reference))
+			ref_reader = Reader(reference)
+
+		# ---- Build numpy structured dtypes for zero-copy decoding ---------
+		# Maps struct format chars to numpy little-endian dtypes.
+		_NP_MAP = {'B': '<u1', 'b': '<i1', 'H': '<u2', 'h': '<i2',
+				   'I': '<u4', 'i': '<i4', 'Q': '<u8', 'q': '<i8',
+				   'f': '<f4', 'd': '<f8'}
+		def _make_np_dtype(formats, columns):
+			"""Create a numpy structured dtype from .cz format strings."""
+			dt = []
+			for fmt, col in zip(formats, columns):
+				np_dt = _NP_MAP.get(fmt[-1])
+				if np_dt is None:  # string/char format, e.g. '3s' or 'c'
+					n = int(fmt[:-1]) if len(fmt) > 1 else 1
+					dt.append((col, f'S{n}'))
+				else:
+					dt.append((col, np_dt))
+			return np.dtype(dt)
+
+		self_np_dtype = _make_np_dtype(self.header['formats'], self.header['columns'])
+		ref_np_dtype = None
+		if ref_reader is not None:
+			ref_np_dtype = _make_np_dtype(ref_reader.header['formats'],
+										  ref_reader.header['columns'])
+
+		# ---- Write chunks to bgzip via pysam.BGZFile ----------------------
+		_cov = cov_col or self.header['columns'][-1]
+		_self_cols = self.header['columns']
+		_self_str_cols = [col for col, fmt in zip(_self_cols, self.header['formats'])
+						  if fmt[-1] in ('s', 'c')]
+		if ref_reader is not None:
+			_ref_cols = ref_reader.header['columns']
+			_ref_str_cols = [col for col, fmt in zip(_ref_cols, ref_reader.header['formats'])
+							 if fmt[-1] in ('s', 'c')]
+		with pysam.BGZFile(output, 'wb') as fh:
+			for d in dims:
+				if d not in self.dim2chunk_start:
+					continue
+				chrom = d[0]
+
+				# Bulk-decompress the entire chunk and decode via numpy
+				raw = self.fetch_chunk_bytes(d)
+				if not raw:
+					continue
+				arr = np.frombuffer(raw, dtype=self_np_dtype)
+
+				# Filter zero-coverage rows at the numpy level before
+				# building the DataFrame — avoids processing discarded rows.
+				mask = arr[_cov] > 0
+				arr = arr[mask]
+				if len(arr) == 0:
+					continue
+
+				# Build column dict in final output order to avoid
+				# pd.concat and df.insert overhead.
+				cols = {'_chrom': chrom}
+				if ref_reader is not None:
+					ref_raw = ref_reader.fetch_chunk_bytes(d)
+					if ref_raw:
+						ref_arr = np.frombuffer(ref_raw, dtype=ref_np_dtype)[mask]
+						for col in _ref_cols:
+							cols[col] = ref_arr[col]
+				for col in _self_cols:
+					cols[col] = arr[col]
+				cols['_mc_flag'] = 1
+				df = pd.DataFrame(cols)
+
+				# Decode string columns (precomputed lists)
+				for col in _self_str_cols:
+					df[col] = df[col].str.decode('utf-8')
+				if ref_reader is not None:
+					for col in _ref_str_cols:
+						if col in df.columns:
+							df[col] = df[col].str.decode('utf-8')
+
+				# Vectorised CSV serialisation → bulk write to bgzip stream
+				buf = df.to_csv(None, sep='\t', header=False, index=False)
+				fh.write(buf.encode())
+
+		if ref_reader is not None:
+			ref_reader.close()
+
+		# Build tabix index (chrom=col0, start=end=col1, 1-based)
+		if tabix:
+			pysam.tabix_index(output, force=True, seq_col=0, start_col=1,
+							  end_col=1, zerobased=False)
 
 	@staticmethod
 	def regions_ssi_worker(input, output, dim, df1, formats, columns, dimensions,
@@ -1439,30 +1603,45 @@ class Reader:
 					yield result[s:e]
 
 	def fetch_chunk_bytes(self, dim):
-		"""
-		Return all decompressed bytes for a given chunk as a single bytes object.
-		This allows efficient numpy-based processing via np.frombuffer.
+		"""Return all decompressed bytes for a given chunk as a single
+		``bytes`` object.
+
+		Unlike :meth:`fetch` (which yields one decoded record tuple at a
+		time), this method returns the *raw* concatenated binary data of
+		every block in the chunk.  The caller can then use
+		``np.frombuffer(raw, dtype=structured_dtype)`` to decode all
+		records at once — typically 10-50x faster than iterating in Python.
+
+		Used by :func:`allc2cz` (vectorized reference alignment) and
+		:meth:`to_allc` (bulk .cz → allc.tsv.gz conversion).
 
 		Parameters
 		----------
 		dim : tuple
-			Chunk dimension key.
+			Chunk dimension key, e.g. ``('chr1',)``.
 
 		Returns
 		-------
 		bytes
+			Concatenated decompressed block data.  Length is always a
+			multiple of ``self._unit_size``.
 		"""
+		# _load_chunk with jump=False reads the block virtual-offset
+		# table so that _c_fetch_chunk can locate every block.
 		r = self._load_chunk(self.dim2chunk_start[dim], jump=False)
 		if not r:
 			return b""
 		if _c_fetch_chunk is not None:
+			# Fast path: Cython reads + decompresses all blocks in one
+			# call, returning a single bytes object.
 			raw = _c_fetch_chunk(
 				self._handle, self._chunk_start_offset + 10,
 				self._chunk_block_1st_record_virtual_offsets,
 				self.fmts, self._unit_size
 			)
 		else:
-			# Fallback: read block by block
+			# Fallback: decompress blocks one at a time in Python and
+			# concatenate the resulting buffers.
 			chunks = []
 			self._load_block(start_offset=self._chunk_start_offset + 10)
 			chunks.append(self._buffer)
@@ -1736,24 +1915,28 @@ class Reader:
 			if printout:
 				sys.stdout.write('\t'.join(header) + '\n')
 				records = self._query_regions(regions, s, e)
-				record = records.__next__()
+				try:
+					record = next(records)
+				except StopIteration:
+					sys.stdout.close()
+					self.close()
+					return
 				while True:
 					try:
-						record = records.__next__()
-					except:
+						record = next(records)
+					except StopIteration:
 						break
 					try:
 						dims, row = record
 						try:
 							sys.stdout.write('\t'.join([str(d) for d in dims] +
 													   self._byte2str(row)) + '\n')
-						except:
-							sys.stdout.close()
+						except BrokenPipeError:
 							self.close()
 							return
 					except ValueError:  # len(record) ==3: #"primary_id_&_dim:", primary_id, dim
 						flag, primary_id, dim = record
-				sys.stdout.close()
+				sys.stdout.flush()
 				self.close()
 			else:
 				return self._query_iter(regions, s, e)
@@ -1766,27 +1949,33 @@ class Reader:
 				sys.stdout.write('\t'.join(header) + '\n')
 				# query reference first
 				ref_records = ref_reader._query_regions(regions, s, e)
-				flag, primary_id, dim = ref_records.__next__()  # 1st should contain primary_id
+				try:
+					flag, primary_id, dim = next(ref_records)
+				except StopIteration:
+					sys.stdout.flush()
+					self.close()
+					ref_reader.close()
+					return
 				records = self.fetchByStartID(dim, n=primary_id)
 				while True:
 					try:
 						ref_record = next(ref_records)
 						record = self._byte2str(next(records))
-					except:
+					except StopIteration:
 						break
 					try:
 						dims, row = ref_record
 						rows = ref_reader._byte2str(row) + record
 						try:
 							sys.stdout.write('\t'.join([str(d) for d in dims] + rows) + '\n')
-						except:
-							sys.stdout.close()
+						except BrokenPipeError:
 							self.close()
+							ref_reader.close()
 							return
 					except ValueError:  # len(record) ==3: #"primary_id_&_dim:", primary_id, dim
 						flag, primary_id, dim = ref_record  # next block or next dim
 						records = self.fetchByStartID(dim, n=primary_id)
-				sys.stdout.close()
+				sys.stdout.flush()
 				self.close()
 			else:
 				return self._query_iter_ref(regions, s, e, ref_reader)
@@ -1794,11 +1983,14 @@ class Reader:
 
 	def _query_iter(self, regions, s, e):
 		records = self._query_regions(regions, s, e)
-		record = records.__next__()
+		try:
+			record = next(records)
+		except StopIteration:
+			return
 		while True:
 			try:
-				record = records.__next__()
-			except:
+				record = next(records)
+			except StopIteration:
 				break
 			try:
 				dims, row = record
@@ -1808,14 +2000,18 @@ class Reader:
 
 	def _query_iter_ref(self, regions, s, e, ref_reader):
 		ref_records = ref_reader._query_regions(regions, s, e)
-		ref_record = ref_records.__next__()  # 1st should contain primary_id
+		try:
+			ref_record = next(ref_records)
+		except StopIteration:
+			ref_reader.close()
+			return
 		flag, primary_id, dim = ref_record
 		records = self.fetchByStartID(dim, n=primary_id)
 		while True:
 			try:
-				ref_record = ref_records.__next__()
-				record = self._byte2str(records.__next__())
-			except:
+				ref_record = next(ref_records)
+				record = self._byte2str(next(records))
+			except StopIteration:
 				break
 			try:
 				dims, row = ref_record

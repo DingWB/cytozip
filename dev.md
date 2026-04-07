@@ -134,6 +134,26 @@ pip uninstall -y cytozip && python3 -m pip install .
 python setup.py build_ext --inplace
 ```
 
+## Reference file
+```shell
+time czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -n 20
+# 0m44.284s
+
+# create subset index for all CG (including forward and reverse strand)
+time czip generate_ssi1 ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -p CGN -o ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.ssi
+# 8m24.544s
+
+# create subset index for all CG (forward strand only)
+time czip generate_ssi1 ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -p +CGN -o ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.forward.ssi
+# about 5 minutes
+
+# using forward CG subset index to extract forward strand CG coordinates from reference
+time czip extract -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -s ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.forward.ssi -o ~/Ref/mm10/annotations/mm10_with_chrL.allCG.forward.cz
+# about 1m23.855s
+
+# Actually, *.ssi is also a czip file, we can view .ssi using `czip view -I *.ssi --show-dim 0`
+```
+
 ## Remote Reading
 Read .cz files from a remote HTTP/HTTPS server using HTTP Range requests.
 Requires the file to have a chunk index.

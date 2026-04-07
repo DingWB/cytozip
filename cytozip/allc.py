@@ -217,6 +217,9 @@ def _write_np_chunks(writer, arr, chrom, chunksize, unit_size):
 def _parse_tabix_lines(lines, cols, np_dtypes, sep='\t'):
     """Parse tabix lines into numpy arrays using pd.read_csv for speed.
 
+    Values that exceed the target dtype's range are clamped to its
+    maximum (e.g. 318 → 255 for uint8) instead of wrapping via modulo.
+
     Parameters
     ----------
     lines : list of str
@@ -234,10 +237,24 @@ def _parse_tabix_lines(lines, cols, np_dtypes, sep='\t'):
         One array per column in `cols`
     """
     import io
+    # Parse with a wide dtype first to avoid silent overflow, then clip.
+    _WIDE = {'<u1': '<i8', '<u2': '<i8', '<u4': '<i8',
+             '<i1': '<i8', '<i2': '<i8', '<i4': '<i8'}
+    wide_dtypes = [_WIDE.get(d, d) for d in np_dtypes]
     raw = '\n'.join(lines)
     df = pd.read_csv(io.StringIO(raw), sep=sep, header=None,
-                     usecols=cols, dtype={c: d for c, d in zip(cols, np_dtypes)})
-    return [df[c].values for c in cols]
+                     usecols=cols, dtype={c: d for c, d in zip(cols, wide_dtypes)})
+    result = []
+    for c, target_dt in zip(cols, np_dtypes):
+        arr = df[c].values
+        dt = np.dtype(target_dt)
+        if dt.kind in ('u', 'i'):
+            info = np.iinfo(dt)
+            arr = np.clip(arr, info.min, info.max).astype(dt)
+        else:
+            arr = arr.astype(dt)
+        result.append(arr)
+    return result
 
 
 def allc2cz(input, outfile, reference=None, missing_value=[0, 0],

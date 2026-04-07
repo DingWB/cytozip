@@ -19,7 +19,7 @@ from ._version import version as __version__
 # ---------------------------------------------------------------------------
 _LAZY_EXPORTS = {
     # cz.py
-    'Reader': 'cz', 'Writer': 'cz', 'extract': 'cz',
+    'Reader': 'cz', 'Writer': 'cz', 'RemoteFile': 'cz', 'extract': 'cz',
     # allc.py
     'AllC': 'allc', 'allc2cz': 'allc', 'generate_ssi1': 'allc',
     'generate_ssi2': 'allc', 'merge_cz': 'allc', 'extractCG': 'allc',
@@ -27,14 +27,32 @@ _LAZY_EXPORTS = {
     'annot_dmr': 'allc',
 }
 
+# Submodules that can be accessed as cytozip.cz / cytozip.allc
+# _SUBMODULES = {'cz', 'allc'}
+
 
 def __getattr__(name):
+    """Module-level __getattr__ (PEP 562).
+
+    When ``cytozip.X`` is accessed and ``X`` is not already in the module
+    namespace, Python calls this function instead of raising AttributeError.
+    This lets us defer heavy imports (numpy, pandas, pysam …) until the
+    user actually needs a specific symbol, keeping ``import cytozip`` fast.
+    """
+    # if name in _SUBMODULES:
+    #     import importlib
+    #     return importlib.import_module(f'.{name}', __name__)
     mod_name = _LAZY_EXPORTS.get(name)
     if mod_name is not None:
         import importlib
         mod = importlib.import_module(f'.{mod_name}', __name__)
         return getattr(mod, name)
     raise AttributeError(f"module 'cytozip' has no attribute {name!r}")
+
+
+def __dir__():
+    """Make lazy exports visible to tab-completion and ``dir(cytozip)``."""
+    return list(globals()) + list(_LAZY_EXPORTS) #+ list(_SUBMODULES)
 
 
 # ---- helpers for comma-separated list arguments ----------------------------
@@ -95,6 +113,29 @@ def _build_parser():
     p.add_argument('--no-header', action='store_true', help='suppress header line')
     p.add_argument('--dimension', default=None, help='filter by dimension')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
+
+    # ---- header --------------------------------------------------------------
+    p = sub.add_parser('header', help='Print header of a .cz file', formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, help='input .cz file')
+
+    # ---- query ---------------------------------------------------------------
+    p = sub.add_parser('query', help='Query .cz file by dimension and position range', formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, help='input .cz file')
+    p.add_argument('-D', '--dimension', default=None, help='dimension value to query (e.g. chr1)')
+    p.add_argument('-s', '--start', type=int, default=None, help='start position')
+    p.add_argument('-e', '--end', type=int, default=None, help='end position')
+    p.add_argument('--regions', default=None, help='regions file (tab-separated, no header)')
+    p.add_argument('-q', '--query-col', type=_csv_int, default=[0], help='column indices to query on')
+    p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
+
+    # ---- to_allc -------------------------------------------------------------
+    p = sub.add_parser('to_allc', help='Convert .cz to allc.tsv.gz', formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, help='input .cz file')
+    p.add_argument('-O', '--output', required=True, help='output .allc.tsv.gz file')
+    p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
+    p.add_argument('-D', '--dimension', default=None, help='filter by dimension')
+    p.add_argument('--cov-col', default=None, help='coverage column name; rows with 0 are dropped (default: last data column)')
+    p.add_argument('--no-tabix', action='store_true', help='skip tabix indexing')
 
     # ---- summary_chunks / summary_blocks ------------------------------------
     p = sub.add_parser('summary', help='Print chunk summary of a .cz file', formatter_class=_fmt)
@@ -244,6 +285,28 @@ def main():
         r = Reader(args.input)
         r.view(show_dim=args.show_dim, header=not args.no_header,
                dimension=args.dimension, reference=args.reference)
+
+    elif cmd == 'header':
+        from .cz import Reader
+        r = Reader(args.input)
+        r.print_header()
+        r.close()
+
+    elif cmd == 'query':
+        from .cz import Reader
+        r = Reader(args.input)
+        r.query(dimension=args.dimension, start=args.start,
+                end=args.end, regions=args.regions,
+                query_col=args.query_col, reference=args.reference,
+                printout=True)
+
+    elif cmd == 'to_allc':
+        from .cz import Reader
+        r = Reader(args.input)
+        r.to_allc(output=args.output, reference=args.reference,
+                  dimension=args.dimension, tabix=not args.no_tabix,
+                  cov_col=args.cov_col)
+        r.close()
 
     elif cmd == 'summary':
         from .cz import Reader
