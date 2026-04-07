@@ -4,4 +4,4 @@ Quick Started
    :maxdepth: 1
    :caption: Contents:
 
-   notebooks/quick_start.ipynb
+   notebooks/1.quick_start.ipynb

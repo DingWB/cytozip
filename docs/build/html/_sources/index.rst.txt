@@ -8,9 +8,9 @@ Chunk ZIP
 
    quick_start
    dnam
+   notebooks/3.python_api
    dev
    benchmark
-   notebooks/python_api
    notebooks/remote_reading
    modules
 

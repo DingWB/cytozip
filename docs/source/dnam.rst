@@ -4,4 +4,4 @@ DNA methylation data
    :maxdepth: 2
    :caption: Contents:
 
-   notebooks/dnam.ipynb
+   notebooks/2.dnam.ipynb
