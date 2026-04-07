@@ -1860,18 +1860,11 @@ class Reader:
 
 	def _query_regions(self, regions, s, e):
 		prev_dim = None
-		block_1st_starts = None
 		for dim, start, end in regions:
 			if dim != prev_dim:
 				start_block_index = 0
 				prev_dim = dim
 				r = self._load_chunk(self.dim2chunk_start[dim], jump=False)
-				if _c_query_regions is None:
-					# fallback: compute block first starts for Python path
-					block_1st_starts = np.array([
-						self._seek_and_read_1record(offset)[s]
-						for offset in self._chunk_block_1st_record_virtual_offsets
-					])
 			# Fast path: Cython handles each (start, end) individually
 			if _c_query_regions is not None:
 				res = _c_query_regions(self._handle,
@@ -1880,7 +1873,17 @@ class Reader:
 				for item in res:
 					yield item
 				continue
-			start_block_index = max(0, int(np.searchsorted(block_1st_starts, start, side='right')) - 1)
+			# Python fallback: binary search on blocks instead of linear scan
+			vos = self._chunk_block_1st_record_virtual_offsets
+			lo, hi = start_block_index, len(vos)
+			while lo < hi:
+				mid = (lo + hi) // 2
+				val = self._seek_and_read_1record(vos[mid])[s]
+				if val is None or val <= start:
+					lo = mid + 1
+				else:
+					hi = mid
+			start_block_index = max(lo - 1, 0)
 			virtual_offset = self._chunk_block_1st_record_virtual_offsets[start_block_index]
 			self.seek(virtual_offset)  # seek to the target block, self._buffer
 			block_start_offset = self._block_start_offset
@@ -1915,18 +1918,20 @@ class Reader:
 			for r in res:
 				yield r
 			return
-		# fallback python implementation
-		block_1st_starts = [
-			self._seek_and_read_1record(offset)[col_to_query]
-			for offset in self._chunk_block_1st_record_virtual_offsets
-		]
+		# fallback python implementation: binary search on blocks
+		vos = self._chunk_block_1st_record_virtual_offsets
 		start_block_index = 0
 		for start, end in positions:
-			while start_block_index < self._chunk_nblocks - 1:
-				if block_1st_starts[start_block_index + 1] > start:
-					break
-				start_block_index += 1
-			virtual_offset = self._chunk_block_1st_record_virtual_offsets[start_block_index]
+			lo, hi = start_block_index, len(vos)
+			while lo < hi:
+				mid = (lo + hi) // 2
+				val = self._seek_and_read_1record(vos[mid])[col_to_query]
+				if val is None or val <= start:
+					lo = mid + 1
+				else:
+					hi = mid
+			start_block_index = max(lo - 1, 0)
+			virtual_offset = vos[start_block_index]
 			self.seek(virtual_offset)  # seek to the target block, self._buffer
 			block_start_offset = self._block_start_offset
 			record = self._struct_obj.unpack(self.read(self._unit_size))

@@ -490,16 +490,12 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions, col_to_q
     record whose ``col_to_query`` value falls within [start, end).
     Returns a list of [id_start, id_end] pairs (or None if not found).
 
-    Algorithm:
-      1. Read the first record of each block to build a sorted array
-         of block-starting positions.
-      2. For each query range, binary-search to find the starting block,
-         then scan records forward.
+    Uses binary search on blocks (O(log N) decompressions per query)
+    instead of reading every block up front.
     """
     cdef list results = []
     cdef list block_offsets = list(block_virtual_offsets)
     cdef Py_ssize_t nblocks = len(block_offsets)
-    cdef list block_1st_starts = []
     cdef unsigned long vo
     cdef unsigned long block_start
     cdef unsigned long within
@@ -515,28 +511,12 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions, col_to_q
     cdef object st = _get_struct(fmts)
     unpack_from = st.unpack_from
 
-    # read first record of each block to get starting positions
-    for vo in block_offsets:
-        block_start = vo >> 16
-        within = vo & 0xFFFF
-        handle.seek(block_start)
-        try:
-            block_size_data = load_bcz_block(handle, True)
-        except StopIteration:
-            block_1st_starts.append(-1)
-            continue
-        _, data = block_size_data
-        if within + unit_size <= len(data):
-            rec = unpack_from(data, within)
-            block_1st_starts.append(rec[col_to_query])
-        else:
-            block_1st_starts.append(-1)
-
     # iterate positions
     for start, end in positions:
-        # advance start_block_index until next block start > start
-        while start_block_index < nblocks - 1 and block_1st_starts[start_block_index + 1] <= start:
-            start_block_index += 1
+        # Binary search: find the block containing 'start'
+        start_block_index = _bisect_block_index(
+            handle, block_offsets, unpack_from, unit_size, col_to_query, start,
+            start_block_index, nblocks)
         vo = block_offsets[start_block_index]
         block_start = vo >> 16
         within = vo & 0xFFFF
@@ -637,6 +617,47 @@ def c_pack_records_fast(rows, fmt):
     return bytes(out)
 
 
+def _read_block_first_value(handle, unsigned long vo, object unpack_from, Py_ssize_t unit_size, Py_ssize_t s):
+    """Read and return column *s* of the first record at virtual offset *vo*.
+
+    Returns None if the block cannot be read.
+    """
+    cdef unsigned long block_start = vo >> 16
+    cdef unsigned long within = vo & 0xFFFF
+    handle.seek(block_start)
+    try:
+        block_size_data = load_bcz_block(handle, True)
+    except StopIteration:
+        return None
+    _, data = block_size_data
+    if within + unit_size <= len(data):
+        return unpack_from(data, within)[s]
+    return None
+
+
+def _bisect_block_index(handle, list block_offsets, object unpack_from,
+                        Py_ssize_t unit_size, Py_ssize_t s, object target,
+                        Py_ssize_t lo, Py_ssize_t hi):
+    """Binary-search blocks to find the last block whose first record <= target.
+
+    Returns the block index (between lo and hi-1 inclusive) such that
+    block[idx].first_value <= target < block[idx+1].first_value.
+    Only decompresses O(log N) blocks instead of all N.
+    """
+    cdef Py_ssize_t mid
+    cdef object val
+    while lo < hi:
+        mid = (lo + hi) // 2
+        val = _read_block_first_value(handle, block_offsets[mid], unpack_from, unit_size, s)
+        if val is None or val <= target:
+            lo = mid + 1
+        else:
+            hi = mid
+    # lo is now the first block whose first value > target,
+    # so the answer is lo - 1 (clamped to >= 0).
+    return max(lo - 1, 0)
+
+
 def c_block_first_values(handle, block_virtual_offsets, fmts, unit_size, s):
     """Read the first record of each block and return column *s* values.
 
@@ -727,11 +748,14 @@ def c_seek_and_read_1record(handle, virtual_offset, fmts, unit_size):
 
 
 def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, e, dim):
-    """Accelerated query for a single dim."""
+    """Accelerated query for a single dim.
+
+    Uses binary search on blocks (O(log N) decompressions) instead of
+    reading every block's first record up front (O(N) decompressions).
+    """
     cdef list results = []
     cdef list block_offsets = list(block_virtual_offsets)
     cdef Py_ssize_t nblocks = len(block_offsets)
-    cdef list block_1st_starts = c_block_first_values(handle, block_offsets, fmts, unit_size, s)
     cdef Py_ssize_t start_block_index = 0
     cdef unsigned long vo
     cdef unsigned long block_start
@@ -746,8 +770,10 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
     unpack_from = st.unpack_from
 
     for start, end in regions:
-        while start_block_index < nblocks - 1 and block_1st_starts[start_block_index + 1] <= start:
-            start_block_index += 1
+        # Binary search: find the block containing 'start'
+        start_block_index = _bisect_block_index(
+            handle, block_offsets, unpack_from, unit_size, s, start,
+            start_block_index, nblocks)
         vo = block_offsets[start_block_index]
         block_start = vo >> 16
         within = vo & 0xFFFF
