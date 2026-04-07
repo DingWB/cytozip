@@ -45,6 +45,7 @@ setup(
                     "-Wno-unused-result",
                     "-Wno-sign-compare",
                 ],
+                libraries=["z"],
             )
         ],
         language_level="3",
