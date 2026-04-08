@@ -230,6 +230,71 @@ session.get("https://figshare.com")  # acquire cookies
 reader = Reader.from_url("https://figshare.com/ndownloader/files/XXXXX", session=session)
 ```
 
+### JavaScript API
+Read remote .cz files from the browser using `cz_reader.mjs` (ES module).
+Uses `fetch()` + HTTP Range requests + `DecompressionStream` (no server-side dependencies).
+
+#### Browser usage
+```html
+<script type="module">
+import { CzReader } from './cytozip/cz_reader.mjs';
+
+const reader = await CzReader.fromUrl(
+  'https://figshare.com/ndownloader/files/63531984',
+  { fetchOptions: { credentials: 'include' } }
+);
+
+// Inspect header
+console.log(reader.header);
+// { magic: 'CZIP', formats: ['Q','B','B'], columns: ['pos','mc','cov'],
+//   dimensions: ['chrom'], ... }
+
+// List all chunks (chromosomes)
+console.log(reader.dims);
+// ['chr1', 'chr2', ..., 'chrY']
+
+// Summary
+console.table(reader.summaryChunks());
+
+// Fetch all records for one chromosome
+const records = await reader.fetch('chr9');
+console.log(`chr9: ${records.length} records`);
+console.log(records[0]); // [pos, mc, cov]
+
+// Query a genomic region (binary search, O(log N) block decompressions)
+const hits = await reader.query('chr9', 60610139, 60610151);
+console.log(`Query returned ${hits.length} records:`);
+hits.forEach(r => console.log(r));
+
+// Raw bytes for typed-array processing (fastest)
+const raw = await reader.fetchChunkBytes('chr9');
+const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+// Parse with DataView or create a structured typed array
+
+reader.close();
+</script>
+```
+
+#### Node.js usage (v18+)
+```javascript
+import { CzReader } from './cytozip/cz_reader.mjs';
+
+const reader = await CzReader.fromUrl(
+  'https://figshare.com/ndownloader/files/63531984'
+);
+console.log(reader.header);
+const results = await reader.query('chr9', 60610139, 60610151);
+results.forEach(r => console.log(r));
+reader.close();
+```
+
+#### CORS note
+When reading from Figshare or other third-party servers directly in the browser,
+you may hit CORS restrictions. Solutions:
+1. Host the .cz file on a CORS-enabled server/CDN (e.g. S3 with proper headers).
+2. Use a lightweight proxy (e.g. `cors-anywhere` or a Cloudflare Worker).
+3. For local development, use a local HTTP server serving the .cz file.
+
 ## docs
 ```shell
 pip install sphinx sphinx-autobuild sphinx-rtd-theme pandoc nbsphinx sphinx_pdj_theme sphinx_sizzle_theme recommonmark readthedocs-sphinx-search
