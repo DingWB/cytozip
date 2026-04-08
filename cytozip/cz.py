@@ -427,19 +427,16 @@ class RemoteFile:
 		browser-like headers.  For servers that require cookies or special
 		auth (e.g. Figshare), construct a ``requests.Session``, set up the
 		necessary headers/cookies, and pass it here.  Example for Figshare::
-		```
+
 		    import requests
 		    session = requests.Session()
 		    session.headers.update({
-		        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-		                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-		                      "Chrome/120.0.0.0 Safari/537.36",
+		        "User-Agent": "Mozilla/5.0 ...",
 		        "Referer": "https://figshare.com/",
 		        "Accept": "*/*",
 		    })
 		    session.get("https://figshare.com")  # acquire cookies
 		    rf = RemoteFile(url, session=session)
-		```
 	"""
 
 	def __init__(self, url, cache_size=2 * 1024 * 1024, session=None):

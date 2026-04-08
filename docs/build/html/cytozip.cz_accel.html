@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.cz_accel module &mdash; cytozip 0.1.0.dev8 documentation</title>
+  <title>cytozip.cz_accel module &mdash; cytozip 0.2.0.dev13 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
@@ -15,7 +15,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=b5cc9f3f"></script>
+      <script src="_static/documentation_options.js?v=89cb8b5e"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/js/rtd_search_config.js"></script>
@@ -88,7 +88,8 @@
 <li class="toctree-l3"><a class="reference internal" href="notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Low-level-RemoteFile-usage">Low-level RemoteFile usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="dev.html">Under Development</a><ul>
@@ -352,13 +353,12 @@ context_bytes: 3-byte context (e.g., b’CGA’)</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="cytozip.cz_accel.c_fetch_chunk">
-<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_fetch_chunk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_start_offset_plus10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_virtual_offsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_fetch_chunk" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_fetch_chunk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_start_offset_plus10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_virtual_offsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_compressed_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_fetch_chunk" title="Link to this definition"></a></dt>
 <dd><p>Read and decompress all blocks of a chunk into one bytes object.</p>
-<p>Since blocks within a chunk are stored contiguously on disk,
-reads the entire compressed region in one I/O call, then parses
-and decompresses individual blocks from the in-memory buffer.
-This dramatically reduces the number of read() and seek() syscalls
-(from 3N to 1 for N blocks).</p>
+<p>When <em>chunk_compressed_size</em> is provided, reads the entire compressed
+region in one I/O call, then parses and decompresses individual
+blocks from the in-memory buffer.  This reduces N seek+read syscalls
+to a single read.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -415,21 +415,16 @@ large row counts.</p>
 <p>For each (start, end) pair in <em>positions</em>, finds the first and last
 record whose <code class="docutils literal notranslate"><span class="pre">col_to_query</span></code> value falls within [start, end).
 Returns a list of [id_start, id_end] pairs (or None if not found).</p>
-<dl class="simple">
-<dt>Algorithm:</dt><dd><ol class="arabic simple">
-<li><p>Read the first record of each block to build a sorted array
-of block-starting positions.</p></li>
-<li><p>For each query range, binary-search to find the starting block,
-then scan records forward.</p></li>
-</ol>
-</dd>
-</dl>
+<p>Uses binary search on blocks (O(log N) decompressions per query)
+instead of reading every block up front.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="cytozip.cz_accel.c_query_regions">
 <span class="sig-prename descclassname"><span class="pre">cytozip.cz_accel.</span></span><span class="sig-name descname"><span class="pre">c_query_regions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_virtual_offsets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cytozip.cz_accel.c_query_regions" title="Link to this definition"></a></dt>
 <dd><p>Accelerated query for a single dim.</p>
+<p>Uses binary search on blocks (O(log N) decompressions) instead of
+reading every block’s first record up front (O(N) decompressions).</p>
 </dd></dl>
 
 <dl class="py function">

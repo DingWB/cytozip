@@ -200,14 +200,34 @@ r.close()
 ### How it works
 `RemoteFile` wraps HTTP Range requests into a file-like object (`read`/`seek`/`tell`/`close`) with a 2MB read-ahead cache. This is transparent to Reader — all methods (fetch, query, view, subset, etc.) work identically on local and remote files.
 
+An optional `session` parameter (`requests.Session`) can be passed to `RemoteFile` or `Reader.from_url()` for servers that require cookies or special authentication (e.g. Figshare behind WAF).
+
 ```
 Init (2-3 HTTP requests):
   1. HEAD → get file size
+     (fallback: Range GET bytes=0-0 probe if HEAD returns 202/WAF challenge
+      or omits Content-Length — parses Content-Range header instead)
   2. GET Range bytes=0-2MB → parse header (cached, also covers first chunks)
   3. GET Range bytes=(size-2MB)-(size-1) → read chunk_index_offset + chunk index + EOF
 
 Per-chunk fetch (1+ requests):
   GET Range bytes=chunk_start-(chunk_start+2MB) → decompress blocks → yield records
+```
+
+### Figshare example
+Figshare uses CloudFront WAF which requires browser-like headers and cookies:
+```python
+import requests
+from cytozip.cz import Reader
+
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "Mozilla/5.0 ...",
+    "Referer": "https://figshare.com/",
+    "Accept": "*/*",
+})
+session.get("https://figshare.com")  # acquire cookies
+reader = Reader.from_url("https://figshare.com/ndownloader/files/XXXXX", session=session)
 ```
 
 ## docs

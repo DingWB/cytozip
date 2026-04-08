@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.cz module &mdash; cytozip 0.1.0.dev8 documentation</title>
+  <title>cytozip.cz module &mdash; cytozip 0.2.0.dev13 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
@@ -15,7 +15,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=b5cc9f3f"></script>
+      <script src="_static/documentation_options.js?v=89cb8b5e"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/js/rtd_search_config.js"></script>
@@ -88,7 +88,8 @@
 <li class="toctree-l3"><a class="reference internal" href="notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Low-level-RemoteFile-usage">Low-level RemoteFile usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="dev.html">Under Development</a><ul>
@@ -430,7 +431,7 @@ multiple of <code class="docutils literal notranslate"><span class="pre">self._u
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.cz.Reader.from_url">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2097152</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.from_url"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.from_url" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2097152</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.from_url"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.from_url" title="Link to this definition"></a></dt>
 <dd><p>Open a remote .cz file via HTTP Range requests.</p>
 <p>Uses chunk index for O(1) chunk lookup, requiring only 2-3 HTTP
 requests to initialise (header + chunk index).</p>
@@ -439,6 +440,25 @@ requests to initialise (header + chunk index).</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>url</strong> (<em>str</em>) – HTTP/HTTPS URL to the .cz file.</p></li>
 <li><p><strong>cache_size</strong> (<em>int</em>) – Read-ahead cache size per HTTP request (default 2MB).</p></li>
+<li><p><strong>session</strong> (<em>requests.Session</em><em>, </em><em>optional</em>) – <p>A pre-configured <code class="docutils literal notranslate"><span class="pre">requests.Session</span></code> to use for all HTTP calls.
+If <em>None</em> (default), a new session is created automatically with
+browser-like headers.  For servers that require cookies or special
+auth (e.g. Figshare), construct a <code class="docutils literal notranslate"><span class="pre">requests.Session</span></code>, set up the
+necessary headers/cookies, and pass it here.  Example for Figshare:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+<span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s2">&quot;User-Agent&quot;</span><span class="p">:</span> <span class="s2">&quot;Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) &quot;</span>
+                  <span class="s2">&quot;AppleWebKit/537.36 (KHTML, like Gecko) &quot;</span>
+                  <span class="s2">&quot;Chrome/120.0.0.0 Safari/537.36&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Referer&quot;</span><span class="p">:</span> <span class="s2">&quot;https://figshare.com/&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Accept&quot;</span><span class="p">:</span> <span class="s2">&quot;*/*&quot;</span><span class="p">,</span>
+<span class="p">})</span>
+<span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://figshare.com&quot;</span><span class="p">)</span>  <span class="c1"># acquire cookies</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -705,7 +725,7 @@ and chrom)</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="cytozip.cz.RemoteFile">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">RemoteFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2097152</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#RemoteFile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.RemoteFile" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">RemoteFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2097152</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#RemoteFile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.RemoteFile" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>File-like object backed by HTTP Range requests with read-ahead caching.</p>
 <p>Implements read(), seek(), tell(), close() so it can be used as a drop-in
@@ -716,6 +736,23 @@ replacement for a local binary file handle in Reader.</p>
 <li><p><strong>url</strong> (<em>str</em>) – HTTP or HTTPS URL to the file.</p></li>
 <li><p><strong>cache_size</strong> (<em>int</em>) – Read-ahead cache size in bytes (default 2MB). Each HTTP request
 fetches at least this many bytes to reduce request count.</p></li>
+<li><p><strong>session</strong> (<em>requests.Session</em><em>, </em><em>optional</em>) – <p>A pre-configured <code class="docutils literal notranslate"><span class="pre">requests.Session</span></code> to use for all HTTP calls.
+If <em>None</em> (default), a new session is created automatically with
+browser-like headers.  For servers that require cookies or special
+auth (e.g. Figshare), construct a <code class="docutils literal notranslate"><span class="pre">requests.Session</span></code>, set up the
+necessary headers/cookies, and pass it here.  Example for Figshare:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+<span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s2">&quot;User-Agent&quot;</span><span class="p">:</span> <span class="s2">&quot;Mozilla/5.0 ...&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Referer&quot;</span><span class="p">:</span> <span class="s2">&quot;https://figshare.com/&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Accept&quot;</span><span class="p">:</span> <span class="s2">&quot;*/*&quot;</span><span class="p">,</span>
+<span class="p">})</span>
+<span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://figshare.com&quot;</span><span class="p">)</span>  <span class="c1"># acquire cookies</span>
+<span class="n">rf</span> <span class="o">=</span> <span class="n">RemoteFile</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
+</pre></div>
+</div>
+</p></li>
 </ul>
 </dd>
 </dl>

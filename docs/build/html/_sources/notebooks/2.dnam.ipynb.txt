@@ -248,7 +248,7 @@
    "source": [
     "```shell\n",
     "pip install pyfigshare\n",
-    "figshare download 25374073 -o czip_example_data\n",
+    "figshare download 31953882 -o czip_example_data\n",
     "```"
    ]
   },
@@ -513,7 +513,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 12,
+   "execution_count": null,
    "id": "e0407816-d2e4-487b-b299-bd52a63894e4",
    "metadata": {},
    "outputs": [
@@ -535,7 +535,7 @@
     }
    ],
    "source": [
-    "!tabix ../czip_example_data/FC_E17a_3C_1-1-I3-F13.allc.tsv.gz chr9 | awk '$5 > 50' |head"
+    "! tabix ../czip_example_data/FC_E17a_3C_1-1-I3-F13.allc.tsv.gz chr9:3000294-3005294"
    ]
   },
   {
@@ -548,7 +548,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 13,
+   "execution_count": null,
    "id": "8735564c-eac3-4618-9844-4da7d3f646fd",
    "metadata": {
     "scrolled": true
@@ -629,12 +629,13 @@
    ],
    "source": [
     "# query cz (with coordinate)\n",
-    "! czip query -I ../czip_example_data/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz -D chr9 -s 3000294 -e 3000472"
+    "! time czip query -I ../czip_example_data/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz -D chr9 -s 3000294 -e 3005294 | awk '$5 > 100'\n",
+    "# time usage: 0m0.390s"
    ]
   },
   {
    "cell_type": "code",
-   "execution_count": 14,
+   "execution_count": null,
    "id": "50a1f789-9ed1-474f-82be-73e07871923d",
    "metadata": {
     "scrolled": true
@@ -715,7 +716,20 @@
    ],
    "source": [
     "# query .cz file (without coordinate) together with reference\n",
-    "! czip query -I ../czip_example_data/FC_E17a_3C_1-1-I3-F13.cz -r ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -D chr9 -s 3000294 -e 3000472"
+    "! time czip query -I ../czip_example_data/FC_E17a_3C_1-1-I3-F13.cz -r ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -D chr9 -s 3000294 -e 3005294 | awk '$5 > 100'\n",
+    "# time usage to query loca cz file with 5000 bp and 1759 records: 0m0.249s"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2a71d20b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# query the same .cz file from remote server together with reference, and compare the time usage\n",
+    "! time czip query -I http://gale-sapiens.salk.edu/bican/FC_E17a_3C_1-1-I3-F13.cz -r ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -D chr9 -s 3000294 -e 3005294 | awk '$5 > 100'\n",
+    "# time usage to query loca cz file with 5000 bp and 1759 records: 0m3.140s"
    ]
   },
   {

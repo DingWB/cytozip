@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip Python API &mdash; cytozip 0.1.0.dev8 documentation</title>
+  <title>cytozip Python API &mdash; cytozip 0.2.0.dev13 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
@@ -16,7 +16,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=b5cc9f3f"></script>
+      <script src="../_static/documentation_options.js?v=89cb8b5e"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/js/rtd_search_config.js"></script>
@@ -91,7 +91,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#Low-level-RemoteFile-usage">Low-level RemoteFile usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../dev.html">Under Development</a><ul>
@@ -880,36 +881,53 @@ Wall time: 1min 52s
 </section>
 <section id="Remote-Reading-(from-URL)">
 <h3>Remote Reading (from URL)<a class="headerlink" href="#Remote-Reading-(from-URL)" title="Link to this heading"></a></h3>
-<p>cytozip files with a chunk index can be read directly from HTTP/HTTPS URLs, without downloading the entire file. This uses HTTP Range requests to fetch only the required chunks.</p>
+<p>cytozip files with a chunk index can be read directly from HTTP/HTTPS URLs, without downloading the entire file. This uses HTTP Range requests to fetch only the required chunks. The speed of querying remote cz file is almost the same as the local cz file.</p>
 <p>Key features:</p>
 <ul class="simple">
 <li><p><strong>RemoteFile</strong>: File-like object backed by HTTP Range requests with 2MB read-ahead cache</p></li>
 <li><p><strong>Reader.from_url()</strong>: Open a remote .cz file with O(1) chunk lookup via chunk index</p></li>
 <li><p><strong>Auto-detection</strong>: Passing a URL to <code class="docutils literal notranslate"><span class="pre">Reader()</span></code> automatically uses remote mode</p></li>
 </ul>
+<p>To enable CORS on Apache2 under CentOS, add the following to /etc/httpd/conf/httpd.conf</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Access-Control-Allow-Origin<span class="w"> </span><span class="s2">&quot;*&quot;</span>
+Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Access-Control-Allow-Methods<span class="w"> </span><span class="s2">&quot;GET, POST, OPTIONS, PUT&quot;</span>
+Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Access-Control-Allow-Headers<span class="w"> </span><span class="s2">&quot;Content-Type, Authorization, Range&quot;</span>
+Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Access-Control-Expose-Headers<span class="w"> </span><span class="s2">&quot;Content-Range, Accept-Ranges, Content-Length&quot;</span>
+Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Accept-Ranges<span class="w"> </span><span class="s2">&quot;bytes&quot;</span>
+LoadModule<span class="w"> </span>headers_module<span class="w"> </span>modules/mod_headers.so
+</pre></div>
+</div>
+<p>Test whether a file support range request:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-I<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Range: bytes=0-999&quot;</span><span class="w"> </span>http://your-server.com/yourfile.bam
+</pre></div>
+</div>
+</section>
+</section>
+<section id="Read-remote-cz-file-from-webserver">
+<h2>Read remote cz file from webserver<a class="headerlink" href="#Read-remote-cz-file-from-webserver" title="Link to this heading"></a></h2>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">czip</span>
-
-<span class="c1"># Example: open a remote .cz file</span>
-<span class="c1"># url = &quot;https://your-server.com/data/sample.cz&quot;</span>
+<span class="c1"># url = &quot;http://gale-sapiens.salk.edu/bican/FC_E17a_3C_1-1-I3-F13.cz&quot;</span>
+<span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;http://gale-sapiens.salk.edu/bican/UCI2424_CX1718BS0102_MGM1_1_P10-1-I17-A16.with_coordinate.cz&quot;</span>
 
 <span class="c1"># Method 1: Using Reader.from_url (recommended)</span>
-<span class="c1"># reader = czip.Reader.from_url(url)</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 
 <span class="c1"># Method 2: Pass URL directly to Reader (auto-detected)</span>
 <span class="c1"># reader = czip.Reader(url)</span>
 
 <span class="c1"># Once opened, all Reader methods work the same as local files:</span>
-<span class="c1"># reader.print_header()</span>
-<span class="c1"># reader.summary_chunks()</span>
-<span class="c1"># for record in reader.fetch((&quot;chr1&quot;,)):</span>
-<span class="c1">#     print(record)</span>
-<span class="c1"># for record in reader.query(dimension=&quot;chr1&quot;, start=1000, end=2000, printout=False):</span>
-<span class="c1">#     print(record)</span>
-<span class="c1"># reader.close()</span>
+<span class="n">reader</span><span class="o">.</span><span class="n">print_header</span><span class="p">()</span>
+<span class="n">reader</span><span class="o">.</span><span class="n">summary_chunks</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch</span><span class="p">((</span><span class="s2">&quot;chr1&quot;</span><span class="p">,)):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+    <span class="k">break</span>
+<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="s2">&quot;chr11&quot;</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">51411014</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="mi">51411042</span><span class="p">,</span> <span class="n">printout</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+<span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Remote reading requires an HTTP server supporting Range requests.&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The .cz file should include a chunk index for optimal performance.&quot;</span><span class="p">)</span>
@@ -917,32 +935,61 @@ Wall time: 1min 52s
 </div>
 </div>
 </section>
-</section>
-<section id="Low-level-RemoteFile-usage">
-<h2>Low-level RemoteFile usage<a class="headerlink" href="#Low-level-RemoteFile-usage" title="Link to this heading"></a></h2>
-<p>RemoteFile can also be used standalone as a file-like object for custom HTTP Range-based reading:</p>
+<section id="Read-remote-cz-file-from-figshare">
+<h2>Read remote cz file from figshare<a class="headerlink" href="#Read-remote-cz-file-from-figshare" title="Link to this heading"></a></h2>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cytozip</span> <span class="k">as</span> <span class="n">czip</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">czip</span>
+<span class="c1"># if you host your remote .cz file on figshare:</span>
+<span class="n">url</span><span class="o">=</span><span class="s2">&quot;https://figshare.com/ndownloader/files/63531984&quot;</span>
+<span class="c1"># UCI2424_CX1718BS0102_MGM1_1_P10-1-I17-A16.with_coordinate.cz</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+<span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s2">&quot;User-Agent&quot;</span><span class="p">:</span> <span class="s2">&quot;Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) &quot;</span>
+                    <span class="s2">&quot;AppleWebKit/537.36 (KHTML, like Gecko) &quot;</span>
+                    <span class="s2">&quot;Chrome/120.0.0.0 Safari/537.36&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Referer&quot;</span><span class="p">:</span> <span class="s2">&quot;https://figshare.com/&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Accept&quot;</span><span class="p">:</span> <span class="s2">&quot;*/*&quot;</span><span class="p">,</span>
+<span class="p">})</span>
+<span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://figshare.com&quot;</span><span class="p">)</span>  <span class="c1"># acquire cookies</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span><span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">summary_chunks</span><span class="p">())</span>
+<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="s2">&quot;chr9&quot;</span><span class="p">,</span><span class="n">start</span><span class="o">=</span><span class="mi">60610139</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="mi">60610151</span><span class="p">,</span>
+                           <span class="n">printout</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span> <span class="c1"># list</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">url</span><span class="o">=</span><span class="s2">&quot;https://figshare.com/ndownloader/files/63531981&quot;</span>
+<span class="c1"># FC_E17a_3C_1-1-I3-F13.cz: no coordinates stored in this cz file</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+<span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s2">&quot;User-Agent&quot;</span><span class="p">:</span> <span class="s2">&quot;Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) &quot;</span>
+                    <span class="s2">&quot;AppleWebKit/537.36 (KHTML, like Gecko) &quot;</span>
+                    <span class="s2">&quot;Chrome/120.0.0.0 Safari/537.36&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Referer&quot;</span><span class="p">:</span> <span class="s2">&quot;https://figshare.com/&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Accept&quot;</span><span class="p">:</span> <span class="s2">&quot;*/*&quot;</span><span class="p">,</span>
+<span class="p">})</span>
+<span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://figshare.com&quot;</span><span class="p">)</span>  <span class="c1"># acquire cookies</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span><span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">_is_remote</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">summary_chunks</span><span class="p">())</span>
 
-<span class="c1"># RemoteFile provides a file-like interface over HTTP Range requests</span>
-<span class="c1"># rf = czip.RemoteFile(url, cache_size=2*1024*1024)  # 2MB read-ahead cache</span>
-<span class="c1"># print(f&quot;Remote file size: {rf.size} bytes&quot;)</span>
-<span class="c1">#</span>
-<span class="c1"># # Supports standard file operations</span>
-<span class="c1"># data = rf.read(100)      # read 100 bytes</span>
-<span class="c1"># rf.seek(0)               # seek to beginning</span>
-<span class="c1"># rf.seek(-100, 2)         # seek 100 bytes from end</span>
-<span class="c1"># pos = rf.tell()          # current position</span>
-<span class="c1"># rf.close()</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;RemoteFile(url, cache_size=2*1024*1024)&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .read(size)  - read bytes (with read-ahead caching)&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .seek(offset, whence)  - seek to position&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .tell()  - return current position&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .size  - total file size (from Content-Length header)&quot;</span><span class="p">)</span>
+<span class="c1"># query with reference</span>
+<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="s2">&quot;chr9&quot;</span><span class="p">,</span><span class="n">start</span><span class="o">=</span><span class="mi">3000294</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="mi">3000472</span><span class="p">,</span>
+                           <span class="n">reference</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~/Ref/mm10/annotations/mm10_with_chrL.allc.cz&quot;</span><span class="p">),</span>
+                           <span class="n">printout</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span> <span class="c1"># list</span>
 </pre></div>
 </div>
 </div>

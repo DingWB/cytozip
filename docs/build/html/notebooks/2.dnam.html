@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DNA Methylation Analysis with czip &mdash; cytozip 0.1.0.dev8 documentation</title>
+  <title>DNA Methylation Analysis with czip &mdash; cytozip 0.2.0.dev13 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
@@ -16,7 +16,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=b5cc9f3f"></script>
+      <script src="../_static/documentation_options.js?v=89cb8b5e"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/js/rtd_search_config.js"></script>
@@ -91,7 +91,8 @@
 <li class="toctree-l3"><a class="reference internal" href="3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#Low-level-RemoteFile-usage">Low-level RemoteFile usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../dev.html">Under Development</a><ul>
@@ -462,7 +463,7 @@ chr1    3000029 -       CTC
 <section id="Download-example-dataset">
 <h2>Download example dataset<a class="headerlink" href="#Download-example-dataset" title="Link to this heading"></a></h2>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>pyfigshare
-figshare<span class="w"> </span>download<span class="w"> </span><span class="m">25374073</span><span class="w"> </span>-o<span class="w"> </span>czip_example_data
+figshare<span class="w"> </span>download<span class="w"> </span><span class="m">31953882</span><span class="w"> </span>-o<span class="w"> </span>czip_example_data
 </pre></div>
 </div>
 </section>
@@ -669,10 +670,10 @@ chr1    3000029 -       CTC     0       0
 <section id="Query">
 <h2>Query<a class="headerlink" href="#Query" title="Link to this heading"></a></h2>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>tabix<span class="w"> </span>../czip_example_data/FC_E17a_3C_1-1-I3-F13.allc.tsv.gz<span class="w"> </span>chr9<span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">&#39;$5 &gt; 50&#39;</span><span class="w"> </span><span class="p">|</span>head
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>tabix<span class="w"> </span>../czip_example_data/FC_E17a_3C_1-1-I3-F13.allc.tsv.gz<span class="w"> </span>chr9:3000294-3005294
 </pre></div>
 </div>
 </div>
@@ -694,11 +695,12 @@ chr9    3000472 +       CGT     161     183     1
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># query cz (with coordinate)</span>
-<span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>query<span class="w"> </span>-I<span class="w"> </span>../czip_example_data/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz<span class="w"> </span>-D<span class="w"> </span>chr9<span class="w"> </span>-s<span class="w"> </span><span class="m">3000294</span><span class="w"> </span>-e<span class="w"> </span><span class="m">3000472</span>
+<span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>query<span class="w"> </span>-I<span class="w"> </span>../czip_example_data/FC_E17a_3C_1-1-I3-F13.with_coordinate.cz<span class="w"> </span>-D<span class="w"> </span>chr9<span class="w"> </span>-s<span class="w"> </span><span class="m">3000294</span><span class="w"> </span>-e<span class="w"> </span><span class="m">3005294</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">&#39;$5 &gt; 100&#39;</span>
+<span class="c1"># time usage: 0m0.390s</span>
 </pre></div>
 </div>
 </div>
@@ -776,11 +778,12 @@ chr9    3000472 161     183
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># query .cz file (without coordinate) together with reference</span>
-<span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>query<span class="w"> </span>-I<span class="w"> </span>../czip_example_data/FC_E17a_3C_1-1-I3-F13.cz<span class="w"> </span>-r<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>-D<span class="w"> </span>chr9<span class="w"> </span>-s<span class="w"> </span><span class="m">3000294</span><span class="w"> </span>-e<span class="w"> </span><span class="m">3000472</span>
+<span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>query<span class="w"> </span>-I<span class="w"> </span>../czip_example_data/FC_E17a_3C_1-1-I3-F13.cz<span class="w"> </span>-r<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>-D<span class="w"> </span>chr9<span class="w"> </span>-s<span class="w"> </span><span class="m">3000294</span><span class="w"> </span>-e<span class="w"> </span><span class="m">3005294</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">&#39;$5 &gt; 100&#39;</span>
+<span class="c1"># time usage to query loca cz file with 5000 bp and 1759 records: 0m0.249s</span>
 </pre></div>
 </div>
 </div>
@@ -856,6 +859,16 @@ chr9    3000469 +       CGT     25      64
 chr9    3000470 -       CGT     13      74
 chr9    3000472 +       CGT     161     183
 </pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># query the same .cz file from remote server together with reference, and compare the time usage</span>
+<span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>query<span class="w"> </span>-I<span class="w"> </span>http://gale-sapiens.salk.edu/bican/FC_E17a_3C_1-1-I3-F13.cz<span class="w"> </span>-r<span class="w"> </span>~/Ref/mm10/annotations/mm10_with_chrL.allc.cz<span class="w"> </span>-D<span class="w"> </span>chr9<span class="w"> </span>-s<span class="w"> </span><span class="m">3000294</span><span class="w"> </span>-e<span class="w"> </span><span class="m">3005294</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">&#39;$5 &gt; 100&#39;</span>
+<span class="c1"># time usage to query loca cz file with 5000 bp and 1759 records: 0m3.140s</span>
+</pre></div>
+</div>
 </div>
 </section>
 <section id="Cat-multiple-.cz-files-into-one-.cz-file">
