@@ -24,7 +24,7 @@ _LAZY_EXPORTS = {
     'AllC': 'allc', 'allc2cz': 'allc', 'generate_ssi1': 'allc',
     'generate_ssi2': 'allc', 'merge_cz': 'allc', 'extractCG': 'allc',
     'aggregate': 'allc', 'merge_cell_type': 'allc', 'combp': 'allc',
-    'annot_dmr': 'allc',
+    'annot_dmr': 'allc', 'call_peaks': 'allc', 'to_bedgraph': 'allc',
 }
 
 # Submodules that can be accessed as cytozip.cz / cytozip.allc
@@ -247,6 +247,35 @@ def _build_parser():
     p.add_argument('-O', '--outfile', default='dmr.annotated.txt', help='output file')
     p.add_argument('--delta-cutoff', type=float, default=None, help='min delta-beta cutoff')
 
+    # ---- call_peaks ----------------------------------------------------------
+    p = sub.add_parser('call_peaks', help='Call peaks from methylation .cz using MACS3', formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, help='input .cz file (mc/cov)')
+    p.add_argument('-r', '--reference', required=True, help='reference .cz file (pos/strand/context)')
+    p.add_argument('-O', '--output', default=None, help='output directory for MACS3 results')
+    p.add_argument('-n', '--name', default='peaks', help='name prefix for output files')
+    p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth'], help='signal type: unmeth=(cov-mc), meth=mc')
+    p.add_argument('-s', '--ssi', default=None, help='SSI file for context filtering (e.g., CpG-only)')
+    p.add_argument('-g', '--genome-size', default='mm', help='genome size for MACS3 (hs/mm/integer)')
+    p.add_argument('--fragment-size', type=int, default=300, help='pseudo-read fragment size (bp)')
+    p.add_argument('-q', '--qvalue', type=float, default=0.05, help='MACS3 q-value cutoff')
+    p.add_argument('--broad', action='store_true', help='call broad peaks')
+    p.add_argument('--min-cov', type=int, default=1, help='minimum coverage to include a site')
+    p.add_argument('--keep-bed', action='store_true', help='keep intermediate pseudo-reads BED')
+    p.add_argument('--macs3-args', default='', help='additional MACS3 arguments (quoted string)')
+    p.add_argument('--mc-col', default=None, help='mc column name or 0-based index (default: first column)')
+    p.add_argument('--cov-col', default=None, help='cov column name or 0-based index (default: last column)')
+
+    # ---- to_bedgraph ---------------------------------------------------------
+    p = sub.add_parser('to_bedgraph', help='Export methylation signal as bedGraph', formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, help='input .cz file (mc/cov)')
+    p.add_argument('-r', '--reference', required=True, help='reference .cz file')
+    p.add_argument('-O', '--output', default=None, help='output bedGraph file')
+    p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth', 'frac_unmeth'], help='signal type')
+    p.add_argument('-s', '--ssi', default=None, help='SSI file for context filtering')
+    p.add_argument('--min-cov', type=int, default=1, help='minimum coverage to include a site')
+    p.add_argument('--mc-col', default=None, help='mc column name or 0-based index (default: first column)')
+    p.add_argument('--cov-col', default=None, help='cov column name or 0-based index (default: last column)')
+
     return parser
 
 
@@ -388,6 +417,37 @@ def main():
         from .allc import annot_dmr
         annot_dmr(input=args.input, matrix=args.matrix,
                   outfile=args.outfile, delta_cutoff=args.delta_cutoff)
+
+    elif cmd == 'call_peaks':
+        from .allc import call_peaks
+        mc_col = args.mc_col
+        cov_col = args.cov_col
+        if mc_col is not None and mc_col.isdigit():
+            mc_col = int(mc_col)
+        if cov_col is not None and cov_col.isdigit():
+            cov_col = int(cov_col)
+        call_peaks(input=args.input, reference=args.reference,
+                   output=args.output, name=args.name,
+                   signal=args.signal, ssi=args.ssi,
+                   genome_size=args.genome_size,
+                   fragment_size=args.fragment_size,
+                   qvalue=args.qvalue, broad=args.broad,
+                   min_cov=args.min_cov, keep_bed=args.keep_bed,
+                   macs3_args=args.macs3_args,
+                   mc_col=mc_col, cov_col=cov_col)
+
+    elif cmd == 'to_bedgraph':
+        from .allc import to_bedgraph
+        mc_col = args.mc_col
+        cov_col = args.cov_col
+        if mc_col is not None and mc_col.isdigit():
+            mc_col = int(mc_col)
+        if cov_col is not None and cov_col.isdigit():
+            cov_col = int(cov_col)
+        to_bedgraph(input=args.input, reference=args.reference,
+                    output=args.output, signal=args.signal,
+                    ssi=args.ssi, min_cov=args.min_cov,
+                    mc_col=mc_col, cov_col=cov_col)
 
 
 if __name__ == "__main__":

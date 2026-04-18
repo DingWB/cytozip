@@ -1099,6 +1099,412 @@ def __split_mat(infile, chrom, snames, outdir, n_ref):
         fout_dict[sname].close()
     tbi.close()
 
+
+# ==========================================================================
+# Peak calling from methylation data
+# ==========================================================================
+def call_peaks(input=None, reference=None, output=None, name='peaks',
+               signal='unmeth', ssi=None, genome_size='mm',
+               fragment_size=300, qvalue=0.05, broad=False,
+               min_cov=1, keep_bed=False, macs3_args='',
+               mc_col=None, cov_col=None):
+    """Call peaks from a methylation .cz file using MACS3.
+
+    Treats unmethylated counts (cov - mc) at each cytosine site as the
+    signal (analogous to ATAC-seq read counts).  For each site with
+    unmethylated count *u*, generates *u* pseudo-reads (BED intervals)
+    of length ``fragment_size`` centered on the site.  These are then
+    fed to ``macs3 callpeak --nomodel``.
+
+    This is useful for identifying regions of low methylation
+    (e.g., open chromatin in NOMe-seq, or regulatory elements in WGBS).
+
+    Parameters
+    ----------
+    input : str
+        Input .cz file with mc/cov columns.
+    reference : str
+        Reference .cz file with genomic coordinates (pos, strand, context).
+    output : str or None
+        Output directory for MACS3 results.  Defaults to
+        ``<input_stem>_peaks/``.
+    name : str
+        Name prefix for MACS3 output files.
+    signal : str
+        ``'unmeth'`` uses (cov - mc) as signal;
+        ``'meth'`` uses mc as signal.
+    ssi : str or None
+        Path to SSI file for context filtering (e.g., CpG-only SSI
+        from ``generate_ssi1``).
+    genome_size : str or int
+        Genome size for MACS3.  Use ``'hs'`` for human (~2.7e9),
+        ``'mm'`` for mouse (~1.87e9), or an integer.
+    fragment_size : int
+        Length of each pseudo-read (default 300 bp).
+    qvalue : float
+        MACS3 q-value cutoff (default 0.05).
+    broad : bool
+        If True, call broad peaks (``--broad``).
+    min_cov : int
+        Minimum coverage to include a site (default 1).
+    keep_bed : bool
+        If True, keep the intermediate pseudo-reads BED file.
+    macs3_args : str
+        Additional arguments passed to ``macs3 callpeak``.
+    mc_col : int or str or None
+        Column index (0-based) or name for the methylation count.
+        Defaults to the first data column (index 0, typically ``'mc'``).
+    cov_col : int or str or None
+        Column index (0-based) or name for the coverage count.
+        Defaults to the last data column (index -1, typically ``'cov'``).
+
+    Returns
+    -------
+    str
+        Path to the output directory containing MACS3 results.
+
+    Examples
+    --------
+    ::
+
+        # CpG-only peak calling
+        czip call_peaks -I cell.cz -r mm10.allc.cz -s mm10.CGN.ssi \\
+             -g mm -n cell_unmeth
+
+        # Python API
+        import cytozip as czip
+        czip.call_peaks(input='cell.cz', reference='mm10.allc.cz',
+                        ssi='mm10.CGN.ssi', genome_size='mm')
+
+    """
+    import subprocess
+    import tempfile
+
+    # ---- Step 1: Open the data .cz (mc/cov) and the reference .cz (pos/strand/context) ----
+    cz_path = os.path.abspath(os.path.expanduser(input))
+    ref_path = os.path.abspath(os.path.expanduser(reference))
+
+    reader = Reader(cz_path)       # per-cell methylation data (mc, cov)
+    ref_reader = Reader(ref_path)  # shared genomic coordinates (pos, strand, context)
+
+    if output is None:
+        output = os.path.splitext(cz_path)[0] + '_peaks'
+    output = os.path.abspath(os.path.expanduser(output))
+    os.makedirs(output, exist_ok=True)
+
+    # Optional SSI for context filtering (e.g., CpG only)
+    ssi_reader = None
+    if ssi is not None:
+        ssi_path = os.path.abspath(os.path.expanduser(ssi))
+        ssi_reader = Reader(ssi_path)
+
+    # ---- Step 2: Build numpy structured dtypes for zero-copy binary decoding ----
+    # This maps .cz struct format chars (e.g. 'B'->uint8, 'Q'->uint64)
+    # to numpy dtypes so we can use np.frombuffer() for fast bulk decoding.
+    def _make_np_dtype(formats, columns):
+        dt = []
+        for fmt, col in zip(formats, columns):
+            np_dt = _STRUCT_TO_NP_DTYPE.get(fmt[-1])
+            if np_dt is None:
+                n = int(fmt[:-1]) if len(fmt) > 1 else 1
+                dt.append((col, f'S{n}'))
+            else:
+                dt.append((col, np_dt))
+        return np.dtype(dt)
+
+    data_dtype = _make_np_dtype(reader.header['formats'],
+                                reader.header['columns'])
+    ref_dtype = _make_np_dtype(ref_reader.header['formats'],
+                               ref_reader.header['columns'])
+
+    # ---- Step 3: Generate pseudo-reads BED from methylation signal ----
+    # For each cytosine site, the signal (e.g. unmethylated count = cov - mc)
+    # is converted into that many pseudo-reads, each centered on the site
+    # with length = fragment_size. This mimics ATAC-seq read pileup so that
+    # MACS3 can call peaks on the resulting BED file.
+    half = fragment_size // 2
+    # Resolve mc/cov column names from user params or header defaults
+    _cols = reader.header['columns']
+    if mc_col is None:
+        mc_col = _cols[0]
+    elif isinstance(mc_col, int):
+        mc_col = _cols[mc_col]
+    if cov_col is None:
+        cov_col = _cols[-1]
+    elif isinstance(cov_col, int):
+        cov_col = _cols[cov_col]
+
+    bed_path = os.path.join(output, f'{name}.pseudo_reads.bed')
+
+    total_reads = 0
+    with open(bed_path, 'w') as fh:
+        for dim in reader.dim2chunk_start:
+            if dim not in ref_reader.dim2chunk_start:
+                continue
+            chrom = dim[0]
+
+            # Bulk-decompress entire chromosome chunk into a single bytes
+            # object, then zero-copy cast to structured numpy array.
+            # data_arr has columns like (mc, cov); ref_arr has (pos, strand, context).
+            raw = reader.fetch_chunk_bytes(dim)
+            if not raw:
+                continue
+            data_arr = np.frombuffer(raw, dtype=data_dtype)
+
+            ref_raw = ref_reader.fetch_chunk_bytes(dim)
+            if not ref_raw:
+                continue
+            ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
+
+            # Apply SSI (Subset Index) filter to keep only specific contexts.
+            # e.g., a CGN.ssi restricts to CpG sites only. The SSI stores
+            # an array of record IDs; fancy-indexing both arrays keeps them aligned.
+            if ssi_reader is not None and dim in ssi_reader.dim2chunk_start:
+                ids = ssi_reader.get_ids_from_ssi(dim)
+                if len(ids.shape) == 1:
+                    data_arr = data_arr[ids]
+                    ref_arr = ref_arr[ids]
+
+            pos = ref_arr['pos'].astype(np.int64)
+            mc = data_arr[mc_col].astype(np.int32)
+            cov = data_arr[cov_col].astype(np.int32)
+
+            # Filter by minimum coverage
+            mask = cov >= min_cov
+            pos = pos[mask]
+            mc = mc[mask]
+            cov = cov[mask]
+
+            # Compute signal: unmethylated count (cov - mc) represents
+            # accessible/unmethylated signal; alternatively use mc directly.
+            if signal == 'unmeth':
+                sig = cov - mc   # unmethylated count as proxy for openness
+            elif signal == 'meth':
+                sig = mc.copy()  # methylation level as signal
+            else:
+                raise ValueError(f"Unknown signal type: {signal!r}")
+
+            # Keep only sites with positive signal
+            pos_mask = sig > 0
+            pos = pos[pos_mask]
+            sig = sig[pos_mask]
+
+            if len(pos) == 0:
+                continue
+
+            # Vectorized pseudo-read generation:
+            # For a site at position p with signal s, generate s identical
+            # BED intervals [p - half, p + half). np.repeat() expands each
+            # position s times, producing one pseudo-read per count.
+            # Example: pos=1000, sig=3, half=150 → 3 reads [850, 1150)
+            expanded = np.repeat(pos, sig)
+            starts = np.maximum(0, expanded - half)
+            ends = expanded + half
+            total_reads += len(starts)
+
+            # Bulk write using pandas for speed
+            bed_df = pd.DataFrame({
+                'chrom': chrom,
+                'start': starts,
+                'end': ends,
+            })
+            bed_df.to_csv(fh, sep='\t', header=False, index=False)
+
+            print(f"  {chrom}: {len(pos)} sites, "
+                  f"{int(sig.sum())} pseudo-reads")
+
+    reader.close()
+    ref_reader.close()
+    if ssi_reader:
+        ssi_reader.close()
+
+    print(f"Total pseudo-reads: {total_reads}")
+
+    # ---- Step 4: Sort BED and run MACS3 peak calling ----
+    # MACS3 requires position-sorted input.
+    sorted_bed = bed_path.replace('.bed', '.sorted.bed')
+    print("Sorting BED file...")
+    subprocess.run(
+        ['sort', '-k1,1', '-k2,2n', bed_path, '-o', sorted_bed],
+        check=True,
+    )
+
+    # Run MACS3 callpeak with --nomodel since pseudo-reads already have
+    # a fixed fragment size (no need for MACS3 to estimate it).
+    # --extsize matches the pseudo-read length so pileup is consistent.
+    cmd = [
+        'macs3', 'callpeak',
+        '-t', sorted_bed,       # treatment: pseudo-reads BED
+        '-f', 'BED',            # input format
+        '--outdir', output,
+        '-n', name,
+        '-g', str(genome_size), # effective genome size (hs/mm/integer)
+        '--nomodel',            # skip fragment size estimation
+        '--extsize', str(fragment_size),  # extend reads to this size
+        '-q', str(qvalue),      # FDR q-value cutoff
+    ]
+    if broad:
+        cmd.append('--broad')
+    if macs3_args:
+        cmd.extend(macs3_args.split())
+
+    print(f"Running: {' '.join(cmd)}")
+    subprocess.run(cmd, check=True)
+
+    # Cleanup temp files
+    os.remove(bed_path)
+    if not keep_bed:
+        os.remove(sorted_bed)
+    else:
+        print(f"Pseudo-reads BED kept at: {sorted_bed}")
+
+    print(f"Peak results saved to: {output}")
+    return output
+
+
+def to_bedgraph(input=None, reference=None, output=None,
+                signal='unmeth', ssi=None, min_cov=1,
+                mc_col=None, cov_col=None):
+    """Export methylation signal from a .cz file as a bedGraph.
+
+    For each cytosine site, writes one bedGraph entry with the chosen
+    signal value (unmethylated count or methylation count).
+    The output can be loaded into a genome browser or used with
+    ``macs3 bdgpeakcall`` for simple threshold-based peak calling.
+
+    Parameters
+    ----------
+    input : str
+        Input .cz file with mc/cov columns.
+    reference : str
+        Reference .cz file with genomic coordinates.
+    output : str or None
+        Output bedGraph path.  Defaults to ``<input_stem>.bedgraph``.
+    signal : str
+        ``'unmeth'`` writes (cov - mc); ``'meth'`` writes mc;
+        ``'frac_unmeth'`` writes (cov - mc) / cov.
+    ssi : str or None
+        Path to SSI file for context filtering.
+    min_cov : int
+        Minimum coverage to include a site.
+    mc_col : int or str or None
+        Column index (0-based) or name for the methylation count.
+        Defaults to the first data column (index 0, typically ``'mc'``).
+    cov_col : int or str or None
+        Column index (0-based) or name for the coverage count.
+        Defaults to the last data column (index -1, typically ``'cov'``).
+
+    Returns
+    -------
+    str
+        Path to the output bedGraph file.
+    """
+    cz_path = os.path.abspath(os.path.expanduser(input))
+    ref_path = os.path.abspath(os.path.expanduser(reference))
+
+    reader = Reader(cz_path)
+    ref_reader = Reader(ref_path)
+
+    if output is None:
+        output = os.path.splitext(cz_path)[0] + '.bedgraph'
+    output = os.path.abspath(os.path.expanduser(output))
+
+    ssi_reader = None
+    if ssi is not None:
+        ssi_path = os.path.abspath(os.path.expanduser(ssi))
+        ssi_reader = Reader(ssi_path)
+
+    def _make_np_dtype(formats, columns):
+        dt = []
+        for fmt, col in zip(formats, columns):
+            np_dt = _STRUCT_TO_NP_DTYPE.get(fmt[-1])
+            if np_dt is None:
+                n = int(fmt[:-1]) if len(fmt) > 1 else 1
+                dt.append((col, f'S{n}'))
+            else:
+                dt.append((col, np_dt))
+        return np.dtype(dt)
+
+    data_dtype = _make_np_dtype(reader.header['formats'],
+                                reader.header['columns'])
+    ref_dtype = _make_np_dtype(ref_reader.header['formats'],
+                               ref_reader.header['columns'])
+
+    # Resolve mc/cov column names from user params or header defaults
+    _cols = reader.header['columns']
+    if mc_col is None:
+        mc_col = _cols[0]
+    elif isinstance(mc_col, int):
+        mc_col = _cols[mc_col]
+    if cov_col is None:
+        cov_col = _cols[-1]
+    elif isinstance(cov_col, int):
+        cov_col = _cols[cov_col]
+
+    with open(output, 'w') as fh:
+        for dim in reader.dim2chunk_start:
+            if dim not in ref_reader.dim2chunk_start:
+                continue
+            chrom = dim[0]
+
+            raw = reader.fetch_chunk_bytes(dim)
+            if not raw:
+                continue
+            data_arr = np.frombuffer(raw, dtype=data_dtype)
+
+            ref_raw = ref_reader.fetch_chunk_bytes(dim)
+            if not ref_raw:
+                continue
+            ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
+
+            if ssi_reader is not None and dim in ssi_reader.dim2chunk_start:
+                ids = ssi_reader.get_ids_from_ssi(dim)
+                if len(ids.shape) == 1:
+                    data_arr = data_arr[ids]
+                    ref_arr = ref_arr[ids]
+
+            pos = ref_arr['pos'].astype(np.int64)
+            mc = data_arr[mc_col].astype(np.float64)
+            cov = data_arr[cov_col].astype(np.float64)
+
+            mask = cov >= min_cov
+            pos = pos[mask]
+            mc = mc[mask]
+            cov = cov[mask]
+
+            if signal == 'unmeth':
+                values = cov - mc
+            elif signal == 'meth':
+                values = mc
+            elif signal == 'frac_unmeth':
+                values = (cov - mc) / cov
+            else:
+                raise ValueError(f"Unknown signal type: {signal!r}")
+
+            keep = values > 0
+            pos = pos[keep]
+            values = values[keep]
+
+            if len(pos) == 0:
+                continue
+
+            df = pd.DataFrame({
+                'chrom': chrom,
+                'start': pos - 1,  # bedGraph is 0-based
+                'end': pos,
+                'value': values,
+            })
+            df.to_csv(fh, sep='\t', header=False, index=False)
+
+    reader.close()
+    ref_reader.close()
+    if ssi_reader:
+        ssi_reader.close()
+
+    print(f"bedGraph written to: {output}")
+    return output
+
+
 def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
     """
     Run comb-p on a fisher result matrix (generated by `merge_cz -f fisher`),
