@@ -8,7 +8,9 @@ This module provides:
            and store them as a .cz coordinate file.
   - allc2cz:  Convert allc.tsv.gz (tabix-indexed) to .cz format,
              optionally using a reference .cz for coordinate alignment.
-  - generate_ssi1 / generate_ssi2:  Build subset indexes (SSI) for
+  - index_context / index_regions:  Build coordinate indexes (subset of ref)
+                                    for sequence context (CGN/CHN) or BED
+                                    regions.
              pattern matching (CpG, CpH) or genomic region lookup.
   - merge_cz:  Merge multiple per-cell .cz files into aggregate
                matrices (summed, fraction, 2D, or Fisher-test output).
@@ -48,14 +50,14 @@ def WriteC(record, outdir, chunksize=5000):
         Number of records per chunk (default: 5000)
     """
     chrom = record.id
-    outfile = os.path.join(outdir, chrom + ".cz")
-    if os.path.exists(outfile):
-        print(f"{outfile} existed, skip.")
+    output = os.path.join(outdir, chrom + ".cz")
+    if os.path.exists(output):
+        print(f"{output} existed, skip.")
         return None
     print(chrom)
-    writer = Writer(outfile, formats=['Q', 'c', '3s'],
+    writer = Writer(output, formats=['Q', 'c', '3s'],
                     columns=['pos', 'strand', 'context'],
-                    dimensions=['chrom'])
+                    dimensions=['chrom'], sort_col='pos')
     
     # Use Cython-accelerated version if available
     if _c_write_c_records is not None: # 10 times faster than pure Python
@@ -114,10 +116,10 @@ def WriteC(record, outdir, chunksize=5000):
 # ==========================================================
 class AllC:
     def __init__(self, genome=None, output="hg38_allc.cz",
-                 pattern="C", n_jobs=12, keep_temp=False):
+                 pattern="C", threads=12, keep_temp=False):
         """
         Extract position of specific pattern in the reference genome, for example C.
-            Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --n_jobs 10 run
+            Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --threads 10 run
             Or call within python: ac=AllC(genome="/gale/netapp/home2/wding/genome/hg38/hg38.fa")
         Parameters
         ----------
@@ -127,7 +129,7 @@ class AllC:
             path for output
         pattern: str
             pattern [C]
-        n_jobs: int
+        threads: int
             number of CPU used for Pool.
         """
         self.genome=os.path.abspath(os.path.expanduser(genome))
@@ -138,13 +140,13 @@ class AllC:
         self.pattern=pattern
         from Bio import SeqIO
         self.records = SeqIO.parse(self.genome, "fasta")
-        self.n_jobs = n_jobs if not n_jobs is None else os.cpu_count()
+        self.threads = threads if not threads is None else os.cpu_count()
         self.keep_temp = keep_temp
         if pattern=='C':
             self.func=WriteC
 
     def writePattern(self):
-        pool = multiprocessing.Pool(self.n_jobs)
+        pool = multiprocessing.Pool(self.threads)
         jobs = []
         for record in self.records:
             job = pool.apply_async(self.func, (record, self.outdir, 5000))
@@ -157,7 +159,8 @@ class AllC:
     def merge(self):
         writer = Writer(output=self.output, formats=['Q', 'c', '3s'],
                         columns=['pos', 'strand', 'context'],
-                        dimensions=['chrom'], message=self.genome)
+                        dimensions=['chrom'], message=self.genome,
+                        sort_col='pos')
         writer.catcz(input=f"{self.outdir}/*.cz")
 
     def run(self):
@@ -257,10 +260,10 @@ def _parse_tabix_lines(lines, cols, np_dtypes, sep='\t'):
     return result
 
 
-def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
+def allc2cz(input, output, reference=None, missing_value=[0, 0],
            formats=['B', 'B'], columns=['mc', 'cov'], dimensions=['chrom'],
-           usecols=[4, 5], pr=0, pa=1, sep='\t', path_to_chrom=None,
-           chunksize=5000):
+           usecols=[4, 5], ref_pos_col=0, allc_pos_col=1, sep='\t', chrom_order=None,
+           chunksize=5000, sort_col=None):
     """
     convert allc.tsv.gz to .cz file.
 
@@ -268,7 +271,7 @@ def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
     ----------
     input : path
         path to allc.tsv.gz, should has .tbi index.
-    outfile : path
+    output : path
         output .cz file
     reference : path
         path to reference coordinates.
@@ -287,13 +290,13 @@ def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
         default is [4, 5], for a typical .allc.tsv.gz, if no reference is provided,
         the columns to be packed should be [1,4,5] (pos, mv and cov).
         If reference is provided, then we only need to pack [4,5] (mc and cov).
-    pr: int
+    ref_pos_col: int
         index of position column in reference .cz header columns [0]
-    pa: int
+    allc_pos_col: int
         index of position column in input input or bed column.
     chunksize : int
         default is 5000
-    path_to_chrom : path
+    chrom_order : path
         path to chrom_size path or similar file containing chromosomes order,
         the first columns should be chromosomes, tab separated and no header.
 
@@ -301,8 +304,8 @@ def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
     -------
 
     """
-    if os.path.exists(outfile):
-        print(f"{outfile} existed, skip.")
+    if os.path.exists(output):
+        print(f"{output} existed, skip.")
         return
     allc_path = os.path.abspath(os.path.expanduser(input))
     if not os.path.exists(allc_path + '.tbi'):
@@ -311,9 +314,9 @@ def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
     import pysam
     tbi = pysam.TabixFile(allc_path)
     contigs = tbi.contigs
-    if not path_to_chrom is None:
-        path_to_chrom = os.path.abspath(os.path.expanduser(path_to_chrom))
-        df = pd.read_csv(path_to_chrom, sep='\t', header=None, usecols=[0])
+    if not chrom_order is None:
+        chrom_order = os.path.abspath(os.path.expanduser(chrom_order))
+        df = pd.read_csv(chrom_order, sep='\t', header=None, usecols=[0])
         chroms = df.iloc[:, 0].tolist()
         all_chroms = [c for c in chroms if c in contigs]
     else:
@@ -323,8 +326,14 @@ def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
         message = os.path.basename(reference)
     else:
         message = ''
-    writer = Writer(outfile, formats=formats, columns=columns,
-                    dimensions=dimensions, message=message)
+    # When the .cz stores coordinates itself (no reference), auto-enable
+    # the first_coords index on the 'pos' column so region queries use
+    # true in-memory O(log N) bisect. User can override via sort_col=.
+    if sort_col is None and reference is None and 'pos' in columns:
+        sort_col = 'pos'
+    writer = Writer(output, formats=formats, columns=columns,
+                    dimensions=dimensions, message=message,
+                    sort_col=sort_col)
     unit_size = writer._unit_size
     use_numpy = _all_numeric_formats(formats)  # use vectorized numpy path if all columns are numeric
 
@@ -344,7 +353,7 @@ def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
             # so packed output bytes are directly compatible.
             struct_dtype = np.dtype([(f'f{i}', dt) for i, dt in enumerate(np_dtypes)])
             mv_arr = np.array(tuple(missing_value), dtype=struct_dtype)  # template for missing values
-            parse_cols = [pa] + list(usecols)  # position col + data cols
+            parse_cols = [allc_pos_col] + list(usecols)  # position col + data cols
             parse_dtypes = ['<i8'] + np_dtypes  # int64 for pos, user dtypes for data
             for chrom in all_chroms:
                 # FAST PATH: bulk-read all reference positions for this chrom
@@ -354,7 +363,7 @@ def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
                 if not raw:
                     continue
                 ref_records = np.frombuffer(raw, dtype=ref_record_dtype)
-                ref_pos_arr = ref_records[f'c{pr}'].astype(np.int64)
+                ref_pos_arr = ref_records[f'c{ref_pos_col}'].astype(np.int64)
                 if ref_pos_arr.size == 0:
                     continue
                 # Bulk-read allc query data
@@ -385,13 +394,13 @@ def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
             # Fallback: non-numeric formats, use original per-row logic
             dtfuncs = get_dtfuncs(formats, tobytes=False)
             for chrom in all_chroms:
-                ref_positions = ref_reader.__fetch__(tuple([chrom]), s=pr, e=pr + 1)
+                ref_positions = ref_reader.__fetch__(tuple([chrom]), s=ref_pos_col, e=ref_pos_col + 1)
                 records = tbi.fetch(chrom)
                 rows_buf = []
                 i = 0
                 try:
                     row_query = next(records).rstrip('\n').split(sep)
-                    row_query_pos = int(row_query[pa])
+                    row_query_pos = int(row_query[allc_pos_col])
                 except StopIteration:
                     row_query = None
                     row_query_pos = None
@@ -406,7 +415,7 @@ def allc2cz(input, outfile, reference=None, missing_value=[0, 0],
                             i += 1
                         try:
                             row_query = next(records).rstrip('\n').split(sep)
-                            row_query_pos = int(row_query[pa])
+                            row_query_pos = int(row_query[allc_pos_col])
                         except (StopIteration, ValueError, IndexError):
                             row_query_pos = None
                             break
@@ -473,15 +482,16 @@ def _isCH(record):
 
 
 # ==========================================================
-def generate_ssi1(input, output=None, pattern="CGN"):
+def index_context(input, output=None, pattern="CGN"):
     """
-    Generate 1D ssi (subset index) for a given input .cz, 1D means calculating
-    the ID list for a given pattern.
+    Build a context-based coordinate index (1D) for a given input reference
+    .cz file. The output file lists, per chromosome, the ``primary_id`` of
+    every site whose context matches ``pattern`` (e.g. CGN / CHN / +CGN).
 
     Parameters
     ----------
     input : .cz
-    output : .ssi
+    output : .index
     pattern : CGN, CHN, +CGN, -CGN
 
     Returns
@@ -497,30 +507,30 @@ def generate_ssi1(input, output=None, pattern="CGN"):
     else:
         raise ValueError("Currently, only CGN, CHN, +CGN supported")
     if output is None:
-        output = input + '.' + pattern + '.ssi'
+        output = input + '.' + pattern + '.index'
     else:
         output = os.path.abspath(os.path.expanduser(output))
     reader = Reader(input)
-    reader.category_ssi(output=output, formats=['I'], columns=['ID'],
+    reader.build_context_index(output=output, formats=['I'], columns=['ID'],
                         dimensions=['chrom'], match_func=judge_func,
                         chunksize=2000)
     reader.close()
 
 
-def generate_ssi2(input, output=None, bed=None,
-                  n_jobs=4):  # 2D ssi
+def index_regions(input, output=None, bed=None,
+                  threads=4):  # 2D index
     """
-    Generate subset index for a genomic region bed file. For example::
+    Build a region-based coordinate index from a BED file. For example::
 
-        cytozip generate_ssi2 -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz \
-        -o mm10_with_chrL.allc.genes_flank2k.ssi -b genes_flank2k.bed.gz -n 4
+        cytozip index_regions -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz \
+        -o mm10_with_chrL.allc.genes_flank2k.index -b genes_flank2k.bed.gz -n 4
 
     Parameters
     ----------
     input :
     output :
     bed :
-    n_jobs :
+    threads :
 
     Returns
     -------
@@ -529,11 +539,11 @@ def generate_ssi2(input, output=None, bed=None,
     bed = os.path.abspath(os.path.expanduser(bed))
     input = os.path.abspath(os.path.expanduser(input))
     if output is None:
-        output = input + '.' + os.path.basename(bed) + '.ssi'
+        output = input + '.' + os.path.basename(bed) + '.index'
     else:
         output = os.path.abspath(os.path.expanduser(output))
     reader = Reader(input)
-    reader.regions_ssi(output=output, bed=bed, n_jobs=n_jobs)
+    reader.build_region_index(output=output, bed=bed, threads=threads)
     reader.close()
 
 # ==========================================================
@@ -671,8 +681,8 @@ def catchr(outdir, chrom, ext, batch_nblock, chunksize):
 
 
 def merge_cz(indir=None, cz_paths=None, class_table=None,
-             outfile=None, prefix=None, n_jobs=12, formats=['H', 'H'],
-             path_to_chrom=None, reference=None,
+             output=None, prefix=None, threads=12, formats=['H', 'H'],
+             chrom_order=None, reference=None,
              keep_cat=False, batchsize=10, temp=False, bgzip=True,
              chunksize=50000, ext='.cz'):
     """
@@ -690,15 +700,15 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
         If class_table is given, multiple output will be generated based on the
         snames and class from this class_table, each output will have a suffix of
         class name in this table.
-    outfile : path
-    n_jobs :int
+    output : path
+    threads :int
     formats : str of list
         Could be fraction, 2D, fisher or list of formats.
         if formats is a list, then mc and cov will be summed up and write to .cz file.
         otherwise, if formats=='fraction', summed mc divided by summed cov
         will be calculated and written to .txt file. If formats=='2D', mc and cov
         will be kept and write to .txt matrix file.
-    path_to_chrom : path
+    chrom_order : path
         path to chrom size file.
     reference : path
         path to reference .cz file, only need if fraction="fraction" or "2D".
@@ -723,28 +733,28 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
             print(key)
             cz_paths = [sname + ext for sname in class_groups[key]]
             merge_cz(indir, cz_paths, class_table=None,
-                     outfile=None, prefix=f"{prefix}.{key}", n_jobs=n_jobs,
-                     formats=formats, path_to_chrom=path_to_chrom,
+                     output=None, prefix=f"{prefix}.{key}", threads=threads,
+                     formats=formats, chrom_order=chrom_order,
                      reference=reference, keep_cat=keep_cat,
                      batchsize=batchsize, temp=temp, bgzip=bgzip,
                      chunksize=chunksize, ext=ext)
         return None
-    if outfile is None:
+    if output is None:
         if prefix is None:
-            outfile = 'merged.cz' if formats not in ['fraction', '2D', 'fisher'] else 'merged.txt'
+            output = 'merged.cz' if formats not in ['fraction', '2D', 'fisher'] else 'merged.txt'
         else:
-            outfile = f'{prefix}.cz' if formats not in ['fraction', '2D', 'fisher'] else f'{prefix}.txt'
-    print(outfile)
-    outfile = os.path.abspath(os.path.expanduser(outfile))
-    if os.path.exists(outfile):
-        print(f"{outfile} existed, skip.")
+            output = f'{prefix}.cz' if formats not in ['fraction', '2D', 'fisher'] else f'{prefix}.txt'
+    print(output)
+    output = os.path.abspath(os.path.expanduser(output))
+    if os.path.exists(output):
+        print(f"{output} existed, skip.")
         return
     if cz_paths is None:
         cz_paths = [file for file in os.listdir(indir) if file.endswith(ext)]
     reader = Reader(os.path.join(indir, cz_paths[0]))
     header = reader.header
     reader.close()
-    outfile_cat = outfile + '.cat.cz'
+    outfile_cat = output + '.cat.cz'
     # cat all .cz files into one .cz file, add a dimension to chunk (filename)
     writer = Writer(output=outfile_cat, formats=header['formats'],
                     columns=header['columns'], dimensions=header['dimensions'],
@@ -759,9 +769,9 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
 
     # get chromosomes order
     input_chroms = chunk_info[chrom_col].unique().tolist()
-    if not path_to_chrom is None:
-        path_to_chrom = os.path.abspath(os.path.expanduser(path_to_chrom))
-        df = pd.read_csv(path_to_chrom, sep='\t', header=None, usecols=[0])
+    if not chrom_order is None:
+        chrom_order = os.path.abspath(os.path.expanduser(chrom_order))
+        df = pd.read_csv(chrom_order, sep='\t', header=None, usecols=[0])
         chroms = [chrom for chrom in df.iloc[:, 0].tolist() if chrom in input_chroms]
     else:
         chroms = sorted(input_chroms)
@@ -776,9 +786,9 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     nunit_perbatch = int(np.ceil((chunk_info.chunk_nblocks.max() / batchsize
                                   ) / unit_nblock))
     batch_nblock = nunit_perbatch * unit_nblock  # how many block for each batch
-    pool = multiprocessing.Pool(n_jobs)
+    pool = multiprocessing.Pool(threads)
     jobs = []
-    outdir = outfile + '.tmp'
+    outdir = output + '.tmp'
     if not os.path.exists(outdir):
         os.mkdir(outdir)
     for chrom in chroms:
@@ -839,7 +849,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
             # write chunk tail
             writer.close()
     else:  # txt
-        pool = multiprocessing.Pool(n_jobs)
+        pool = multiprocessing.Pool(threads)
         jobs = []
         for chrom in chroms:
             job = pool.apply_async(catchr,
@@ -850,9 +860,9 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
         pool.close()
         pool.join()
 
-    # Second, merge chromosomes to outfile
+    # Second, merge chromosomes to output
     if out_ext == 'cz':  # merge chroms into final output
-        writer = Writer(output=outfile, formats=formats,
+        writer = Writer(output=output, formats=formats,
                         columns=header['columns'], dimensions=header['dimensions'],
                         message="merged")
         writer.catcz(input=[f"{outdir}/{chrom}.cz" for chrom in chroms])
@@ -889,10 +899,10 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
                     df = pd.concat([df_ref.iloc[:chunksize].reset_index(drop=True),
                                     df.reset_index(drop=True)], axis=1)
                     df_ref = df_ref.iloc[chunksize:]
-                if not os.path.exists(outfile):
-                    df.reindex(columns=usecols).to_csv(outfile, sep='\t', index=False, header=True)
+                if not os.path.exists(output):
+                    df.reindex(columns=usecols).to_csv(output, sep='\t', index=False, header=True)
                 else:
-                    df.reindex(columns=usecols).to_csv(outfile, sep='\t', index=False,
+                    df.reindex(columns=usecols).to_csv(output, sep='\t', index=False,
                                                        header=False, mode='a')
         if not reference is None:
             reader.close()
@@ -901,31 +911,31 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     if not temp:
         print(f"Removing temp dir {outdir}")
         os.system(f"rm -rf {outdir}")
-    if bgzip and not outfile.endswith(ext):
-        cmd = f"bgzip {outfile} && tabix -S 1 -s 1 -b 2 -e 3 -f {outfile}.gz"
+    if bgzip and not output.endswith(ext):
+        cmd = f"bgzip {output} && tabix -S 1 -s 1 -b 2 -e 3 -f {output}.gz"
         print(f"Run bgzip, CMD: {cmd}")
         os.system(cmd)
 
 def merge_cell_type(indir=None, cell_table=None, outdir=None,
-                    n_jobs=64, path_to_chrom=None, ext='.CGN.merged.cz'):
+                    threads=64, chrom_order=None, ext='.CGN.merged.cz'):
     indir = os.path.abspath(os.path.expanduser(indir))
     outdir = os.path.abspath(os.path.expanduser(outdir))
     if not os.path.exists(outdir):
         os.mkdir(outdir)
-    path_to_chrom = os.path.abspath(os.path.expanduser(path_to_chrom))
+    chrom_order = os.path.abspath(os.path.expanduser(chrom_order))
     df_ct = pd.read_csv(cell_table, sep='\t', header=None, names=['cell', 'ct'])
     for ct in df_ct.ct.unique():
-        outfile = os.path.join(outdir, ct + '.cz')
-        if os.path.exists(outfile):
-            print(f"{outfile} existed.")
+        output = os.path.join(outdir, ct + '.cz')
+        if os.path.exists(output):
+            print(f"{output} existed.")
             continue
         print(ct)
         snames = df_ct.loc[df_ct.ct == ct, 'cell'].tolist()
         cz_paths = [os.path.join(indir, sname + ext) for sname in snames]
         merge_cz(indir=indir, cz_paths=cz_paths, bgzip=False,
-                 outfile=outfile, n_jobs=n_jobs, path_to_chrom=path_to_chrom)
+                 output=output, threads=threads, chrom_order=chrom_order)
 # ==========================================================
-def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
+def extractCG(input=None, output=None, index=None, chunksize=5000,
               merge_cg=False):
     """
     Extract CG context from .cz file
@@ -934,16 +944,16 @@ def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
     ----------
     input : path
         path to the .cz file.
-    outfile : path
+    output : path
         output file path.
-    ssi : path
-        ssi should be ssi to mm10_with_chrL.allc.cz.CGN.ssi, not forward
-        strand ssi, but after merge (if merge_cg is True), forward ssi
-        mm10_with_chrL.allc.cz.+CGN.ssi should be used to generate
+    index : path
+        index should be index to mm10_with_chrL.allc.cz.CGN.index, not forward
+        strand index, but after merge (if merge_cg is True), forward index
+        mm10_with_chrL.allc.cz.+CGN.index should be used to generate
         reference, one can
         run: ``cytozip extract -m mm10_with_chrL.allc.cz
         -o mm10_with_chrL.allCG.forward.cz
-        -b mm10_with_chrL.allc.cz.+CGN.ssi`` and use
+        -b mm10_with_chrL.allc.cz.+CGN.index`` and use
         mm10_with_chrL.allCG.forward.cz as new reference.
     chunksize : int
     merge_cg : bool
@@ -955,19 +965,19 @@ def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
 
     """
     cz_path = os.path.abspath(os.path.expanduser(input))
-    ssi_path = os.path.abspath(os.path.expanduser(ssi))
-    ssi_reader = Reader(ssi_path)
+    index_path = os.path.abspath(os.path.expanduser(index))
+    index_reader = Reader(index_path)
     reader = Reader(cz_path)
-    writer = Writer(outfile, formats=reader.header['formats'],
+    writer = Writer(output, formats=reader.header['formats'],
                     columns=reader.header['columns'],
                     dimensions=reader.header['dimensions'],
-                    message=ssi_path)
+                    message=index_path)
     dtfuncs = get_dtfuncs(writer.formats)
     for dim in reader.dim2chunk_start.keys():
         # print(dim)
-        IDs = ssi_reader.get_ids_from_ssi(dim)
+        IDs = index_reader.get_ids_from_index(dim)
         if len(IDs.shape) != 1:
-            raise ValueError("Only support 1D ssi now!")
+            raise ValueError("Only support 1D index now!")
         records = reader._getRecordsByIds(dim, IDs)
         data_parts, count = [], 0
         # for CG, if pos is forward (+), then pos+1 is reverse strand (-)
@@ -995,22 +1005,22 @@ def extractCG(input=None, outfile=None, ssi=None, chunksize=5000,
             writer.write_chunk(b''.join(data_parts), dim)
     writer.close()
     reader.close()
-    ssi_reader.close()
+    index_reader.close()
 
 
-def aggregate(input=None, outfile=None, ssi=None, intersect=None, exclude=None,
+def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
               chunksize=5000, formats=['H', 'H']):
     """
     Aggregate a given genomic region on a .cz file, for example::
 
         /usr/bin/time -f "%e\t%M\t%P" cytozip aggregate -I test.cz -O test_gene.cz \
-        -s mm10_with_chrL.allc.genes_flank2k.ssi
+        -s mm10_with_chrL.allc.genes_flank2k.index
 
     Parameters
     ----------
     input :
-    outfile :
-    ssi :
+    output :
+    index :
     intersect :
     exclude :
     chunksize :
@@ -1021,20 +1031,20 @@ def aggregate(input=None, outfile=None, ssi=None, intersect=None, exclude=None,
 
     """
     cz_path = os.path.abspath(os.path.expanduser(input))
-    ssi_path = os.path.abspath(os.path.expanduser(ssi))
-    ssi_reader = Reader(ssi_path)
+    index_path = os.path.abspath(os.path.expanduser(index))
+    index_reader = Reader(index_path)
     reader = Reader(cz_path)
-    writer = Writer(outfile, formats=formats,
+    writer = Writer(output, formats=formats,
                     columns=reader.header['columns'],
                     dimensions=reader.header['dimensions'],
-                    message=os.path.basename(ssi_path))
+                    message=os.path.basename(index_path))
     dtfuncs = get_dtfuncs(writer.formats)
     for dim in reader.dim2chunk_start.keys():
-        if dim not in ssi_reader.dim2chunk_start.keys():
+        if dim not in index_reader.dim2chunk_start.keys():
             continue
         print(dim)
-        IDs = ssi_reader.get_ids_from_ssi(dim)
-        # names=[str(record[0], 'utf-8').rstrip('\x00') for record in ssi_reader.__fetch__(dim, s=2, e=3)]
+        IDs = index_reader.get_ids_from_index(dim)
+        # names=[str(record[0], 'utf-8').rstrip('\x00') for record in index_reader.__fetch__(dim, s=2, e=3)]
         # if len(IDs.shape) == 1:
         #     records = reader._getRecordsByIds(dim, IDs)
         assert len(IDs.shape) == 2
@@ -1064,7 +1074,7 @@ def aggregate(input=None, outfile=None, ssi=None, intersect=None, exclude=None,
             writer.write_chunk(b''.join(data_parts), dim)
     writer.close()
     reader.close()
-    ssi_reader.close()
+    index_reader.close()
 
 def __split_mat(infile, chrom, snames, outdir, n_ref):
     import pysam
@@ -1104,7 +1114,7 @@ def __split_mat(infile, chrom, snames, outdir, n_ref):
 # Peak calling from methylation data
 # ==========================================================================
 def call_peaks(input=None, reference=None, output=None, name='peaks',
-               signal='unmeth', ssi=None, genome_size='mm',
+               signal='unmeth', index=None, genome_size='mm',
                fragment_size=300, qvalue=0.05, broad=False,
                min_cov=1, keep_bed=False, macs3_args='',
                mc_col=None, cov_col=None):
@@ -1133,9 +1143,9 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     signal : str
         ``'unmeth'`` uses (cov - mc) as signal;
         ``'meth'`` uses mc as signal.
-    ssi : str or None
-        Path to SSI file for context filtering (e.g., CpG-only SSI
-        from ``generate_ssi1``).
+    index : str or None
+        Path to index file for context filtering (e.g., CpG-only index
+        from ``index_context``).
     genome_size : str or int
         Genome size for MACS3.  Use ``'hs'`` for human (~2.7e9),
         ``'mm'`` for mouse (~1.87e9), or an integer.
@@ -1168,13 +1178,13 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     ::
 
         # CpG-only peak calling
-        czip call_peaks -I cell.cz -r mm10.allc.cz -s mm10.CGN.ssi \\
+        czip call_peaks -I cell.cz -r mm10.allc.cz -s mm10.CGN.index \\
              -g mm -n cell_unmeth
 
         # Python API
         import cytozip as czip
         czip.call_peaks(input='cell.cz', reference='mm10.allc.cz',
-                        ssi='mm10.CGN.ssi', genome_size='mm')
+                        index='mm10.CGN.index', genome_size='mm')
 
     """
     import subprocess
@@ -1192,11 +1202,11 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     output = os.path.abspath(os.path.expanduser(output))
     os.makedirs(output, exist_ok=True)
 
-    # Optional SSI for context filtering (e.g., CpG only)
-    ssi_reader = None
-    if ssi is not None:
-        ssi_path = os.path.abspath(os.path.expanduser(ssi))
-        ssi_reader = Reader(ssi_path)
+    # Optional index for context filtering (e.g., CpG only)
+    index_reader = None
+    if index is not None:
+        index_path = os.path.abspath(os.path.expanduser(index))
+        index_reader = Reader(index_path)
 
     # ---- Step 2: Build numpy structured dtypes for zero-copy binary decoding ----
     # This maps .cz struct format chars (e.g. 'B'->uint8, 'Q'->uint64)
@@ -1256,11 +1266,11 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
                 continue
             ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
 
-            # Apply SSI (Subset Index) filter to keep only specific contexts.
-            # e.g., a CGN.ssi restricts to CpG sites only. The SSI stores
+            # Apply index (Subset Index) filter to keep only specific contexts.
+            # e.g., a CGN.index restricts to CpG sites only. The index stores
             # an array of record IDs; fancy-indexing both arrays keeps them aligned.
-            if ssi_reader is not None and dim in ssi_reader.dim2chunk_start:
-                ids = ssi_reader.get_ids_from_ssi(dim)
+            if index_reader is not None and dim in index_reader.dim2chunk_start:
+                ids = index_reader.get_ids_from_index(dim)
                 if len(ids.shape) == 1:
                     data_arr = data_arr[ids]
                     ref_arr = ref_arr[ids]
@@ -1315,8 +1325,8 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
 
     reader.close()
     ref_reader.close()
-    if ssi_reader:
-        ssi_reader.close()
+    if index_reader:
+        index_reader.close()
 
     print(f"Total pseudo-reads: {total_reads}")
 
@@ -1363,7 +1373,7 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
 
 
 def to_bedgraph(input=None, reference=None, output=None,
-                signal='unmeth', ssi=None, min_cov=1,
+                signal='unmeth', index=None, min_cov=1,
                 mc_col=None, cov_col=None):
     """Export methylation signal from a .cz file as a bedGraph.
 
@@ -1383,8 +1393,8 @@ def to_bedgraph(input=None, reference=None, output=None,
     signal : str
         ``'unmeth'`` writes (cov - mc); ``'meth'`` writes mc;
         ``'frac_unmeth'`` writes (cov - mc) / cov.
-    ssi : str or None
-        Path to SSI file for context filtering.
+    index : str or None
+        Path to index file for context filtering.
     min_cov : int
         Minimum coverage to include a site.
     mc_col : int or str or None
@@ -1409,10 +1419,10 @@ def to_bedgraph(input=None, reference=None, output=None,
         output = os.path.splitext(cz_path)[0] + '.bedgraph'
     output = os.path.abspath(os.path.expanduser(output))
 
-    ssi_reader = None
-    if ssi is not None:
-        ssi_path = os.path.abspath(os.path.expanduser(ssi))
-        ssi_reader = Reader(ssi_path)
+    index_reader = None
+    if index is not None:
+        index_path = os.path.abspath(os.path.expanduser(index))
+        index_reader = Reader(index_path)
 
     def _make_np_dtype(formats, columns):
         dt = []
@@ -1457,8 +1467,8 @@ def to_bedgraph(input=None, reference=None, output=None,
                 continue
             ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
 
-            if ssi_reader is not None and dim in ssi_reader.dim2chunk_start:
-                ids = ssi_reader.get_ids_from_ssi(dim)
+            if index_reader is not None and dim in index_reader.dim2chunk_start:
+                ids = index_reader.get_ids_from_index(dim)
                 if len(ids.shape) == 1:
                     data_arr = data_arr[ids]
                     ref_arr = ref_arr[ids]
@@ -1498,14 +1508,14 @@ def to_bedgraph(input=None, reference=None, output=None,
 
     reader.close()
     ref_reader.close()
-    if ssi_reader:
-        ssi_reader.close()
+    if index_reader:
+        index_reader.close()
 
     print(f"bedGraph written to: {output}")
     return output
 
 
-def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
+def combp(input, outdir="cpv", threads=24, dist=300, temp=True, bed=False):
     """
     Run comb-p on a fisher result matrix (generated by `merge_cz -f fisher`),
     /usr/bin/time -f "%e\t%M\t%P" cytozip combp -i major_type.fisher.txt.gz -n 64
@@ -1516,7 +1526,7 @@ def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
     input : path
         path to result from merge_cz -f fisher.
     outdir : path
-    n_jobs : int
+    threads : int
     dist: int
         max distance between two site to be included in one DMR.
     db : str
@@ -1551,7 +1561,7 @@ def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
     bed_dir = os.path.join(outdir, 'bed')
     if not os.path.exists(bed_dir):
         os.mkdir(bed_dir)
-        pool = multiprocessing.Pool(n_jobs)
+        pool = multiprocessing.Pool(threads)
         jobs = []
         print("Splitting matrix into different samples and chroms.")
         for chrom in chroms:
@@ -1568,7 +1578,7 @@ def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
     tmpdir = os.path.join(outdir, "tmp")
     if not os.path.exists(tmpdir):
         os.mkdir(tmpdir)
-    pool = multiprocessing.Pool(n_jobs)
+    pool = multiprocessing.Pool(threads)
     jobs = []
     print("Running cpv..")
     # dist = 750
@@ -1578,8 +1588,8 @@ def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
         for sname in snames:
             bed_file = os.path.join(bed_dir, f"{sname}.{chrom}.bed")
             prefix = os.path.join(tmpdir, f"{sname}.{chrom}")
-            outfile = os.path.join(tmpdir, f"{sname}.{chrom}.regions-p.bed.gz")
-            if os.path.exists(outfile):
+            output = os.path.join(tmpdir, f"{sname}.{chrom}.regions-p.bed.gz")
+            if os.path.exists(output):
                 continue
             job = pool.apply_async(cpv_pipeline,
                                    (4, None, dist, acf_dist, prefix,
@@ -1593,7 +1603,7 @@ def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
 
     print("Merging cpv results..")
     for sname in snames:
-        outfile = os.path.join(outdir, f"{sname}.bed")
+        output = os.path.join(outdir, f"{sname}.bed")
         for chrom in chroms:
             infile = os.path.join(tmpdir, f"{sname}.{chrom}.regions-p.bed.gz")
             if not os.path.exists(infile):
@@ -1602,10 +1612,10 @@ def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
             df = df.loc[df.z_sidak_p <= 0.05]
             if df.shape[0] == 0:
                 continue
-            if not os.path.exists(outfile):
-                df.to_csv(outfile, sep='\t', index=False, header=True)
+            if not os.path.exists(output):
+                df.to_csv(output, sep='\t', index=False, header=True)
             else:
-                df.to_csv(outfile, sep='\t', index=False, header=False, mode='a')
+                df.to_csv(output, sep='\t', index=False, header=False, mode='a')
     merged_dmr_path = os.path.join(outdir, 'merged_dmr.txt')
     data = None
     for sname in snames:
@@ -1627,7 +1637,7 @@ def combp(input, outdir="cpv", n_jobs=24, dist=300, temp=True, bed=False):
         os.system(f"rm -rf {tmpdir}")
 
 def annot_dmr(input="merged_dmr.txt", matrix="merged_dmr.cell_class.beta.txt",
-              outfile='dmr.annotated.txt', delta_cutoff=None):
+              output='dmr.annotated.txt', delta_cutoff=None):
     """
     Annotate DMR result from cpv.
 
@@ -1637,7 +1647,7 @@ def annot_dmr(input="merged_dmr.txt", matrix="merged_dmr.cell_class.beta.txt",
         Merged dmr from cytozip combp.
     matrix :  path
         result of agg_beta using dmr and output of merge_cz (fraction) as input.
-    outfile : path
+    output : path
         annotated dmr, containing hypomethylated sname, delta
     Returns
     -------
@@ -1668,7 +1678,7 @@ def annot_dmr(input="merged_dmr.txt", matrix="merged_dmr.cell_class.beta.txt",
     if not delta_cutoff is None:
         df_rows = df_rows.loc[df_rows.delta_beta >= delta_cutoff]
     # df_rows.drop(['Hyper'], axis=1, inplace=True)
-    df_rows.to_csv(os.path.expanduser(outfile),
+    df_rows.to_csv(os.path.expanduser(output),
                    sep='\t', index=False)
 
 if __name__ == "__main__":

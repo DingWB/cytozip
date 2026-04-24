@@ -351,6 +351,11 @@ class CzReader {
       off += nLen;
     }
 
+    // sort_col (1B): index of the "position" column whose first-in-block
+    // values are cached at the end of each chunk tail. 0xFF means disabled.
+    const sortColRaw = buf[off]; off += 1;
+    const sortCol = sortColRaw === 0xff ? null : sortColRaw;
+
     // dimensions
     const nDims = buf[off]; off += 1;
     const dimensions = [];
@@ -362,7 +367,7 @@ class CzReader {
 
     this.header = {
       magic, version, totalSize, message,
-      formats, columns, dimensions,
+      formats, columns, sortCol, dimensions,
       headerSize: off,
     };
 
@@ -372,6 +377,20 @@ class CzReader {
       const last = f[f.length - 1];
       return last === 's' || last === 'c';
     });
+
+    // Prepare per-block first_coord reader (only when sort_col is enabled)
+    if (sortCol !== null) {
+      const sortFmt = formats[sortCol];
+      const entry = FORMAT_MAP[sortFmt];
+      if (!entry) {
+        throw new Error(`sort_col format '${sortFmt}' is not a supported integer format`);
+      }
+      this._sortColSize = entry.size;
+      this._sortColRead = entry.read;
+    } else {
+      this._sortColSize = 0;
+      this._sortColRead = null;
+    }
   }
 
   // ── Chunk Index ──────────────────────────────────────────────────────────
@@ -471,8 +490,11 @@ class CzReader {
     const tailOffset = info.start + info.size;
     this._handle.seek(tailOffset);
 
-    // tail header: data_len(8B) + n_blocks(8B) + virtual_offsets(N*8B) + dim_values
-    const tailSize = 16 + info.nblocks * 8 + 256; // +256 for dim strings
+    // tail header: data_len(8B) + n_blocks(8B) + virtual_offsets(N*8B)
+    //   + [first_coords(N * sort_col_size) if sort_col enabled]
+    //   + dim_values
+    const sortSize = this._sortColSize || 0;
+    const tailSize = 16 + info.nblocks * (8 + sortSize) + 256; // +256 for dim strings
     const tailBuf = await this._handle.read(tailSize);
     const dv = new DataView(tailBuf.buffer, tailBuf.byteOffset, tailBuf.byteLength);
     let off = 0;
@@ -485,12 +507,24 @@ class CzReader {
       blockVOs[i] = Number(dv.getBigUint64(off, true)); off += 8;
     }
 
+    // first_coords (one entry per block) when sort_col is enabled — lets
+    // query() do true numeric bisect without decompressing probe blocks.
+    let firstCoords = null;
+    if (sortSize > 0) {
+      firstCoords = new Array(nblocks);
+      for (let i = 0; i < nblocks; i++) {
+        firstCoords[i] = _toNumber(this._sortColRead(dv, off));
+        off += sortSize;
+      }
+    }
+
     const result = {
       start: info.start,
       size: info.size,
       dataLen,
       nblocks,
       blockVOs,
+      firstCoords,
     };
     this._chunkTailCache.set(dimKey, result);
     return result;
@@ -586,8 +620,17 @@ class CzReader {
     const nblocks = vos.length;
     if (nblocks === 0) return [];
 
-    // Binary search: find the block whose first record's queryCol value <= start
-    const startBlockIdx = await this._bisectBlockIndex(vos, start, queryCol, 0, nblocks);
+    // Fast path: if this file has a sort_col index and the caller is
+    // querying that column, bisect the in-memory first_coords array — no
+    // extra block decompressions needed to locate the start block.
+    let startBlockIdx;
+    if (tail.firstCoords !== null && queryCol === this.header.sortCol) {
+      startBlockIdx = _bisectRight(tail.firstCoords, start) - 1;
+      if (startBlockIdx < 0) startBlockIdx = 0;
+    } else {
+      // Fallback: probe block first-values via decompression (O(log N) blocks).
+      startBlockIdx = await this._bisectBlockIndex(vos, start, queryCol, 0, nblocks);
+    }
 
     // Read and decompress from startBlockIdx onward to collect matching records
     const results = [];
@@ -685,6 +728,17 @@ class CzReader {
 /** Convert BigInt to Number if needed. */
 function _toNumber(v) {
   return typeof v === 'bigint' ? Number(v) : v;
+}
+
+/** bisect_right on a sorted numeric array — returns first idx where arr[idx] > target. */
+function _bisectRight(arr, target) {
+  let lo = 0, hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (arr[mid] <= target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 // ─── Exports ─────────────────────────────────────────────────────────────────

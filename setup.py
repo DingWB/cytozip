@@ -53,8 +53,21 @@ setup(
                     "-Wno-unreachable-code-fallthrough",
                     "-Wno-unused-result",
                     "-Wno-sign-compare",
+                    "-O3",
                 ],
-                libraries=["z"],
+                libraries=["deflate"],
+                # Pick up libdeflate from the active conda/virtual env first,
+                # then fall back to system paths. Build-time: compile error
+                # if libdeflate-dev is not installed.
+                include_dirs=[
+                    os.path.join(os.environ.get('CONDA_PREFIX', ''), 'include')
+                ] if os.environ.get('CONDA_PREFIX') else [],
+                library_dirs=[
+                    os.path.join(os.environ.get('CONDA_PREFIX', ''), 'lib')
+                ] if os.environ.get('CONDA_PREFIX') else [],
+                runtime_library_dirs=[
+                    os.path.join(os.environ.get('CONDA_PREFIX', ''), 'lib')
+                ] if os.environ.get('CONDA_PREFIX') else [],
             )
         ],
         language_level="3",

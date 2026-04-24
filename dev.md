@@ -5,7 +5,8 @@
 ┌──────────────────────────────────────────────┐
 │ FILE HEADER (variable size, ~60 bytes)       │
 │  Magic(4B) Version(4B) TotalSize(8B)         │
-│  Message + Formats + Columns + Dimensions    │
+│  Message + Formats + Columns                 │
+│  + SortCol(1B) + Dimensions                  │
 ├──────────────────────────────────────────────┤
 │ CHUNK #1 (e.g. chr1)                         │
 │  ┌ Chunk Header: "CC"(2B) + ChunkSize(8B)   │
@@ -15,6 +16,7 @@
 │  └ CHUNK TAIL:                               │
 │     DataLen(8B) + NBlocks(8B)                │
 │     + VirtualOffsets(N×8B)                   │
+│     + FirstCoords(N × sort_col fmt, opt.)    │
 │     + DimValues                              │
 ├──────────────────────────────────────────────┤
 │ CHUNK #2 (e.g. chr2) ...                     │
@@ -73,8 +75,16 @@ so using `<` avoids byte-swapping overhead on these architectures.
 | var | n_cols | `<B` | 1B | Number of columns |
 | var | formats[] | B+s | var | Per column: len(1B) + format string |
 | var | columns[] | B+s | var | Per column: len(1B) + column name |
+| var | sort_col | `<B` | 1B | Index of sort column, or `0xFF` (255) if none |
 | var | n_dims | `<B` | 1B | Number of dimensions |
 | var | dims[] | B+s | var | Per dim: len(1B) + dim name |
+
+`sort_col` identifies a single integer column whose values are monotonically
+non-decreasing within every chunk (e.g. `pos` for allc). When enabled, each
+chunk tail stores the first record's `sort_col` value for every block,
+enabling true O(log N) bisect on numeric coordinates without decompressing
+probe blocks. `0xFF` disables the feature; readers then fall back to
+decompressing the first record of candidate blocks during `query`.
 
 ## Chunk Header
 
@@ -99,6 +109,7 @@ so using `<` avoids byte-swapping overhead on these architectures.
 | data_len | `<Q` | 8B | Total uncompressed bytes |
 | n_blocks | `<Q` | 8B | Number of blocks |
 | virtual_offsets[] | `<Q`×N | 8B×N | `(block_disk_offset << 16) \| within_block_offset` |
+| first_coords[] | fmt×N | k×N | First record's `sort_col` value per block (only if `sort_col != 0xFF`; `k` = size of `sort_col`'s format) |
 | dim_values[] | B+s | var | Dimension value strings |
 
 ## Chunk Index (end of file, for remote/partial reading)
@@ -123,6 +134,20 @@ and are read on demand via `_load_chunk()`.
 
 ---
 
+## Compression
+
+Blocks are compressed with raw DEFLATE (`-15` wbits, no zlib/gzip wrapper).
+The native reader/writer links against **[libdeflate](https://github.com/ebiggers/libdeflate)**
+(via Cython in `cz_accel.pyx`), which is 2–3× faster than zlib for both
+compress and decompress while producing fully compatible output. Pure-Python
+fallbacks and the browser reader use standard DEFLATE decoders (`zlib.decompress(-15)`
+and `DecompressionStream('deflate-raw')` respectively), so files remain
+interoperable.
+
+Build requirements:
+- `libdeflate.so` and `libdeflate.h` available (e.g. `conda install -c conda-forge libdeflate`)
+- `setup.py` links with `-ldeflate` from `$CONDA_PREFIX`
+
 ## Installation
 ```shell
 python setup.py build_ext --inplace 
@@ -138,22 +163,22 @@ python -c "from cytozip.cz import Reader"
 
 ## Reference file
 ```shell
-time czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -n 20
+time czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -t 20
 # 0m44.284s
 
-# create subset index for all CG (including forward and reverse strand)
-time czip generate_ssi1 ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -p CGN -o ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.ssi
+# create a coordinate index for all CG (including forward and reverse strand)
+time czip index context -I ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -p CGN -O ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.idx.cz
 # 8m24.544s
 
-# create subset index for all CG (forward strand only)
-time czip generate_ssi1 ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -p +CGN -o ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.forward.ssi
+# create a coordinate index for all CG (forward strand only)
+time czip index context -I ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -p +CGN -O ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.forward.idx.cz
 # about 5 minutes
 
-# using forward CG subset index to extract forward strand CG coordinates from reference
-time czip extract -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -s ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.forward.ssi -o ~/Ref/mm10/annotations/mm10_with_chrL.allCG.forward.cz
+# use the forward CG index to extract forward strand CG coordinates from reference
+time czip extract -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -s ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.forward.idx.cz -o ~/Ref/mm10/annotations/mm10_with_chrL.allCG.forward.cz
 # about 1m23.855s
 
-# Actually, *.ssi is also a czip file, we can view .ssi using `czip view -I *.ssi --show-dim 0`
+# Index files are themselves .cz files — inspect with `czip view -I *.idx.cz --show-dim 0`
 ```
 
 ## Remote Reading
@@ -247,7 +272,7 @@ const reader = await CzReader.fromUrl(
 // Inspect header
 console.log(reader.header);
 // { magic: 'CZIP', formats: ['Q','B','B'], columns: ['pos','mc','cov'],
-//   dimensions: ['chrom'], ... }
+//   sortCol: 0, dimensions: ['chrom'], ... }
 
 // List all chunks (chromosomes)
 console.log(reader.dims);
@@ -322,3 +347,15 @@ ls docs
 
 vim .nojekyll #create empty file
 ```
+
+## Package Rename Candidates
+
+The name "cytozip" is too narrow — the package is not just a compression tool but a full single-cell DNA methylation analysis framework (DMR, clustering, motif analysis, etc.). Candidate names for publication:
+
+| Name | Meaning | Pros |
+|------|---------|------|
+| **mCyte** | **m**(ethyl) + **Cyte**(cytosine/cell) | Short, memorable, "m" prefix well-known in epigenetics (5mC) |
+| **EpiCyte** | **Epi**(genetic) + **Cyte**(cytosine/cell) | Broader scope, extensible to other epigenomic analyses |
+| **CytoMine** | **Cyto**(sine) + **Mine**(data mining) | Emphasizes mining insights from massive sc-methylation data |
+
+Top recommendations: **mCyte** (concise, domain-specific) or **MESA**.

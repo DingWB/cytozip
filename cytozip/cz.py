@@ -36,6 +36,7 @@ import glob
 import os, sys
 import struct
 import zlib
+import bisect
 from builtins import open as _open
 import gzip
 import math
@@ -74,6 +75,11 @@ _BLOCK_MAX_LEN = 65535            # Maximum uncompressed block size (2^16 - 1)
 _cz_eof = b"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00CZ\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 _chunk_index_magic = b"CZIX"      # 4-byte magic for the chunk index section
 
+# Integer struct format characters (used to validate sort_col choice).
+_INTEGER_FMTS = set("bBhHiIlLqQ")
+# Sentinel byte written to the header when no sort column is configured.
+_NO_SORT_COL = 0xFF
+
 # Pre-created Struct objects for frequently used format strings.
 # Using Struct.unpack/pack avoids re-parsing the format string on every call.
 _struct_B = struct.Struct("<B")   # unsigned byte
@@ -101,6 +107,7 @@ try:
 	from .cz_accel import c_read_1record as _c_read_1record
 	from .cz_accel import c_seek_and_read_1record as _c_seek_and_read_1record
 	from .cz_accel import c_query_regions as _c_query_regions
+	from .cz_accel import c_query_regions_flat as _c_query_regions_flat
 	from .cz_accel import c_write_chunk_tail as _c_write_chunk_tail
 	from .cz_accel import c_pack_records as _c_pack_records
 	from .cz_accel import c_pack_records_fast as _c_pack_records_fast
@@ -121,6 +128,7 @@ except Exception:
 	_c_read_1record = None
 	_c_seek_and_read_1record = None
 	_c_query_regions = None
+	_c_query_regions_flat = None
 	_c_write_chunk_tail = None
 	_c_pack_records = None
 	_c_pack_records_fast = None
@@ -389,7 +397,7 @@ def _input_parser(infile, formats, sep='\t', usecols=[1, 4, 5], dim_cols=[0],
 
 # ==========================================================
 # ---------------------------------------------------------------------------
-# Filter predicates used by category_ssi to build subset indexes (SSI).
+# Filter predicates used by build_context_index to build context-based indexes.
 # Each function inspects a raw record tuple and returns True/False.
 # ---------------------------------------------------------------------------
 def _isCG(record):
@@ -688,6 +696,30 @@ class Reader:
 			columns.append(name)
 		self.header['columns'] = columns
 		assert len(formats) == len(columns)
+		# 1-byte sort column index (0xFF = no sort column / no first_coords index).
+		# Placed BEFORE the dimensions section so catcz can still append new
+		# dimension names at the end of the header without shifting this byte.
+		# When set, each chunk tail stores an extra array of per-block
+		# first-record values for that column, enabling O(log N) in-memory
+		# binary search on genomic coordinates (no per-probe inflate).
+		sort_col_byte = struct.unpack("<B", f.read(1))[0]
+		if sort_col_byte == _NO_SORT_COL:
+			self.sort_col = None
+			self._sort_col_fmt = None
+			self._sort_col_size = 0
+		else:
+			if sort_col_byte >= len(formats):
+				raise ValueError(
+					f"Invalid sort_col index {sort_col_byte} in header "
+					f"(only {len(formats)} columns exist)")
+			if formats[sort_col_byte][-1] not in _INTEGER_FMTS:
+				raise ValueError(
+					f"sort_col={sort_col_byte} references non-integer "
+					f"format {formats[sort_col_byte]!r}")
+			self.sort_col = sort_col_byte
+			self._sort_col_fmt = formats[sort_col_byte]
+			self._sort_col_size = struct.calcsize(self._sort_col_fmt)
+		self.header['sort_col'] = self.sort_col
 		dimensions = []
 		n_dims = struct.unpack("<B", f.read(1))[0]
 		for i in range(n_dims):
@@ -802,8 +834,10 @@ class Reader:
 			self._chunk_end_offset = cached['end_offset']
 			if jump:
 				self._chunk_block_1st_record_virtual_offsets = []
+				self._chunk_block_first_coords = []
 			else:
 				self._chunk_block_1st_record_virtual_offsets = list(cached['block_vos'])
+				self._chunk_block_first_coords = list(cached.get('first_coords') or [])
 			return True
 		self._handle.seek(start_offset)
 		self._chunk_start_offset = start_offset  # real offset on disk.
@@ -816,8 +850,13 @@ class Reader:
 		self._chunk_data_len, self._chunk_nblocks = _struct_2Q.unpack(
 			self._handle.read(16))
 		self._chunk_block_1st_record_virtual_offsets = []
+		self._chunk_block_first_coords = []
 		if jump:  # no need to load _chunk_block_1st_record_virtual_offsets
-			self._handle.seek(self._chunk_nblocks * 8, 1)
+			# Skip virtual offsets AND the optional first_coords array.
+			skip = self._chunk_nblocks * 8
+			if self.sort_col is not None:
+				skip += self._chunk_nblocks * self._sort_col_size
+			self._handle.seek(skip, 1)
 		# _chunk_tail_offset = end position of this chunk = start position of next chunk.
 		else:
 			# Bulk-read all block virtual offsets in one read + one unpack.
@@ -825,6 +864,11 @@ class Reader:
 			raw = self._handle.read(n * 8)
 			self._chunk_block_1st_record_virtual_offsets = list(
 				struct.unpack(f"<{n}Q", raw))
+			# Optional per-block first-record coordinate array for fast bisect.
+			if self.sort_col is not None and n > 0:
+				fc_raw = self._handle.read(n * self._sort_col_size)
+				self._chunk_block_first_coords = list(
+					struct.unpack(f"<{n}{self._sort_col_fmt}", fc_raw))
 		dims = []
 		for t in self.header['dimensions']:
 			n = _struct_B.unpack(self._handle.read(1))[0]
@@ -842,6 +886,7 @@ class Reader:
 				'dims': self._chunk_dims,
 				'end_offset': self._chunk_end_offset,
 				'block_vos': list(self._chunk_block_1st_record_virtual_offsets),
+				'first_coords': list(self._chunk_block_first_coords),
 			}
 		return True
 
@@ -850,7 +895,8 @@ class Reader:
 		while r:
 			yield [self._chunk_start_offset, self._chunk_size,
 				   self._chunk_dims, self._chunk_data_len, self._chunk_end_offset,
-				   self._chunk_nblocks, self._chunk_block_1st_record_virtual_offsets
+				   self._chunk_nblocks, self._chunk_block_1st_record_virtual_offsets,
+				   self._chunk_block_first_coords
 				   ]
 			r = self._load_chunk(jump=False)
 
@@ -925,6 +971,8 @@ class Reader:
 		for dims, info in idx.items():
 			nrow = info['data_len'] // self._unit_size
 			tail_header_size = (16 + info['nblocks'] * 8
+								+ (info['nblocks'] * self._sort_col_size
+								   if self.sort_col is not None else 0)
 								+ sum(len(d.encode('utf-8')) + 1 for d in dims))
 			tail_offset = info['start'] + info['size'] + tail_header_size
 			if dims in dim2cs:
@@ -1361,7 +1409,7 @@ class Reader:
 							  end_col=1, zerobased=False)
 
 	@staticmethod
-	def regions_ssi_worker(input, output, dim, df1, formats, columns, dimensions,
+	def build_region_index_worker(input, output, dim, df1, formats, columns, dimensions,
 						   chunksize):
 		print(dim)
 		reader = Reader(input)
@@ -1392,10 +1440,10 @@ class Reader:
 		writer.close()
 		reader.close()
 
-	def regions_ssi(self, output, formats=['I', 'I'],
+	def build_region_index(self, output, formats=['I', 'I'],
 					columns=['ID_start', 'ID_end'],
 					dimensions=['chrom'], bed=None,
-					chunksize=2000, n_jobs=4):
+					chunksize=2000, threads=4):
 		n_dim = len(dimensions)
 		df = pd.read_csv(bed, sep='\t', header=None, usecols=list(range(n_dim + 3)),
 						 names=['chrom', 'start', 'end', 'Name'])
@@ -1403,7 +1451,7 @@ class Reader:
 		formats = formats + [f'{max_name_len}s']
 		columns = columns + ['Name']
 		dimensions = dimensions
-		pool = multiprocessing.Pool(n_jobs)
+		pool = multiprocessing.Pool(threads)
 		jobs = []
 		outdir = output + '.tmp'
 		if not os.path.exists(outdir):
@@ -1412,9 +1460,9 @@ class Reader:
 			dim = tuple([chrom])
 			if dim not in self.dim2chunk_start:
 				continue
-			outfile = os.path.join(outdir, chrom + '.cz')
-			job = pool.apply_async(self.regions_ssi_worker,
-								   (self.input, outfile, dim, df1, formats, columns,
+			output = os.path.join(outdir, chrom + '.cz')
+			job = pool.apply_async(self.build_region_index_worker,
+								   (self.input, output, dim, df1, formats, columns,
 									dimensions, chunksize))
 			jobs.append(job)
 		for job in jobs:
@@ -1428,11 +1476,11 @@ class Reader:
 		writer.catcz(input=f"{outdir}/*.cz")
 		os.system(f"rm -rf {outdir}")
 
-	def category_ssi(self, output=None, formats=['I'], columns=['ID'],
+	def build_context_index(self, output=None, formats=['I'], columns=['ID'],
 					 dimensions=['chrom'], match_func=_isForwardCG,
 					 chunksize=2000):
 		if output is None:
-			output = self.input + '.' + match_func.__name__ + '.ssi'
+			output = self.input + '.' + match_func.__name__ + '.index'
 		else:
 			output = os.path.abspath(os.path.expanduser(output))
 		writer = Writer(output, formats=formats, columns=columns,
@@ -1453,7 +1501,7 @@ class Reader:
 				data_parts = []
 		writer.close()
 
-	def get_ids_from_ssi(self, dim):
+	def get_ids_from_index(self, dim):
 		if len(self.header['columns']) == 1:
 			s, e = 0, 1  # only one columns, ID
 			return np.array([record[0] for record in self.__fetch__(dim, s=s, e=e)])
@@ -1574,15 +1622,15 @@ class Reader:
 				yield np.hstack((ref_record, record))
 			ref_reader.close()
 
-	def subset(self, dim, ssi=None, IDs=None, reference=None, printout=True):
+	def subset(self, dim, index=None, IDs=None, reference=None, printout=True):
 		if isinstance(dim, str):
 			dim = tuple([dim])
-		if ssi is None and IDs is None:
-			raise ValueError("Please provide either ssi or IDs")
-		if not ssi is None:
-			ssi_reader = Reader(ssi)
-			IDs = ssi_reader.get_ids_from_ssi(dim)
-			ssi_reader.close()
+		if index is None and IDs is None:
+			raise ValueError("Please provide either index or IDs")
+		if not index is None:
+			index_reader = Reader(index)
+			IDs = index_reader.get_ids_from_index(dim)
+			index_reader.close()
 		if not reference is None:
 			ref_reader = Reader(os.path.abspath(os.path.expanduser(reference)))
 			ref_header = ref_reader.header['columns']
@@ -1864,40 +1912,45 @@ class Reader:
 				r = self._load_chunk(self.dim2chunk_start[dim], jump=False)
 			# Fast path: Cython handles each (start, end) individually
 			if _c_query_regions is not None:
-				res = _c_query_regions(self._handle,
-							self._chunk_block_1st_record_virtual_offsets,
-							self.fmts, self._unit_size, [(start, end)], s, e, dim)
+				res = _c_query_regions(
+					self._handle,
+					self._chunk_block_1st_record_virtual_offsets,
+					self.fmts, self._unit_size, [(start, end)], s, e, dim,
+					self._chunk_block_first_coords or None)
 				for item in res:
 					yield item
 				continue
-			# Python fallback: binary search on blocks instead of linear scan
+			# Python fallback.
 			vos = self._chunk_block_1st_record_virtual_offsets
-			lo, hi = start_block_index, len(vos)
-			while lo < hi:
-				mid = (lo + hi) // 2
-				val = self._seek_and_read_1record(vos[mid])[s]
-				if val is None or val <= start:
-					lo = mid + 1
-				else:
-					hi = mid
-			start_block_index = max(lo - 1, 0)
-			virtual_offset = self._chunk_block_1st_record_virtual_offsets[start_block_index]
+			fc = self._chunk_block_first_coords
+			if fc:
+				# ---- Real in-memory binary search on genomic coordinates ----
+				# No seek + inflate per probe: first_coords array is preloaded
+				# from the chunk tail, so this is a pure O(log N) comparison.
+				start_block_index = max(bisect.bisect_right(fc, start) - 1, 0)
+			else:
+				# ---- Legacy fallback: binary search that decompresses one
+				# block per probe (used when the file has no sort_col index,
+				# e.g. reference-less .cz written before sort_col was added).
+				lo, hi = start_block_index, len(vos)
+				while lo < hi:
+					mid = (lo + hi) // 2
+					val = self._seek_and_read_1record(vos[mid])[s]
+					if val is None or val <= start:
+						lo = mid + 1
+					else:
+						hi = mid
+				start_block_index = max(lo - 1, 0)
+			virtual_offset = vos[start_block_index]
 			self.seek(virtual_offset)  # seek to the target block, self._buffer
 			block_start_offset = self._block_start_offset
 			record = self._struct_obj.unpack(self.read(self._unit_size))
 			while record[s] < start:
 				record = self._struct_obj.unpack(self.read(self._unit_size))
-			# here we got the 1st record, return the id (row number) of 1st record.
-			# size of each block is 65535 (2**16-1=_BLOCK_MAX_LEN)
-			# primary_id = int((_BLOCK_MAX_LEN * block_index +
-			#                   self._within_block_offset) / self._unit_size)
 			if self._block_start_offset > block_start_offset:
 				start_block_index += 1
 			primary_id = int((_BLOCK_MAX_LEN * start_block_index +
 							  self._within_block_offset) / self._unit_size)
-			# primary_id is the current record (record[s] == start),
-			# with_block_offset is the end of current record
-			# 1-based, primary_id >=1, cause _within_block_offset >= self._unit_size
 			yield "primary_id_&_dim:", primary_id, dim
 			while record[e] <= end:
 				yield dim, record
@@ -1908,28 +1961,34 @@ class Reader:
 		self._load_chunk(self.dim2chunk_start[dim], jump=False)
 		# Try accelerated implementation if available
 		if _c_pos2id is not None:
-			# pass handle and relevant chunk metadata
 			res = _c_pos2id(self._handle,
 			                 self._chunk_block_1st_record_virtual_offsets,
-			                 self.fmts, self._unit_size, positions, col_to_query)
+			                 self.fmts, self._unit_size, positions, col_to_query,
+			                 self._chunk_block_first_coords or None)
 			for r in res:
 				yield r
 			return
-		# fallback python implementation: binary search on blocks
+		# fallback python implementation
 		vos = self._chunk_block_1st_record_virtual_offsets
+		fc = self._chunk_block_first_coords
 		start_block_index = 0
 		for start, end in positions:
-			lo, hi = start_block_index, len(vos)
-			while lo < hi:
-				mid = (lo + hi) // 2
-				val = self._seek_and_read_1record(vos[mid])[col_to_query]
-				if val is None or val <= start:
-					lo = mid + 1
-				else:
-					hi = mid
-			start_block_index = max(lo - 1, 0)
+			if fc:
+				# Pure in-memory O(log N) bisect on preloaded first_coords.
+				start_block_index = max(bisect.bisect_right(fc, start) - 1, 0)
+			else:
+				# Legacy seek+inflate bisect for files without sort_col.
+				lo, hi = start_block_index, len(vos)
+				while lo < hi:
+					mid = (lo + hi) // 2
+					val = self._seek_and_read_1record(vos[mid])[col_to_query]
+					if val is None or val <= start:
+						lo = mid + 1
+					else:
+						hi = mid
+				start_block_index = max(lo - 1, 0)
 			virtual_offset = vos[start_block_index]
-			self.seek(virtual_offset)  # seek to the target block, self._buffer
+			self.seek(virtual_offset)
 			block_start_offset = self._block_start_offset
 			record = self._struct_obj.unpack(self.read(self._unit_size))
 			while record[col_to_query] < start:
@@ -2117,21 +2176,50 @@ class Reader:
 			ref_reader.close()
 
 	def _query_iter(self, regions, s, e):
+		# Hot loop — avoid per-record Python overhead: two generator layers,
+		# one listcomp, two list() conversions per record add ~1 µs/record
+		# which dominates small-region queries.
+		#
+		# Strategy: for single-dim / single-region numeric queries (the common
+		# case), call the Cython routine once and iterate its returned list
+		# directly — no intermediate generator, no byte2real.
+		mask = self._str_col_mask
+		has_str = any(mask)
+		if (_c_query_regions_flat is not None and not has_str
+				and len(regions) == 1):
+			dim, start, end = regions[0]
+			# Load chunk if not already loaded for this dim.
+			if dim in self.dim2chunk_start:
+				self._load_chunk(self.dim2chunk_start[dim], jump=False)
+			else:
+				return
+			# Cython returns a fully-flattened list[tuple] — iterate with
+			# yield-from so callers doing list(r.query(...)) get C-speed.
+			yield from _c_query_regions_flat(
+				self._handle,
+				self._chunk_block_1st_record_virtual_offsets,
+				self.fmts, self._unit_size, start, end, s, e, dim,
+				self._chunk_block_first_coords or None)
+			return
+		# General path (multi-dim, multi-region, or has string cols).
 		records = self._query_regions(regions, s, e)
 		try:
-			record = next(records)
+			next(records)  # discard leading ("primary_id_&_dim:", ...) marker
 		except StopIteration:
 			return
-		while True:
-			try:
-				record = next(records)
-			except StopIteration:
-				break
-			try:
-				dims, row = record
-				yield list(dims) + list(self._byte2real(row))
-			except ValueError:
-				flag, primary_id, dim = record
+		if not has_str:
+			for rec in records:
+				if len(rec) == 2:
+					dims, row = rec
+					yield dims + row
+		else:
+			for rec in records:
+				if len(rec) == 2:
+					dims, row = rec
+					yield list(dims) + [
+						str(v, 'utf-8') if mask[i] else v
+						for i, v in enumerate(row)
+					]
 
 	def _query_iter_ref(self, regions, s, e, ref_reader):
 		ref_records = ref_reader._query_regions(regions, s, e)
@@ -2288,19 +2376,19 @@ class Reader:
 
 
 # ==========================================================
-def extract(input=None, outfile=None, ssi=None, chunksize=5000):
-	ssi_reader = Reader(os.path.abspath(os.path.expanduser(ssi)))
+def extract(input=None, output=None, index=None, chunksize=5000):
+	index_reader = Reader(os.path.abspath(os.path.expanduser(index)))
 	reader = Reader(os.path.abspath(os.path.expanduser(input)))
-	writer = Writer(outfile, formats=reader.header['formats'],
+	writer = Writer(output, formats=reader.header['formats'],
 					columns=reader.header['columns'],
 					dimensions=reader.header['dimensions'],
-					message=ssi)
+					message=index)
 	# dtfuncs = get_dtfuncs(writer.formats)
 	for dim in reader.dim2chunk_start.keys():
 		print(dim)
-		IDs = ssi_reader.get_ids_from_ssi(dim)
+		IDs = index_reader.get_ids_from_index(dim)
 		if len(IDs.shape) != 1:
-			raise ValueError("Only support 1D ssi now!")
+			raise ValueError("Only support 1D index now!")
 		records = reader._getRecordsByIds(dim, IDs)
 		data_parts, i = [], 0
 		for record in records:  # unpacked bytes
@@ -2313,14 +2401,15 @@ def extract(input=None, outfile=None, ssi=None, chunksize=5000):
 			writer.write_chunk(b''.join(data_parts), dim)
 	writer.close()
 	reader.close()
-	ssi_reader.close()
+	index_reader.close()
 
 
 # ==========================================================
 class Writer:
 	def __init__(self, output=None, mode="wb", formats=['B', 'B'],
-				 columns=['mc', 'cov'], dimensions=['chrom'], 
-				 fileobj=None,message='', level=6, verbose=0):
+				 columns=['mc', 'cov'], dimensions=['chrom'],
+				 fileobj=None, message='', level=6, verbose=0,
+				 sort_col=None):
 		"""
 		cytozip .cz writer.
 
@@ -2349,6 +2438,23 @@ class Writer:
 			compress level (default is 6)
 		verbose : int
 			whether to print debug information
+		sort_col : None, int, str or False
+			Column to use as the "sort key" for per-chunk positional indexing.
+			When set to an integer index or column name whose format is an
+			integer type (e.g. ``Q`` for 64-bit ``pos``), the Writer records
+			the first-record value of that column for every block in the
+			chunk tail. Readers use the resulting array for true in-memory
+			O(log N) binary search on genomic coordinates (no inflate probes),
+			matching tabix-class performance.
+
+			- ``None`` (default): auto-detect — pick the first column whose
+			  format is an integer, or disable if none exists.
+			- ``int``: use this column index (must be an integer format).
+			- ``str``: use the column with this name.
+			- ``False`` or ``'none'``: explicitly disable the index. Use this
+			  for files without genomic coordinates (e.g. a reference-less
+			  allc storing only ``mc, cov``), where region queries require
+			  a separate reference file anyway.
 		"""
 		if output and fileobj:
 			raise ValueError("Supply either output or fileobj, not both")
@@ -2388,6 +2494,15 @@ class Writer:
 			self.dimensions = dimensions.split(',')
 		else:
 			self.dimensions = list(dimensions)
+		# ---- resolve sort_col -----------------------------------------------
+		self.sort_col = self._resolve_sort_col(sort_col)
+		if self.sort_col is None:
+			self._sort_col_fmt = None
+			self._sort_col_size = 0
+		else:
+			self._sort_col_fmt = self.formats[self.sort_col]
+			self._sort_col_size = struct.calcsize(self._sort_col_fmt)
+		# ---------------------------------------------------------------------
 		self._magic_size = len(_cz_magic)
 		self.verbose = verbose
 		self.message = message
@@ -2411,6 +2526,40 @@ class Writer:
 			self._pack_records = None
 		if 'a' not in mode:
 			self.write_header()
+
+	def _resolve_sort_col(self, sort_col):
+		"""Normalize the user-supplied sort_col argument to an int or None.
+
+		Validates that the referenced column has an integer format; raises
+		a clear error otherwise so bad configurations fail at Writer
+		construction rather than silently producing a useless index.
+
+		The default is ``None`` (no index) — this is intentional. A numeric
+		first_coords index only makes sense when a column stores genomic
+		coordinates, and auto-guessing from formats alone would build a
+		nonsensical index for files that contain only ``mc, cov`` counts.
+		Callers that know they are storing positions (e.g. ``allc2cz`` when
+		coordinates are included) should pass ``sort_col='pos'`` or the
+		column index explicitly.
+		"""
+		if sort_col is None or sort_col is False or sort_col == 'none':
+			return None
+		if isinstance(sort_col, str):
+			if sort_col not in self.columns:
+				raise ValueError(
+					f"sort_col={sort_col!r} not in columns {self.columns}")
+			idx = self.columns.index(sort_col)
+		else:
+			idx = int(sort_col)
+		if idx < 0 or idx >= len(self.formats):
+			raise ValueError(
+				f"sort_col={idx} out of range for {len(self.formats)} columns")
+		if self.formats[idx][-1] not in _INTEGER_FMTS:
+			raise ValueError(
+				f"sort_col={idx} references column {self.columns[idx]!r} "
+				f"with non-integer format {self.formats[idx]!r}; "
+				f"first_coords index requires an integer type.")
+		return idx
 
 	def write_header(self):
 		"""Write the .cz file header.
@@ -2449,6 +2598,11 @@ class Writer:
 			name_len = len(name)
 			f.write(struct.pack("<B", name_len))  # length of each name, 1 byte
 			f.write(struct.pack(f"<{name_len}s", bytes(name, 'utf-8')))
+		# 1-byte sort_col index (0xFF = none). Stored BEFORE dimensions so
+		# that catcz can still append new dimension names at `_header_size`
+		# without disturbing this byte. See Reader.read_header for semantics.
+		sort_col_byte = _NO_SORT_COL if self.sort_col is None else int(self.sort_col)
+		f.write(struct.pack("<B", sort_col_byte))
 		self._n_dim_offset = f.tell()
 		# when a new dim is added, go back here and rewrite the n_dim (1byte)
 		f.write(struct.pack("<B", len(self.dimensions)))  # 1byte
@@ -2463,6 +2617,12 @@ class Writer:
 		self._header_size = f.tell()
 		self.fmts = ''.join(list(self.formats))
 		self._unit_size = struct.calcsize(self.fmts)
+		# Pre-compiled struct used to extract first-record values for the
+		# first_coords index during block flushes.
+		if self.sort_col is not None:
+			self._sort_col_struct = struct.Struct(f"<{self.fmts}")
+		else:
+			self._sort_col_struct = None
 
 	def _write_block(self, block):
 		"""Compress and write a single block of raw record data.
@@ -2504,6 +2664,19 @@ class Writer:
 		# Store for the chunk tail / chunk index so readers can do O(1)
 		# random access to any block's first record.
 		self._block_1st_record_virtual_offsets.append(virtual_offset)
+		# ---- first_coords index: capture the first complete record's
+		# sort_col value for this block. Used by readers for in-memory
+		# O(log N) binary search on genomic coordinates (no inflate probes).
+		if self.sort_col is not None:
+			if within_block_offset + self._unit_size <= len(block):
+				rec = self._sort_col_struct.unpack_from(block, within_block_offset)
+				self._block_first_coords.append(rec[self.sort_col])
+			else:
+				# Block too small for a complete record (unusual: only
+				# possible for a tiny trailing block). Use 0 as sentinel;
+				# queries hitting this block will fall through to linear
+				# scan within the block anyway.
+				self._block_first_coords.append(0)
 		# block_start_offset are real position on disk, not a virtual offset
 		self._handle.write(data)
 		# how many bytes (uncompressed) have been writen.
@@ -2513,26 +2686,28 @@ class Writer:
 		"""Write the chunk tail after all blocks.
 
 		Chunk tail layout:
-		  chunk_data_len   : 8 bytes (Q) – total uncompressed data bytes
+		  chunk_data_len    : 8 bytes (Q) – total uncompressed data bytes
 		  n_blocks          : 8 bytes (Q)
 		  block_vos[]       : n_blocks * 8 bytes – virtual offset of each
 		                      block's first record
+		  first_coords[]    : n_blocks * sizeof(sort_col_fmt)  (only if
+		                      the file was written with sort_col set)
 		  dims[]            : for each dimension: 1-byte length + string
 		"""
-		if _c_write_chunk_tail is not None:
-			_c_write_chunk_tail(self._handle, self._chunk_data_len,
-							self._block_1st_record_virtual_offsets, self._chunk_dims)
-			return
-		# fallback: batch all writes into a single buffer
+		# Build everything into a single buffer to minimize write() calls.
 		n = len(self._block_1st_record_virtual_offsets)
-		buf = _struct_2Q.pack(self._chunk_data_len, n)
+		buf = bytearray(_struct_2Q.pack(self._chunk_data_len, n))
 		if n > 0:
 			buf += struct.pack(f"<{n}Q", *self._block_1st_record_virtual_offsets)
+		# Optional first_coords index.
+		if self.sort_col is not None and n > 0:
+			buf += struct.pack(f"<{n}{self._sort_col_fmt}",
+			                   *self._block_first_coords)
 		# dims
-		for dim in self._chunk_dims: # type: ignore
+		for dim in self._chunk_dims:  # type: ignore
 			dim_bytes = dim.encode('utf-8')
 			buf += _struct_B.pack(len(dim_bytes)) + dim_bytes
-		self._handle.write(buf)
+		self._handle.write(bytes(buf))
 
 	def _chunk_finished(self):
 		"""Finalize the current chunk.
@@ -2590,6 +2765,7 @@ class Writer:
 			self._handle.write(struct.pack("<Q", 0))  # 8 bytes; including this chunk_size
 			self._chunk_data_len = 0
 			self._block_1st_record_virtual_offsets = []
+			self._block_first_coords = []
 
 		if len(self._buffer) + len(data) < _BLOCK_MAX_LEN:
 			self._buffer.extend(data)
@@ -2831,10 +3007,19 @@ class Writer:
 
 		for file_path in input:
 			reader = Reader(file_path)
+			# Enforce matching sort_col between destination and source so the
+			# per-block first_coords arrays can be copied verbatim.
+			if reader.sort_col != self.sort_col:
+				reader.close()
+				raise ValueError(
+					f"sort_col mismatch: writer={self.sort_col}, "
+					f"{file_path}={reader.sort_col}. Cannot cat files with "
+					f"different sort_col settings.")
 			# data_size = reader.header['total_size'] - reader.header['header_size']
 			chunks = reader.get_chunks()
 			(start_offset, chunk_size, dims, data_len,
-			 end_offset, nblocks, b1str_virtual_offsets) = next(chunks)
+			 end_offset, nblocks, b1str_virtual_offsets,
+			 first_coords) = next(chunks)
 			# check whether new dim has already been added to header
 			if not self.new_dim_creator is None:
 				new_dim = [self.new_dim_creator(os.path.basename(file_path))]
@@ -2866,6 +3051,13 @@ class Writer:
 				within_offsets = offsets & 0xFFFF
 				new_offsets = ((block_starts + delta_offset) << 16) | within_offsets
 				self._handle.write(new_offsets.tobytes())
+				# Copy first_coords array (if sort_col is enabled) between
+				# virtual_offsets and dim_values to preserve the regional
+				# query index in the merged output.
+				if self.sort_col is not None and first_coords:
+					self._handle.write(struct.pack(
+						f"<{len(first_coords)}{self._sort_col_fmt}",
+						*first_coords))
 				# rewrite the new dim onto the tail of chunk
 				for dim in dims + tuple(new_dim):
 					dim_bytes = dim.encode('utf-8')
@@ -2875,7 +3067,8 @@ class Writer:
 				# read next chunk
 				try:
 					(start_offset, chunk_size, dims, data_len,
-					 end_offset, nblocks, b1str_virtual_offsets) = chunks.__next__()
+					 end_offset, nblocks, b1str_virtual_offsets,
+					 first_coords) = chunks.__next__()
 				except:
 					break
 			reader.close()

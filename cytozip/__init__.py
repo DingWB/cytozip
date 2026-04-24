@@ -21,8 +21,8 @@ _LAZY_EXPORTS = {
     # cz.py
     'Reader': 'cz', 'Writer': 'cz', 'RemoteFile': 'cz', 'extract': 'cz',
     # allc.py
-    'AllC': 'allc', 'allc2cz': 'allc', 'generate_ssi1': 'allc',
-    'generate_ssi2': 'allc', 'merge_cz': 'allc', 'extractCG': 'allc',
+    'AllC': 'allc', 'allc2cz': 'allc', 'index_context': 'allc',
+    'index_regions': 'allc', 'merge_cz': 'allc', 'extractCG': 'allc',
     'aggregate': 'allc', 'merge_cell_type': 'allc', 'combp': 'allc',
     'annot_dmr': 'allc', 'call_peaks': 'allc', 'to_bedgraph': 'allc',
 }
@@ -143,59 +143,87 @@ def _build_parser():
     p.add_argument('--blocks', action='store_true', help='show block-level detail instead of chunk-level')
 
     # ---- extract -------------------------------------------------------------
-    p = sub.add_parser('extract', help='Extract subset of .cz using SSI', formatter_class=_fmt)
+    p = sub.add_parser('extract', help='Extract subset of .cz using index', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
-    p.add_argument('-O', '--outfile', required=True, help='output .cz file')
-    p.add_argument('-s', '--ssi', required=True, help='subset index file')
+    p.add_argument('-O', '--output', required=True, help='output .cz file')
+    p.add_argument('-s', '--index', required=True, help='subset index file')
     p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
 
     # ---- allc2cz --------------------------------------------------------------
     p = sub.add_parser('allc2cz', help='Convert tabix-indexed allc.tsv.gz to .cz', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input allc.tsv.gz')
-    p.add_argument('-O', '--outfile', required=True, help='output .cz file')
+    p.add_argument('-O', '--output', required=True, help='output .cz file')
     p.add_argument('-r', '--reference', default=None, help='reference .cz file')
     p.add_argument('--missing-value', type=_csv_int, default=[0, 0], help='missing value fill')
     p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats')
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
     p.add_argument('-D', '--dimensions', type=_csv_str, default=['chrom'], help='dimension names')
     p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack')
-    p.add_argument('--pr', type=int, default=0, help='position column index in reference')
-    p.add_argument('--pa', type=int, default=1, help='position column index in input')
+    p.add_argument('--ref-pos-col', type=int, default=0, help='position column index in reference')
+    p.add_argument('--allc-pos-col', type=int, default=1, help='position column index in input')
     p.add_argument('-s', '--sep', default='\t', help='separator')
-    p.add_argument('--path-to-chrom', default=None, help='chrom order file')
+    p.add_argument('--chrom-order', default=None, help='chrom order file')
     p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
+    p.add_argument('--sort-col', default=None,
+                   help='column name or index to index via per-block '
+                        'first_coords (enables in-memory bisect for region '
+                        'queries). Auto-enabled on "pos" when no reference is used.')
 
     # ---- build_ref (AllC) ----------------------------------------------------
     p = sub.add_parser('build_ref', help='Extract C positions from reference genome', formatter_class=_fmt)
     p.add_argument('-g', '--genome', required=True, help='reference genome FASTA')
     p.add_argument('-O', '--output', default='hg38_allc.cz', help='output .cz file')
     p.add_argument('-p', '--pattern', default='C', help='nucleotide pattern')
-    p.add_argument('-n', '--n-jobs', type=int, default=12, help='parallel jobs')
+    p.add_argument('-t', '--threads', type=int, default=12, help='parallel jobs')
     p.add_argument('--keep-temp', action='store_true', help='keep temp directory')
 
-    # ---- generate_ssi1 -------------------------------------------------------
-    p = sub.add_parser('generate_ssi1', help='Generate pattern-based SSI (CGN/CHN)', formatter_class=_fmt)
-    p.add_argument('-I', '--input', required=True, help='input .cz file')
-    p.add_argument('-O', '--output', default=None, help='output .ssi file')
-    p.add_argument('-p', '--pattern', default='CGN', help='context pattern (CGN/CHN/+CGN)')
+    # ---- index ---------------------------------------------------------------
+    # Nested subcommand: `czip index <kind> ...` — produces a subset
+    # coordinate index (.cz file) over a reference allc .cz. Replaces the
+    # old `index_context` / `index_regions` names.
+    p = sub.add_parser('index', help='Build a coordinate index (context / regions / probes)',
+                       formatter_class=_fmt)
+    idx_sub = p.add_subparsers(dest='index_kind',
+                               help='index kind: context | regions | probes')
 
-    # ---- generate_ssi2 -------------------------------------------------------
-    p = sub.add_parser('generate_ssi2', help='Generate region-based SSI from BED', formatter_class=_fmt)
-    p.add_argument('-I', '--input', required=True, help='input .cz file')
-    p.add_argument('-O', '--output', default=None, help='output .ssi file')
-    p.add_argument('-b', '--bed', required=True, help='BED file with regions')
-    p.add_argument('-n', '--n-jobs', type=int, default=4, help='parallel jobs')
+    # --- index context (motif / CGN / CHN context pattern) --------------------
+    sp = idx_sub.add_parser('context',
+                            help='Index sites by sequence context (CGN/CHN/+CGN)',
+                            formatter_class=_fmt)
+    sp.add_argument('-I', '--input', required=True, help='input reference .cz file')
+    sp.add_argument('-O', '--output', default=None, help='output index .cz file')
+    sp.add_argument('-p', '--pattern', default='CGN',
+                    help='context pattern: CGN / CHN / +CGN (strand-specific)')
+
+    # --- index regions (BED-based region subset) ------------------------------
+    sp = idx_sub.add_parser('regions',
+                            help='Index sites by genomic regions from a BED file',
+                            formatter_class=_fmt)
+    sp.add_argument('-I', '--input', required=True, help='input reference .cz file')
+    sp.add_argument('-O', '--output', default=None, help='output index .cz file')
+    sp.add_argument('-b', '--bed', required=True, help='BED file with regions')
+    sp.add_argument('-t', '--threads', type=int, default=4, help='parallel jobs')
+
+    # --- index probes (methylation array probe manifest) ----------------------
+    # Planned: maps illumina EPIC / 450K probe IDs to ref primary_id + pos.
+    # Placeholder CLI is in place; implementation will follow.
+    sp = idx_sub.add_parser('probes',
+                            help='Index methylation array probes (EPIC / 450K) — NOT YET IMPLEMENTED',
+                            formatter_class=_fmt)
+    sp.add_argument('-I', '--input', required=True, help='input reference .cz file (full-C allc)')
+    sp.add_argument('-O', '--output', default=None, help='output probe index .cz file')
+    sp.add_argument('-m', '--manifest', required=True, help='illumina manifest CSV')
 
     # ---- merge_cz ------------------------------------------------------------
     p = sub.add_parser('merge_cz', help='Merge per-cell .cz files', formatter_class=_fmt)
     p.add_argument('-i', '--indir', default=None, help='input directory')
     p.add_argument('--cz-paths', default=None, help='file listing .cz paths')
     p.add_argument('--class-table', default=None, help='cell class table')
-    p.add_argument('-O', '--outfile', default=None, help='output file')
+    p.add_argument('-O', '--output', default=None, help='output file')
     p.add_argument('--prefix', default=None, help='output prefix')
-    p.add_argument('-n', '--n-jobs', type=int, default=12, help='parallel jobs')
+    p.add_argument('-t', '--threads', type=int, default=12, help='parallel jobs')
     p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'], help='output formats')
-    p.add_argument('--path-to-chrom', default=None, help='chrom order file')
+    p.add_argument('--chrom-order', default=None, help='chrom order file')
     p.add_argument('-r', '--reference', default=None, help='reference .cz file')
     p.add_argument('--keep-cat', action='store_true', help='keep intermediate cat file')
     p.add_argument('--batchsize', type=int, default=10, help='blocks per batch')
@@ -209,23 +237,23 @@ def _build_parser():
     p.add_argument('-i', '--indir', default=None, help='input directory')
     p.add_argument('--cell-table', default=None, help='cell-type table')
     p.add_argument('-O', '--outdir', default=None, help='output directory')
-    p.add_argument('-n', '--n-jobs', type=int, default=64, help='parallel jobs')
-    p.add_argument('--path-to-chrom', default=None, help='chrom order file')
+    p.add_argument('-t', '--threads', type=int, default=64, help='parallel jobs')
+    p.add_argument('--chrom-order', default=None, help='chrom order file')
     p.add_argument('--ext', default='.CGN.merged.cz', help='input file extension')
 
     # ---- extractCG -----------------------------------------------------------
     p = sub.add_parser('extractCG', help='Extract CG-context records', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
-    p.add_argument('-O', '--outfile', required=True, help='output .cz file')
-    p.add_argument('-s', '--ssi', required=True, help='CGN subset index file')
+    p.add_argument('-O', '--output', required=True, help='output .cz file')
+    p.add_argument('-s', '--index', required=True, help='CGN subset index file')
     p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
     p.add_argument('--merge-cg', action='store_true', help='merge forward/reverse CG')
 
     # ---- aggregate -----------------------------------------------------------
     p = sub.add_parser('aggregate', help='Aggregate records within regions', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
-    p.add_argument('-O', '--outfile', required=True, help='output .cz file')
-    p.add_argument('-s', '--ssi', required=True, help='region subset index file')
+    p.add_argument('-O', '--output', required=True, help='output .cz file')
+    p.add_argument('-s', '--index', required=True, help='region subset index file')
     p.add_argument('--intersect', default=None, help='intersect filter')
     p.add_argument('--exclude', default=None, help='exclude filter')
     p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
@@ -235,7 +263,7 @@ def _build_parser():
     p = sub.add_parser('combp', help='Run comb-p on Fisher results', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input Fisher result')
     p.add_argument('-O', '--outdir', default='cpv', help='output directory')
-    p.add_argument('-n', '--n-jobs', type=int, default=24, help='parallel jobs')
+    p.add_argument('-t', '--threads', type=int, default=24, help='parallel jobs')
     p.add_argument('--dist', type=int, default=300, help='max distance between sites')
     p.add_argument('--temp', action='store_true', help='keep temp directory')
     p.add_argument('--bed', action='store_true', help='keep bed directory')
@@ -244,7 +272,7 @@ def _build_parser():
     p = sub.add_parser('annot_dmr', help='Annotate DMRs', formatter_class=_fmt)
     p.add_argument('-I', '--input', default='merged_dmr.txt', help='merged DMR file')
     p.add_argument('--matrix', default='merged_dmr.cell_class.beta.txt', help='beta matrix file')
-    p.add_argument('-O', '--outfile', default='dmr.annotated.txt', help='output file')
+    p.add_argument('-O', '--output', default='dmr.annotated.txt', help='output file')
     p.add_argument('--delta-cutoff', type=float, default=None, help='min delta-beta cutoff')
 
     # ---- call_peaks ----------------------------------------------------------
@@ -254,7 +282,7 @@ def _build_parser():
     p.add_argument('-O', '--output', default=None, help='output directory for MACS3 results')
     p.add_argument('-n', '--name', default='peaks', help='name prefix for output files')
     p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth'], help='signal type: unmeth=(cov-mc), meth=mc')
-    p.add_argument('-s', '--ssi', default=None, help='SSI file for context filtering (e.g., CpG-only)')
+    p.add_argument('-s', '--index', default=None, help='index file for context filtering (e.g., CpG-only)')
     p.add_argument('-g', '--genome-size', default='mm', help='genome size for MACS3 (hs/mm/integer)')
     p.add_argument('--fragment-size', type=int, default=300, help='pseudo-read fragment size (bp)')
     p.add_argument('-q', '--qvalue', type=float, default=0.05, help='MACS3 q-value cutoff')
@@ -271,7 +299,7 @@ def _build_parser():
     p.add_argument('-r', '--reference', required=True, help='reference .cz file')
     p.add_argument('-O', '--output', default=None, help='output bedGraph file')
     p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth', 'frac_unmeth'], help='signal type')
-    p.add_argument('-s', '--ssi', default=None, help='SSI file for context filtering')
+    p.add_argument('-s', '--index', default=None, help='index file for context filtering')
     p.add_argument('--min-cov', type=int, default=1, help='minimum coverage to include a site')
     p.add_argument('--mc-col', default=None, help='mc column name or 0-based index (default: first column)')
     p.add_argument('--cov-col', default=None, help='cov column name or 0-based index (default: last column)')
@@ -347,42 +375,56 @@ def main():
 
     elif cmd == 'extract':
         from .cz import extract
-        extract(input=args.input, outfile=args.outfile,
-                ssi=args.ssi, chunksize=args.chunksize)
+        extract(input=args.input, output=args.output,
+                index=args.index, chunksize=args.chunksize)
 
     # ---- allc.py commands --------------------------------------------------
     elif cmd == 'allc2cz':
         from .allc import allc2cz
-        allc2cz(input=args.input, outfile=args.outfile,
+        allc2cz(input=args.input, output=args.output,
                reference=args.reference, missing_value=args.missing_value,
                formats=args.formats, columns=args.columns,
                dimensions=args.dimensions, usecols=args.usecols,
-               pr=args.pr, pa=args.pa, sep=args.sep,
-               path_to_chrom=args.path_to_chrom, chunksize=args.chunksize)
+               ref_pos_col=args.ref_pos_col, allc_pos_col=args.allc_pos_col, sep=args.sep,
+               chrom_order=args.chrom_order, chunksize=args.chunksize,
+               sort_col=args.sort_col)
 
     elif cmd == 'build_ref':
         from .allc import AllC
         a = AllC(genome=args.genome, output=args.output,
-                 pattern=args.pattern, n_jobs=args.n_jobs,
+                 pattern=args.pattern, threads=args.threads,
                  keep_temp=args.keep_temp)
         a.run()
 
-    elif cmd == 'generate_ssi1':
-        from .allc import generate_ssi1
-        generate_ssi1(input=args.input, output=args.output,
-                      pattern=args.pattern)
-
-    elif cmd == 'generate_ssi2':
-        from .allc import generate_ssi2
-        generate_ssi2(input=args.input, output=args.output,
-                      bed=args.bed, n_jobs=args.n_jobs)
+    elif cmd == 'index':
+        kind = getattr(args, 'index_kind', None)
+        if kind is None:
+            parser.parse_args(['index', '--help'])
+            return
+        if kind == 'context':
+            from .allc import index_context
+            index_context(input=args.input, output=args.output,
+                          pattern=args.pattern)
+        elif kind == 'regions':
+            from .allc import index_regions
+            index_regions(input=args.input, output=args.output,
+                          bed=args.bed, threads=args.threads)
+        elif kind == 'probes':
+            raise NotImplementedError(
+                "`czip index probes` is not implemented yet. "
+                "Planned: build a probe_id \u2192 (chrom, primary_id, pos) index "
+                "from an illumina EPIC / 450K manifest, using the current "
+                "`build_region_index` / `build_context_index` infrastructure as the base."
+            )
+        else:
+            raise ValueError(f"unknown index kind: {kind!r}")
 
     elif cmd == 'merge_cz':
         from .allc import merge_cz
         merge_cz(indir=args.indir, cz_paths=args.cz_paths,
-                 class_table=args.class_table, outfile=args.outfile,
-                 prefix=args.prefix, n_jobs=args.n_jobs,
-                 formats=args.formats, path_to_chrom=args.path_to_chrom,
+                 class_table=args.class_table, output=args.output,
+                 prefix=args.prefix, threads=args.threads,
+                 formats=args.formats, chrom_order=args.chrom_order,
                  reference=args.reference, keep_cat=args.keep_cat,
                  batchsize=args.batchsize, temp=args.temp,
                  bgzip=not args.no_bgzip, chunksize=args.chunksize,
@@ -391,32 +433,32 @@ def main():
     elif cmd == 'merge_cell_type':
         from .allc import merge_cell_type
         merge_cell_type(indir=args.indir, cell_table=args.cell_table,
-                        outdir=args.outdir, n_jobs=args.n_jobs,
-                        path_to_chrom=args.path_to_chrom, ext=args.ext)
+                        outdir=args.outdir, threads=args.threads,
+                        chrom_order=args.chrom_order, ext=args.ext)
 
     elif cmd == 'extractCG':
         from .allc import extractCG
-        extractCG(input=args.input, outfile=args.outfile,
-                  ssi=args.ssi, chunksize=args.chunksize,
+        extractCG(input=args.input, output=args.output,
+                  index=args.index, chunksize=args.chunksize,
                   merge_cg=args.merge_cg)
 
     elif cmd == 'aggregate':
         from .allc import aggregate
-        aggregate(input=args.input, outfile=args.outfile,
-                  ssi=args.ssi, intersect=args.intersect,
+        aggregate(input=args.input, output=args.output,
+                  index=args.index, intersect=args.intersect,
                   exclude=args.exclude, chunksize=args.chunksize,
                   formats=args.formats)
 
     elif cmd == 'combp':
         from .allc import combp
         combp(input=args.input, outdir=args.outdir,
-              n_jobs=args.n_jobs, dist=args.dist,
+              threads=args.threads, dist=args.dist,
               temp=args.temp, bed=args.bed)
 
     elif cmd == 'annot_dmr':
         from .allc import annot_dmr
         annot_dmr(input=args.input, matrix=args.matrix,
-                  outfile=args.outfile, delta_cutoff=args.delta_cutoff)
+                  output=args.output, delta_cutoff=args.delta_cutoff)
 
     elif cmd == 'call_peaks':
         from .allc import call_peaks
@@ -428,7 +470,7 @@ def main():
             cov_col = int(cov_col)
         call_peaks(input=args.input, reference=args.reference,
                    output=args.output, name=args.name,
-                   signal=args.signal, ssi=args.ssi,
+                   signal=args.signal, index=args.index,
                    genome_size=args.genome_size,
                    fragment_size=args.fragment_size,
                    qvalue=args.qvalue, broad=args.broad,
@@ -446,7 +488,7 @@ def main():
             cov_col = int(cov_col)
         to_bedgraph(input=args.input, reference=args.reference,
                     output=args.output, signal=args.signal,
-                    ssi=args.ssi, min_cov=args.min_cov,
+                    index=args.index, min_cov=args.min_cov,
                     mc_col=mc_col, cov_col=cov_col)
 
 
