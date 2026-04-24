@@ -18,13 +18,17 @@ from ._version import version as __version__
 # until a symbol is actually accessed, keeping ``import cytozip`` fast.
 # ---------------------------------------------------------------------------
 _LAZY_EXPORTS = {
-    # cz.py
+    # cz.py — generic .cz format layer
     'Reader': 'cz', 'Writer': 'cz', 'RemoteFile': 'cz', 'extract': 'cz',
-    # allc.py
+    'index_regions': 'cz', 'aggregate': 'cz',
+    # allc.py — methylation allc-file I/O
     'AllC': 'allc', 'allc2cz': 'allc', 'index_context': 'allc',
-    'index_regions': 'allc', 'merge_cz': 'allc', 'extractCG': 'allc',
-    'aggregate': 'allc', 'merge_cell_type': 'allc', 'combp': 'allc',
-    'annot_dmr': 'allc', 'call_peaks': 'allc', 'to_bedgraph': 'allc',
+    'extractCG': 'allc',
+    # merge.py — per-cell merging pipeline
+    'merge_cz': 'merge', 'merge_cell_type': 'merge',
+    # dmr.py — peak calling / DMR analysis
+    'call_peaks': 'dmr', 'to_bedgraph': 'dmr',
+    'combp': 'dmr', 'annot_dmr': 'dmr',
 }
 
 # Submodules that can be accessed as cytozip.cz / cytozip.allc
@@ -93,6 +97,10 @@ def _build_parser():
     p.add_argument('--skiprows', type=int, default=0, help='rows to skip')
     p.add_argument('-m', '--message', default='', help='message stored in header')
     p.add_argument('-l', '--level', type=int, default=6, help='compression level')
+    p.add_argument('--delta-cols', type=_csv_str, default=None,
+                   help='comma-separated integer column names/indices to store '
+                        'as in-block deltas (shrinks strictly-monotonic '
+                        'columns like pos; trades some query speed for size)')
 
     # ---- catcz --------------------------------------------------------------
     p = sub.add_parser('catcz', help='Concatenate multiple .cz files into one', formatter_class=_fmt)
@@ -168,6 +176,9 @@ def _build_parser():
                    help='column name or index to index via per-block '
                         'first_coords (enables in-memory bisect for region '
                         'queries). Auto-enabled on "pos" when no reference is used.')
+    p.add_argument('--delta-cols', type=_csv_str, default=None,
+                   help='comma-separated integer column names/indices to '
+                        'store as in-block deltas')
 
     # ---- build_ref (AllC) ----------------------------------------------------
     p = sub.add_parser('build_ref', help='Extract C positions from reference genome', formatter_class=_fmt)
@@ -176,6 +187,9 @@ def _build_parser():
     p.add_argument('-p', '--pattern', default='C', help='nucleotide pattern')
     p.add_argument('-t', '--threads', type=int, default=12, help='parallel jobs')
     p.add_argument('--keep-temp', action='store_true', help='keep temp directory')
+    p.add_argument('--no-delta', action='store_true',
+                   help='disable DELTA encoding on the pos column (default: on, '
+                        'gives ~3x smaller reference files with mild query overhead)')
 
     # ---- index ---------------------------------------------------------------
     # Nested subcommand: `czip index <kind> ...` — produces a subset
@@ -323,7 +337,8 @@ def main():
         from .cz import Writer
         w = Writer(output=args.output, formats=args.formats,
                    columns=args.columns, dimensions=args.dimensions,
-                   message=args.message, level=args.level)
+                   message=args.message, level=args.level,
+                   delta_cols=args.delta_cols)
         w.tocz(input=args.input, usecols=args.usecols,
                dim_cols=args.dim_cols, sep=args.sep,
                chunksize=args.chunksize, header=args.header,
@@ -387,13 +402,13 @@ def main():
                dimensions=args.dimensions, usecols=args.usecols,
                ref_pos_col=args.ref_pos_col, allc_pos_col=args.allc_pos_col, sep=args.sep,
                chrom_order=args.chrom_order, chunksize=args.chunksize,
-               sort_col=args.sort_col)
+               sort_col=args.sort_col, delta_cols=args.delta_cols)
 
     elif cmd == 'build_ref':
         from .allc import AllC
         a = AllC(genome=args.genome, output=args.output,
                  pattern=args.pattern, threads=args.threads,
-                 keep_temp=args.keep_temp)
+                 keep_temp=args.keep_temp, delta=not args.no_delta)
         a.run()
 
     elif cmd == 'index':
@@ -406,7 +421,7 @@ def main():
             index_context(input=args.input, output=args.output,
                           pattern=args.pattern)
         elif kind == 'regions':
-            from .allc import index_regions
+            from .cz import index_regions
             index_regions(input=args.input, output=args.output,
                           bed=args.bed, threads=args.threads)
         elif kind == 'probes':
@@ -420,7 +435,7 @@ def main():
             raise ValueError(f"unknown index kind: {kind!r}")
 
     elif cmd == 'merge_cz':
-        from .allc import merge_cz
+        from .merge import merge_cz
         merge_cz(indir=args.indir, cz_paths=args.cz_paths,
                  class_table=args.class_table, output=args.output,
                  prefix=args.prefix, threads=args.threads,
@@ -431,7 +446,7 @@ def main():
                  ext=args.ext)
 
     elif cmd == 'merge_cell_type':
-        from .allc import merge_cell_type
+        from .merge import merge_cell_type
         merge_cell_type(indir=args.indir, cell_table=args.cell_table,
                         outdir=args.outdir, threads=args.threads,
                         chrom_order=args.chrom_order, ext=args.ext)
@@ -443,25 +458,25 @@ def main():
                   merge_cg=args.merge_cg)
 
     elif cmd == 'aggregate':
-        from .allc import aggregate
+        from .cz import aggregate
         aggregate(input=args.input, output=args.output,
                   index=args.index, intersect=args.intersect,
                   exclude=args.exclude, chunksize=args.chunksize,
                   formats=args.formats)
 
     elif cmd == 'combp':
-        from .allc import combp
+        from .dmr import combp
         combp(input=args.input, outdir=args.outdir,
               threads=args.threads, dist=args.dist,
               temp=args.temp, bed=args.bed)
 
     elif cmd == 'annot_dmr':
-        from .allc import annot_dmr
+        from .dmr import annot_dmr
         annot_dmr(input=args.input, matrix=args.matrix,
                   output=args.output, delta_cutoff=args.delta_cutoff)
 
     elif cmd == 'call_peaks':
-        from .allc import call_peaks
+        from .dmr import call_peaks
         mc_col = args.mc_col
         cov_col = args.cov_col
         if mc_col is not None and mc_col.isdigit():
@@ -479,7 +494,7 @@ def main():
                    mc_col=mc_col, cov_col=cov_col)
 
     elif cmd == 'to_bedgraph':
-        from .allc import to_bedgraph
+        from .dmr import to_bedgraph
         mc_col = args.mc_col
         cov_col = args.cov_col
         if mc_col is not None and mc_col.isdigit():

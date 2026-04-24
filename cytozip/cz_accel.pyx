@@ -69,6 +69,78 @@ cdef bytes _parse_blocks_from_buffer(bytes raw_all):
 
 
 # ---------------------------------------------------------------------------
+# DELTA decoding helpers (per-block cumsum for delta-encoded columns).
+#
+# Delta files store [v0, v1-v0, v2-v1, ...] for each delta column within
+# a block. Decoding = np.cumsum along the column. Blocks are record-aligned
+# for delta files, so no record ever spans block boundaries.
+# ---------------------------------------------------------------------------
+# numpy is imported lazily: pulling it in costs ~60 ms of CLI cold-start
+# time, but is only needed when querying files that use DELTA encoding.
+_np = None
+
+cdef inline object _get_np():
+    global _np
+    if _np is None:
+        import numpy
+        _np = numpy
+    return _np
+
+cdef inline bytes _apply_delta_bytes(bytes data, object delta_dtype, object delta_col_names):
+    """Decode delta-encoded columns of a single block's byte buffer.
+
+    Returns the original *data* unchanged when delta_dtype is None or
+    delta_col_names is empty. Otherwise returns a new bytes object with
+    cumsum applied to each named column.
+    """
+    if delta_dtype is None or not delta_col_names:
+        return data
+    cdef Py_ssize_t itemsize = delta_dtype.itemsize
+    cdef Py_ssize_t nrec = len(data) // itemsize
+    if nrec == 0:
+        return data
+    np = _get_np()
+    arr = np.frombuffer(data, dtype=delta_dtype, count=nrec).copy()
+    for name in delta_col_names:
+        np.cumsum(arr[name], out=arr[name])
+    # Preserve any trailing bytes beyond record alignment (shouldn't exist
+    # for delta files, but be defensive).
+    cdef Py_ssize_t used = nrec * itemsize
+    if used == len(data):
+        return arr.tobytes()
+    return arr.tobytes() + data[used:]
+
+
+cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, object delta_col_names):
+    """Delta-aware variant of _parse_blocks_from_buffer.
+
+    Each block is inflated and immediately delta-decoded before being
+    concatenated, because delta is block-local.
+    """
+    if delta_dtype is None or not delta_col_names:
+        return _parse_blocks_from_buffer(raw_all)
+    cdef list chunks = []
+    cdef Py_ssize_t offset = 0
+    cdef Py_ssize_t total = len(raw_all)
+    cdef unsigned short bsize
+    cdef Py_ssize_t deflate_size
+    cdef bytes blk
+    while offset + 4 <= total:
+        if raw_all[offset] != 67 or raw_all[offset + 1] != 66:
+            break
+        bsize = (<unsigned char>raw_all[offset + 2]) | ((<unsigned char>raw_all[offset + 3]) << 8)
+        if offset + bsize > total:
+            break
+        deflate_size = bsize - 6
+        blk = _c_inflate(raw_all[offset + 4:offset + 4 + deflate_size])
+        chunks.append(_apply_delta_bytes(blk, delta_dtype, delta_col_names))
+        offset += bsize
+    if not chunks:
+        return b""
+    return b"".join(chunks)
+
+
+# ---------------------------------------------------------------------------
 # Low-level libdeflate C API declarations.
 #
 # libdeflate is a modern SIMD-optimized replacement for zlib. It produces
@@ -362,12 +434,16 @@ def unpack_records(data, fmt):
     return res
 
 
-def c_read(handle, block_raw_length, buffer, within_block_offset, size):
+def c_read(handle, block_raw_length, buffer, within_block_offset, size,
+           delta_dtype=None, delta_col_names=None):
     """Read *size* bytes from a BGZF-like block stream.
 
     Handles the case where the requested data spans multiple blocks:
     reads from the current buffer, then loads subsequent blocks as
     needed via ``load_bcz_block``.
+
+    When ``delta_dtype`` and ``delta_col_names`` are supplied, each
+    freshly loaded block is delta-decoded before being consumed.
 
     Returns
     -------
@@ -400,16 +476,19 @@ def c_read(handle, block_raw_length, buffer, within_block_offset, size):
                 within = 0
                 break
             block_raw_length, buf = block_size_data
+            buf = _apply_delta_bytes(buf, delta_dtype, delta_col_names)
             within = 0
 
     return bytes(out), block_raw_length, buf, within
 
 
-def c_readline(handle, block_raw_length, buffer, within_block_offset, newline=b"\n"):
+def c_readline(handle, block_raw_length, buffer, within_block_offset, newline=b"\n",
+               delta_dtype=None, delta_col_names=None):
     """Read a single line (including the newline character) from a block stream.
 
     Handles lines that span block boundaries by accumulating bytes
-    until the newline is found.
+    until the newline is found. Delta-decodes each newly loaded block
+    when ``delta_dtype``/``delta_col_names`` are supplied.
 
     Returns
     -------
@@ -436,6 +515,7 @@ def c_readline(handle, block_raw_length, buffer, within_block_offset, newline=b"
                 within = 0
                 break
             block_raw_length, buf = block_size_data
+            buf = _apply_delta_bytes(buf, delta_dtype, delta_col_names)
             within = 0
         elif i + 1 == buflen:
             # newline at end of block
@@ -448,6 +528,7 @@ def c_readline(handle, block_raw_length, buffer, within_block_offset, newline=b"
                 within = 0
                 break
             block_raw_length, buf = block_size_data
+            buf = _apply_delta_bytes(buf, delta_dtype, delta_col_names)
             within = 0
             break
         else:
@@ -459,7 +540,8 @@ def c_readline(handle, block_raw_length, buffer, within_block_offset, newline=b"
 
 
 def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions,
-             col_to_query=0, block_first_coords=None):
+             col_to_query=0, block_first_coords=None,
+             delta_dtype=None, delta_col_names=None):
     """Map genomic position ranges to primary record IDs.
 
     For each (start, end) pair in *positions*, finds the first and last
@@ -470,6 +552,9 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions,
     values preloaded from the chunk tail), binary search is done purely
     in memory with :func:`bisect.bisect_right` — no inflate probes.
     Otherwise falls back to seek-and-inflate bisect on *block_offsets*.
+
+    Delta-encoded columns are decoded per block when
+    ``delta_dtype``/``delta_col_names`` are supplied.
     """
     cdef list results = []
     cdef list block_offsets = list(block_virtual_offsets)
@@ -513,6 +598,7 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions,
             results.append(None)
             continue
         _, data = block_size_data
+        data = _apply_delta_bytes(data, delta_dtype, delta_col_names)
         off = within
         # move forward until record[col] >= start
         try:
@@ -527,6 +613,7 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions,
                 try:
                     block_size_data = load_bcz_block(handle, True)
                     _, data = block_size_data
+                    data = _apply_delta_bytes(data, delta_dtype, delta_col_names)
                     start_block_index += 1
                     off = 0
                 except StopIteration:
@@ -550,6 +637,7 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions,
                     try:
                         block_size_data = load_bcz_block(handle, True)
                         _, data = block_size_data
+                        data = _apply_delta_bytes(data, delta_dtype, delta_col_names)
                         start_block_index += 1
                         off = 0
                     except StopIteration:
@@ -676,8 +764,15 @@ def c_block_first_values(handle, block_virtual_offsets, fmts, unit_size, s):
     return out
 
 
-def c_read_1record(handle, block_raw_length, buffer, within, fmts, unit_size):
-    """Read a single record (unpacked tuple) from the stream, updating buffer state."""
+def c_read_1record(handle, block_raw_length, buffer, within, fmts, unit_size,
+                   delta_dtype=None, delta_col_names=None):
+    """Read a single record (unpacked tuple) from the stream, updating buffer state.
+
+    When ``delta_dtype``/``delta_col_names`` are supplied and a new block
+    is loaded mid-function, that block is delta-decoded before use.
+    Note: delta files use record-aligned blocks so the span-path below is
+    exercised only for the initial-buffer-exhausted case, never a true split.
+    """
     cdef bytes buf = buffer if buffer is not None else b""
     cdef Py_ssize_t buflen = len(buf)
     cdef object st = _get_struct(fmts)
@@ -694,6 +789,7 @@ def c_read_1record(handle, block_raw_length, buffer, within, fmts, unit_size):
     except StopIteration:
         return None, 0, b"", 0
     block_raw_length, buf = block_size_data
+    buf = _apply_delta_bytes(buf, delta_dtype, delta_col_names)
     needed = unit_size - len(out)
     if needed <= len(buf):
         out.extend(buf[:needed])
@@ -704,8 +800,13 @@ def c_read_1record(handle, block_raw_length, buffer, within, fmts, unit_size):
         return None, block_raw_length, buf, 0
 
 
-def c_seek_and_read_1record(handle, virtual_offset, fmts, unit_size):
-    """Seek to virtual offset and read one record (unpacked tuple)."""
+def c_seek_and_read_1record(handle, virtual_offset, fmts, unit_size,
+                            delta_dtype=None, delta_col_names=None):
+    """Seek to virtual offset and read one record (unpacked tuple).
+
+    Each loaded block is delta-decoded when ``delta_dtype``/``delta_col_names``
+    are supplied.
+    """
     start = virtual_offset >> 16
     within = virtual_offset & 0xFFFF
     handle.seek(start)
@@ -715,6 +816,7 @@ def c_seek_and_read_1record(handle, virtual_offset, fmts, unit_size):
     except StopIteration:
         return None
     _, buf = block_size_data
+    buf = _apply_delta_bytes(buf, delta_dtype, delta_col_names)
     if within + unit_size <= len(buf):
         return st.unpack_from(buf, within)
     # need to assemble across block boundary
@@ -726,6 +828,7 @@ def c_seek_and_read_1record(handle, virtual_offset, fmts, unit_size):
     except StopIteration:
         return None
     _, buf2 = block_size_data
+    buf2 = _apply_delta_bytes(buf2, delta_dtype, delta_col_names)
     needed = unit_size - len(out)
     if needed <= len(buf2):
         out.extend(buf2[:needed])
@@ -734,7 +837,8 @@ def c_seek_and_read_1record(handle, virtual_offset, fmts, unit_size):
 
 
 def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, e, dim,
-                    block_first_coords=None):
+                    block_first_coords=None,
+                    delta_dtype=None, delta_col_names=None):
     """Accelerated query for a single dim.
 
     When ``block_first_coords`` is supplied (the per-block first-record
@@ -746,6 +850,9 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
     Otherwise falls back to :func:`_bisect_block_index` which decompresses
     one block per probe (O(log N) inflates). Used for files without a
     first_coords index (e.g. reference-less allc files).
+
+    Delta-encoded columns are decoded per block when
+    ``delta_dtype``/``delta_col_names`` are supplied.
     """
     cdef list results = []
     cdef list block_offsets = list(block_virtual_offsets)
@@ -785,6 +892,7 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
         except StopIteration:
             continue
         _, data = block_size_data
+        data = _apply_delta_bytes(data, delta_dtype, delta_col_names)
         off = within
         try:
             rec = unpack_from(data, off)
@@ -796,6 +904,7 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
                 try:
                     block_size_data = load_bcz_block(handle, True)
                     _, data = block_size_data
+                    data = _apply_delta_bytes(data, delta_dtype, delta_col_names)
                     start_block_index += 1
                     off = 0
                 except StopIteration:
@@ -818,6 +927,7 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
                     try:
                         block_size_data = load_bcz_block(handle, True)
                         _, data = block_size_data
+                        data = _apply_delta_bytes(data, delta_dtype, delta_col_names)
                         start_block_index += 1
                         off = 0
                     except StopIteration:
@@ -833,7 +943,8 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
 
 def c_query_regions_flat(handle, block_virtual_offsets, fmts, unit_size,
                          start, end, s, e, dim,
-                         block_first_coords=None):
+                         block_first_coords=None,
+                         delta_dtype=None, delta_col_names=None):
     """Fast single-region variant of :func:`c_query_regions`.
 
     Returns a ``list`` of flat tuples ``(dim_0, ..., dim_k, col_0, ..., col_n)``
@@ -845,6 +956,9 @@ def c_query_regions_flat(handle, block_virtual_offsets, fmts, unit_size,
     ``dim`` must be a tuple (the chunk's dimension values, e.g. ``('chr9',)``).
     Numeric columns only — callers should route records with bytes columns
     through the Python fallback so utf-8 decoding stays out of the hot loop.
+
+    Delta-encoded columns are decoded per block when
+    ``delta_dtype``/``delta_col_names`` are supplied.
     """
     cdef list results = []
     cdef list block_offsets = list(block_virtual_offsets)
@@ -881,6 +995,7 @@ def c_query_regions_flat(handle, block_virtual_offsets, fmts, unit_size,
     except StopIteration:
         return results
     _, data = block_size_data
+    data = _apply_delta_bytes(data, delta_dtype, delta_col_names)
     off = within
     try:
         rec = unpack_from(data, off)
@@ -892,6 +1007,7 @@ def c_query_regions_flat(handle, block_virtual_offsets, fmts, unit_size,
             try:
                 block_size_data = load_bcz_block(handle, True)
                 _, data = block_size_data
+                data = _apply_delta_bytes(data, delta_dtype, delta_col_names)
                 off = 0
             except StopIteration:
                 return results
@@ -908,6 +1024,7 @@ def c_query_regions_flat(handle, block_virtual_offsets, fmts, unit_size,
             try:
                 block_size_data = load_bcz_block(handle, True)
                 _, data = block_size_data
+                data = _apply_delta_bytes(data, delta_dtype, delta_col_names)
                 off = 0
             except StopIteration:
                 break
@@ -938,13 +1055,18 @@ def c_write_chunk_tail(handle, chunk_data_len, block_1st_record_virtual_offsets,
     return None
 
 
-def c_fetch_chunk(handle, chunk_start_offset_plus10, block_virtual_offsets, fmts, unit_size, chunk_compressed_size=None):
+def c_fetch_chunk(handle, chunk_start_offset_plus10, block_virtual_offsets, fmts, unit_size,
+                  chunk_compressed_size=None,
+                  delta_dtype=None, delta_col_names=None):
     """Read and decompress all blocks of a chunk into one bytes object.
 
     When *chunk_compressed_size* is provided, reads the entire compressed
     region in one I/O call, then parses and decompresses individual
     blocks from the in-memory buffer.  This reduces N seek+read syscalls
     to a single read.
+
+    Delta-encoded columns are decoded per block before concatenation when
+    ``delta_dtype``/``delta_col_names`` are supplied.
     """
     cdef list block_offsets = list(block_virtual_offsets)
     if not block_offsets:
@@ -954,28 +1076,40 @@ def c_fetch_chunk(handle, chunk_start_offset_plus10, block_virtual_offsets, fmts
     # Bulk I/O path: read all compressed block data in one syscall
     if chunk_compressed_size is not None and chunk_compressed_size > 0:
         raw_all = handle.read(chunk_compressed_size)
+        if delta_dtype is not None and delta_col_names:
+            return _parse_blocks_from_buffer_delta(raw_all, delta_dtype, delta_col_names)
         return _parse_blocks_from_buffer(raw_all)
     # Fallback: sequential block reads (when compressed size is unknown)
     cdef list chunks = []
     cdef object block_size_data
     cdef Py_ssize_t nblocks = len(block_offsets)
     cdef Py_ssize_t i
+    cdef bytes blk
     for i in range(nblocks):
         try:
             block_size_data = load_bcz_block(handle, True)
         except StopIteration:
             break
-        chunks.append(block_size_data[1])
+        blk = block_size_data[1]
+        blk = _apply_delta_bytes(blk, delta_dtype, delta_col_names)
+        chunks.append(blk)
     if not chunks:
         return b""
     return b"".join(chunks)
 
 
-def c_get_records_by_ids(handle, chunk_block_virtual_offsets, unit_size, IDs):
+def c_get_records_by_ids(handle, chunk_block_virtual_offsets, unit_size, IDs,
+                         delta_dtype=None, delta_col_names=None,
+                         block_size=None):
     """Fetch raw record bytes for given 1-based primary IDs.
 
     Caches the currently decompressed block to avoid redundant I/O
     when consecutive IDs fall in the same block.
+
+    For delta files, ``block_size`` is the record-aligned block length
+    (``(_BLOCK_MAX_LEN // unit_size) * unit_size``); default is
+    ``_BLOCK_MAX_LEN`` for raw files.  The loaded block is delta-decoded
+    when ``delta_dtype``/``delta_col_names`` are supplied.
     """
     cdef list results = []
     cdef unsigned long vo
@@ -983,9 +1117,12 @@ def c_get_records_by_ids(handle, chunk_block_virtual_offsets, unit_size, IDs):
     cdef object block_size_data
     cdef bytes buf = b""
     cdef Py_ssize_t current_block_start = -1
+    cdef Py_ssize_t effective_block = _BLOCK_MAX_LEN
+    if block_size is not None:
+        effective_block = block_size
     for ID in IDs:
-        idx = ((ID - 1) * unit_size) // _BLOCK_MAX_LEN
-        within = ((ID - 1) * unit_size) % _BLOCK_MAX_LEN
+        idx = ((ID - 1) * unit_size) // effective_block
+        within = ((ID - 1) * unit_size) % effective_block
         vo = chunk_block_virtual_offsets[idx]
         block_start = vo >> 16
         if block_start != current_block_start:
@@ -998,6 +1135,7 @@ def c_get_records_by_ids(handle, chunk_block_virtual_offsets, unit_size, IDs):
                 buf = b""
                 continue
             _, buf = block_size_data
+            buf = _apply_delta_bytes(buf, delta_dtype, delta_col_names)
             current_block_start = block_start
         if within + unit_size <= len(buf):
             results.append(buf[within: within + unit_size])
@@ -1264,3 +1402,68 @@ def c_write_c_records(seq_bytes, chunksize=5000):
     # Yield remaining records
     if batch_count > 0:
         yield bytes(batch_buf[:buf_offset]), batch_count
+
+
+# ---------------------------------------------------------------------------
+# CZIX footer fast parser
+# ---------------------------------------------------------------------------
+def c_parse_czix(bytes buf, int n_dims):
+    """Parse a CZIX chunk index buffer into ``(index_dict, dim2chunk_start)``.
+
+    ``buf`` must be the CZIX payload read from the file tail starting at the
+    'CZIX' magic and excluding the 28-byte EOF sentinel.  Returns ``None`` if
+    the magic does not match.  The returned ``index_dict`` maps a tuple of
+    dim strings to ``{'start', 'size', 'data_len', 'nblocks'}``; the second
+    dict mirrors only the ``start`` field for fast query lookups.
+    """
+    cdef Py_ssize_t blen = len(buf)
+    if blen < 12:
+        return None
+    cdef const unsigned char* p = <const unsigned char*> buf
+    # magic check: b'CZIX'
+    if p[0] != 0x43 or p[1] != 0x5A or p[2] != 0x49 or p[3] != 0x58:
+        return None
+    cdef unsigned long long n_chunks = 0
+    cdef Py_ssize_t i
+    for i in range(8):
+        n_chunks |= (<unsigned long long> p[4 + i]) << (8 * i)
+    cdef Py_ssize_t off = 12
+    cdef dict index = {}
+    cdef dict dim2cs = {}
+    cdef unsigned long long n_chunks_i
+    cdef Py_ssize_t j, dlen
+    cdef unsigned long long start, size, data_len, nblocks
+    cdef tuple dims
+    cdef list dim_list
+    for n_chunks_i in range(n_chunks):
+        dim_list = [None] * n_dims
+        for j in range(n_dims):
+            if off >= blen:
+                return None
+            dlen = p[off]
+            off += 1
+            if off + dlen + 32 > blen:
+                return None
+            dim_list[j] = buf[off:off + dlen].decode('utf-8')
+            off += dlen
+        dims = tuple(dim_list)
+        # unpack 4 little-endian uint64 fields inline
+        start = 0
+        for i in range(8):
+            start |= (<unsigned long long> p[off + i]) << (8 * i)
+        size = 0
+        for i in range(8):
+            size |= (<unsigned long long> p[off + 8 + i]) << (8 * i)
+        data_len = 0
+        for i in range(8):
+            data_len |= (<unsigned long long> p[off + 16 + i]) << (8 * i)
+        nblocks = 0
+        for i in range(8):
+            nblocks |= (<unsigned long long> p[off + 24 + i]) << (8 * i)
+        off += 32
+        index[dims] = {
+            'start': start, 'size': size,
+            'data_len': data_len, 'nblocks': nblocks,
+        }
+        dim2cs[dims] = start
+    return index, dim2cs

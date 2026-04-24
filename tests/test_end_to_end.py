@@ -119,7 +119,7 @@ def build_reference() -> None:
         "czip", "build_ref",
         "-g", str(REFERENCE_FA),
         "-O", str(REF_CZ),
-        "-n", "20",
+        "-t", "20",
     ])
     assert REF_CZ.exists(), f"build_ref did not produce {REF_CZ}"
 

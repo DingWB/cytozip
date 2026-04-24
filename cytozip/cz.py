@@ -37,11 +37,15 @@ import os, sys
 import struct
 import zlib
 import bisect
+import mmap
 from builtins import open as _open
 import gzip
 import math
-import multiprocessing
-from loguru import logger
+import logging
+
+# stdlib logging is used instead of loguru — saves ~48 ms at cold CLI start.
+# The module only emits a single warning when Cython accelerators are missing.
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +84,39 @@ _INTEGER_FMTS = set("bBhHiIlLqQ")
 # Sentinel byte written to the header when no sort column is configured.
 _NO_SORT_COL = 0xFF
 
+# Per-column storage encoding codes (header-encoded).
+# Default is RAW (record stored as-is). DELTA stores within-block differences
+# so that strictly-monotonic integer columns (e.g. genomic positions) compress
+# far better after DEFLATE. Decoding requires a single numpy ``cumsum`` per
+# delta column per block.
+_ENC_RAW = 0x00
+_ENC_DELTA = 0x01
+
+# Map struct format characters to little-endian numpy dtypes. Used for the
+# in-place delta encode/decode transform via a structured-dtype view of the
+# block buffer. String/byte formats are represented as opaque byte arrays
+# ('V{n}') so the structured dtype still tiles the full record width.
+_NP_FMT_MAP = {
+	'B': '<u1', 'b': '<i1', 'H': '<u2', 'h': '<i2',
+	'I': '<u4', 'i': '<i4', 'L': '<u4', 'l': '<i4',
+	'Q': '<u8', 'q': '<i8', 'f': '<f4', 'd': '<f8',
+}
+
+def _build_record_dtype(formats):
+	"""Build a numpy structured dtype that tiles one full record.
+
+	Non-numeric fields (bytes, 's'/'c') become opaque ``V{n}`` blobs so the
+	structured view still slices every record into its per-column fields
+	and can be serialised back with ``arr.tobytes()`` unchanged.
+	"""
+	fields = []
+	for i, fmt in enumerate(formats):
+		if fmt[-1] in _NP_FMT_MAP:
+			fields.append((f'f{i}', _NP_FMT_MAP[fmt[-1]]))
+		else:
+			fields.append((f'f{i}', f'V{struct.calcsize(fmt)}'))
+	return np.dtype(fields)
+
 # Pre-created Struct objects for frequently used format strings.
 # Using Struct.unpack/pack avoids re-parsing the format string on every call.
 _struct_B = struct.Struct("<B")   # unsigned byte
@@ -96,47 +133,69 @@ try:
 except Exception:
 	_version = "0.0.0"
 
-# Try to import accelerated Cython functions. If unavailable, fall back to
-# pure-Python implementations below.
-try:
-	from .cz_accel import load_bcz_block as _c_load_bcz_block, compress_block as _c_compress_block
-	from .cz_accel import unpack_records as _c_unpack_records
-	from .cz_accel import c_read as _c_read
-	from .cz_accel import c_readline as _c_readline
-	from .cz_accel import c_pos2id as _c_pos2id
-	from .cz_accel import c_read_1record as _c_read_1record
-	from .cz_accel import c_seek_and_read_1record as _c_seek_and_read_1record
-	from .cz_accel import c_query_regions as _c_query_regions
-	from .cz_accel import c_query_regions_flat as _c_query_regions_flat
-	from .cz_accel import c_write_chunk_tail as _c_write_chunk_tail
-	from .cz_accel import c_pack_records as _c_pack_records
-	from .cz_accel import c_pack_records_fast as _c_pack_records_fast
-	from .cz_accel import c_fetch_chunk as _c_fetch_chunk
-	from .cz_accel import c_get_records_by_ids as _c_get_records_by_ids
-	from .cz_accel import c_block_first_values as _c_block_first_values
-	from .cz_accel import c_extract_c_positions as _c_extract_c_positions
-	from .cz_accel import c_write_c_records as _c_write_c_records
-	# logger.debug("Cython accelerated functions loaded successfully")
-except Exception:
-	logger.warning("Cython accelerated functions not available, falling back to pure-Python implementations")
-	_c_load_bcz_block = None
-	_c_compress_block = None
-	_c_unpack_records = None
-	_c_read = None
-	_c_readline = None
-	_c_pos2id = None
-	_c_read_1record = None
-	_c_seek_and_read_1record = None
-	_c_query_regions = None
-	_c_query_regions_flat = None
-	_c_write_chunk_tail = None
-	_c_pack_records = None
-	_c_pack_records_fast = None
-	_c_fetch_chunk = None
-	_c_get_records_by_ids = None
-	_c_block_first_values = None
-	_c_extract_c_positions = None
-	_c_write_c_records = None
+# ---------------------------------------------------------------------------
+# Lazy Cython accelerators
+# ---------------------------------------------------------------------------
+# Loading ``cytozip.cz_accel`` (a compiled Cython extension linked against
+# libdeflate) costs ~65 ms at cold start.  Deferring it until a Reader or
+# Writer actually needs a fast path lets lightweight subcommands such as
+# ``czip header`` / ``czip summary`` start in ~60 ms instead of ~130 ms.
+# All ``_c_*`` names are bound to ``None`` up front and swapped in by
+# :func:`_ensure_cz_accel` on first use.  Every caller already checks
+# ``if _c_xxx is not None`` before dispatching, so no additional guards
+# are required.
+
+_CZ_ACCEL_LOADED = False
+_c_load_bcz_block = None
+_c_compress_block = None
+_c_unpack_records = None
+_c_read = None
+_c_readline = None
+_c_pos2id = None
+_c_read_1record = None
+_c_seek_and_read_1record = None
+_c_query_regions = None
+_c_query_regions_flat = None
+_c_write_chunk_tail = None
+_c_pack_records = None
+_c_pack_records_fast = None
+_c_fetch_chunk = None
+_c_get_records_by_ids = None
+_c_block_first_values = None
+_c_extract_c_positions = None
+_c_write_c_records = None
+_c_parse_czix = None
+
+
+def _ensure_cz_accel():
+	"""Import :mod:`cytozip.cz_accel` on first call and publish its
+	functions as module globals.  Subsequent calls are a single boolean
+	check (<100 ns).
+	"""
+	global _CZ_ACCEL_LOADED
+	if _CZ_ACCEL_LOADED:
+		return
+	_CZ_ACCEL_LOADED = True
+	try:
+		from . import cz_accel as _a
+	except Exception:
+		logger.warning(
+			"Cython accelerated functions not available, "
+			"falling back to pure-Python implementations")
+		return
+	g = globals()
+	g['_c_load_bcz_block'] = getattr(_a, 'load_bcz_block', None)
+	g['_c_compress_block'] = getattr(_a, 'compress_block', None)
+	g['_c_unpack_records'] = getattr(_a, 'unpack_records', None)
+	for _n in (
+		'c_read', 'c_readline', 'c_pos2id', 'c_read_1record',
+		'c_seek_and_read_1record', 'c_query_regions', 'c_query_regions_flat',
+		'c_write_chunk_tail', 'c_pack_records', 'c_pack_records_fast',
+		'c_fetch_chunk', 'c_get_records_by_ids', 'c_block_first_values',
+		'c_extract_c_positions', 'c_write_c_records', 'c_parse_czix',
+	):
+		g['_' + _n] = getattr(_a, _n, None)
+	_c_parse_czix = None
 
 def dtype_func(fmt_char):
 	"""Return a type-casting function for a given struct format character.
@@ -613,12 +672,37 @@ class Reader:
 			if fileobj.read(0) != b"":
 				raise ValueError("fileobj not opened in binary mode")
 			handle = fileobj
+			self._mm = None
+			self._fd = None
 		else:
 			if isinstance(input, str) and input.startswith(('http://', 'https://')):
 				handle = RemoteFile(input)
+				self._mm = None
+				self._fd = None
 			else:
-				input = os.path.abspath(os.path.expanduser(input))
-				handle = _open(input, "rb")
+				if input.startswith('~'):
+					input = os.path.expanduser(input)
+				if not input.startswith('/'):
+					input = os.path.abspath(input)
+				# Memory-map the file for ~10x faster open/scan (no per-read
+				# syscalls). Use a raw file descriptor via os.open — skipping
+				# Python's BufferedReader saves ~20 µs per open.  mmap objects
+				# implement read/seek/tell so they're a drop-in replacement for
+				# the Python file handle used below and in the Cython paths.
+				fd = os.open(input, os.O_RDONLY)
+				try:
+					handle = mmap.mmap(fd, 0, prot=mmap.PROT_READ)
+					self._mm = handle
+					self._fd = fd
+				except (ValueError, OSError):
+					# Zero-byte files or platforms without mmap fall back to
+					# the plain buffered handle.
+					os.close(fd)
+					handle = _open(input, "rb")
+					self._mm = None
+					self._fd = None
+					self._mm = None
+					self._fd = None
 		self._handle = handle
 		self._is_remote = isinstance(handle, RemoteFile)
 		self.input = input
@@ -720,6 +804,38 @@ class Reader:
 			self._sort_col_fmt = formats[sort_col_byte]
 			self._sort_col_size = struct.calcsize(self._sort_col_fmt)
 		self.header['sort_col'] = self.sort_col
+		# Per-column storage-encoding table. Written after sort_col and before
+		# the dimensions section. Layout:
+		#   n_enc (1B) followed by n_enc pairs of (col_idx (1B), enc_code (1B)).
+		# Columns not listed default to RAW. Currently the only non-default
+		# code is DELTA (in-block difference coding for integer columns).
+		n_enc = struct.unpack("<B", f.read(1))[0]
+		delta_cols = []
+		for _ in range(n_enc):
+			idx, enc = struct.unpack("<BB", f.read(2))
+			if idx >= len(formats):
+				raise ValueError(
+					f"encoding table references col {idx} but only "
+					f"{len(formats)} columns exist")
+			if enc == _ENC_DELTA:
+				if formats[idx][-1] not in _INTEGER_FMTS:
+					raise ValueError(
+						f"column {idx} ({columns[idx]!r}) has non-integer "
+						f"format {formats[idx]!r}; DELTA requires integer")
+				delta_cols.append(idx)
+			elif enc != _ENC_RAW:
+				raise ValueError(f"unknown encoding code 0x{enc:02x} for col {idx}")
+		self._delta_cols = tuple(delta_cols)
+		self.header['delta_cols'] = list(self._delta_cols)
+		# Defer numpy dtype construction: building a numpy.dtype forces
+		# ``import numpy`` (~60 ms cold start).  With this lazy property,
+		# ``import numpy`` only happens when the reader actually decodes a
+		# DELTA-encoded block.  Plain non-delta reads never touch numpy.
+		self._delta_np_dtype_cached = None
+		if self._delta_cols:
+			self._delta_col_names = tuple(f'f{i}' for i in self._delta_cols)
+		else:
+			self._delta_col_names = ()
 		dimensions = []
 		n_dims = struct.unpack("<B", f.read(1))[0]
 		for i in range(n_dims):
@@ -741,29 +857,24 @@ class Reader:
 		# Pre-compute which columns need bytes→str decoding.
 		# Avoids checking format strings on every record in _byte2real/_byte2str.
 		self._str_col_mask = tuple(f[-1] in ('s', 'c') for f in formats)
-		if getattr(self, '_is_remote', False):
-			self._chunk_rows = None
-			self._summary_from_chunk_index()
-		else:
-			self._scan_chunks()
+		self._summary_from_chunk_index()
 
-	def _scan_chunks(self):
-		"""Scan all chunks to build dim2chunk_start mapping (no pandas)."""
-		r = self._load_chunk(start_offset=self.header['header_size'], jump=True)
-		rows = []
-		dim2cs = {}
-		while r:
-			nrow = int(self._chunk_data_len / self._unit_size)
-			if self._chunk_dims in dim2cs:
-				raise ValueError("Duplicated chunk dimensions detected,"
-								 "Would cause conflict for querying, please check.")
-			dim2cs[self._chunk_dims] = self._chunk_start_offset
-			rows.append([self._chunk_start_offset, self._chunk_size,
-						 self._chunk_dims, self._chunk_end_offset,
-						 self._chunk_nblocks, nrow])
-			r = self._load_chunk(jump=True)
-		self.dim2chunk_start = dim2cs
-		self._chunk_rows = rows
+	@property
+	def _delta_np_dtype(self):
+		"""Numpy structured dtype used to decode DELTA-encoded columns.
+
+		Built lazily on first access so non-delta readers (and the CLI
+		help path) never trigger ``import numpy`` (~60 ms).
+		"""
+		cached = self._delta_np_dtype_cached
+		if cached is None and self._delta_cols:
+			cached = _build_record_dtype(self.header['formats'])
+			self._delta_np_dtype_cached = cached
+		return cached
+
+	@_delta_np_dtype.setter
+	def _delta_np_dtype(self, value):
+		self._delta_np_dtype_cached = value
 
 	@property
 	def chunk_info(self):
@@ -775,9 +886,17 @@ class Reader:
 		import pandas as _pd
 		header = ['chunk_start_offset', 'chunk_size', 'chunk_dims',
 				  'chunk_tail_offset', 'chunk_nblocks', 'chunk_nrows']
-		if self._chunk_rows is None:
-			self._scan_chunks()
-		chunk_info = _pd.DataFrame(self._chunk_rows, columns=header)
+		rows = []
+		for dims, info in self._raw_chunk_index.items():
+			nrow = info['data_len'] // self._unit_size
+			tail_header_size = (16 + info['nblocks'] * 8
+								+ (info['nblocks'] * self._sort_col_size
+								   if self.sort_col is not None else 0)
+								+ sum(len(d.encode('utf-8')) + 1 for d in dims))
+			tail_offset = info['start'] + info['size'] + tail_header_size
+			rows.append([info['start'], info['size'], dims,
+						 tail_offset, info['nblocks'], nrow])
+		chunk_info = _pd.DataFrame(rows, columns=header)
 		for i, dimension in enumerate(self.header['dimensions']):
 			chunk_info.insert(i, dimension, chunk_info.chunk_dims.apply(
 				lambda x: x[i]
@@ -819,6 +938,7 @@ class Reader:
 		bool – True if a chunk was successfully loaded, False on EOF or
 		       when the magic doesn't match.
 		"""
+		_ensure_cz_accel()
 		if start_offset is None:  # continue from end of previous chunk
 			start_offset = self._chunk_end_offset
 		if start_offset >= self.header['total_size']:
@@ -918,70 +1038,88 @@ class Reader:
 	def read_chunk_index(self):
 		"""Read chunk index from end of file for O(1) chunk lookup.
 
-		Returns dict mapping dim tuple -> {start, size, data_len, nblocks}
+		Returns dict mapping dim tuple -> {start, size, data_len, nblocks}.
+		The entire CZIX region is read in a single I/O and parsed from an
+		in-memory bytes buffer to minimise mmap/read syscalls.
 		"""
 		f = self._handle
 		cur = f.tell()
-		# Read index_offset from 36 bytes before end (8B offset + 28B EOF)
-		f.seek(0, 2) # whence=2 表示从文件末尾偏移。offset=0 即移到文件最末尾
+		f.seek(0, 2)
 		file_size = f.tell()
 		if file_size < 36:
 			f.seek(cur)
 			return None
-		f.seek(file_size - 28 - 8)
+		# Read index_offset from 36 bytes before end (8B offset + 28B EOF)
+		f.seek(file_size - 36)
 		index_offset = _struct_Q.unpack(f.read(8))[0]
 		if index_offset == 0 or index_offset >= file_size:
 			f.seek(cur)
 			return None
+		# Slurp the whole CZIX payload (magic + n_chunks + per-chunk entries)
+		# in one read, then parse from the bytes buffer using unpack_from.
+		# This avoids ~3 mmap.read() calls per chunk.
 		f.seek(index_offset)
-		magic = f.read(4)
-		if magic != _chunk_index_magic:
-			f.seek(cur)
-			return None
-		n_chunks = _struct_Q.unpack(f.read(8))[0]
-		index = {}
+		buf = f.read(file_size - 28 - index_offset)
+		f.seek(cur)
 		n_dims = len(self.header['dimensions'])
+		if _c_parse_czix is not None:
+			res = _c_parse_czix(buf, n_dims)
+			if res is None:
+				return None
+			idx, dim2cs = res
+			# Stash the by-start dict so _summary_from_chunk_index can reuse it.
+			self._czix_dim2cs = dim2cs
+			return idx
+		if len(buf) < 12 or buf[:4] != _chunk_index_magic:
+			return None
+		n_chunks = _struct_Q.unpack_from(buf, 4)[0]
+		index = {}
+		off = 12
+		unpack_from_Q = _struct_Q.unpack_from
+		unpack_from_4Q = _struct_4Q.unpack_from
 		for _ in range(n_chunks):
 			dims = []
 			for _d in range(n_dims):
-				n = _struct_B.unpack(f.read(1))[0]
-				val = struct.unpack(f"<{n}s", f.read(n))[0].decode()
-				dims.append(val)
-			start, size, data_len, nblocks = _struct_4Q.unpack(f.read(32))
+				n = buf[off]
+				off += 1
+				dims.append(buf[off:off + n].decode())
+				off += n
+			start, size, data_len, nblocks = unpack_from_4Q(buf, off)
+			off += 32
 			index[tuple(dims)] = {
 				'start': start, 'size': size, 'data_len': data_len,
 				'nblocks': nblocks,
 			}
-		f.seek(cur)
 		return index
 	
-	def _summary_from_chunk_index(self):
-		"""Build dim2chunk_start from chunk index (2-3 HTTP requests for remote).
+	def _summary_from_chunk_index(self, _cached=None):
+		"""Build dim2chunk_start from the CZIX chunk index at the file tail.
 
-		Falls back to sequential scanning if no chunk index is found.
+		The Writer always appends a CZIX index at close time, so every
+		well-formed .cz file can be opened with O(1) tail reads.
+
+		Only the ``dims -> start`` mapping is built eagerly (what queries
+		need). Tail offsets / nrow / nblocks used by :attr:`chunk_info`
+		are derived lazily from the cached raw index to keep open fast.
+
+		Parameters
+		----------
+		_cached : dict or None
+			Pre-fetched result from :meth:`read_chunk_index` when the caller
+			already read the index (avoids a second tail read).
 		"""
-		idx = self.read_chunk_index()
+		idx = _cached if _cached is not None else self.read_chunk_index()
 		if idx is None:
-			logger.warning("No chunk index found in .cz file, "
-							"falling back to sequential scan (slow for remote files)")
-			self._scan_chunks()
-			return None
-		rows = []
-		dim2cs = {}
-		for dims, info in idx.items():
-			nrow = info['data_len'] // self._unit_size
-			tail_header_size = (16 + info['nblocks'] * 8
-								+ (info['nblocks'] * self._sort_col_size
-								   if self.sort_col is not None else 0)
-								+ sum(len(d.encode('utf-8')) + 1 for d in dims))
-			tail_offset = info['start'] + info['size'] + tail_header_size
-			if dims in dim2cs:
-				raise ValueError("Duplicated chunk dimensions detected")
-			dim2cs[dims] = info['start']
-			rows.append([info['start'], info['size'], dims,
-						tail_offset, info['nblocks'], nrow])
-		self.dim2chunk_start = dim2cs
-		self._chunk_rows = rows
+			raise ValueError(
+				f"No CZIX chunk index found in {self.input!r}: "
+				"file is truncated or corrupted.")
+		self._raw_chunk_index = idx
+		cached_dim2cs = getattr(self, '_czix_dim2cs', None)
+		if cached_dim2cs is not None:
+			self.dim2chunk_start = cached_dim2cs
+			self._czix_dim2cs = None
+		else:
+			self.dim2chunk_start = {dims: info['start'] for dims, info in idx.items()}
 
 	def summary_blocks(self, printout=True):
 		r = self._load_chunk(self.header['header_size'], jump=True)
@@ -1031,11 +1169,12 @@ class Reader:
 			of returning a single DataFrame.
 		"""
 		r = self._load_chunk(self.dim2chunk_start[dims], jump=False)
-		# Fast path: use Cython chunk fetcher to read all blocks at once
+		# Fast path: use Cython chunk fetcher to read all blocks at once.
 		if _c_fetch_chunk is not None and chunksize is None:
 			chunk_bytes = _c_fetch_chunk(self._handle, self._chunk_start_offset + 10,
 								self._chunk_block_1st_record_virtual_offsets,
-								self.fmts, self._unit_size, self._chunk_size - 10)
+								self.fmts, self._unit_size, self._chunk_size - 10,
+								self._delta_np_dtype, self._delta_col_names or None)
 			if chunk_bytes:
 				if _c_unpack_records is not None:
 					rows = _c_unpack_records(chunk_bytes, self.fmts)
@@ -1126,6 +1265,22 @@ class Reader:
 			self._buffer = b""
 		self._within_block_offset = 0
 		self._block_raw_length = block_size
+		# Undo per-column delta encoding (in-block cumsum on the designated
+		# integer columns). Delta files are always written record-aligned, so
+		# the buffer contains an integral number of records starting at byte 0
+		# and there is no partial leading/trailing record to preserve.
+		if self._delta_cols and len(self._buffer) >= self._unit_size:
+			n_rec = len(self._buffer) // self._unit_size
+			body_len = n_rec * self._unit_size
+			arr = np.frombuffer(self._buffer, dtype=self._delta_np_dtype,
+			                    count=n_rec).copy()
+			if n_rec > 1:
+				for name in self._delta_col_names:
+					arr[name] = np.cumsum(arr[name])
+			if body_len == len(self._buffer):
+				self._buffer = arr.tobytes()
+			else:
+				self._buffer = arr.tobytes() + bytes(self._buffer[body_len:])
 
 	def _byte2str(self, values):
 		"""Convert a record tuple to a list of printable strings.
@@ -1451,7 +1606,7 @@ class Reader:
 		formats = formats + [f'{max_name_len}s']
 		columns = columns + ['Name']
 		dimensions = dimensions
-		pool = multiprocessing.Pool(threads)
+		pool = __import__('multiprocessing').Pool(threads)
 		jobs = []
 		outdir = output + '.tmp'
 		if not os.path.exists(outdir):
@@ -1525,19 +1680,32 @@ class Reader:
 		self._load_chunk(self.dim2chunk_start[dim], jump=False)
 		# Fast path: delegate entirely to Cython if available.
 		if _c_get_records_by_ids is not None:
+			if self._delta_cols:
+				records_per_block = _BLOCK_MAX_LEN // self._unit_size
+				block_size = records_per_block * self._unit_size
+			else:
+				block_size = None
 			for rec in _c_get_records_by_ids(
 					self._handle, self._chunk_block_1st_record_virtual_offsets,
-					self._unit_size, IDs):
+					self._unit_size, IDs,
+					self._delta_np_dtype, self._delta_col_names or None,
+					block_size):
 				yield rec
 			return
 		# For each ID, compute the block index and within-block byte offset.
-		# block_index = (ID-1) * unit_size // BLOCK_MAX_LEN
-		# The virtual offset array stored in the chunk tail maps block index
-		# to (block_file_position << 16) | first_record_within_block_offset.
-		block_index = ((IDs - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
+		# Delta files are written record-aligned: each block holds exactly
+		# ``records_per_block`` complete records, so block_index = (ID-1) //
+		# records_per_block. Non-delta files pack records contiguously across
+		# block boundaries and use the byte-level formula below.
+		if self._delta_cols:
+			records_per_block = _BLOCK_MAX_LEN // self._unit_size
+			block_index = (IDs - 1) // records_per_block
+			within_block_offsets = ((IDs - 1) % records_per_block) * self._unit_size
+		else:
+			block_index = ((IDs - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
+			within_block_offsets = ((IDs - 1) * self._unit_size) % (_BLOCK_MAX_LEN)
 		block_start_offsets = np.array([self._chunk_block_1st_record_virtual_offsets[
 											idx] >> 16 for idx in block_index])
-		within_block_offsets = ((IDs - 1) * self._unit_size) % (_BLOCK_MAX_LEN)
 		prev_block_start_offset = None
 		for block_start_offset, within_block_offset in zip(
 			block_start_offsets, within_block_offsets):
@@ -1667,38 +1835,6 @@ class Reader:
 			else:  # each element is a data array (multiple records)
 				yield from self.getRecordsByIdRegions(dim, reference, IDs)
 
-	def __fetch_deprecated__(self, dims, s=None, e=None):
-		"""
-		Generator for a given dims
-
-		Parameters
-		----------
-		dims : tuple
-			element length of dims should match the dimensions in header['dimensions']
-
-		Returns
-		-------
-
-		"""
-		s = 0 if s is None else s  # 0-based
-		e = len(self.header['columns']) if e is None else e  # 1-based
-		r = self._load_chunk(self.dim2chunk_start[dims], jump=True)
-		self._cached_data = b''
-		# unit_nblock = int(self._unit_size / (math.gcd(self._unit_size, _BLOCK_MAX_LEN)))
-		self._load_block(start_offset=self._chunk_start_offset + 10)  #
-		while self._block_raw_length > 0:
-			self._cached_data += self._buffer
-			end_index = len(self._cached_data) - (len(self._cached_data) % self._unit_size)
-			chunk_bytes = self._cached_data[:end_index]
-			if _c_unpack_records is not None:
-				for result in _c_unpack_records(chunk_bytes, self.fmts):
-					yield result[s:e]
-			else:
-				for result in self._struct_obj.iter_unpack(chunk_bytes):
-					yield result[s:e]  # a tuple
-			# print(result)
-			self._cached_data = self._cached_data[end_index:]
-			self._load_block()
 
 	def __fetch__(self, dim, s=None, e=None):
 		"""
@@ -1721,7 +1857,8 @@ class Reader:
 		if _c_fetch_chunk is not None:
 			chunk_bytes = _c_fetch_chunk(self._handle, self._chunk_start_offset + 10,
 								self._chunk_block_1st_record_virtual_offsets,
-								self.fmts, self._unit_size, self._chunk_size - 10)
+								self.fmts, self._unit_size, self._chunk_size - 10,
+								self._delta_np_dtype, self._delta_col_names or None)
 			if chunk_bytes:
 				if _c_unpack_records is not None:
 					for result in _c_unpack_records(chunk_bytes, self.fmts):
@@ -1789,7 +1926,8 @@ class Reader:
 			raw = _c_fetch_chunk(
 				self._handle, self._chunk_start_offset + 10,
 				self._chunk_block_1st_record_virtual_offsets,
-				self.fmts, self._unit_size, self._chunk_size - 10
+				self.fmts, self._unit_size, self._chunk_size - 10,
+				self._delta_np_dtype, self._delta_col_names or None
 			)
 		else:
 			# Fallback: bulk-read all compressed data in one I/O, then
@@ -1894,7 +2032,8 @@ class Reader:
 		if _c_read_1record is not None:
 			rec, self._block_raw_length, self._buffer, self._within_block_offset = _c_read_1record(
 				self._handle, self._block_raw_length, self._buffer,
-				self._within_block_offset, self.fmts, self._unit_size
+				self._within_block_offset, self.fmts, self._unit_size,
+				self._delta_np_dtype, self._delta_col_names or None
 			)
 			return rec
 		# fallback
@@ -1910,13 +2049,14 @@ class Reader:
 				start_block_index = 0
 				prev_dim = dim
 				r = self._load_chunk(self.dim2chunk_start[dim], jump=False)
-			# Fast path: Cython handles each (start, end) individually
+			# Fast path: Cython handles each (start, end) individually.
 			if _c_query_regions is not None:
 				res = _c_query_regions(
 					self._handle,
 					self._chunk_block_1st_record_virtual_offsets,
 					self.fmts, self._unit_size, [(start, end)], s, e, dim,
-					self._chunk_block_first_coords or None)
+					self._chunk_block_first_coords or None,
+					self._delta_np_dtype, self._delta_col_names or None)
 				for item in res:
 					yield item
 				continue
@@ -1964,7 +2104,8 @@ class Reader:
 			res = _c_pos2id(self._handle,
 			                 self._chunk_block_1st_record_virtual_offsets,
 			                 self.fmts, self._unit_size, positions, col_to_query,
-			                 self._chunk_block_first_coords or None)
+			                 self._chunk_block_first_coords or None,
+			                 self._delta_np_dtype, self._delta_col_names or None)
 			for r in res:
 				yield r
 			return
@@ -2199,7 +2340,8 @@ class Reader:
 				self._handle,
 				self._chunk_block_1st_record_virtual_offsets,
 				self.fmts, self._unit_size, start, end, s, e, dim,
-				self._chunk_block_first_coords or None)
+				self._chunk_block_first_coords or None,
+				self._delta_np_dtype, self._delta_col_names or None)
 			return
 		# General path (multi-dim, multi-region, or has string cols).
 		records = self._query_regions(regions, s, e)
@@ -2247,7 +2389,8 @@ class Reader:
 
 	def _seek_and_read_1record(self, virtual_offset):
 		if _c_seek_and_read_1record is not None:
-			return _c_seek_and_read_1record(self._handle, virtual_offset, self.fmts, self._unit_size)
+			return _c_seek_and_read_1record(self._handle, virtual_offset, self.fmts, self._unit_size,
+				self._delta_np_dtype, self._delta_col_names or None)
 		self.seek(virtual_offset)
 		return self._struct_obj.unpack(self.read(self._unit_size))
 
@@ -2290,7 +2433,8 @@ class Reader:
 		if _c_read is not None:
 			data, self._block_raw_length, self._buffer, self._within_block_offset = _c_read(
 				self._handle, self._block_raw_length, self._buffer,
-				self._within_block_offset, size
+				self._within_block_offset, size,
+				self._delta_np_dtype, self._delta_col_names or None
 			)
 			return data
 		# fallback
@@ -2316,7 +2460,8 @@ class Reader:
 		if _c_readline is not None:
 			data, self._block_raw_length, self._buffer, self._within_block_offset = _c_readline(
 				self._handle, self._block_raw_length, self._buffer,
-				self._within_block_offset, getattr(self, '_newline', b'\n')
+				self._within_block_offset, getattr(self, '_newline', b'\n'),
+				self._delta_np_dtype, self._delta_col_names or None
 			)
 			return data
 		# fallback
@@ -2351,6 +2496,18 @@ class Reader:
 	def close(self):
 		"""Close BGZF file."""
 		self._handle.close()
+		# Close the underlying fd that was kept open to back the mmap.
+		fd = getattr(self, '_fd', None)
+		if fd is not None and fd is not self._handle:
+			try:
+				if isinstance(fd, int):
+					os.close(fd)
+				else:
+					fd.close()
+			except Exception:
+				pass
+			self._fd = None
+		self._mm = None
 		self._buffer = None
 		self._block_start_offset = None
 
@@ -2373,6 +2530,97 @@ class Reader:
 	def __exit__(self, type, value, traceback):
 		"""Close a file with WITH statement."""
 		self.close()
+
+
+# ==========================================================
+# ---------------------------------------------------------------------------
+# Struct format -> numpy dtype mapping for fast vectorized packing.
+# Used by allc2cz, merge_cz and aggregate when all columns are numeric.
+# ---------------------------------------------------------------------------
+_STRUCT_TO_NP_DTYPE = {
+	'B': '<u1', 'b': '<i1',
+	'H': '<u2', 'h': '<i2',
+	'I': '<u4', 'i': '<i4',
+	'Q': '<u8', 'q': '<i8',
+	'f': '<f4', 'd': '<f8',
+}
+
+
+def _fmt_to_np_dtype(fmt):
+	"""Map a single struct format char to numpy dtype, or None if unsupported."""
+	return _STRUCT_TO_NP_DTYPE.get(fmt)
+
+
+def _all_numeric_formats(formats):
+	"""Check if all formats are numeric (can use numpy fast path)."""
+	return all(_fmt_to_np_dtype(f[-1]) is not None for f in formats)
+
+
+def _pack_chunk_data(rows_buf, writer):
+	"""Pack a list of row tuples into binary bytes using the fastest
+	available method (Cython fast > Cython > pure Python struct.pack).
+	"""
+	if writer._pack_records is not None:
+		return writer._pack_records(rows_buf, writer.fmts)
+	else:
+		return b''.join(struct.pack(f"<{writer.fmts}", *r) for r in rows_buf)
+
+
+def _write_np_chunks(writer, arr, chrom, chunksize, unit_size):
+	"""Write a structured numpy array to the writer in chunksize-row batches.
+
+	Converts each batch to raw bytes via ``tobytes()`` and calls
+	``writer.write_chunk()``.  This avoids per-row Python overhead
+	when all columns are numeric.
+	"""
+	n = arr.shape[0]
+	for start in range(0, n, chunksize):
+		end = min(start + chunksize, n)
+		chunk_bytes = arr[start:end].tobytes()
+		writer.write_chunk(chunk_bytes, [chrom])
+
+
+def _parse_tabix_lines(lines, cols, np_dtypes, sep='\t'):
+	"""Parse tabix lines into numpy arrays using pd.read_csv for speed.
+
+	Values that exceed the target dtype's range are clamped to its
+	maximum (e.g. 318 -> 255 for uint8) instead of wrapping via modulo.
+
+	Parameters
+	----------
+	lines : list of str
+		Lines from pysam.TabixFile.fetch()
+	cols : list of int
+		Column indices to extract (0-based)
+	np_dtypes : list of str
+		Numpy dtypes for each extracted column
+	sep : str
+		Column separator
+
+	Returns
+	-------
+	list of np.ndarray
+		One array per column in `cols`
+	"""
+	import io
+	# Parse with a wide dtype first to avoid silent overflow, then clip.
+	_WIDE = {'<u1': '<i8', '<u2': '<i8', '<u4': '<i8',
+			 '<i1': '<i8', '<i2': '<i8', '<i4': '<i8'}
+	wide_dtypes = [_WIDE.get(d, d) for d in np_dtypes]
+	raw = '\n'.join(lines)
+	df = pd.read_csv(io.StringIO(raw), sep=sep, header=None,
+					 usecols=cols, dtype={c: d for c, d in zip(cols, wide_dtypes)})
+	result = []
+	for c, target_dt in zip(cols, np_dtypes):
+		arr = df[c].values
+		dt = np.dtype(target_dt)
+		if dt.kind in ('u', 'i'):
+			info = np.iinfo(dt)
+			arr = np.clip(arr, info.min, info.max).astype(dt)
+		else:
+			arr = arr.astype(dt)
+		result.append(arr)
+	return result
 
 
 # ==========================================================
@@ -2405,11 +2653,119 @@ def extract(input=None, output=None, index=None, chunksize=5000):
 
 
 # ==========================================================
+def index_regions(input, output=None, bed=None,
+				  threads=4):  # 2D index
+	"""
+	Build a region-based coordinate index from a BED file. For example::
+
+		cytozip index_regions -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz \
+		-o mm10_with_chrL.allc.genes_flank2k.index -b genes_flank2k.bed.gz -n 4
+
+	Parameters
+	----------
+	input :
+	output :
+	bed :
+	threads :
+
+	Returns
+	-------
+
+	"""
+	bed = os.path.abspath(os.path.expanduser(bed))
+	input = os.path.abspath(os.path.expanduser(input))
+	if output is None:
+		output = input + '.' + os.path.basename(bed) + '.index'
+	else:
+		output = os.path.abspath(os.path.expanduser(output))
+	reader = Reader(input)
+	reader.build_region_index(output=output, bed=bed, threads=threads)
+	reader.close()
+
+
+# ==========================================================
+def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
+			  chunksize=5000, formats=['H', 'H']):
+	"""
+	Aggregate a given genomic region on a .cz file, for example::
+
+		/usr/bin/time -f "%e\t%M\t%P" cytozip aggregate -I test.cz -O test_gene.cz \
+		-s mm10_with_chrL.allc.genes_flank2k.index
+
+	Parameters
+	----------
+	input :
+	output :
+	index :
+	intersect :
+	exclude :
+	chunksize :
+	formats :
+
+	Returns
+	-------
+
+	"""
+	cz_path = os.path.abspath(os.path.expanduser(input))
+	index_path = os.path.abspath(os.path.expanduser(index))
+	index_reader = Reader(index_path)
+	reader = Reader(cz_path)
+	writer = Writer(output, formats=formats,
+					columns=reader.header['columns'],
+					dimensions=reader.header['dimensions'],
+					message=os.path.basename(index_path))
+	dtfuncs = get_dtfuncs(writer.formats)
+	for dim in reader.dim2chunk_start.keys():
+		if dim not in index_reader.dim2chunk_start.keys():
+			continue
+		print(dim)
+		IDs = index_reader.get_ids_from_index(dim)
+		# names=[str(record[0], 'utf-8').rstrip('\x00') for record in index_reader.__fetch__(dim, s=2, e=3)]
+		# if len(IDs.shape) == 1:
+		#     records = reader._getRecordsByIds(dim, IDs)
+		assert len(IDs.shape) == 2
+		records = reader._getRecordsByIdRegions(dim=dim, IDs=IDs)
+		data_parts, count = [], 0
+		st_reader = struct.Struct(f"<{reader.fmts}")
+		st_writer = struct.Struct(f"<{writer.fmts}")
+		agg_dtype = np.dtype(
+			[(f'f{i}', _fmt_to_np_dtype(f[-1])) for i, f in enumerate(reader.header['formats'])])
+		n_fields = len(reader.header['formats'])
+		for record in records:  # unpacked bytes, many values, zip with names
+			# record is an array, nrows, two columns (mc and cov)
+			# Bulk unpack all records in one pass and sum via numpy
+			if record:
+				raw = b''.join(record)
+				arr = np.frombuffer(raw, dtype=agg_dtype)
+				sum_v = tuple(int(arr[f'f{i}'].sum()) for i in range(n_fields))
+			else:
+				sum_v = tuple(0 for _ in reader.header['formats'])
+			data_parts.append(st_writer.pack(
+				*[func(v) for v, func in zip(sum_v, dtfuncs)]))
+			count += 1
+			if count > chunksize:
+				writer.write_chunk(b''.join(data_parts), dim)
+				data_parts, count = [], 0
+		if len(data_parts) > 0:
+			writer.write_chunk(b''.join(data_parts), dim)
+	writer.close()
+	reader.close()
+	index_reader.close()
+
+
+# ==========================================================
+# Methylation-specific operations (index_context, merge_cz, merge_cell_type,
+# call_peaks, to_bedgraph, combp, annot_dmr, WriteC, AllC, allc2cz, extractCG)
+# live in companion modules: allc.py, merge.py, dmr.py. This file is reserved
+# for the generic .cz format layer.
+# ==========================================================
+
+
 class Writer:
 	def __init__(self, output=None, mode="wb", formats=['B', 'B'],
 				 columns=['mc', 'cov'], dimensions=['chrom'],
 				 fileobj=None, message='', level=6, verbose=0,
-				 sort_col=None):
+				 sort_col=None, delta_cols=None):
 		"""
 		cytozip .cz writer.
 
@@ -2458,6 +2814,7 @@ class Writer:
 		"""
 		if output and fileobj:
 			raise ValueError("Supply either output or fileobj, not both")
+		_ensure_cz_accel()
 		if fileobj:  # write to an existed openned file object
 			if fileobj.read(0) != b"":
 				raise ValueError("fileobj not opened in binary mode")
@@ -2502,6 +2859,23 @@ class Writer:
 		else:
 			self._sort_col_fmt = self.formats[self.sort_col]
 			self._sort_col_size = struct.calcsize(self._sort_col_fmt)
+		# ---- resolve delta_cols ---------------------------------------------
+		# Columns stored with in-block difference coding. Encodes strictly-
+		# monotonic integer columns (typically ``pos``) as deltas so DEFLATE
+		# can compress the small residuals far more tightly than absolute
+		# 8-byte integers. Decoding requires one ``np.cumsum`` per delta
+		# column per block at read time (~25-30 µs per 65 KB block).
+		self._delta_cols = self._resolve_delta_cols(delta_cols)
+		if self._delta_cols:
+			# Record-aligned block size — each block holds an integral number
+			# of records so in-block delta transform has clean boundaries.
+			self._block_size = (_BLOCK_MAX_LEN // self._unit_size_of_formats()) * self._unit_size_of_formats()
+			self._delta_np_dtype = _build_record_dtype(self.formats)
+			self._delta_col_names = tuple(f'f{i}' for i in self._delta_cols)
+		else:
+			self._block_size = _BLOCK_MAX_LEN
+			self._delta_np_dtype = None
+			self._delta_col_names = ()
 		# ---------------------------------------------------------------------
 		self._magic_size = len(_cz_magic)
 		self.verbose = verbose
@@ -2561,6 +2935,39 @@ class Writer:
 				f"first_coords index requires an integer type.")
 		return idx
 
+	def _unit_size_of_formats(self):
+		"""Return the packed byte-width of one complete record."""
+		return struct.calcsize(''.join(self.formats))
+
+	def _resolve_delta_cols(self, delta_cols):
+		"""Normalize the delta_cols argument to a sorted tuple of int indices.
+
+		Accepts ``None`` / empty, a list of column names, a list of int
+		indices, or a mixed list. Validates that each referenced column has
+		an integer format (DELTA only applies to integer columns).
+		"""
+		if delta_cols is None:
+			return ()
+		if isinstance(delta_cols, (str, int)):
+			delta_cols = [delta_cols]
+		idxs = []
+		for c in delta_cols:
+			if isinstance(c, str):
+				if c not in self.columns:
+					raise ValueError(f"delta_cols entry {c!r} not in columns {self.columns}")
+				idx = self.columns.index(c)
+			else:
+				idx = int(c)
+			if idx < 0 or idx >= len(self.formats):
+				raise ValueError(
+					f"delta_cols idx {idx} out of range for {len(self.formats)} columns")
+			if self.formats[idx][-1] not in _INTEGER_FMTS:
+				raise ValueError(
+					f"delta_cols entry {self.columns[idx]!r} has non-integer "
+					f"format {self.formats[idx]!r}; DELTA requires integer")
+			idxs.append(idx)
+		return tuple(sorted(set(idxs)))
+
 	def write_header(self):
 		"""Write the .cz file header.
 
@@ -2603,6 +3010,12 @@ class Writer:
 		# without disturbing this byte. See Reader.read_header for semantics.
 		sort_col_byte = _NO_SORT_COL if self.sort_col is None else int(self.sort_col)
 		f.write(struct.pack("<B", sort_col_byte))
+		# Per-column storage-encoding table: 1-byte count followed by pairs
+		# of (col_idx, enc_code). Columns not listed default to RAW. Readers
+		# need this table to know which columns to cumsum after decompression.
+		f.write(struct.pack("<B", len(self._delta_cols)))
+		for idx in self._delta_cols:
+			f.write(struct.pack("<BB", idx, _ENC_DELTA))
 		self._n_dim_offset = f.tell()
 		# when a new dim is added, go back here and rewrite the n_dim (1byte)
 		f.write(struct.pack("<B", len(self.dimensions)))  # 1byte
@@ -2635,6 +3048,22 @@ class Writer:
 		  5. Record the virtual offset of this block's first record in
 		     ``self._block_1st_record_virtual_offsets`` for the chunk index.
 		"""
+		# Apply in-place delta encoding on the designated integer columns
+		# before DEFLATE. Blocks written for delta files are record-aligned
+		# (see self._block_size) so each block holds exactly n_rec complete
+		# records starting at byte 0 — no partial records to preserve.
+		if self._delta_cols and len(block) >= self._unit_size:
+			n_rec = len(block) // self._unit_size
+			body_len = n_rec * self._unit_size
+			arr = np.frombuffer(block, dtype=self._delta_np_dtype,
+			                    count=n_rec).copy()
+			if n_rec > 1:
+				for name in self._delta_col_names:
+					arr[name][1:] = np.diff(arr[name])
+			if body_len == len(block):
+				block = arr.tobytes()
+			else:
+				block = arr.tobytes() + bytes(block[body_len:])
 		compressed = self._compress(block, self.level)
 		bsize = _struct_H.pack(len(compressed) + 6)
 		# block size: magic (2 btyes) + block_size (2bytes) + compressed data +
@@ -2767,13 +3196,13 @@ class Writer:
 			self._block_1st_record_virtual_offsets = []
 			self._block_first_coords = []
 
-		if len(self._buffer) + len(data) < _BLOCK_MAX_LEN:
+		if len(self._buffer) + len(data) < self._block_size:
 			self._buffer.extend(data)
 		else:
 			self._buffer.extend(data)
-			while len(self._buffer) >= _BLOCK_MAX_LEN:
-				self._write_block(bytes(self._buffer[:_BLOCK_MAX_LEN]))
-				del self._buffer[:_BLOCK_MAX_LEN]
+			while len(self._buffer) >= self._block_size:
+				self._write_block(bytes(self._buffer[:self._block_size]))
+				del self._buffer[:self._block_size]
 
 	def _parse_input_no_ref(self, input_handle):
 		"""Generator that parses input data (DataFrame or file) into
@@ -3015,6 +3444,15 @@ class Writer:
 					f"sort_col mismatch: writer={self.sort_col}, "
 					f"{file_path}={reader.sort_col}. Cannot cat files with "
 					f"different sort_col settings.")
+			# Enforce matching delta_cols so that delta-encoded block bytes
+			# carry the same decode semantics in the merged output. We copy
+			# chunks verbatim (no re-encode), so the encoding table must match.
+			if tuple(reader._delta_cols) != tuple(self._delta_cols):
+				reader.close()
+				raise ValueError(
+					f"delta_cols mismatch: writer={list(self._delta_cols)}, "
+					f"{file_path}={list(reader._delta_cols)}. Cannot cat files "
+					f"with different DELTA encoding.")
 			# data_size = reader.header['total_size'] - reader.header['header_size']
 			chunks = reader.get_chunks()
 			(start_offset, chunk_size, dims, data_len,
@@ -3059,10 +3497,20 @@ class Writer:
 						f"<{len(first_coords)}{self._sort_col_fmt}",
 						*first_coords))
 				# rewrite the new dim onto the tail of chunk
-				for dim in dims + tuple(new_dim):
+				merged_dims = list(dims) + list(new_dim)
+				for dim in merged_dims:
 					dim_bytes = dim.encode('utf-8')
 					self._handle.write(_struct_B.pack(len(dim_bytes)))
 					self._handle.write(dim_bytes)
+				# Record chunk info so the CZIX chunk index can be written
+				# at EOF, giving O(1) open/query for the merged output.
+				self._chunk_index_entries.append({
+					'dims': merged_dims,
+					'start': new_chunk_start_offset,
+					'size': chunk_size,
+					'data_len': data_len,
+					'nblocks': nblocks,
+				})
 				# print(dim_len,dim)
 				# read next chunk
 				try:
@@ -3072,6 +3520,9 @@ class Writer:
 				except:
 					break
 			reader.close()
+		# Write the CZIX chunk index so the merged output is also openable
+		# in O(1) (mirrors what Writer.close() does for normal writes).
+		self._write_chunk_index()
 		self._write_total_size_eof_close()
 
 	def flush(self):
