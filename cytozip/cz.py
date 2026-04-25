@@ -639,6 +639,16 @@ class RemoteFile:
 		return self._size
 
 
+
+
+def _resolve_ref_path(reference):
+	"""Normalize a .cz reference path: pass HTTP(S) URLs through unchanged,
+	otherwise expand ~ and resolve to an absolute filesystem path."""
+	if isinstance(reference, str) and reference.startswith(('http://', 'https://')):
+		return reference
+	return os.path.abspath(os.path.expanduser(reference))
+
+
 # ==========================================================
 class Reader:
 	"""Reader for .cz (ChunkZIP) files.
@@ -1367,7 +1377,7 @@ class Reader:
 
 		ref_reader = None
 		if not reference is None:
-			reference = os.path.abspath(os.path.expanduser(reference))
+			reference = _resolve_ref_path(reference)
 			ref_reader = Reader(reference)
 		if not show_dims is None:
 			header_columns = [self.header['chunk_keys'][t] for t in show_dims]
@@ -1562,7 +1572,7 @@ class Reader:
 
 		ref_reader = None
 		if reference is not None:
-			reference = os.path.abspath(os.path.expanduser(reference))
+			reference = _resolve_ref_path(reference)
 			ref_reader = Reader(reference)
 
 		# ---- Build numpy structured dtypes for zero-copy decoding ---------
@@ -1807,7 +1817,7 @@ class Reader:
 			for record in self._getRecordsByIds(dim, IDs):
 				yield self._byte2real(self._struct_obj.unpack(record))
 		else:
-			ref_reader = Reader(os.path.abspath(os.path.expanduser(reference)))
+			ref_reader = Reader(_resolve_ref_path(reference))
 			ref_records = ref_reader._getRecordsByIds(dim=dim, IDs=IDs)
 			records = self._getRecordsByIds(dim=dim, IDs=IDs)
 			for ref_record, record in zip(ref_records, records):
@@ -1866,7 +1876,7 @@ class Reader:
 				yield np.array([self._byte2real(self._struct_obj.unpack(
 					record)) for record in records])
 		else:
-			ref_reader = Reader(os.path.abspath(os.path.expanduser(reference)))
+			ref_reader = Reader(_resolve_ref_path(reference))
 			ref_records = ref_reader._getRecordsByIdRegions(dim=dim, IDs=IDs)
 			records = self._getRecordsByIdRegions(dim=dim, IDs=IDs)
 			for ref_records, records in zip(ref_records, records):
@@ -1887,7 +1897,7 @@ class Reader:
 			IDs = index_reader.get_ids_from_index(dim)
 			index_reader.close()
 		if not reference is None:
-			ref_reader = Reader(os.path.abspath(os.path.expanduser(reference)))
+			ref_reader = Reader(_resolve_ref_path(reference))
 			ref_header = ref_reader.header['columns']
 			ref_reader.close()
 		else:
@@ -2365,7 +2375,7 @@ class Reader:
 			else:
 				return self._query_iter(regions, s, e)
 		else:
-			reference = os.path.abspath(os.path.expanduser(reference))
+			reference = _resolve_ref_path(reference)
 			ref_reader = Reader(reference)
 			header = (self.header['chunk_keys'] + ref_reader.header['columns']
 					  + self.header['columns'])
