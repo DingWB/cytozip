@@ -27,6 +27,7 @@ import os
 import sys
 import struct
 import multiprocessing
+from loguru import logger
 from .cz import (Reader, Writer, get_dtfuncs,
                  _STRUCT_TO_NP_DTYPE, _fmt_to_np_dtype,
                  _all_numeric_formats, _pack_chunk_data,
@@ -56,9 +57,9 @@ def WriteC(record, outdir, batch_size=5000, delta_cols=None):
     chrom = record.id
     output = os.path.join(outdir, chrom + ".cz")
     if os.path.exists(output):
-        print(f"{output} existed, skip.")
+        logger.info(f"{output} existed, skip.")
         return None
-    print(chrom)
+    logger.debug(chrom)
     writer = Writer(output, formats=['Q', 'c', '3s'],
                     columns=['pos', 'strand', 'context'],
                     chunk_dims=['chrom'], sort_col='pos',
@@ -227,12 +228,12 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
 
     """
     if os.path.exists(output):
-        print(f"{output} existed, skip.")
+        logger.info(f"{output} existed, skip.")
         return
     allc_path = os.path.abspath(os.path.expanduser(input))
     if not os.path.exists(allc_path + '.tbi'):
         raise ValueError(f"index file .tbi not existed, please create index first.")
-    print(allc_path)
+    logger.info(allc_path)
     import pysam
     tbi = pysam.TabixFile(allc_path)
     contigs = tbi.contigs
@@ -266,6 +267,10 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
 
     if not reference is None:
         ref_reader = Reader(reference)
+        # Hint the kernel to evict pages we've already walked. Without
+        # this, sequentially reading every chunk of a multi-GB ref
+        # (e.g. mm10 at ~1.3 GB) would pin the whole file in our RSS.
+        ref_reader.advise_sequential()
         # Build a numpy structured dtype from the reference file's column
         # formats so we can bulk-read reference positions via np.frombuffer
         # instead of iterating record-by-record in Python.
@@ -317,6 +322,9 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                 for ci in range(len(usecols)):
                     out[f'f{ci}'][matched_ref_idx] = query_cols[ci][valid]
                 _write_np_chunks(writer, out, chrom, batch_size, unit_size)
+                # Done with this chrom's ref pages: hand them back to
+                # the kernel so they don't accumulate in RSS.
+                ref_reader.release_chunk(tuple([chrom]))
         else:
             # Fallback: non-numeric formats, use original per-row logic
             dtfuncs = get_dtfuncs(formats, tobytes=False)

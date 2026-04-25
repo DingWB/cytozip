@@ -51,7 +51,7 @@ os.environ["PATH"] = YAP_BIN + os.pathsep + os.environ.get("PATH", "")
 
 _ALLC_CALL = (
     "from ALLCools._bam_to_allc import bam_to_allc; "
-    "bam_to_allc(bam_path={bam!r}, genome={fa!r}, "
+    "bam_to_allc(bam_path={bam!r}, reference_fasta={fa!r}, "
     "output_path={out!r}, cpu=1, num_upstr_bases=0, num_downstr_bases=2, "
     "min_mapq=10, min_base_quality=20, compress_level=5)"
 )
@@ -116,6 +116,13 @@ def bench_one(bam_path: str) -> dict:
     r_c = _time_child([PY, "-c", _CZ_CALL.format(
         bam=str(bam), fa=str(REF_FA), out=str(cz_out), ref=str(REF_CZ))])
 
+    if not r_a["ok"]:
+        print(f"[bench][WARN] {cid}: ALLCools failed:\n{r_a['stderr_tail']}",
+              file=sys.stderr, flush=True)
+    if not r_c["ok"]:
+        print(f"[bench][WARN] {cid}: cytozip failed:\n{r_c['stderr_tail']}",
+              file=sys.stderr, flush=True)
+
     return dict(
         cell=cid,
         bam=bam.name,
@@ -131,7 +138,7 @@ def bench_one(bam_path: str) -> dict:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("-j", "--jobs", type=int, default=9,
+    ap.add_argument("-j", "--jobs", type=int, default=20,
                     help="parallel BAMs (each worker uses ~2 CPUs serially)")
     ap.add_argument("--ref_threads", type=int, default=20,
                     help="threads for build_ref if reference .cz is missing")

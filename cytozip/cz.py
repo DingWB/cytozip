@@ -41,11 +41,7 @@ import mmap
 from builtins import open as _open
 import gzip
 import math
-import logging
-
-# stdlib logging is used instead of loguru — saves ~48 ms at cold CLI start.
-# The module only emits a single warning when Cython accelerators are missing.
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +183,12 @@ def _ensure_cz_accel():
 	g['_c_load_bcz_block'] = getattr(_a, 'load_bcz_block', None)
 	g['_c_compress_block'] = getattr(_a, 'compress_block', None)
 	g['_c_unpack_records'] = getattr(_a, 'unpack_records', None)
+	# Rebind the public dispatcher so callers transparently use the
+	# Cython implementation. Without this the module-level binding
+	# (line ~340 below) stays pinned to the pure-Python fallback because
+	# it was assigned at import time, before this lazy-load ran.
+	if g['_c_load_bcz_block'] is not None:
+		g['_load_bcz_block'] = g['_c_load_bcz_block']
 	for _n in (
 		'c_read', 'c_readline', 'c_pos2id', 'c_read_1record',
 		'c_seek_and_read_1record', 'c_query_regions', 'c_query_regions_flat',
@@ -769,7 +771,10 @@ class Reader:
 		if magic != _cz_magic:
 			raise ValueError("Not a right format?")
 		self.header['magic'] = magic
-		self.header['version'] = struct.unpack("<f", f.read(4))[0]
+		# Version is stored as 4-byte float32, which cannot represent values
+		# like 0.3 exactly (readback -> 0.30000001192092896). Round to 2
+		# decimals so header display matches the semantic version.
+		self.header['version'] = round(struct.unpack("<f", f.read(4))[0], 2)
 		total_size = struct.unpack("<Q", f.read(8))[0]
 		if total_size == 0:
 			raise ValueError("File not completed !")
@@ -1663,7 +1668,7 @@ class Reader:
 	@staticmethod
 	def build_region_index_worker(input, output, dim, df1, formats, columns, chunk_dims,
 						   batch_size):
-		print(dim)
+		logger.debug(dim)
 		reader = Reader(input)
 		positions = df1.loc[:, ['start', 'end']].values.tolist()
 		records = reader.pos2id(dim, positions, col_to_query=0)
@@ -1741,7 +1746,7 @@ class Reader:
 		data_parts = []
 		_ssi_pack = struct.Struct(f"<{writer.fmts}").pack
 		for dim in self.chunk_key2offset:
-			print(dim)
+			logger.debug(dim)
 			for i, record in enumerate(self.__fetch__(dim)):
 				if match_func(record):
 					data_parts.append(_ssi_pack(i + 1))
@@ -2592,6 +2597,68 @@ class Reader:
 
 		return result
 
+	def advise_sequential(self):
+		"""Hint the kernel that this file will be read sequentially.
+
+		When the file is mmap-backed (the default for local paths), this
+		issues ``madvise(MADV_SEQUENTIAL)`` so the kernel aggressively
+		evicts pages already read.  Without this hint, walking a
+		multi-GB ``.cz`` (e.g. the mm10 ref ~1.3 GB) keeps every touched
+		page in the process resident set; on 64-bit Linux the entire
+		file ends up counted against ``VmRSS``.
+
+		Safe no-op for non-mmap handles (remote, fileobj, fallback).
+		"""
+		mm = getattr(self, "_mm", None)
+		if mm is None:
+			return
+		try:
+			mm.madvise(mmap.MADV_SEQUENTIAL)
+		except (AttributeError, OSError, ValueError):
+			pass
+
+	def release_chunk(self, dim):
+		"""Release pages backing chunk *dim* via ``madvise(MADV_DONTNEED)``.
+
+		Use after a sequential walk has consumed the chunk and the data
+		is not needed in memory anymore.  This drops the mmap's clean
+		file-backed pages for the chunk's byte range, returning that
+		memory to the kernel.  Subsequent reads of the same range will
+		simply re-fault from disk (read-only mmap, so safe).
+
+		Parameters
+		----------
+		dim : tuple
+			Chunk key, as in :attr:`chunk_key2offset`.
+		"""
+		mm = getattr(self, "_mm", None)
+		if mm is None:
+			return
+		off = self.chunk_key2offset.get(dim)
+		if off is None:
+			return
+		# Find this chunk's end == next chunk's start (in file order).
+		# chunk_key2offset is dict insertion-ordered to match on-disk
+		# layout, so iterate until we find dim, then take next.
+		end = None
+		next_one = False
+		for k, v in self.chunk_key2offset.items():
+			if next_one:
+				end = v
+				break
+			if k == dim:
+				next_one = True
+		if end is None:
+			end = len(mm)
+		try:
+			page = mmap.PAGESIZE
+			start = (off // page) * page
+			length = end - start
+			if length > 0:
+				mm.madvise(mmap.MADV_DONTNEED, start, length)
+		except (AttributeError, OSError, ValueError):
+			pass
+
 	def close(self):
 		"""Close BGZF file."""
 		self._handle.close()
@@ -2732,7 +2799,7 @@ def extract(input=None, output=None, index=None, batch_size=5000):
 					message=index)
 	# dtfuncs = get_dtfuncs(writer.formats)
 	for dim in reader.chunk_key2offset.keys():
-		print(dim)
+		logger.debug(dim)
 		IDs = index_reader.get_ids_from_index(dim)
 		if len(IDs.shape) != 1:
 			raise ValueError("Only support 1D index now!")
@@ -2817,7 +2884,7 @@ def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 	for dim in reader.chunk_key2offset.keys():
 		if dim not in index_reader.chunk_key2offset.keys():
 			continue
-		print(dim)
+		logger.debug(dim)
 		IDs = index_reader.get_ids_from_index(dim)
 		# names=[str(record[0], 'utf-8').rstrip('\x00') for record in index_reader.__fetch__(dim, s=2, e=3)]
 		# if len(IDs.shape) == 1:
@@ -3412,7 +3479,7 @@ class Writer:
 			if not os.path.exists(input_path):
 				raise ValueError("Unknown format for input")
 			if os.path.exists(input_path + '.tbi'):
-				print("Please use allc2cz command to convert input to .cz.")
+				logger.info("Please use allc2cz command to convert input to .cz.")
 				return
 			else:
 				data_generator = self._parse_input_no_ref(input_path)
@@ -3515,7 +3582,7 @@ class Writer:
 			# creating a dict, keys are file base name, value are full path
 			path_map = {os.path.basename(inp)[:-3]: inp for inp in input}
 			if self.verbose > 0:
-				print(path_map)
+				logger.debug(path_map)
 			if isinstance(chunk_order, str):
 				# read each file from path containing file basename
 				chunk_order = pd.read_csv(os.path.abspath(os.path.expanduser(chunk_order)),
@@ -3526,7 +3593,7 @@ class Writer:
 			else:
 				raise ValueError("input of chunk_order is not corrected !")
 		if self.verbose > 0:
-			print(input)
+			logger.debug(input)
 		self.new_dim_creator = None
 		if add_key != False:  # add filename as another chunk_key.
 			if add_key == True:

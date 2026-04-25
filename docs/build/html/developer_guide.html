@@ -1,0 +1,479 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Developer Guide &mdash; cytozip 0.3.0.dev8 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css?v=e72958e9" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=161b7e8c" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=4c55ca21"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/js/rtd_search_config.js?v=b0596c34"></script>
+      <script src="_static/js/rtd_sphinx_search.min.js?v=5e065386"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Benchmark" href="benchmark.html" />
+    <link rel="prev" title="Under Development" href="dev.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            cytozip
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quick_start.html">Quick Started</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dnam.html">DNA methylation data</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dev.html">Under Development</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Developer Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#architecture-overview">Architecture overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-map">Module map</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-memory-patterns">Performance / memory patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#building-the-docs-locally">Building the docs locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">Benchmark</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="benchmark.html#storage">1.Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cytozip.html">cytozip package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cytozip.html#submodules">Submodules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.allc.html">cytozip.allc module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.cz.html">cytozip.cz module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.batch_fetch"><code class="docutils literal notranslate"><span class="pre">Reader.batch_fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.build_context_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_context_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.build_region_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.build_region_index_worker"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index_worker()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fetchByStartID"><code class="docutils literal notranslate"><span class="pre">Reader.fetchByStartID()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fileno"><code class="docutils literal notranslate"><span class="pre">Reader.fileno()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.getRecordsByIdRegions"><code class="docutils literal notranslate"><span class="pre">Reader.getRecordsByIdRegions()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.getRecordsByIds"><code class="docutils literal notranslate"><span class="pre">Reader.getRecordsByIds()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.isatty"><code class="docutils literal notranslate"><span class="pre">Reader.isatty()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.seekable"><code class="docutils literal notranslate"><span class="pre">Reader.seekable()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.to_allc"><code class="docutils literal notranslate"><span class="pre">Reader.to_allc()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.fileno"><code class="docutils literal notranslate"><span class="pre">Writer.fileno()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.isatty"><code class="docutils literal notranslate"><span class="pre">Writer.isatty()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.seekable"><code class="docutils literal notranslate"><span class="pre">Writer.seekable()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cytozip.html#module-cytozip">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="setup.html">setup module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">cytozip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Developer Guide</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/developer_guide.md" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="developer-guide">
+<h1>Developer Guide<a class="headerlink" href="#developer-guide" title="Link to this heading"></a></h1>
+<p>A high-level map of the cytozip codebase for contributors. The goal of this
+page is to make it possible to find your way around the package without
+reading every line — for the API reference see the <em>modules</em> page.</p>
+<section id="architecture-overview">
+<h2>Architecture overview<a class="headerlink" href="#architecture-overview" title="Link to this heading"></a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file is a columnar, chunk-based binary format for tabular genomics
+data (e.g. <code class="docutils literal notranslate"><span class="pre">allc</span></code> methylation tables). The on-disk layout is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Header</span><span class="p">]</span> <span class="p">[</span><span class="n">Chunk</span> <span class="mi">0</span><span class="p">]</span> <span class="p">[</span><span class="n">Chunk</span> <span class="mi">1</span><span class="p">]</span> <span class="o">...</span> <span class="p">[</span><span class="n">Chunk</span> <span class="n">N</span><span class="p">]</span> <span class="p">[</span><span class="n">ChunkIndex</span><span class="p">]</span> <span class="p">[</span><span class="n">EOF</span> <span class="n">marker</span><span class="p">]</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>Header</strong> — magic, version, total size, message, per-column format
+strings (<code class="docutils literal notranslate"><span class="pre">struct</span></code>-compatible), column names, chunk-key names.</p></li>
+<li><p><strong>Chunk</strong> — one logical group of records that share the same chunk-key
+values (e.g. a single chromosome). Internally split into independently
+compressed <em>blocks</em> of at most 65535 raw bytes (raw DEFLATE).</p></li>
+<li><p><strong>Chunk tail</strong> — appended after the last block of a chunk; contains
+the per-block virtual offsets and chunk-key values.</p></li>
+<li><p><strong>Chunk index</strong> — appended at end-of-file before the EOF marker so HTTP
+/ remote readers can locate any chunk in O(1) without scanning the
+whole file.</p></li>
+<li><p><strong>EOF marker</strong> — 28-byte sentinel borrowed from BGZF.</p></li>
+</ul>
+<p>A <em>virtual offset</em> packs <code class="docutils literal notranslate"><span class="pre">(block_start</span> <span class="pre">&lt;&lt;</span> <span class="pre">16)</span> <span class="pre">|</span> <span class="pre">within_block_offset</span></code> into
+a single 64-bit integer, providing O(1) random access to any record.</p>
+<p>Strictly-monotonic integer columns (typically genomic positions) can be
+stored with <strong>delta encoding</strong> (<code class="docutils literal notranslate"><span class="pre">_ENC_DELTA</span></code>): within each block we store
+first-order differences, so DEFLATE compresses a <code class="docutils literal notranslate"><span class="pre">pos</span></code> column to a
+fraction of its raw size. Decoding is a single numpy <code class="docutils literal notranslate"><span class="pre">cumsum</span></code> per
+delta column per block.</p>
+</section>
+<section id="module-map">
+<h2>Module map<a class="headerlink" href="#module-map" title="Link to this heading"></a></h2>
+<p>| Module | Lines | Purpose |
+| — | — | — |
+| <code class="docutils literal notranslate"><span class="pre">cytozip/cz.py</span></code> | ~3800 | Core <code class="docutils literal notranslate"><span class="pre">Reader</span></code> / <code class="docutils literal notranslate"><span class="pre">Writer</span></code> and the on-disk format |
+| <code class="docutils literal notranslate"><span class="pre">cytozip/cz_accel.pyx</span></code> | — | Cython accelerators (libdeflate-backed block (de)compression, record packing, chunk index parser) |
+| <code class="docutils literal notranslate"><span class="pre">cytozip/bam.py</span></code> | ~720 | Pileup-based BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> methylation extraction |
+| <code class="docutils literal notranslate"><span class="pre">cytozip/allc.py</span></code> | ~520 | <code class="docutils literal notranslate"><span class="pre">allc.tsv(.gz)</span></code> ↔ <code class="docutils literal notranslate"><span class="pre">.cz</span></code> conversion |
+| <code class="docutils literal notranslate"><span class="pre">cytozip/dmr.py</span></code> | ~600 | DMR utilities: pseudo-reads BED, bedGraph export |
+| <code class="docutils literal notranslate"><span class="pre">cytozip/features.py</span></code> | ~1100 | Aggregation over genomic features → AnnData (gene/bin/peak by cell matrices) |
+| <code class="docutils literal notranslate"><span class="pre">cytozip/merge.py</span></code> | ~430 | Merge multiple <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files into one |
+| <code class="docutils literal notranslate"><span class="pre">cytozip/__init__.py</span></code> | ~590 | CLI entry point (<code class="docutils literal notranslate"><span class="pre">czip</span> <span class="pre">...</span></code>) |</p>
+<section id="cz-py-core-format">
+<h3><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format<a class="headerlink" href="#cz-py-core-format" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">Writer</span></code></strong> — open, accumulate records into the active block, flush
+full blocks (<code class="docutils literal notranslate"><span class="pre">_BLOCK_MAX_LEN</span> <span class="pre">=</span> <span class="pre">65535</span></code> raw bytes), close out the chunk
+with its tail when the chunk-key values change, write the chunk index</p>
+<ul>
+<li><p>EOF marker on <code class="docutils literal notranslate"><span class="pre">close()</span></code>.</p></li>
+</ul>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">Reader</span></code></strong> — <code class="docutils literal notranslate"><span class="pre">mmap</span></code>s the file, parses the header + chunk index,
+exposes <code class="docutils literal notranslate"><span class="pre">fetch_chunk_bytes</span></code>, <code class="docutils literal notranslate"><span class="pre">iter_blocks</span></code>, <code class="docutils literal notranslate"><span class="pre">get_record</span></code>, region
+queries, and <code class="docutils literal notranslate"><span class="pre">to_pandas()</span></code>. Hot paths dispatch to Cython (see
+<code class="docutils literal notranslate"><span class="pre">_ensure_cz_accel</span></code>).</p></li>
+<li><p><strong>Lazy modules</strong> — numpy / pandas are wrapped in <code class="docutils literal notranslate"><span class="pre">_LazyModule</span></code> so
+<code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">cytozip</span></code> and CLI subcommands like <code class="docutils literal notranslate"><span class="pre">czip</span> <span class="pre">header</span></code> start in
+~60 ms instead of ~130 ms.</p></li>
+<li><p><strong>Lazy Cython accelerators</strong> — every <code class="docutils literal notranslate"><span class="pre">_c_*</span></code> name in <code class="docutils literal notranslate"><span class="pre">cz.py</span></code> is bound
+to <code class="docutils literal notranslate"><span class="pre">None</span></code> at import time and swapped in by <code class="docutils literal notranslate"><span class="pre">_ensure_cz_accel()</span></code> on
+first use. The public <code class="docutils literal notranslate"><span class="pre">_load_bcz_block</span></code> alias is <em>re-bound</em> at that
+point so callers who captured it earlier do not get stuck on the pure-
+Python fallback.</p></li>
+<li><p><strong>mmap memory model</strong> — <code class="docutils literal notranslate"><span class="pre">Reader.__init__</span></code> calls <code class="docutils literal notranslate"><span class="pre">mmap.mmap(fd,</span> <span class="pre">0,</span> <span class="pre">PROT_READ)</span></code>. Sequential reads fault every page into RSS; for a 1.3 GB
+reference this can pin &gt;2 GB. Two helpers are exposed:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code> — <code class="docutils literal notranslate"><span class="pre">madvise(MADV_SEQUENTIAL)</span></code> over the
+whole map; call this once for whole-file walks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk(dim)</span></code> — finds the chunk’s exact byte range
+(next chunk’s offset, or EOF) and <code class="docutils literal notranslate"><span class="pre">madvise(MADV_DONTNEED)</span></code> only
+that range. Call after you finish a chunk so the kernel reclaims
+its file pages.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="cz-accel-pyx-cython-hot-paths">
+<h3><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths<a class="headerlink" href="#cz-accel-pyx-cython-hot-paths" title="Link to this heading"></a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">cytozip.cz_accel</span></code> imports successfully, the following functions
+move into pure C / libdeflate:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">load_bcz_block</span></code> — read + decompress one block into a Python <code class="docutils literal notranslate"><span class="pre">bytes</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compress_block</span></code> / <code class="docutils literal notranslate"><span class="pre">pack_records[_fast]</span></code> — Writer-side hot paths.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">unpack_records</span></code> / <code class="docutils literal notranslate"><span class="pre">read_1record</span></code> / <code class="docutils literal notranslate"><span class="pre">seek_and_read_1record</span></code> —
+zero-copy record extraction.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">query_regions[_flat]</span></code> — region-based scans.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">parse_czix</span></code> — chunk-index parser.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">extract_c_positions</span></code> / <code class="docutils literal notranslate"><span class="pre">write_c_records</span></code> — methylation-specific
+fast paths used by <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code> and <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code>.</p></li>
+</ul>
+<p>If the extension is not built, callers transparently fall back to
+pure-Python implementations.</p>
+</section>
+<section id="bam-py-bam-cz">
+<h3><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code><a class="headerlink" href="#bam-py-bam-cz" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">bam_to_cz(bam_path,</span> <span class="pre">genome,</span> <span class="pre">output,</span> <span class="pre">mode,</span> <span class="pre">...)</span></code> is the entry point.
+It runs <code class="docutils literal notranslate"><span class="pre">samtools</span> <span class="pre">mpileup</span> <span class="pre">-B</span> <span class="pre">-f</span> <span class="pre">&lt;fa&gt;</span> <span class="pre">&lt;bam&gt;</span></code> as a subprocess and parses
+each line into per-context (mc, cov) counts.</p>
+<p>Three output <strong>modes</strong>:</p>
+<p>| Mode | Stored columns | Use case |
+| — | — | — |
+| <code class="docutils literal notranslate"><span class="pre">full</span></code> | <code class="docutils literal notranslate"><span class="pre">pos,</span> <span class="pre">strand,</span> <span class="pre">context,</span> <span class="pre">mc,</span> <span class="pre">cov</span></code> | Drop-in <code class="docutils literal notranslate"><span class="pre">allc.tsv</span></code> replacement |
+| <code class="docutils literal notranslate"><span class="pre">pos_mc_cov</span></code> | <code class="docutils literal notranslate"><span class="pre">pos,</span> <span class="pre">mc,</span> <span class="pre">cov</span></code> | Position retained, context discarded |
+| <code class="docutils literal notranslate"><span class="pre">mc_cov</span></code> | <code class="docutils literal notranslate"><span class="pre">mc,</span> <span class="pre">cov</span></code> | Aligned 1-to-1 with a reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code>; missing sites filled with <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">0)</span></code>. Smallest output. |</p>
+<p>The reverse-complement of the context window for G sites is computed
+with <code class="docutils literal notranslate"><span class="pre">seq[lo:hi].translate(_RC_TABLE)[::-1]</span></code> — a C-level path that is
+~30× faster than <code class="docutils literal notranslate"><span class="pre">&quot;&quot;.join(_COMPLEMENT[b]</span> <span class="pre">for</span> <span class="pre">b</span> <span class="pre">in</span> <span class="pre">reversed(...))</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">_LazyRefPositions</span></code> wraps the reference reader so that, for <code class="docutils literal notranslate"><span class="pre">mode='mc_cov'</span></code>,
+positions for one chromosome can be streamed block by block instead of
+materialising the full uint32 array (~316 MB for mm10 chr1). It calls
+<code class="docutils literal notranslate"><span class="pre">reader.advise_sequential()</span></code> once and <code class="docutils literal notranslate"><span class="pre">reader.release_chunk(dim)</span></code> after
+each chrom to keep RSS flat.</p>
+</section>
+<section id="allc-py-allc-table-i-o">
+<h3><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O<a class="headerlink" href="#allc-py-allc-table-i-o" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">allc2cz(allc_path,</span> <span class="pre">output,</span> <span class="pre">...)</span></code> — read an <code class="docutils literal notranslate"><span class="pre">allc.tsv(.gz)</span></code> and write
+a <code class="docutils literal notranslate"><span class="pre">.cz</span></code>. Has a numpy fast path that batches per-chrom records before
+calling the Cython packer; same <code class="docutils literal notranslate"><span class="pre">advise_sequential</span></code> /
+<code class="docutils literal notranslate"><span class="pre">release_chunk</span></code> discipline as <code class="docutils literal notranslate"><span class="pre">bam.py</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cz2allc(cz_path,</span> <span class="pre">output,</span> <span class="pre">...)</span></code> — inverse direction.</p></li>
+</ul>
+</section>
+<section id="dmr-py-pseudo-reads-bedgraph">
+<h3><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph<a class="headerlink" href="#dmr-py-pseudo-reads-bedgraph" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">make_pseudo_reads_bed</span></code> — turns a <code class="docutils literal notranslate"><span class="pre">.cz</span></code> into the per-cell pseudo-reads
+BED format consumed by methylpy.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">to_bedgraph</span></code> — collapses a <code class="docutils literal notranslate"><span class="pre">.cz</span></code> into a bedGraph track for genome
+browsers.</p></li>
+</ul>
+<p>Both walk per-chromosome blocks against a reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code>; both call
+<code class="docutils literal notranslate"><span class="pre">advise_sequential()</span></code> + <code class="docutils literal notranslate"><span class="pre">release_chunk(dim)</span></code> after each chrom.</p>
+</section>
+<section id="features-py-anndata-aggregation">
+<h3><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation<a class="headerlink" href="#features-py-anndata-aggregation" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">cz_to_anndata(...)</span></code> aggregates one or many <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files over a feature
+table (genes, fixed-width bins, peaks, …). Outputs an AnnData with
+<code class="docutils literal notranslate"><span class="pre">mc</span></code> and <code class="docutils literal notranslate"><span class="pre">cov</span></code> layers. The chrom axis of the feature index is auto-
+detected. For multi-file runs the aggregation is parallelised through
+a multiprocessing pool whose workers share the feature index via
+<code class="docutils literal notranslate"><span class="pre">_pool_init</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">make_genome_bins</span></code> produces a fixed-width bin BED-like dataframe
+(used as the feature input for whole-genome 5kb / 100kb runs).</p>
+</section>
+<section id="merge-py-merge-cz-files">
+<h3><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files<a class="headerlink" href="#merge-py-merge-cz-files" title="Link to this heading"></a></h3>
+<p>Streams multiple <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files into a single output, preserving chunk
+keys and column layout. Used to combine per-cell or per-chunk outputs.</p>
+</section>
+<section id="init-py-cli">
+<h3><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI<a class="headerlink" href="#init-py-cli" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">czip</span> <span class="pre">&lt;subcommand&gt;</span></code> is implemented here. Each subcommand is a thin
+argparse wrapper around one of the modules above
+(<code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code>, <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code>, <code class="docutils literal notranslate"><span class="pre">cz2allc</span></code>, <code class="docutils literal notranslate"><span class="pre">header</span></code>, <code class="docutils literal notranslate"><span class="pre">summary</span></code>, <code class="docutils literal notranslate"><span class="pre">merge</span></code>,
+<code class="docutils literal notranslate"><span class="pre">features</span></code>, <code class="docutils literal notranslate"><span class="pre">bedgraph</span></code>, …).</p>
+</section>
+</section>
+<section id="performance-memory-patterns">
+<h2>Performance / memory patterns<a class="headerlink" href="#performance-memory-patterns" title="Link to this heading"></a></h2>
+<p>A few patterns appear repeatedly in the codebase; following them keeps
+RSS predictable on whole-genome runs.</p>
+<ol>
+<li><p><strong>Slim copies from structured arrays.</strong> Slicing a column from a
+numpy structured-array view (<code class="docutils literal notranslate"><span class="pre">arr[blk]['pos']</span></code>) returns a <em>view</em>
+that pins the parent buffer. Always materialise with
+<code class="docutils literal notranslate"><span class="pre">.astype(np.uint32,</span> <span class="pre">copy=True)</span></code> if you intend to release the source
+block.</p></li>
+<li><p><strong>mmap discipline.</strong> For any whole-file walk:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span><span class="o">.</span><span class="n">advise_sequential</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">chroms</span><span class="p">:</span>
+    <span class="o">...</span><span class="n">consume</span> <span class="n">one</span> <span class="n">chrom</span><span class="o">...</span>
+    <span class="n">reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This is the only reliable way to keep the kernel from pinning the
+entire reference file in your RSS — <code class="docutils literal notranslate"><span class="pre">MALLOC_TRIM_THRESHOLD_</span></code>,
+<code class="docutils literal notranslate"><span class="pre">MALLOC_ARENA_MAX</span></code>, jemalloc and tcmalloc do <strong>not</strong> help, because
+mmap’d file pages are not allocator-managed.</p>
+</li>
+<li><p><strong>Packed buffers for per-record state.</strong> Per-chrom buffers in
+<code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> use <code class="docutils literal notranslate"><span class="pre">array.array('I'</span> <span class="pre">/</span> <span class="pre">'H')</span></code> rather than Python lists
+(~36 B per int object → 4 / 2 B per element).</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">malloc_trim(0)</span></code> after big drops.</strong> After releasing a chrom’s
+per-chrom buffers + ref slice, <code class="docutils literal notranslate"><span class="pre">bam.py</span></code> calls <code class="docutils literal notranslate"><span class="pre">libc.malloc_trim(0)</span></code>
+so glibc returns free’d top-of-heap pages to the kernel.</p></li>
+</ol>
+</section>
+<section id="building-the-docs-locally">
+<h2>Building the docs locally<a class="headerlink" href="#building-the-docs-locally" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs
+make<span class="w"> </span>html
+<span class="c1"># open docs/build/html/index.html</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">recommonmark</span></code> is enabled so this file (Markdown) and the existing
+<code class="docutils literal notranslate"><span class="pre">.rst</span></code> files build into the same Sphinx site. The HTML output is
+checked in under <code class="docutils literal notranslate"><span class="pre">docs/build/html</span></code> and surfaced via GitHub Pages from
+the <code class="docutils literal notranslate"><span class="pre">docs/</span></code> folder.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dev.html" class="btn btn-neutral float-left" title="Under Development" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="benchmark.html" class="btn btn-neutral float-right" title="Benchmark" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Wubin Ding.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-F0T1MBS19V', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

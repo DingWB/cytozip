@@ -32,6 +32,7 @@ import os
 import struct
 from typing import Iterable, List, Optional, Sequence, Union
 
+from loguru import logger
 import numpy as np
 import pandas as pd
 
@@ -857,9 +858,10 @@ def cz_to_anndata(
         keep_mask = _mask_features_by_blacklist(feat_df, bl_map)
         n_dropped = int((~keep_mask).sum())
         if n_dropped:
-            import sys as _sys
-            print(f"[cytozip] blacklist: dropped {n_dropped}/{len(feat_df)} "
-                  f"features overlapping blacklist", file=_sys.stderr)
+            logger.info(
+                f"[cytozip] blacklist: dropped {n_dropped}/{len(feat_df)} "
+                f"features overlapping blacklist"
+            )
             feat_df = feat_df.loc[keep_mask].reset_index(drop=True)
             n_feat = len(feat_df)
             # When tiled, blacklist breaks contiguity; force the slow

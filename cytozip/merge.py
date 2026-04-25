@@ -24,9 +24,23 @@ in the generic :mod:`cytozip.cz` format layer.
 import os
 import struct
 import math
+from loguru import logger
 import multiprocessing
 from .cz import (Reader, Writer, get_dtfuncs,
-                 _BLOCK_MAX_LEN, _chunk_magic, np, pd)
+                 _BLOCK_MAX_LEN, _chunk_magic, _NP_FMT_MAP, np, pd)
+
+
+# Per-format-char numpy max value (used to clip sums before packing).
+_NP_FMT_MAX = {
+    'B': 0xFF, 'H': 0xFFFF, 'I': 0xFFFFFFFF, 'L': 0xFFFFFFFF,
+    'Q': 0xFFFFFFFFFFFFFFFF, 'b': 0x7F, 'h': 0x7FFF,
+    'i': 0x7FFFFFFF, 'l': 0x7FFFFFFF, 'q': 0x7FFFFFFFFFFFFFFF,
+}
+
+
+def _structured_dtype_for(fmts):
+    """Build a numpy structured dtype tiling one record (numeric only)."""
+    return np.dtype([(f'f{i}', _NP_FMT_MAP[c]) for i, c in enumerate(fmts)])
 
 
 # ==========================================================
@@ -98,11 +112,22 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
             buf_parts.append(reader1._buffer)
             block_start_offset = None
         buffer = b''.join(buf_parts)
-        st_unpack = struct.Struct(f"<{reader1.fmts}")
-        values = np.array([result[:2] for result in st_unpack.iter_unpack(
-            buffer)])  # values for batch_nblock blocks
+        # Vectorised parse of (mc, cov) — replaces the per-record Python
+        # ``iter_unpack`` loop, which was the dominant cost in the worker.
+        # ``reader1.fmts`` is e.g. "HH" / "BB" for the input mc_cov layout.
+        in_fmts = reader1.fmts
+        in_dt = _structured_dtype_for(in_fmts)
+        rec = np.frombuffer(buffer, dtype=in_dt)
+        # Materialise as a 2-column int64 matrix so accumulation cannot
+        # overflow when summing thousands of cells.
+        values = np.empty((rec.size, 2), dtype=np.int64)
+        values[:, 0] = rec['f0']
+        values[:, 1] = rec['f1']
         if formats == 'fraction':
-            values = np.array([[0] if v[1] == 0 else ['%.3g' % (v[0] / v[1])] for v in values])
+            with np.errstate(divide='ignore', invalid='ignore'):
+                frac = np.where(values[:, 1] == 0, 0.0,
+                                values[:, 0] / values[:, 1])
+            values = np.array(['%.3g' % v for v in frac]).reshape(-1, 1)
         if data is None:
             data = values.copy()
         else:
@@ -128,17 +153,22 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
                      columns=reader1.header['columns'],
                      chunk_dims=reader1.header['chunk_dims'][:1],
                      message=outfile_cat)
-    data_parts, i = [], 0
-    dtfuncs = get_dtfuncs(writer1.formats)
-    for values in data.tolist():
-        data_parts.append(struct.pack(f"<{writer1.fmts}",
-                                 *[func(v) for v, func in zip(values, dtfuncs)]))
-        i += 1
-        if i > batch_size:
-            writer1.write_chunk(b''.join(data_parts), [chrom])
-            data_parts, i = [], 0
-    if len(data_parts) > 0:
-        writer1.write_chunk(b''.join(data_parts), [chrom])
+    # Vectorised pack: clip the int64 sums to the output dtype range,
+    # build a structured array, and emit one ``tobytes`` blob per
+    # ``batch_size`` records — replaces the per-record ``struct.pack``
+    # loop which dominated the writer cost on large merges.
+    out_fmts = ''.join(writer1.formats)
+    out_dt = _structured_dtype_for(out_fmts)
+    n = data.shape[0]
+    # Clip per output column to its dtype max (matches old per-record
+    # behaviour silently truncating overflow via struct).
+    col0 = np.clip(data[:, 0], 0, _NP_FMT_MAX[out_fmts[0]])
+    col1 = np.clip(data[:, 1], 0, _NP_FMT_MAX[out_fmts[1]])
+    out_arr = np.empty(n, dtype=out_dt)
+    out_arr['f0'] = col0
+    out_arr['f1'] = col1
+    for s in range(0, n, batch_size):
+        writer1.write_chunk(out_arr[s:s + batch_size].tobytes(), [chrom])
     writer1.close()
     reader1.close()
     return
@@ -210,7 +240,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
         class_groups = df_class.groupby('cell_class').sname.apply(
             lambda x: x.tolist()).to_dict()
         for key in class_groups:
-            print(key)
+            logger.info(key)
             cz_paths = [sname + ext for sname in class_groups[key]]
             merge_cz(indir, cz_paths, class_table=None,
                      output=None, prefix=f"{prefix}.{key}", threads=threads,
@@ -224,10 +254,10 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
             output = 'merged.cz' if formats not in ['fraction', '2D', 'fisher'] else 'merged.txt'
         else:
             output = f'{prefix}.cz' if formats not in ['fraction', '2D', 'fisher'] else f'{prefix}.txt'
-    print(output)
+    logger.info(output)
     output = os.path.abspath(os.path.expanduser(output))
     if os.path.exists(output):
-        print(f"{output} existed, skip.")
+        logger.info(f"{output} existed, skip.")
         return
     if cz_paths is None:
         cz_paths = [file for file in os.listdir(indir) if file.endswith(ext)]
@@ -357,9 +387,9 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
         if not reference is None:
             reference = os.path.abspath(os.path.expanduser(reference))
             reader = Reader(reference)
-        print("Merging chromosomes..")
+        logger.info("Merging chromosomes..")
         for chrom in chroms:
-            print(chrom, "\t" * 4, end='\r')
+            logger.debug(chrom)
             infile = os.path.join(outdir, f"{chrom}.{out_ext}")
             if not reference is None:
                 df_ref = pd.DataFrame([
@@ -384,11 +414,11 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     if not keep_cat:
         os.remove(outfile_cat)
     if not temp:
-        print(f"Removing temp dir {outdir}")
+        logger.info(f"Removing temp dir {outdir}")
         os.system(f"rm -rf {outdir}")
     if bgzip and not output.endswith(ext):
         cmd = f"bgzip {output} && tabix -S 1 -s 1 -b 2 -e 3 -f {output}.gz"
-        print(f"Run bgzip, CMD: {cmd}")
+        logger.info(f"Run bgzip, CMD: {cmd}")
         os.system(cmd)
 
 
@@ -408,9 +438,9 @@ def merge_cell_type(indir=None, cell_table=None, outdir=None,
     for ct in df_ct.ct.unique():
         output = os.path.join(outdir, ct + '.cz')
         if os.path.exists(output):
-            print(f"{output} existed.")
+            logger.info(f"{output} existed.")
             continue
-        print(ct)
+        logger.info(ct)
         snames = df_ct.loc[df_ct.ct == ct, 'cell'].tolist()
         cz_paths = [os.path.join(indir, sname + ext) for sname in snames]
         merge_cz(indir=indir, cz_paths=cz_paths, bgzip=False,

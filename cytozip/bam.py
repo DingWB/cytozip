@@ -43,16 +43,28 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from . import cz as _cz_mod
 from .cz import (
     Writer, Reader, _all_numeric_formats, _fmt_to_np_dtype,
+    _ensure_cz_accel,
     _write_np_chunks,
 )
+# Trigger Cython accel load so ``_cz_mod._load_bcz_block`` is the C
+# implementation (the symbol imported at module import time would be
+# pinned to the pure-Python fallback).
+_ensure_cz_accel()
 
 
 # ---------------------------------------------------------------------------
 # Helpers (ported / adapted from ALLCools._bam_to_allc)
 # ---------------------------------------------------------------------------
 _COMPLEMENT = {"A": "T", "T": "A", "C": "G", "G": "C", "N": "N"}
+# C-level translate table for reverse-complement of an ASCII string.
+# ``seq.translate(_RC_TABLE)[::-1]`` is ~30x faster than the Python
+# ``"".join(_COMPLEMENT[b] for b in reversed(seq))`` generator on the
+# small (3-9 base) context windows used here, because the inner loop
+# stays entirely in the CPython str fast path.
+_RC_TABLE = str.maketrans("ACGTN", "TGCAN")
 _MC_SITES = frozenset({"C", "G"})
 
 _VALID_MODES = ("full", "pos_mc_cov", "mc_cov")
@@ -161,38 +173,195 @@ def _layout_for_mode(mode, count_fmt="H"):
     raise ValueError(mode)
 
 
-def _load_reference_positions(reference):
-    """Return ``{chrom: np.ndarray(int64 positions)}`` from a reference .cz."""
-    r = Reader(reference)
-    try:
-        cols = r.header["columns"]
-        fmts = r.header["formats"]
+class _LazyRefPositions:
+    """On-demand loader for per-chrom position arrays from a reference .cz.
+
+    Avoids preloading the entire genome (mm10 ≈ 1.1e9 C sites ≈ 9 GB as
+    int64). Positions are decoded as ``uint32`` (fits any vertebrate
+    chromosome) and cached per chrom; call :meth:`drop` after the chrom
+    is flushed to release memory.
+    """
+
+    def __init__(self, reference):
+        self._reader = Reader(reference)
+        # Tell the kernel to evict pages we've already read; without
+        # this hint the entire ref file (~1.3 GB for mm10) ends up
+        # counted against our RSS as we walk every chrom.
+        self._reader.advise_sequential()
+        cols = self._reader.header["columns"]
+        fmts = self._reader.header["formats"]
         if "pos" not in cols:
             raise ValueError(
                 f"reference {reference} has no 'pos' column "
                 f"(columns={cols}); cannot use mode='mc_cov'."
             )
-        pos_i = cols.index("pos")
-        ref_record_dtype = np.dtype([
+        self._pos_i = cols.index("pos")
+        self._record_dtype = np.dtype([
             (f"c{i}",
              _fmt_to_np_dtype(f[-1]) if _fmt_to_np_dtype(f[-1])
              else f"S{struct.calcsize(f)}")
             for i, f in enumerate(fmts)
         ])
-        out = {}
-        chunk_dims = r.header["chunk_dims"]
-        chrom_idx = len(chunk_dims) - 1
-        for dim in r.chunk_key2offset.keys():
-            chrom = dim[chrom_idx]
-            raw = r.fetch_chunk_bytes(dim)
-            if not raw:
-                out[chrom] = np.empty(0, dtype=np.int64)
+        chunk_dims = self._reader.header["chunk_dims"]
+        self._chrom_idx = len(chunk_dims) - 1
+        # Map chrom -> chunk_dim_tuple for fast lookup.
+        self._chrom2dim = {
+            dim[self._chrom_idx]: dim
+            for dim in self._reader.chunk_key2offset.keys()
+        }
+        self._cache: dict = {}
+
+    def __contains__(self, chrom):
+        return chrom in self._chrom2dim
+
+    def get(self, chrom):
+        """Return uint32 position array for *chrom* (loads on first call).
+
+        Streams blocks from the chunk one at a time, extracting only the
+        ``pos`` column into a pre-allocated uint32 array.  This avoids
+        materialising the full decompressed chunk (which for mm10 chr1
+        is ~12 B/record × 1.3e8 = ~1.5 GB of struct bytes that would
+        only need ~520 MB once narrowed to uint32).
+        """
+        arr = self._cache.get(chrom)
+        if arr is not None:
+            return arr
+        dim = self._chrom2dim.get(chrom)
+        if dim is None:
+            return None
+        reader = self._reader
+        if not reader._load_chunk(reader.chunk_key2offset[dim], jump=False):
+            arr = np.empty(0, dtype=np.uint32)
+            self._cache[chrom] = arr
+            return arr
+        n_records = reader._chunk_data_len // reader._unit_size
+        if n_records == 0:
+            arr = np.empty(0, dtype=np.uint32)
+            self._cache[chrom] = arr
+            return arr
+        out = np.empty(n_records, dtype=np.uint32)
+        pos_field = f"c{self._pos_i}"
+        delta_pos_field = f"f{self._pos_i}"
+        record_dtype = self._record_dtype
+        delta_cols = reader._delta_cols
+        delta_col_names = reader._delta_col_names if delta_cols else ()
+        delta_np_dtype = reader._delta_np_dtype if delta_cols else None
+        unit_size = reader._unit_size
+        handle = reader._handle
+        # Skip chunk magic (2B) + chunk_size (8B) — blocks start at +10.
+        handle.seek(reader._chunk_start_offset + 10)
+        write_idx = 0
+        load_block = _cz_mod._load_bcz_block
+        for _ in range(reader._chunk_nblocks):
+            try:
+                _bsize, blk = load_block(handle, True)
+            except StopIteration:
+                break
+            if not blk:
                 continue
-            arr = np.frombuffer(raw, dtype=ref_record_dtype)
-            out[chrom] = arr[f"c{pos_i}"].astype(np.int64)
+            n_rec = len(blk) // unit_size
+            if n_rec == 0:
+                continue
+            if delta_cols:
+                # See note in iter_blocks(): only copy the pos column
+                # (uint32) to avoid a per-block full-record copy.
+                arr_blk = np.frombuffer(blk, dtype=delta_np_dtype, count=n_rec)
+                delta_pos = arr_blk[delta_pos_field].astype(out.dtype, copy=True)
+                del arr_blk
+                if n_rec > 1:
+                    np.cumsum(delta_pos, out=delta_pos)
+                out[write_idx:write_idx + n_rec] = delta_pos
+            else:
+                rec_view = np.frombuffer(blk, dtype=record_dtype, count=n_rec)
+                out[write_idx:write_idx + n_rec] = rec_view[pos_field]
+            write_idx += n_rec
+        if write_idx < n_records:
+            out = out[:write_idx]
+        self._cache[chrom] = out
         return out
-    finally:
-        r.close()
+
+    def drop(self, chrom):
+        self._cache.pop(chrom, None)
+        # Release the ref pages for this chunk back to the kernel.
+        # Without this, walking ~1.3 GB of mmap'd ref keeps every
+        # touched page in our RSS until the process exits.
+        dim = self._chrom2dim.get(chrom)
+        if dim is not None:
+            self._reader.release_chunk(dim)
+
+    def iter_blocks(self, chrom):
+        """Yield successive uint32 position arrays, one per stored block.
+
+        Avoids materialising the full chrom position array (which for
+        mm10 chr1 is ~316 MB).  The blocks are yielded in genomic order,
+        each block's positions are themselves sorted.
+
+        Yields
+        ------
+        np.ndarray of uint32
+        """
+        dim = self._chrom2dim.get(chrom)
+        if dim is None:
+            return
+        reader = self._reader
+        if not reader._load_chunk(reader.chunk_key2offset[dim], jump=False):
+            return
+        n_records = reader._chunk_data_len // reader._unit_size
+        if n_records == 0:
+            return
+        delta_pos_field = f"f{self._pos_i}"
+        pos_field = f"c{self._pos_i}"
+        record_dtype = self._record_dtype
+        delta_cols = reader._delta_cols
+        delta_col_names = reader._delta_col_names if delta_cols else ()
+        delta_np_dtype = reader._delta_np_dtype if delta_cols else None
+        unit_size = reader._unit_size
+        handle = reader._handle
+        handle.seek(reader._chunk_start_offset + 10)
+        load_block = _cz_mod._load_bcz_block
+        for _ in range(reader._chunk_nblocks):
+            try:
+                _bsize, blk = load_block(handle, True)
+            except StopIteration:
+                break
+            if not blk:
+                continue
+            n_rec = len(blk) // unit_size
+            if n_rec == 0:
+                continue
+            if delta_cols:
+                # Read-only view over the block bytes; copy ONLY the
+                # position column as uint32 to avoid a per-block
+                # full-record copy (record dtype is ~3x larger).
+                # cumsum runs in-place on the small uint32 array.
+                arr_blk = np.frombuffer(blk, dtype=delta_np_dtype, count=n_rec)
+                delta_pos = arr_blk[delta_pos_field].astype(np.uint32, copy=True)
+                del arr_blk
+                if n_rec > 1:
+                    np.cumsum(delta_pos, out=delta_pos)
+                yield delta_pos
+            else:
+                rec_view = np.frombuffer(blk, dtype=record_dtype, count=n_rec)
+                yield rec_view[pos_field].astype(np.uint32, copy=True)
+
+    def has(self, chrom):
+        return chrom in self._chrom2dim
+
+    def close(self):
+        self._cache.clear()
+        self._reader.close()
+
+
+def _load_reference_positions(reference):
+    """Return a lazy per-chrom position loader from a reference .cz.
+
+    The previous implementation preloaded the entire genome as an
+    ``{chrom: int64-array}`` dict, which costs ~9 GB on mm10. This
+    function now returns a :class:`_LazyRefPositions` that loads each
+    chromosome on first access (uint32) and lets the caller :meth:`drop`
+    it after flushing.
+    """
+    return _LazyRefPositions(reference)
 
 
 # ---------------------------------------------------------------------------
@@ -327,10 +496,16 @@ def bam_to_cz(
     # Per-chrom buffers. For full / pos_mc_cov we flush incrementally in
     # batch_size chunks; for mc_cov we must buffer the whole chrom (we need
     # all observed positions before aligning against reference).
+    #
+    # Use ``array.array`` (packed C ints, 4 B / 2 B per element) instead of
+    # Python lists, which would otherwise hold ~36 B per int object and
+    # dominate the working-set on a per-cell run (a typical cell has
+    # ~1.4e7 mC sites → ~1.5 GB just for the three buffers).
+    import array as _array
     buf_records: list = []
-    chrom_pos_buf: list = []
-    chrom_mc_buf: list = []
-    chrom_cov_buf: list = []
+    chrom_pos_buf = _array.array('I')          # uint32 positions
+    chrom_mc_buf = _array.array('H')           # uint16 mc counts (already clipped)
+    chrom_cov_buf = _array.array('H')          # uint16 cov counts
 
     _np_count_dtype = _fmt_to_np_dtype(count_fmt) or "<u2"
     mc_cov_struct_dtype = np.dtype([("mc", _np_count_dtype), ("cov", _np_count_dtype)])
@@ -343,29 +518,96 @@ def bam_to_cz(
         buf_records.clear()
 
     def _flush_mc_cov(chrom: str) -> None:
-        ref_pos = ref_pos_map.get(chrom)
-        if ref_pos is None or ref_pos.size == 0:
-            chrom_pos_buf.clear(); chrom_mc_buf.clear(); chrom_cov_buf.clear()
+        if not ref_pos_map.has(chrom):
+            del chrom_pos_buf[:]
+            del chrom_mc_buf[:]
+            del chrom_cov_buf[:]
             return
-        out = np.zeros(ref_pos.size, dtype=mc_cov_struct_dtype)
-        if chrom_pos_buf:
-            q_pos = np.asarray(chrom_pos_buf, dtype=np.int64)
-            q_mc = np.asarray(chrom_mc_buf, dtype=np.uint16)
-            q_cov = np.asarray(chrom_cov_buf, dtype=np.uint16)
-            idx = np.searchsorted(ref_pos, q_pos)
-            idx_clip = np.minimum(idx, ref_pos.size - 1)
-            valid = (idx < ref_pos.size) & (ref_pos[idx_clip] == q_pos)
-            matched = idx_clip[valid]
-            out["mc"][matched] = q_mc[valid]
-            out["cov"][matched] = q_cov[valid]
-        _write_np_chunks(writer, out, chrom, batch_size, unit_size)
-        chrom_pos_buf.clear(); chrom_mc_buf.clear(); chrom_cov_buf.clear()
+
+        # Stream the reference positions block-by-block and merge them
+        # against the sorted observed positions. This avoids materialising
+        # a single full uint32 ref_pos array (~316 MB on mm10 chr1).
+        if len(chrom_pos_buf) > 0:
+            q_pos = np.frombuffer(chrom_pos_buf, dtype=np.uint32)
+            q_mc = np.frombuffer(chrom_mc_buf, dtype=np.uint16)
+            q_cov = np.frombuffer(chrom_cov_buf, dtype=np.uint16)
+            n_q = int(q_pos.size)
+        else:
+            q_pos = np.empty(0, dtype=np.uint32)
+            q_mc = np.empty(0, dtype=np.uint16)
+            q_cov = np.empty(0, dtype=np.uint16)
+            n_q = 0
+
+        q_ptr = 0
+        any_block = False
+        for ref_block in ref_pos_map.iter_blocks(chrom):
+            any_block = True
+            n_b = int(ref_block.size)
+            if n_b == 0:
+                continue
+            # Advance q_ptr to first observed position that could match
+            # this block (>= ref_block[0]).
+            if q_ptr < n_q:
+                q_ptr += int(np.searchsorted(q_pos[q_ptr:], ref_block[0],
+                                              side="left"))
+            # Find observed positions strictly less than the block end.
+            block_end = ref_block[-1]
+            q_end = q_ptr
+            if q_ptr < n_q:
+                q_end = q_ptr + int(np.searchsorted(
+                    q_pos[q_ptr:], block_end, side="right"))
+            out_batch = np.zeros(n_b, dtype=mc_cov_struct_dtype)
+            if q_end > q_ptr:
+                idx = np.searchsorted(ref_block, q_pos[q_ptr:q_end])
+                # All idx are < n_b because q_pos values are <= block_end
+                # which equals ref_block[-1].
+                idx_clip = np.minimum(idx, n_b - 1)
+                valid = ref_block[idx_clip] == q_pos[q_ptr:q_end]
+                matched = idx_clip[valid]
+                if matched.size:
+                    out_batch["mc"][matched] = q_mc[q_ptr:q_end][valid].astype(
+                        _np_count_dtype, copy=False)
+                    out_batch["cov"][matched] = q_cov[q_ptr:q_end][valid].astype(
+                        _np_count_dtype, copy=False)
+                q_ptr = q_end
+            writer.write_chunk(out_batch.tobytes(), [chrom])
+
+        if not any_block:
+            # Chrom exists in chrom2dim but had zero records; nothing to write.
+            pass
+
+        del q_pos, q_mc, q_cov
+        del chrom_pos_buf[:]
+        del chrom_mc_buf[:]
+        del chrom_cov_buf[:]
+
+    # Glibc keeps freed allocations in per-thread arenas / free-lists and
+    # only releases them to the OS at MALLOC_TRIM_THRESHOLD_ (default 128 KB
+    # for top-of-heap, but large mmap'd blocks may stay reserved).  After
+    # each chrom flush we drop ref_pos (~hundreds of MB) and the per-chrom
+    # buffers; calling ``malloc_trim(0)`` lets the OS reclaim those pages.
+    try:
+        import ctypes
+        _libc = ctypes.CDLL("libc.so.6")
+        _malloc_trim = _libc.malloc_trim
+        _malloc_trim.argtypes = [ctypes.c_size_t]
+        _malloc_trim.restype = ctypes.c_int
+    except Exception:  # pragma: no cover - non-glibc / Windows
+        _malloc_trim = None
 
     def _flush(chrom: str) -> None:
         if mode == "mc_cov":
             _flush_mc_cov(chrom)
+            # Tell the kernel we're done with this chrom's slice of the
+            # mmap'd ref file; without this the file pages keep
+            # accumulating in our RSS as we walk every chrom.
+            if ref_pos_map is not None:
+                ref_pos_map.drop(chrom)
         else:
             _flush_records(chrom)
+        # Force glibc to return free'd pages to the OS (best-effort).
+        if _malloc_trim is not None:
+            _malloc_trim(0)
 
     try:
         for line in pipes.stdout:
@@ -377,6 +619,12 @@ def bam_to_cz(
 
             if fields[0] != cur_chrom:
                 if cur_chrom:
+                    # Release the previous chromosome's sequence string
+                    # (≈100-200 MB for large chroms) BEFORE running its
+                    # flush — otherwise the flush's transient allocations
+                    # (ref_pos, searchsorted intermediates, out_batch)
+                    # stack on top of it and inflate MaxRSS.
+                    seq = None
                     _flush(cur_chrom)
                 cur_chrom = fields[0]
                 seq = _get_chromosome_sequence_upper(genome, fai_df, cur_chrom)
@@ -404,7 +652,8 @@ def bam_to_cz(
                 hi = pos0 + num_upstr_bases + 1
                 if lo < 0 or hi > len(seq):
                     continue
-                context = "".join(_COMPLEMENT[b] for b in reversed(seq[lo:hi]))
+                # Reverse-complement via C-level translate + slice reverse.
+                context = seq[lo:hi].translate(_RC_TABLE)[::-1]
                 strand = b"-"
                 unconverted = read_bases.count(",")
                 converted = read_bases.count("a")
@@ -454,6 +703,8 @@ def bam_to_cz(
     finally:
         pipes.stdout.close()
         writer.close()
+        if ref_pos_map is not None:
+            ref_pos_map.close()
         if convert_bam_strandness:
             try:
                 os.remove(bam_path)

@@ -23,6 +23,7 @@ the generic :mod:`cytozip.cz` format layer.
 """
 import os
 import multiprocessing
+from loguru import logger
 from .cz import (Reader, _STRUCT_TO_NP_DTYPE, np, pd)
 
 
@@ -38,7 +39,7 @@ def __split_mat(infile, chrom, snames, outdir, n_ref):
     for line in records:
         values = line.replace('\n', '').split('\t')
         if len(values) < N:
-            print(infile, chrom)
+            logger.debug(f"{infile} {chrom}")
             raise ValueError("Number of fields is wrong.")
         ch, beg, end, strand = values[:4]
         beg = int(beg)
@@ -157,6 +158,10 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
 
     reader = Reader(cz_path)       # per-cell methylation data (mc, cov)
     ref_reader = Reader(ref_path)  # shared genomic coordinates (pos, strand, context)
+    # Sequential whole-file walks ahead; tell the kernel to evict
+    # already-read pages so the multi-GB ref doesn't pin our RSS.
+    reader.advise_sequential()
+    ref_reader.advise_sequential()
 
     if output is None:
         output = os.path.splitext(cz_path)[0] + '_peaks'
@@ -248,19 +253,23 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
             })
             bed_df.to_csv(fh, sep='\t', header=False, index=False)
 
-            print(f"  {chrom}: {len(pos)} sites, "
-                  f"{int(sig.sum())} pseudo-reads")
+            logger.debug(f"  {chrom}: {len(pos)} sites, "
+                         f"{int(sig.sum())} pseudo-reads")
+
+            # Release this chunk's pages on both readers.
+            reader.release_chunk(dim)
+            ref_reader.release_chunk(dim)
 
     reader.close()
     ref_reader.close()
     if index_reader:
         index_reader.close()
 
-    print(f"Total pseudo-reads: {total_reads}")
+    logger.info(f"Total pseudo-reads: {total_reads}")
 
     # ---- Step 4: Sort BED and run MACS3 peak calling ----
     sorted_bed = bed_path.replace('.bed', '.sorted.bed')
-    print("Sorting BED file...")
+    logger.info("Sorting BED file...")
     subprocess.run(
         ['sort', '-k1,1', '-k2,2n', bed_path, '-o', sorted_bed],
         check=True,
@@ -282,16 +291,16 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     if macs3_args:
         cmd.extend(macs3_args.split())
 
-    print(f"Running: {' '.join(cmd)}")
+    logger.info(f"Running: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
 
     os.remove(bed_path)
     if not keep_bed:
         os.remove(sorted_bed)
     else:
-        print(f"Pseudo-reads BED kept at: {sorted_bed}")
+        logger.info(f"Pseudo-reads BED kept at: {sorted_bed}")
 
-    print(f"Peak results saved to: {output}")
+    logger.info(f"Peak results saved to: {output}")
     return output
 
 
@@ -337,6 +346,9 @@ def to_bedgraph(input=None, reference=None, output=None,
 
     reader = Reader(cz_path)
     ref_reader = Reader(ref_path)
+    # Sequential whole-file walk; release pages as we go.
+    reader.advise_sequential()
+    ref_reader.advise_sequential()
 
     if output is None:
         output = os.path.splitext(cz_path)[0] + '.bedgraph'
@@ -417,12 +429,16 @@ def to_bedgraph(input=None, reference=None, output=None,
             })
             df.to_csv(fh, sep='\t', header=False, index=False)
 
+            # Release this chunk's pages on both readers.
+            reader.release_chunk(dim)
+            ref_reader.release_chunk(dim)
+
     reader.close()
     ref_reader.close()
     if index_reader:
         index_reader.close()
 
-    print(f"bedGraph written to: {output}")
+    logger.info(f"bedGraph written to: {output}")
     return output
 
 
@@ -452,7 +468,7 @@ def combp(input, outdir="cpv", threads=24, dist=300, temp=True, bed=False):
     try:
         from cpv.pipeline import pipeline as cpv_pipeline
     except ImportError:
-        print("Please install cpv using: pip install git+https://github.com/DingWB/combined-pvalues")
+        logger.info("Please install cpv using: pip install git+https://github.com/DingWB/combined-pvalues")
 
     infile = os.path.abspath(os.path.expanduser(input))
     outdir = os.path.abspath(os.path.expanduser(outdir))
@@ -470,7 +486,7 @@ def combp(input, outdir="cpv", threads=24, dist=300, temp=True, bed=False):
         os.mkdir(bed_dir)
         pool = multiprocessing.Pool(threads)
         jobs = []
-        print("Splitting matrix into different samples and chroms.")
+        logger.info("Splitting matrix into different samples and chroms.")
         for chrom in chroms:
             job = pool.apply_async(__split_mat,
                                    (infile, chrom, snames, bed_dir, 5))
@@ -480,14 +496,14 @@ def combp(input, outdir="cpv", threads=24, dist=300, temp=True, bed=False):
         pool.close()
         pool.join()
     else:
-        print("bed directory existed, skip split matrix into bed files.")
+        logger.info("bed directory existed, skip split matrix into bed files.")
 
     tmpdir = os.path.join(outdir, "tmp")
     if not os.path.exists(tmpdir):
         os.mkdir(tmpdir)
     pool = multiprocessing.Pool(threads)
     jobs = []
-    print("Running cpv..")
+    logger.info("Running cpv..")
     acf_dist = int(round(dist / 3, -1))
     for chrom in chroms:
         for sname in snames:
@@ -506,7 +522,7 @@ def combp(input, outdir="cpv", threads=24, dist=300, temp=True, bed=False):
     pool.close()
     pool.join()
 
-    print("Merging cpv results..")
+    logger.info("Merging cpv results..")
     for sname in snames:
         output = os.path.join(outdir, f"{sname}.bed")
         for chrom in chroms:

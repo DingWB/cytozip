@@ -10,6 +10,7 @@ Chunk ZIP
    dnam
    notebooks/3.python_api
    dev
+   developer_guide
    benchmark
    notebooks/remote_reading
    modules
