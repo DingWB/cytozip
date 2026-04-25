@@ -467,7 +467,7 @@ def _detect_chrom_axis(reader: Reader, known_chroms: set) -> int:
 
     Different producers stamp the chrom in different slots:
 
-    * Single-cell (``chunk_keys=['chrom']``): position 0.
+    * Single-cell (``chunk_dims=['chrom']``): position 0.
     * ``catcz(add_key=True)``: appends the new key at the *end* of the
       source dim tuple, so chrom keeps its original position (typically 0)
       and the added cell id lives at the last slot.
@@ -525,8 +525,8 @@ def _aggregate_one_reader(
         for v in features_by_chrom.values()
     )
     out = np.zeros((n_feat, 2), dtype=np.int64)
-    chunk_keys = reader.header["chunk_keys"]
-    n_keys = len(chunk_keys)
+    chunk_dims = reader.header["chunk_dims"]
+    n_keys = len(chunk_dims)
 
     if chrom_axis is None:
         chrom_axis = n_keys - 1
@@ -616,7 +616,7 @@ def _aggregate_one_reader(
 _WORKER_STATE: dict = {}
 
 
-def _pool_init(features_by_chrom, pos_col, mc_col, cov_col, reference_cz):
+def _pool_init(features_by_chrom, pos_col, mc_col, cov_col, reference):
     """Per-process initializer: stash shared read-only state.
 
     Each worker loads the reference position map lazily (only if needed)
@@ -627,7 +627,7 @@ def _pool_init(features_by_chrom, pos_col, mc_col, cov_col, reference_cz):
     _WORKER_STATE["pos_col"] = pos_col
     _WORKER_STATE["mc_col"] = mc_col
     _WORKER_STATE["cov_col"] = cov_col
-    _WORKER_STATE["reference_cz"] = reference_cz
+    _WORKER_STATE["reference"] = reference
     _WORKER_STATE["ref_pos_map"] = None
     _WORKER_STATE["chroms_set"] = set(features_by_chrom.keys())
 
@@ -635,10 +635,10 @@ def _pool_init(features_by_chrom, pos_col, mc_col, cov_col, reference_cz):
 def _pool_get_ref_pos_map(hint_path=None):
     if _WORKER_STATE["ref_pos_map"] is not None:
         return _WORKER_STATE["ref_pos_map"]
-    ref_path = _WORKER_STATE["reference_cz"] or hint_path
+    ref_path = _WORKER_STATE["reference"] or hint_path
     if ref_path is None:
         raise ValueError(
-            "Cell .cz has no 'pos' column; pass reference_cz= to "
+            "Cell .cz has no 'pos' column; pass reference= to "
             "provide the coordinate reference.")
     from .bam import _load_reference_positions
     _WORKER_STATE["ref_pos_map"] = _load_reference_positions(ref_path)
@@ -709,7 +709,7 @@ def cz_to_anndata(
     mc_col: str = "mc",
     cov_col: str = "cov",
     obs: Optional[pd.DataFrame] = None,
-    reference_cz: Optional[str] = None,
+    reference: Optional[str] = None,
     chrom_size: Optional[Union[str, pd.DataFrame, dict]] = None,
     exclude_chroms: Optional[Sequence[str]] = ("chrL",),
     blacklist: Optional[Union[str, pd.DataFrame]] = None,
@@ -759,7 +759,7 @@ def cz_to_anndata(
         count / coverage.
     obs : DataFrame, optional
         Per-cell metadata (cluster, sample, donor, ...). Joined on cell id.
-    reference_cz : str, optional
+    reference : str, optional
         Reference ``.cz`` supplying positions for cells written with
         ``bam_to_cz(mode='mc_cov')`` / ``allc2cz(reference=...)``.
     chrom_size : str or DataFrame or dict, optional
@@ -904,10 +904,10 @@ def cz_to_anndata(
     def _get_ref_pos_map(hint_path=None):
         if ref_pos_map_cache["loaded"]:
             return ref_pos_map_cache["map"]
-        ref_path = reference_cz or hint_path
+        ref_path = reference or hint_path
         if ref_path is None:
             raise ValueError(
-                "Cell .cz has no 'pos' column; pass reference_cz= to "
+                "Cell .cz has no 'pos' column; pass reference= to "
                 "provide the coordinate reference."
             )
         # Local import to avoid circular deps at module load time.
@@ -937,7 +937,7 @@ def cz_to_anndata(
                 max_workers=n_workers,
                 initializer=_pool_init,
                 initargs=(features_by_chrom, pos_col, mc_col, cov_col,
-                          reference_cz)) as ex:
+                          reference)) as ex:
             chunk = max(1, len(paths_) // (n_workers * 4) or 1)
             for arr in ex.map(_pool_process_file, paths_, chunksize=chunk):
                 yield arr
@@ -948,7 +948,7 @@ def cz_to_anndata(
                 max_workers=n_workers,
                 initializer=_pool_init,
                 initargs=(features_by_chrom, pos_col, mc_col, cov_col,
-                          reference_cz)) as ex:
+                          reference)) as ex:
             args = [(cz_path, pref) for pref in prefix_list]
             chunk = max(1, len(args) // (n_workers * 4) or 1)
             for arr in ex.map(_pool_process_prefix, args, chunksize=chunk):
@@ -957,7 +957,7 @@ def cz_to_anndata(
     if len(paths) == 1:
         r = Reader(paths[0])
         try:
-            n_keys = len(r.header["chunk_keys"])
+            n_keys = len(r.header["chunk_dims"])
             pi, mc_i, cov_i = _resolve_cols(r)
             rpm = _get_ref_pos_map(r.header.get("message")) if pi is None else None
             chrom_axis = _detect_chrom_axis(r, set(features_by_chrom.keys()))
@@ -1088,7 +1088,7 @@ def _enumerate_cell_prefixes(reader: Reader, chrom_axis: int, cell_ids=None):
     The cell prefix is the dim tuple with the ``chrom_axis`` slot removed,
     preserving the original ordering of the other slots.
     """
-    n_keys = len(reader.header["chunk_keys"])
+    n_keys = len(reader.header["chunk_dims"])
     if n_keys < 2:
         return
     seen = set()

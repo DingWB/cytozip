@@ -93,11 +93,11 @@ def _build_parser():
     p.add_argument('-I', '--input', default=None, help='input file (stdin if omitted)')
     p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats, comma-separated')
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names, comma-separated')
-    p.add_argument('-D', '--dimensions', type=_csv_str, default=['chrom'], help='dimension names, comma-separated')
+    p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key (dimension) names, comma-separated')
     p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack, comma-separated')
-    p.add_argument('-d', '--dim_cols', type=_csv_int, default=[0], help='dimension column indices')
+    p.add_argument('-d', '--key_cols', type=_csv_int, default=[0], help='chunk-key column indices')
     p.add_argument('-s', '--sep', default='\t', help='separator')
-    p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
+    p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('--header', default=None, help='header row')
     p.add_argument('--skiprows', type=int, default=0, help='rows to skip')
     p.add_argument('-m', '--message', default='', help='message stored in header')
@@ -113,18 +113,18 @@ def _build_parser():
     p.add_argument('-I', '--input', required=True, help='input pattern or comma-separated .cz paths')
     p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats')
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
-    p.add_argument('-D', '--dimensions', type=_csv_str, default=['chrom'], help='dimension names')
-    p.add_argument('--dim_order', default=None, help='dimension order file or comma-separated')
-    p.add_argument('--add_dim', action='store_true', help='add filename as extra dimension')
-    p.add_argument('--title', default='filename', help='title for added dimension')
+    p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key (dimension) names')
+    p.add_argument('--chunk_order', default=None, help='chunk-key order file or comma-separated')
+    p.add_argument('--add_key', action='store_true', help='add filename as extra chunk key')
+    p.add_argument('--title', default='filename', help='title for added chunk key')
     p.add_argument('-m', '--message', default='', help='message stored in header')
 
     # ---- view ----------------------------------------------------------------
     p = sub.add_parser('view', help='View .cz file contents', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
-    p.add_argument('--show_dim', type=_csv_int, default=None, help='dimension indices to show')
+    p.add_argument('--show_dims', type=_csv_int, default=None, help='chunk-key (dimension) indices to show')
     p.add_argument('--no_header', action='store_true', help='suppress header line')
-    p.add_argument('--dimension', default=None, help='filter by dimension')
+    p.add_argument('-K', '--chunk_order', default=None, help='filter/order by chunk-key value (e.g. chr1)')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
 
     # ---- header --------------------------------------------------------------
@@ -132,9 +132,9 @@ def _build_parser():
     p.add_argument('-I', '--input', required=True, help='input .cz file')
 
     # ---- query ---------------------------------------------------------------
-    p = sub.add_parser('query', help='Query .cz file by dimension and position range', formatter_class=_fmt)
+    p = sub.add_parser('query', help='Query .cz file by chunk-key and position range', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
-    p.add_argument('-D', '--dimension', default=None, help='dimension value to query (e.g. chr1)')
+    p.add_argument('-K', '--chunk_key', default=None, help='chunk-key value to query (e.g. chr1)')
     p.add_argument('-s', '--start', type=int, default=None, help='start position')
     p.add_argument('-e', '--end', type=int, default=None, help='end position')
     p.add_argument('--regions', default=None, help='regions file (tab-separated, no header)')
@@ -146,7 +146,7 @@ def _build_parser():
     p.add_argument('-I', '--input', required=True, help='input .cz file')
     p.add_argument('-O', '--output', required=True, help='output .allc.tsv.gz file')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
-    p.add_argument('-D', '--dimension', default=None, help='filter by dimension')
+    p.add_argument('-K', '--chunk_order', default=None, help='filter/order by chunk-key value (e.g. chr1)')
     p.add_argument('--cov_col', default=None, help='coverage column name; rows with 0 are dropped (default: last data column)')
     p.add_argument('--no_tabix', action='store_true', help='skip tabix indexing')
 
@@ -159,8 +159,8 @@ def _build_parser():
     p = sub.add_parser('extract', help='Extract subset of .cz using index', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
     p.add_argument('-O', '--output', required=True, help='output .cz file')
-    p.add_argument('-s', '--index', required=True, help='subset index file')
-    p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
+    p.add_argument('--index', required=True, help='subset index file')
+    p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
 
     # ---- allc2cz --------------------------------------------------------------
     p = sub.add_parser('allc2cz', help='Convert tabix-indexed allc.tsv.gz to .cz', formatter_class=_fmt)
@@ -170,13 +170,13 @@ def _build_parser():
     p.add_argument('--missing_value', type=_csv_int, default=[0, 0], help='missing value fill')
     p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats')
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
-    p.add_argument('-D', '--dimensions', type=_csv_str, default=['chrom'], help='dimension names')
+    p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key names')
     p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack')
     p.add_argument('--ref_pos_col', type=int, default=0, help='position column index in reference')
     p.add_argument('--allc_pos_col', type=int, default=1, help='position column index in input')
     p.add_argument('-s', '--sep', default='\t', help='separator')
     p.add_argument('--chrom_order', default=None, help='chrom order file')
-    p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
+    p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('--sort_col', default=None,
                    help='column name or index to index via per-block '
                         'first_coords (enables in-memory bisect for region '
@@ -231,7 +231,7 @@ def _build_parser():
                             formatter_class=_fmt)
     sp.add_argument('-I', '--input', required=True, help='input reference .cz file (full-C allc)')
     sp.add_argument('-O', '--output', default=None, help='output probe index .cz file')
-    sp.add_argument('-m', '--manifest', required=True, help='illumina manifest CSV')
+    sp.add_argument('--manifest', required=True, help='illumina manifest CSV')
 
     # ---- merge_cz ------------------------------------------------------------
     p = sub.add_parser('merge_cz', help='Merge per-cell .cz files', formatter_class=_fmt)
@@ -245,10 +245,10 @@ def _build_parser():
     p.add_argument('--chrom_order', default=None, help='chrom order file')
     p.add_argument('-r', '--reference', default=None, help='reference .cz file')
     p.add_argument('--keep_cat', action='store_true', help='keep intermediate cat file')
-    p.add_argument('--batchsize', type=int, default=10, help='blocks per batch')
+    p.add_argument('--blocks_per_batch', type=int, default=10, help='blocks per batch')
     p.add_argument('--temp', action='store_true', help='keep temp directory')
     p.add_argument('--no_bgzip', action='store_true', help='skip bgzip compression')
-    p.add_argument('-c', '--chunksize', type=int, default=50000, help='rows per chunk')
+    p.add_argument('-c', '--batch_size', type=int, default=50000, help='rows per chunk')
     p.add_argument('--ext', default='.cz', help='input file extension')
 
     # ---- merge_cell_type -----------------------------------------------------
@@ -264,18 +264,18 @@ def _build_parser():
     p = sub.add_parser('extractCG', help='Extract CG-context records', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
     p.add_argument('-O', '--output', required=True, help='output .cz file')
-    p.add_argument('-s', '--index', required=True, help='CGN subset index file')
-    p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
+    p.add_argument('--index', required=True, help='CGN subset index file')
+    p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('--merge_cg', action='store_true', help='merge forward/reverse CG')
 
     # ---- aggregate -----------------------------------------------------------
     p = sub.add_parser('aggregate', help='Aggregate records within regions', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
     p.add_argument('-O', '--output', required=True, help='output .cz file')
-    p.add_argument('-s', '--index', required=True, help='region subset index file')
+    p.add_argument('--index', required=True, help='region subset index file')
     p.add_argument('--intersect', default=None, help='intersect filter')
     p.add_argument('--exclude', default=None, help='exclude filter')
-    p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
+    p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'], help='output formats')
 
     # ---- combp ---------------------------------------------------------------
@@ -301,10 +301,10 @@ def _build_parser():
     p.add_argument('-O', '--output', default=None, help='output directory for MACS3 results')
     p.add_argument('-n', '--name', default='peaks', help='name prefix for output files')
     p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth'], help='signal type: unmeth=(cov-mc), meth=mc')
-    p.add_argument('-s', '--index', default=None, help='index file for context filtering (e.g., CpG-only)')
-    p.add_argument('-g', '--genome_size', default='mm', help='genome size for MACS3 (hs/mm/integer)')
+    p.add_argument('--index', default=None, help='index file for context filtering (e.g., CpG-only)')
+    p.add_argument('--genome_size', default='mm', help='genome size for MACS3 (hs/mm/integer)')
     p.add_argument('--fragment_size', type=int, default=300, help='pseudo-read fragment size (bp)')
-    p.add_argument('-q', '--qvalue', type=float, default=0.05, help='MACS3 q-value cutoff')
+    p.add_argument('--qvalue', type=float, default=0.05, help='MACS3 q-value cutoff')
     p.add_argument('--broad', action='store_true', help='call broad peaks')
     p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
     p.add_argument('--keep_bed', action='store_true', help='keep intermediate pseudo-reads BED')
@@ -318,7 +318,7 @@ def _build_parser():
     p.add_argument('-r', '--reference', required=True, help='reference .cz file')
     p.add_argument('-O', '--output', default=None, help='output bedGraph file')
     p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth', 'frac_unmeth'], help='signal type')
-    p.add_argument('-s', '--index', default=None, help='index file for context filtering')
+    p.add_argument('--index', default=None, help='index file for context filtering')
     p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
     p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
     p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
@@ -326,24 +326,24 @@ def _build_parser():
     # ---- bam_to_cz -----------------------------------------------------------
     p = sub.add_parser('bam_to_cz', help='Convert position-sorted BAM directly to .cz (skip ALLC text)', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input position-sorted BAM (bismark/hisat-3n)')
-    p.add_argument('-r', '--reference_fasta', required=True, help='indexed reference fasta (.fai required)')
+    p.add_argument('-g', '--genome', required=True, help='indexed reference fasta (.fai required)')
     p.add_argument('-O', '--output', default=None, help='output .cz path (default: <bam_stem>.cz)')
-    p.add_argument('--num_upstr', type=int, default=0, help='bases upstream of C in context (0 for BS-seq, 1 for NOMe)')
-    p.add_argument('--num_downstr', type=int, default=2, help='bases downstream of C in context')
+    p.add_argument('--num_upstr_bases', type=int, default=0, help='bases upstream of C in context (0 for BS-seq, 1 for NOMe)')
+    p.add_argument('--num_downstr_bases', type=int, default=2, help='bases downstream of C in context')
     p.add_argument('--min_mapq', type=int, default=10, help='min MAPQ passed to samtools mpileup')
     p.add_argument('--min_base_quality', type=int, default=20, help='min base quality passed to samtools mpileup')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per batch (one on-disk chunk)')
-    p.add_argument('--convert_strandness', action='store_true', help='rewrite BAM so is_forward matches XG/YZ (hisat-3n PE)')
+    p.add_argument('--convert_bam_strandness', action='store_true', help='rewrite BAM so is_forward matches XG/YZ (hisat-3n PE)')
     p.add_argument('--save_count_df', action='store_true', help='write <output>.count.csv context summary')
     p.add_argument('--mode', choices=['full', 'pos_mc_cov', 'mc_cov'], default='mc_cov',
                    help='storage layout: full=[pos,strand,context,mc,cov]; '
-                        'pos_mc_cov=[pos,mc,cov]; mc_cov=[mc,cov] (requires --reference-cz). '
+                        'pos_mc_cov=[pos,mc,cov]; mc_cov=[mc,cov] (requires --reference). '
                         'Default mc_cov is the most compact.')
     p.add_argument('--count_fmt', choices=['B', 'H', 'I', 'Q'], default='B',
                    help='struct code for mc/cov columns: B=uint8 (1 B/max 255, clipped), '
                         'H=uint16 (2 B/max 65535). B is the most compact and suits '
                         'typical single-cell data.')
-    p.add_argument('--reference_cz', default=None,
+    p.add_argument('-r', '--reference', default=None,
                    help='reference .cz with pos column; required when --mode mc_cov')
 
     # ---- cz_to_anndata -------------------------------------------------------
@@ -358,7 +358,7 @@ def _build_parser():
     p.add_argument('--mc_col', default='mc', help='name of mc column')
     p.add_argument('--cov_col', default='cov', help='name of cov column')
     p.add_argument('--obs', default=None, help='optional TSV with cell metadata (index column = cell id)')
-    p.add_argument('--reference_cz', default=None,
+    p.add_argument('-r', '--reference', default=None,
                    help='reference .cz supplying pos coords for mc_cov-only cells')
 
     return parser
@@ -379,31 +379,31 @@ def main():
     if cmd == 'tocz':
         from .cz import Writer
         w = Writer(output=args.output, formats=args.formats,
-                   columns=args.columns, chunk_keys=args.dimensions,
+                   columns=args.columns, chunk_dims=args.chunk_dims,
                    message=args.message, level=args.level,
                    delta_cols=args.delta_cols)
         w.tocz(input=args.input, usecols=args.usecols,
-               key_cols=args.dim_cols, sep=args.sep,
-               batch_size=args.chunksize, header=args.header,
+               key_cols=args.key_cols, sep=args.sep,
+               batch_size=args.batch_size, header=args.header,
                skiprows=args.skiprows)
 
     elif cmd == 'catcz':
         from .cz import Writer
         w = Writer(output=args.output, formats=args.formats,
-                   columns=args.columns, chunk_keys=args.dimensions,
+                   columns=args.columns, chunk_dims=args.chunk_dims,
                    message=args.message)
         # CLI passes either a glob with '*' or a comma-separated path list.
         inp = args.input
         if isinstance(inp, str) and '*' not in inp:
             inp = [p for p in inp.split(',') if p]
-        w.catcz(input=inp, chunk_order=args.dim_order,
-                add_key=args.add_dim, title=args.title)
+        w.catcz(input=inp, chunk_order=args.chunk_order,
+                add_key=args.add_key, title=args.title)
 
     elif cmd == 'view':
         from .cz import Reader
         r = Reader(args.input)
-        r.view(show_dims=args.show_dim, header=not args.no_header,
-               chunk_order=args.dimension, reference=args.reference)
+        r.view(show_dims=args.show_dims, header=not args.no_header,
+               chunk_order=args.chunk_order, reference=args.reference)
 
     elif cmd == 'header':
         from .cz import Reader
@@ -414,7 +414,7 @@ def main():
     elif cmd == 'query':
         from .cz import Reader
         r = Reader(args.input)
-        r.query(chunk_key=args.dimension, start=args.start,
+        r.query(chunk_key=args.chunk_key, start=args.start,
                 end=args.end, regions=args.regions,
                 query_col=args.query_col, reference=args.reference,
                 printout=True)
@@ -423,7 +423,7 @@ def main():
         from .cz import Reader
         r = Reader(args.input)
         r.to_allc(output=args.output, reference=args.reference,
-                  chunk_order=args.dimension, tabix=not args.no_tabix,
+                  chunk_order=args.chunk_order, tabix=not args.no_tabix,
                   cov_col=args.cov_col)
         r.close()
 
@@ -438,7 +438,7 @@ def main():
     elif cmd == 'extract':
         from .cz import extract
         extract(input=args.input, output=args.output,
-                index=args.index, batch_size=args.chunksize)
+                index=args.index, batch_size=args.batch_size)
 
     # ---- allc.py commands --------------------------------------------------
     elif cmd == 'allc2cz':
@@ -446,9 +446,9 @@ def main():
         allc2cz(input=args.input, output=args.output,
                reference=args.reference, missing_value=args.missing_value,
                formats=args.formats, columns=args.columns,
-               chunk_keys=args.dimensions, usecols=args.usecols,
+               chunk_dims=args.chunk_dims, usecols=args.usecols,
                ref_pos_col=args.ref_pos_col, allc_pos_col=args.allc_pos_col, sep=args.sep,
-               chrom_order=args.chrom_order, batch_size=args.chunksize,
+               chrom_order=args.chrom_order, batch_size=args.batch_size,
                sort_col=args.sort_col, delta_cols=args.delta_cols)
 
     elif cmd == 'build_ref':
@@ -488,8 +488,8 @@ def main():
                  prefix=args.prefix, threads=args.threads,
                  formats=args.formats, chrom_order=args.chrom_order,
                  reference=args.reference, keep_cat=args.keep_cat,
-                 batchsize=args.batchsize, temp=args.temp,
-                 bgzip=not args.no_bgzip, batch_size=args.chunksize,
+                 blocks_per_batch=args.blocks_per_batch, temp=args.temp,
+                 bgzip=not args.no_bgzip, batch_size=args.batch_size,
                  ext=args.ext)
 
     elif cmd == 'merge_cell_type':
@@ -501,14 +501,14 @@ def main():
     elif cmd == 'extractCG':
         from .allc import extractCG
         extractCG(input=args.input, output=args.output,
-                  index=args.index, batch_size=args.chunksize,
+                  index=args.index, batch_size=args.batch_size,
                   merge_cg=args.merge_cg)
 
     elif cmd == 'aggregate':
         from .cz import aggregate
         aggregate(input=args.input, output=args.output,
                   index=args.index, intersect=args.intersect,
-                  exclude=args.exclude, batch_size=args.chunksize,
+                  exclude=args.exclude, batch_size=args.batch_size,
                   formats=args.formats)
 
     elif cmd == 'combp':
@@ -555,17 +555,17 @@ def main():
 
     elif cmd == 'bam_to_cz':
         from .bam import bam_to_cz
-        bam_to_cz(bam_path=args.input, reference_fasta=args.reference_fasta,
+        bam_to_cz(bam_path=args.input, genome=args.genome,
                   output=args.output,
                   mode=args.mode,
                   count_fmt=args.count_fmt,
-                  reference_cz=args.reference_cz,
-                  num_upstr_bases=args.num_upstr,
-                  num_downstr_bases=args.num_downstr,
+                  reference=args.reference,
+                  num_upstr_bases=args.num_upstr_bases,
+                  num_downstr_bases=args.num_downstr_bases,
                   min_mapq=args.min_mapq,
                   min_base_quality=args.min_base_quality,
                   batch_size=args.batch_size,
-                  convert_bam_strandness=args.convert_strandness,
+                  convert_bam_strandness=args.convert_bam_strandness,
                   save_count_df=args.save_count_df)
 
     elif cmd == 'cz_to_anndata':
@@ -579,7 +579,7 @@ def main():
                       output=args.output, cell_ids=args.cell_ids,
                       pos_col=args.pos_col, mc_col=args.mc_col,
                       cov_col=args.cov_col, obs=obs_df,
-                      reference_cz=args.reference_cz)
+                      reference=args.reference)
 
 
 if __name__ == "__main__":

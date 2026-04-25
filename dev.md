@@ -76,7 +76,7 @@ so using `<` avoids byte-swapping overhead on these architectures.
 | var | formats[] | B+s | var | Per column: len(1B) + format string |
 | var | columns[] | B+s | var | Per column: len(1B) + column name |
 | var | sort_col | `<B` | 1B | Index of sort column, or `0xFF` (255) if none |
-| var | n_chunk_keys | `<B` | 1B | Number of chunk_keys |
+| var | n_chunk_dims | `<B` | 1B | Number of chunk_dims |
 | var | dims[] | B+s | var | Per dim: len(1B) + dim name |
 
 `sort_col` identifies a single integer column whose values are monotonically
@@ -117,7 +117,7 @@ decompressing the first record of candidate blocks during `query`.
 "CZIX" (4B magic)
 n_chunks (Q, 8B)
 For each chunk:
-  [dim_len(B) + dim_value(s)] × n_chunk_keys
+  [dim_len(B) + dim_value(s)] × n_chunk_dims
   chunk_start_offset (Q, 8B)
   chunk_size (Q, 8B)
   chunk_data_len (Q, 8B)
@@ -272,7 +272,7 @@ const reader = await CzReader.fromUrl(
 // Inspect header
 console.log(reader.header);
 // { magic: 'CZIP', formats: ['Q','B','B'], columns: ['pos','mc','cov'],
-//   sortCol: 0, chunk_keys: ['chrom'], ... }
+//   sortCol: 0, chunk_dims: ['chrom'], ... }
 
 // List all chunks (chromosomes)
 console.log(reader.chunkKeys);
@@ -441,7 +441,7 @@ Build a cell × feature `AnnData` over a BED / BED.gz / BED.bgz feature set.
 Inputs may be:
 1. A list of single-cell `.cz` files,
 2. A directory of `.cz` files,
-3. One `catcz`-merged `.cz` with `chunk_keys=[cell_id, chrom]` (the cell id
+3. One `catcz`-merged `.cz` with `chunk_dims=[cell_id, chrom]` (the cell id
    chunk_key prefix is auto-detected).
 
 Features grouped by chrom for I/O locality; per-region aggregation uses
@@ -451,7 +451,7 @@ has `X = mc/cov` (float32) plus integer CSR layers `mc` and `cov`.
 CLI: `czip cz_to_anndata -I cell*.cz -f gene_2kb.bed.bgz -O out.h5ad`
 
 ## Rename: `chunksize` → `batch_size`
-Post-`chunk_keys` rename, the term "chunk" now refers exclusively to the
+Post-`chunk_dims` rename, the term "chunk" now refers exclusively to the
 on-disk file structure. The old `chunksize` parameter (rows flushed per
 write) was overloaded and is now `batch_size` everywhere. The on-disk field
 `chunk_size` (byte size of a chunk) is unchanged.
@@ -470,7 +470,7 @@ Three on-disk layouts selectable via ``mode``:
 |---|---|---|---|
 | ``full`` (default) | ``[pos, strand, context, mc, cov]`` | ~13 B post-DEFLATE | self-contained |
 | ``pos_mc_cov``     | ``[pos, mc, cov]``                  | ~5 B  post-DEFLATE | needs ref for context |
-| ``mc_cov``         | ``[mc, cov]``                       | ~2-4 B post-DEFLATE | **requires ``reference_cz``**; output positions are aligned 1:1 against the reference (missing sites filled with ``(0, 0)``) |
+| ``mc_cov``         | ``[mc, cov]``                       | ~2-4 B post-DEFLATE | **requires ``reference``**; output positions are aligned 1:1 against the reference (missing sites filled with ``(0, 0)``) |
 
 The legacy ``--slim`` flag is an alias for ``--mode pos_mc_cov``.
 
@@ -481,6 +481,6 @@ cumulative mc/cov arrays (same pattern as ``allc2cz``'s vectorised
 reference-alignment branch). For typical cell × feature matrices this
 is ~50-100x faster than the previous ``Reader.query`` Python loop.
 
-`cz_to_anndata` also gained a ``reference_cz=`` parameter that provides
+`cz_to_anndata` also gained a ``reference=`` parameter that provides
 positions for ``mc_cov``-only cells. The chrom axis of the dim tuple is
 auto-detected (robust to catcz ordering).

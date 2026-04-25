@@ -51,14 +51,14 @@ os.environ["PATH"] = YAP_BIN + os.pathsep + os.environ.get("PATH", "")
 
 _ALLC_CALL = (
     "from ALLCools._bam_to_allc import bam_to_allc; "
-    "bam_to_allc(bam_path={bam!r}, reference_fasta={fa!r}, "
+    "bam_to_allc(bam_path={bam!r}, genome={fa!r}, "
     "output_path={out!r}, cpu=1, num_upstr_bases=0, num_downstr_bases=2, "
     "min_mapq=10, min_base_quality=20, compress_level=5)"
 )
 _CZ_CALL = (
     "from cytozip.bam import bam_to_cz; "
-    "bam_to_cz(bam_path={bam!r}, reference_fasta={fa!r}, "
-    "output={out!r}, mode='mc_cov', count_fmt='B', reference_cz={ref!r}, "
+    "bam_to_cz(bam_path={bam!r}, genome={fa!r}, "
+    "output={out!r}, mode='mc_cov', count_fmt='B', reference={ref!r}, "
     "min_mapq=10, min_base_quality=20)"
 )
 

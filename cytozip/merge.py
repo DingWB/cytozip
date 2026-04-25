@@ -126,7 +126,7 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
 
     writer1 = Writer(outname, formats=formats,
                      columns=reader1.header['columns'],
-                     chunk_keys=reader1.header['chunk_keys'][:1],
+                     chunk_dims=reader1.header['chunk_dims'][:1],
                      message=outfile_cat)
     data_parts, i = [], 0
     dtfuncs = get_dtfuncs(writer1.formats)
@@ -163,7 +163,7 @@ def catchr(outdir, chrom, ext, batch_nblock, batch_size):
 def merge_cz(indir=None, cz_paths=None, class_table=None,
              output=None, prefix=None, threads=12, formats=['H', 'H'],
              chrom_order=None, reference=None,
-             keep_cat=False, batchsize=10, temp=False, bgzip=True,
+             keep_cat=False, blocks_per_batch=10, temp=False, bgzip=True,
              batch_size=50000, ext='.cz'):
     """
     Merge multiple .cz files. For example:
@@ -193,7 +193,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     reference : path
         path to reference .cz file, only need if fraction="fraction" or "2D".
     keep_cat : bool
-    batchsize :int
+    blocks_per_batch :int
     temp : bool
     bgzip : bool
     batch_size : int
@@ -216,7 +216,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
                      output=None, prefix=f"{prefix}.{key}", threads=threads,
                      formats=formats, chrom_order=chrom_order,
                      reference=reference, keep_cat=keep_cat,
-                     batchsize=batchsize, temp=temp, bgzip=bgzip,
+                     blocks_per_batch=blocks_per_batch, temp=temp, bgzip=bgzip,
                      batch_size=batch_size, ext=ext)
         return None
     if output is None:
@@ -237,13 +237,13 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     outfile_cat = output + '.cat.cz'
     # cat all .cz files into one .cz file, add a chunk_key to chunk (filename)
     writer = Writer(output=outfile_cat, formats=header['formats'],
-                    columns=header['columns'], chunk_keys=header['chunk_keys'],
+                    columns=header['columns'], chunk_dims=header['chunk_dims'],
                     message="catcz")
     writer.catcz(input=[os.path.join(indir, cz_path) for cz_path in cz_paths],
                  add_key=True)
 
     reader = Reader(outfile_cat)
-    chrom_col = reader.header['chunk_keys'][0]
+    chrom_col = reader.header['chunk_dims'][0]
     chunk_info = reader.chunk_info
     reader.close()
 
@@ -259,7 +259,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
                     ].drop_duplicates().set_index(chrom_col).chunk_nblocks.to_dict()
     # how many blocks can be multiplied by self.unit_size
     unit_nblock = int(writer._unit_size / (math.gcd(writer._unit_size, _BLOCK_MAX_LEN)))
-    nunit_perbatch = int(np.ceil((chunk_info.chunk_nblocks.max() / batchsize
+    nunit_perbatch = int(np.ceil((chunk_info.chunk_nblocks.max() / blocks_per_batch
                                   ) / unit_nblock))
     batch_nblock = nunit_perbatch * unit_nblock  # how many block for each batch
     pool = multiprocessing.Pool(threads)
@@ -293,7 +293,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
             # merge batches into chrom (chunk)
             outname = os.path.join(outdir, f"{chrom}.{out_ext}")
             writer = Writer(output=outname, formats=formats,
-                            columns=header['columns'], chunk_keys=header['chunk_keys'],
+                            columns=header['columns'], chunk_dims=header['chunk_dims'],
                             message=outfile_cat)
             writer._chunk_start_offset = writer._handle.tell()
             writer._handle.write(_chunk_magic)
@@ -339,7 +339,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     # Second, merge chromosomes to output
     if out_ext == 'cz':  # merge chroms into final output
         writer = Writer(output=output, formats=formats,
-                        columns=header['columns'], chunk_keys=header['chunk_keys'],
+                        columns=header['columns'], chunk_dims=header['chunk_dims'],
                         message="merged")
         writer.catcz(input=[f"{outdir}/{chrom}.cz" for chrom in chroms])
     else:  # txt

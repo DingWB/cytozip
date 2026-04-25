@@ -61,7 +61,7 @@ def WriteC(record, outdir, batch_size=5000, delta_cols=None):
     print(chrom)
     writer = Writer(output, formats=['Q', 'c', '3s'],
                     columns=['pos', 'strand', 'context'],
-                    chunk_keys=['chrom'], sort_col='pos',
+                    chunk_dims=['chrom'], sort_col='pos',
                     delta_cols=delta_cols)
     
     # Use Cython-accelerated version if available
@@ -171,7 +171,7 @@ class AllC:
     def merge(self):
         writer = Writer(output=self.output, formats=['Q', 'c', '3s'],
                         columns=['pos', 'strand', 'context'],
-                        chunk_keys=['chrom'], message=self.genome,
+                        chunk_dims=['chrom'], message=self.genome,
                         sort_col='pos', delta_cols=self.delta_cols)
         writer.catcz(input=f"{self.outdir}/*.cz")
 
@@ -183,7 +183,7 @@ class AllC:
 
 
 def allc2cz(input, output, reference=None, missing_value=[0, 0],
-           formats=['B', 'B'], columns=['mc', 'cov'], chunk_keys=['chrom'],
+           formats=['B', 'B'], columns=['mc', 'cov'], chunk_dims=['chrom'],
            usecols=[4, 5], ref_pos_col=0, allc_pos_col=1, sep='\t', chrom_order=None,
            batch_size=5000, sort_col=None, delta_cols=None):
     """
@@ -205,8 +205,8 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     columns: list
         columns names, in default is ['mc','cov'] (reference is provided), if no
         referene provided, one should use ['pos','mc','cov'].
-    chunk_keys: list
-        chunk_keys passed to cytozip.Writer, chunk_key name, for allc file, chunk_key
+    chunk_dims: list
+        chunk_dims passed to cytozip.Writer, chunk_key name, for allc file, chunk_key
         is chrom.
     usecols: list
         default is [4, 5], for a typical .allc.tsv.gz, if no reference is provided,
@@ -259,7 +259,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     if delta_cols is None and reference is None and 'pos' in columns:
         delta_cols = ['pos']
     writer = Writer(output, formats=formats, columns=columns,
-                    chunk_keys=chunk_keys, message=message,
+                    chunk_dims=chunk_dims, message=message,
                     sort_col=sort_col, delta_cols=delta_cols)
     unit_size = writer._unit_size
     use_numpy = _all_numeric_formats(formats)  # use vectorized numpy path if all columns are numeric
@@ -424,7 +424,7 @@ def index_context(input, output=None, pattern="CGN"):
         output = os.path.abspath(os.path.expanduser(output))
     reader = Reader(input)
     reader.build_context_index(output=output, formats=['I'], columns=['ID'],
-                        chunk_keys=['chrom'], match_func=judge_func,
+                        chunk_dims=['chrom'], match_func=judge_func,
                         batch_size=2000)
     reader.close()
 
@@ -465,7 +465,7 @@ def extractCG(input=None, output=None, index=None, batch_size=5000,
     reader = Reader(cz_path)
     writer = Writer(output, formats=reader.header['formats'],
                     columns=reader.header['columns'],
-                    chunk_keys=reader.header['chunk_keys'],
+                    chunk_dims=reader.header['chunk_dims'],
                     message=index_path)
     dtfuncs = get_dtfuncs(writer.formats)
     for dim in reader.chunk_key2offset.keys():

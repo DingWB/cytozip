@@ -408,7 +408,7 @@ def _text_input_parser(infile,formats,sep='\t',usecols=[1,4,5],key_cols=[0],
 	usecols :list
 		columns index in input file to be packed into .cz file.
 	key_cols : list
-		chunk_keys column index, default is [0]
+		chunk_dims column index, default is [0]
 	batch_size :int
 
 	Returns
@@ -791,7 +791,7 @@ class Reader:
 		self.header['columns'] = columns
 		assert len(formats) == len(columns)
 		# 1-byte sort column index (0xFF = no sort column / no first_coords index).
-		# Placed BEFORE the chunk_keys section so catcz can still append new
+		# Placed BEFORE the chunk_dims section so catcz can still append new
 		# chunk_key names at the end of the header without shifting this byte.
 		# When set, each chunk tail stores an extra array of per-block
 		# first-record values for that column, enabling O(log N) in-memory
@@ -815,7 +815,7 @@ class Reader:
 			self._sort_col_size = struct.calcsize(self._sort_col_fmt)
 		self.header['sort_col'] = self.sort_col
 		# Per-column storage-encoding table. Written after sort_col and before
-		# the chunk_keys section. Layout:
+		# the chunk_dims section. Layout:
 		#   n_enc (1B) followed by n_enc pairs of (col_idx (1B), enc_code (1B)).
 		# Columns not listed default to RAW. Currently the only non-default
 		# code is DELTA (in-block difference coding for integer columns).
@@ -846,13 +846,13 @@ class Reader:
 			self._delta_col_names = tuple(f'f{i}' for i in self._delta_cols)
 		else:
 			self._delta_col_names = ()
-		chunk_keys = []
-		n_chunk_keys = struct.unpack("<B", f.read(1))[0]
-		for i in range(n_chunk_keys):
+		chunk_dims = []
+		n_chunk_dims = struct.unpack("<B", f.read(1))[0]
+		for i in range(n_chunk_dims):
 			n = struct.unpack("<B", f.read(1))[0]
 			dim = struct.unpack(f"<{n}s", f.read(n))[0].decode()
-			chunk_keys.append(dim)
-		self.header['chunk_keys'] = chunk_keys
+			chunk_dims.append(dim)
+		self.header['chunk_dims'] = chunk_dims
 		self.header['header_size'] = f.tell()  # end of header, begin of 1st chunk
 		self.fmts = ''.join(formats)
 		self._unit_size = struct.calcsize(self.fmts)
@@ -907,7 +907,7 @@ class Reader:
 			rows.append([info['start'], info['size'], dims,
 						 tail_offset, info['nblocks'], nrow])
 		chunk_info = _pd.DataFrame(rows, columns=header)
-		for i, chunk_key in enumerate(self.header['chunk_keys']):
+		for i, chunk_key in enumerate(self.header['chunk_dims']):
 			chunk_info.insert(i, chunk_key, chunk_info.chunk_dims.apply(
 				lambda x: x[i]
 			))
@@ -1000,7 +1000,7 @@ class Reader:
 				self._chunk_block_first_coords = list(
 					struct.unpack(f"<{n}{self._sort_col_fmt}", fc_raw))
 		dims = []
-		for t in self.header['chunk_keys']:
+		for t in self.header['chunk_dims']:
 			n = _struct_B.unpack(self._handle.read(1))[0]
 			dim = struct.unpack(f"<{n}s", self._handle.read(n))[0].decode()
 			dims.append(dim)
@@ -1071,9 +1071,9 @@ class Reader:
 		f.seek(index_offset)
 		buf = f.read(file_size - 28 - index_offset)
 		f.seek(cur)
-		n_chunk_keys = len(self.header['chunk_keys'])
+		n_chunk_dims = len(self.header['chunk_dims'])
 		if _c_parse_czix is not None:
-			res = _c_parse_czix(buf, n_chunk_keys)
+			res = _c_parse_czix(buf, n_chunk_dims)
 			if res is None:
 				return None
 			idx, dim2cs = res
@@ -1089,7 +1089,7 @@ class Reader:
 		unpack_from_4Q = _struct_4Q.unpack_from
 		for _ in range(n_chunks):
 			dims = []
-			for _d in range(n_chunk_keys):
+			for _d in range(n_chunk_dims):
 				n = buf[off]
 				off += 1
 				dims.append(buf[off:off + n].decode())
@@ -1320,7 +1320,7 @@ class Reader:
 		Parameters
 		----------
 		show_dims : int, str or list of int
-			Index (or comma-separated indices) into ``header['chunk_keys']``;
+			Index (or comma-separated indices) into ``header['chunk_dims']``;
 			the corresponding chunk-key columns will be prepended to each
 			output row (e.g. sampleID, chrom). Default is None.
 		header : bool
@@ -1361,7 +1361,7 @@ class Reader:
 					chunk_info = chunk_info.loc[chunk_info[d] == v]
 			chunk_order = chunk_info.index.tolist()
 		else:
-			# equal to query chromosome if self.header['chunk_keys'][0]==chrom
+			# equal to query chromosome if self.header['chunk_dims'][0]==chrom
 			if isinstance(chunk_order, str):
 				order_path = os.path.abspath(os.path.expanduser(chunk_order))
 				if os.path.exists(order_path):
@@ -1380,7 +1380,7 @@ class Reader:
 			reference = _resolve_ref_path(reference)
 			ref_reader = Reader(reference)
 		if not show_dims is None:
-			header_columns = [self.header['chunk_keys'][t] for t in show_dims]
+			header_columns = [self.header['chunk_dims'][t] for t in show_dims]
 			dim_header = "\t".join(header_columns) + '\t'
 		else:
 			dim_header = ''
@@ -1661,7 +1661,7 @@ class Reader:
 							  end_col=1, zerobased=False)
 
 	@staticmethod
-	def build_region_index_worker(input, output, dim, df1, formats, columns, chunk_keys,
+	def build_region_index_worker(input, output, dim, df1, formats, columns, chunk_dims,
 						   batch_size):
 		print(dim)
 		reader = Reader(input)
@@ -1669,7 +1669,7 @@ class Reader:
 		records = reader.pos2id(dim, positions, col_to_query=0)
 
 		writer = Writer(output, formats=formats,
-						columns=columns, chunk_keys=chunk_keys,
+						columns=columns, chunk_dims=chunk_dims,
 						message=os.path.basename(input))
 		data_parts, i = [], 0
 		dtfuncs = get_dtfuncs(writer.formats)
@@ -1694,15 +1694,15 @@ class Reader:
 
 	def build_region_index(self, output, formats=['I', 'I'],
 					columns=['ID_start', 'ID_end'],
-					chunk_keys=['chrom'], bed=None,
+					chunk_dims=['chrom'], bed=None,
 					batch_size=2000, threads=4):
-		n_chunk_keys = len(chunk_keys)
-		df = pd.read_csv(bed, sep='\t', header=None, usecols=list(range(n_chunk_keys + 3)),
+		n_chunk_dims = len(chunk_dims)
+		df = pd.read_csv(bed, sep='\t', header=None, usecols=list(range(n_chunk_dims + 3)),
 						 names=['chrom', 'start', 'end', 'Name'])
 		max_name_len = df.Name.apply(lambda x: len(x)).max()
 		formats = formats + [f'{max_name_len}s']
 		columns = columns + ['Name']
-		chunk_keys = chunk_keys
+		chunk_dims = chunk_dims
 		pool = __import__('multiprocessing').Pool(threads)
 		jobs = []
 		outdir = output + '.tmp'
@@ -1715,7 +1715,7 @@ class Reader:
 			output = os.path.join(outdir, chrom + '.cz')
 			job = pool.apply_async(self.build_region_index_worker,
 								   (self.input, output, dim, df1, formats, columns,
-									chunk_keys, batch_size))
+									chunk_dims, batch_size))
 			jobs.append(job)
 		for job in jobs:
 			r = job.get()
@@ -1723,20 +1723,20 @@ class Reader:
 		pool.join()
 		# merge
 		writer = Writer(output=output, formats=formats,
-						columns=columns, chunk_keys=chunk_keys,
+						columns=columns, chunk_dims=chunk_dims,
 						message=os.path.basename(bed))
 		writer.catcz(input=f"{outdir}/*.cz")
 		os.system(f"rm -rf {outdir}")
 
 	def build_context_index(self, output=None, formats=['I'], columns=['ID'],
-					 chunk_keys=['chrom'], match_func=_isForwardCG,
+					 chunk_dims=['chrom'], match_func=_isForwardCG,
 					 batch_size=2000):
 		if output is None:
 			output = self.input + '.' + match_func.__name__ + '.index'
 		else:
 			output = os.path.abspath(os.path.expanduser(output))
 		writer = Writer(output, formats=formats, columns=columns,
-						chunk_keys=chunk_keys, fileobj=None,
+						chunk_dims=chunk_dims, fileobj=None,
 						message=os.path.basename(self.input))
 		data_parts = []
 		_ssi_pack = struct.Struct(f"<{writer.fmts}").pack
@@ -1902,7 +1902,7 @@ class Reader:
 			ref_reader.close()
 		else:
 			ref_header = []
-		header = self.header['chunk_keys'] + ref_header + self.header['columns']
+		header = self.header['chunk_dims'] + ref_header + self.header['columns']
 		if len(IDs.shape) == 1:
 			if printout:
 				sys.stdout.write('\t'.join(header) + '\n')
@@ -1941,7 +1941,7 @@ class Reader:
 		----------
 		chunk_key : tuple
 			Chunk key tuple; its length must match
-			``len(header['chunk_keys'])`` (e.g. ``('chr1',)`` for files
+			``len(header['chunk_dims'])`` (e.g. ``('chr1',)`` for files
 			keyed by chromosome only).
 
 		Returns
@@ -2264,9 +2264,9 @@ class Reader:
 		Parameters
 		----------
 		chunk_key : str
-			chunk_key, such as chr1 (if chunk_keys 'chrom' is inlcuded in
-			header['chunk_keys']), or sample1 (if something like 'sampleID' is
-			included in header['chunk_keys'] and chunk contains such chunk_key)
+			chunk_key, such as chr1 (if chunk_dims 'chrom' is inlcuded in
+			header['chunk_dims']), or sample1 (if something like 'sampleID' is
+			included in header['chunk_dims'] and chunk contains such chunk_key)
 		start : int
 			start position, if None, the entire chunk_key would be returned.
 		end : int
@@ -2277,7 +2277,7 @@ class Reader:
 			],
 			chunk_key is a tuple, for example, chunk_key=('chr1');
 			if regions is a file path (separated by tab and no header),
-			the first len(header['chunk_keys']) columns would be
+			the first len(header['chunk_dims']) columns would be
 			used as chunk_key, and next two columns would be used as start and end.
 		query_col : list
 			index of columns (header['columns']) to be queried,for example,
@@ -2316,14 +2316,14 @@ class Reader:
 			if isinstance(regions, str):
 				region_path = os.path.abspath(os.path.expanduser(regions))
 				if os.path.exists(region_path):
-					n_chunk_keys = len(self.header['chunk_keys'])
-					usecols = list(range(n_chunk_keys + 2))
+					n_chunk_dims = len(self.header['chunk_dims'])
+					usecols = list(range(n_chunk_dims + 2))
 					df = pd.read_csv(region_path, sep='\t', header=None,
 									 usecols=usecols)
 					regions = df.apply(lambda x: [
-						tuple(x[:n_chunk_keys]),
-						x[n_chunk_keys],
-						x[n_chunk_keys + 1]
+						tuple(x[:n_chunk_dims]),
+						x[n_chunk_dims],
+						x[n_chunk_dims + 1]
 					], axis=1).tolist()
 				else:
 					raise ValueError(f"path {region_path} not existed.")
@@ -2345,7 +2345,7 @@ class Reader:
 									 "Can not perform querying without reference!",
 									 f"columns: {self.header['columns']}",
 									 f"formats: {self.header['formats']}")
-			header = self.header['chunk_keys'] + self.header['columns']
+			header = self.header['chunk_dims'] + self.header['columns']
 			if printout:
 				sys.stdout.write('\t'.join(header) + '\n')
 				records = self._query_regions(regions, s, e)
@@ -2377,7 +2377,7 @@ class Reader:
 		else:
 			reference = _resolve_ref_path(reference)
 			ref_reader = Reader(reference)
-			header = (self.header['chunk_keys'] + ref_reader.header['columns']
+			header = (self.header['chunk_dims'] + ref_reader.header['columns']
 					  + self.header['columns'])
 			if printout:
 				sys.stdout.write('\t'.join(header) + '\n')
@@ -2728,7 +2728,7 @@ def extract(input=None, output=None, index=None, batch_size=5000):
 	reader = Reader(os.path.abspath(os.path.expanduser(input)))
 	writer = Writer(output, formats=reader.header['formats'],
 					columns=reader.header['columns'],
-					chunk_keys=reader.header['chunk_keys'],
+					chunk_dims=reader.header['chunk_dims'],
 					message=index)
 	# dtfuncs = get_dtfuncs(writer.formats)
 	for dim in reader.chunk_key2offset.keys():
@@ -2811,7 +2811,7 @@ def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 	reader = Reader(cz_path)
 	writer = Writer(output, formats=formats,
 					columns=reader.header['columns'],
-					chunk_keys=reader.header['chunk_keys'],
+					chunk_dims=reader.header['chunk_dims'],
 					message=os.path.basename(index_path))
 	dtfuncs = get_dtfuncs(writer.formats)
 	for dim in reader.chunk_key2offset.keys():
@@ -2862,7 +2862,7 @@ def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 
 class Writer:
 	def __init__(self, output=None, mode="wb", formats=['B', 'B'],
-				 columns=['mc', 'cov'], chunk_keys=['chrom'],
+				 columns=['mc', 'cov'], chunk_dims=['chrom'],
 				 fileobj=None, message='', level=6, verbose=0,
 				 sort_col=None, delta_cols=None):
 		"""
@@ -2878,8 +2878,8 @@ class Writer:
 			format for each column, see https://docs.python.org/3/library/struct.html#format-characters for detail format.
 		columns : list
 			columns names, length should be the same as formats.
-		chunk_keys : list
-			chunk_keys to be included for each chunk, for example, if you would like
+		chunk_dims : list
+			chunk_dims to be included for each chunk, for example, if you would like
 			to include sampleID and chromosomes as chunk_key title, then set
 			Dimsnsion=['sampleID','chrom'], then give each chunk a dims,
 			for example, dims for chunk1 is ['cell1','chr1'], dims for chunk2 is
@@ -2946,10 +2946,10 @@ class Writer:
 				f"formats and columns must have the same length, "
 				f"got {len(self.formats)} formats and {len(self.columns)} columns"
 			)
-		if isinstance(chunk_keys, str):
-			self.chunk_keys = chunk_keys.split(',')
+		if isinstance(chunk_dims, str):
+			self.chunk_dims = chunk_dims.split(',')
 		else:
-			self.chunk_keys = list(chunk_keys)
+			self.chunk_dims = list(chunk_dims)
 		# ---- resolve sort_col -----------------------------------------------
 		self.sort_col = self._resolve_sort_col(sort_col)
 		if self.sort_col is None:
@@ -3107,7 +3107,7 @@ class Writer:
 			name_len = len(name)
 			f.write(struct.pack("<B", name_len))  # length of each name, 1 byte
 			f.write(struct.pack(f"<{name_len}s", bytes(name, 'utf-8')))
-		# 1-byte sort_col index (0xFF = none). Stored BEFORE chunk_keys so
+		# 1-byte sort_col index (0xFF = none). Stored BEFORE chunk_dims so
 		# that catcz can still append new chunk_key names at `_header_size`
 		# without disturbing this byte. See Reader.read_header for semantics.
 		sort_col_byte = _NO_SORT_COL if self.sort_col is None else int(self.sort_col)
@@ -3119,16 +3119,16 @@ class Writer:
 		for idx in self._delta_cols:
 			f.write(struct.pack("<BB", idx, _ENC_DELTA))
 		self._n_chunk_keys_offset = f.tell()
-		# when a new dim is added, go back here and rewrite the n_chunk_keys (1byte)
-		f.write(struct.pack("<B", len(self.chunk_keys)))  # 1byte
-		for dim in self.chunk_keys:
+		# when a new dim is added, go back here and rewrite the n_chunk_dims (1byte)
+		f.write(struct.pack("<B", len(self.chunk_dims)))  # 1byte
+		for dim in self.chunk_dims:
 			dname_len = len(dim)
 			f.write(struct.pack("<B", dname_len))  # length of each name, 1 byte
 			f.write(struct.pack(f"<{dname_len}s", bytes(dim, 'utf-8')))
 		# when multiple .cz are cat into one .cz and a new chunk_key is added,
 		# such as sampleID, seek to this position (_header_size) and write another
 		# two element: new_dname_len (B) and new_dim, then go to
-		# _n_chunk_keys_offset,rewrite the n_chunk_keys (n_chunk_keys = n_chunk_keys + 1) and new chunk_key name
+		# _n_chunk_keys_offset,rewrite the n_chunk_dims (n_chunk_dims = n_chunk_dims + 1) and new chunk_key name
 		self._header_size = f.tell()
 		self.fmts = ''.join(list(self.formats))
 		self._unit_size = struct.calcsize(self.fmts)
@@ -3282,7 +3282,7 @@ class Writer:
 		dims : list or tuple
 			chunk_key values for this chunk (e.g., ['chr1']).
 		"""
-		# assert len(dims)==len(self.chunk_keys)
+		# assert len(dims)==len(self.chunk_dims)
 		if self._chunk_dims != dims:
 			# the first chunk or another new chunk
 			if self._chunk_dims is not None:
@@ -3353,7 +3353,7 @@ class Writer:
 		usecols : list
 			usecols is the index of columns to be packed into .cz columns.
 		key_cols : list
-			index of columns to be set as chunk_keys of Writer, such as chrom
+			index of columns to be set as chunk_dims of Writer, such as chrom
 			columns.
 		sep : str
 			defauls is "\t", used as separator for the input file path.
@@ -3398,7 +3398,7 @@ class Writer:
 			self.key_cols = key_cols
 
 		assert len(self.usecols) == len(self.formats)
-		assert len(self.key_cols) == len(self.chunk_keys)
+		assert len(self.key_cols) == len(self.chunk_dims)
 		self.batch_size = batch_size
 		self.header = header
 		self.skiprows = skiprows
@@ -3485,9 +3485,9 @@ class Writer:
 		add_key: bool or function
 			whether to add .cz file names as an new chunk_key to the merged
 			.cz file. For example, we have multiple .cz files for many cells, in
-			each .cz file, the chunk_keys are ['chrom'], after merged, we would
+			each .cz file, the chunk_dims are ['chrom'], after merged, we would
 			like to add file name of .cz as a new chunk_key ['cell_id']. In this case,
-			the chunk_keys in the merged header would be ["chrom","cell_id"], and
+			the chunk_dims in the merged header would be ["chrom","cell_id"], and
 			in each chunk, in addition to the previous dim ['chr1'] or ['chr22'].., a
 			new dim would also be append to the previous dim, like ['chr1','cell_1'],
 			['chr22','cell_100'].
@@ -3497,8 +3497,8 @@ class Writer:
 			convert filename to dim name is self.create_new_dim.
 		title: str
 			if add_key is True or a python function, title would be append to
-			the header['chunk_keys'] of the merged .cz file's header. If the title of
-			new chunk_key had already given in Writer chunk_keys,
+			the header['chunk_dims'] of the merged .cz file's header. If the title of
+			new chunk_key had already given in Writer chunk_dims,
 			title can be None, otherwise, title should be provided.
 
 		Returns
@@ -3565,12 +3565,12 @@ class Writer:
 				new_dim = [self.new_dim_creator(os.path.basename(file_path))]
 			else:
 				new_dim = []
-			if len(dims + tuple(new_dim)) > len(self.chunk_keys):
-				# new_dim title should be also added to header chunk_keys
-				self.chunk_keys = self.chunk_keys + [title]
+			if len(dims + tuple(new_dim)) > len(self.chunk_dims):
+				# new_dim title should be also added to header chunk_dims
+				self.chunk_dims = self.chunk_dims + [title]
 				self._handle.seek(self._n_chunk_keys_offset)
-				# when a new dim is added, go back here and rewrite the n_chunk_keys (1byte)
-				self._handle.write(struct.pack("<B", len(self.chunk_keys)))  # 1byte
+				# when a new dim is added, go back here and rewrite the n_chunk_dims (1byte)
+				self._handle.write(struct.pack("<B", len(self.chunk_dims)))  # 1byte
 				self._handle.seek(self._header_size)
 				# write new dim to the end of header
 				dname_len = len(title)

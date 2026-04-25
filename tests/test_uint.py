@@ -10,7 +10,7 @@ class TestUInt(unittest.TestCase):
         vals = [0, 1, 123456789, 2**32 - 1]
         with tempfile.TemporaryDirectory() as td:
             path = os.path.join(td, 'u.cz')
-            w = Writer(output=path, formats=['I'], columns=['val'], chunk_keys=['chr'])
+            w = Writer(output=path, formats=['I'], columns=['val'], chunk_dims=['chr'])
             data = b''.join(struct.pack("<I", v) for v in vals)
             w.write_chunk(data, ['chr1'])
             w.close()

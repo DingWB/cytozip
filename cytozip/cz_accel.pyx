@@ -1407,7 +1407,7 @@ def c_write_c_records(seq_bytes, batch_size=5000):
 # ---------------------------------------------------------------------------
 # CZIX footer fast parser
 # ---------------------------------------------------------------------------
-def c_parse_czix(bytes buf, int n_chunk_keys):
+def c_parse_czix(bytes buf, int n_chunk_dims):
     """Parse a CZIX chunk index buffer into ``(index_dict, chunk_key2offset)``.
 
     ``buf`` must be the CZIX payload read from the file tail starting at the
@@ -1436,8 +1436,8 @@ def c_parse_czix(bytes buf, int n_chunk_keys):
     cdef tuple dims
     cdef list dim_list
     for n_chunks_i in range(n_chunks):
-        dim_list = [None] * n_chunk_keys
-        for j in range(n_chunk_keys):
+        dim_list = [None] * n_chunk_dims
+        for j in range(n_chunk_dims):
             if off >= blen:
                 return None
             dlen = p[off]

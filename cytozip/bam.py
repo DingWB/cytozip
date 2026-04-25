@@ -18,14 +18,14 @@ Storage layout options (``mode`` parameter)
     formats = ``['Q', 'H', 'H']``. Downstream pipelines can join contexts
     from a reference .cz. Matches the "slim" layout used by ``allc2cz``.
 ``mode="mc_cov"``
-    Store ``[mc, cov]`` only. **Requires ``reference_cz``**: output records
+    Store ``[mc, cov]`` only. **Requires ``reference``**: output records
     are aligned one-to-one with the reference .cz's positions; missing
     sites are filled with (0, 0). Smallest on-disk footprint (~4 B / site)
     and matches the reference-driven ``allc2cz`` layout.
 
 Streaming layout of the produced ``.cz``:
 
-* ``chunk_keys = ['chrom']``
+* ``chunk_dims = ['chrom']``
 * ``sort_col = 'pos'`` (enables O(log N) region query), only when pos is stored
 * ``delta_cols = ['pos']`` (positions are monotonic within each chrom),
   only when pos is stored
@@ -161,15 +161,15 @@ def _layout_for_mode(mode, count_fmt="H"):
     raise ValueError(mode)
 
 
-def _load_reference_positions(reference_cz):
+def _load_reference_positions(reference):
     """Return ``{chrom: np.ndarray(int64 positions)}`` from a reference .cz."""
-    r = Reader(reference_cz)
+    r = Reader(reference)
     try:
         cols = r.header["columns"]
         fmts = r.header["formats"]
         if "pos" not in cols:
             raise ValueError(
-                f"reference_cz {reference_cz} has no 'pos' column "
+                f"reference {reference} has no 'pos' column "
                 f"(columns={cols}); cannot use mode='mc_cov'."
             )
         pos_i = cols.index("pos")
@@ -180,8 +180,8 @@ def _load_reference_positions(reference_cz):
             for i, f in enumerate(fmts)
         ])
         out = {}
-        chunk_keys = r.header["chunk_keys"]
-        chrom_idx = len(chunk_keys) - 1
+        chunk_dims = r.header["chunk_dims"]
+        chrom_idx = len(chunk_dims) - 1
         for dim in r.chunk_key2offset.keys():
             chrom = dim[chrom_idx]
             raw = r.fetch_chunk_bytes(dim)
@@ -200,11 +200,11 @@ def _load_reference_positions(reference_cz):
 # ---------------------------------------------------------------------------
 def bam_to_cz(
     bam_path: str,
-    reference_fasta: str,
+    genome: str,
     output: Optional[str] = None,
     mode: str = "mc_cov",
     count_fmt: str = "B",
-    reference_cz: Optional[str] = None,
+    reference: Optional[str] = None,
     num_upstr_bases: int = 0,
     num_downstr_bases: int = 2,
     min_mapq: int = 10,
@@ -219,7 +219,7 @@ def bam_to_cz(
     ----------
     bam_path : str
         Position-sorted BAM (requires ``.bai``; we will build it if missing).
-    reference_fasta : str
+    genome : str
         Indexed reference fasta (``.fai`` required).
     output : str, optional
         Output ``.cz`` path. Defaults to ``<bam_stem>.cz`` next to the BAM.
@@ -232,7 +232,7 @@ def bam_to_cz(
         a few tens. Values that exceed the chosen dtype max are clipped
         (with a one-time warning). Defaults to ``'H'`` (uint16, 2 bytes;
         max 65535) for safety.
-    reference_cz : str, optional
+    reference : str, optional
         Reference .cz (containing a ``pos`` column per chrom). **Required
         when ``mode='mc_cov'``** - output records are aligned one-to-one
         with this reference's positions; missing sites are filled with
@@ -256,18 +256,18 @@ def bam_to_cz(
     """
     mode = _resolve_mode(mode)
     count_max = _COUNT_FMT_MAX[count_fmt] if count_fmt in _COUNT_FMT_MAX else 0xFFFF
-    if mode == "mc_cov" and reference_cz is None:
+    if mode == "mc_cov" and reference is None:
         raise ValueError(
-            "mode='mc_cov' requires reference_cz (positions are not stored "
+            "mode='mc_cov' requires reference (positions are not stored "
             "in the output and must be recovered from the reference)."
         )
 
-    if not os.path.exists(reference_fasta):
-        raise FileNotFoundError(f"Reference fasta not found: {reference_fasta}")
-    fai_path = reference_fasta + ".fai"
+    if not os.path.exists(genome):
+        raise FileNotFoundError(f"Reference fasta not found: {genome}")
+    fai_path = genome + ".fai"
     if not os.path.exists(fai_path):
         raise FileNotFoundError(
-            f"Reference fasta not indexed. Run `samtools faidx {reference_fasta}` first."
+            f"Reference fasta not indexed. Run `samtools faidx {genome}` first."
         )
     fai_df = _read_faidx(fai_path)
 
@@ -288,16 +288,16 @@ def bam_to_cz(
     formats, columns, sort_col, delta_cols = _layout_for_mode(mode, count_fmt)
     ref_pos_map = None
     if mode == "mc_cov":
-        ref_pos_map = _load_reference_positions(reference_cz)
-        writer_message = os.path.basename(reference_cz)
+        ref_pos_map = _load_reference_positions(reference)
+        writer_message = os.path.basename(reference)
     else:
-        writer_message = os.path.basename(reference_fasta)
+        writer_message = os.path.basename(genome)
 
     writer = Writer(
         output,
         formats=formats,
         columns=columns,
-        chunk_keys=["chrom"],
+        chunk_dims=["chrom"],
         sort_col=sort_col,
         delta_cols=delta_cols,
         message=writer_message,
@@ -308,7 +308,7 @@ def bam_to_cz(
 
     mpileup_cmd = (
         f"samtools mpileup -Q {min_base_quality} -q {min_mapq} -B "
-        f"-f {reference_fasta} {bam_path}"
+        f"-f {genome} {bam_path}"
     )
     pipes = subprocess.Popen(
         shlex.split(mpileup_cmd),
@@ -379,7 +379,7 @@ def bam_to_cz(
                 if cur_chrom:
                     _flush(cur_chrom)
                 cur_chrom = fields[0]
-                seq = _get_chromosome_sequence_upper(reference_fasta, fai_df, cur_chrom)
+                seq = _get_chromosome_sequence_upper(genome, fai_df, cur_chrom)
 
             if ref_base not in _MC_SITES:
                 continue
