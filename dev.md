@@ -76,7 +76,7 @@ so using `<` avoids byte-swapping overhead on these architectures.
 | var | formats[] | B+s | var | Per column: len(1B) + format string |
 | var | columns[] | B+s | var | Per column: len(1B) + column name |
 | var | sort_col | `<B` | 1B | Index of sort column, or `0xFF` (255) if none |
-| var | n_dims | `<B` | 1B | Number of dimensions |
+| var | n_chunk_keys | `<B` | 1B | Number of chunk_keys |
 | var | dims[] | B+s | var | Per dim: len(1B) + dim name |
 
 `sort_col` identifies a single integer column whose values are monotonically
@@ -110,14 +110,14 @@ decompressing the first record of candidate blocks during `query`.
 | n_blocks | `<Q` | 8B | Number of blocks |
 | virtual_offsets[] | `<Q`×N | 8B×N | `(block_disk_offset << 16) \| within_block_offset` |
 | first_coords[] | fmt×N | k×N | First record's `sort_col` value per block (only if `sort_col != 0xFF`; `k` = size of `sort_col`'s format) |
-| dim_values[] | B+s | var | Dimension value strings |
+| chunk_key_values[] | B+s | var | Dimension value strings |
 
 ## Chunk Index (end of file, for remote/partial reading)
 ```
 "CZIX" (4B magic)
 n_chunks (Q, 8B)
 For each chunk:
-  [dim_len(B) + dim_value(s)] × n_dims
+  [dim_len(B) + dim_value(s)] × n_chunk_keys
   chunk_start_offset (Q, 8B)
   chunk_size (Q, 8B)
   chunk_data_len (Q, 8B)
@@ -178,7 +178,7 @@ time czip index context -I ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -p +CGN
 time czip extract -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -s ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz.CGN.forward.idx.cz -o ~/Ref/mm10/annotations/mm10_with_chrL.allCG.forward.cz
 # about 1m23.855s
 
-# Index files are themselves .cz files — inspect with `czip view -I *.idx.cz --show-dim 0`
+# Index files are themselves .cz files — inspect with `czip view -I *.idx.cz --show-keys 0`
 ```
 
 ## Remote Reading
@@ -213,7 +213,7 @@ dt = np.dtype([("pos", "<u8"), ("mc", "<u2"), ("cov", "<u2")])
 arr = np.frombuffer(raw, dtype=dt)
 
 # Query by region
-results = list(r.query(Dimension="chr9", start=3000294, end=3000472, printout=False))
+results = list(r.query(chunk_key="chr9", start=3000294, end=3000472, printout=False))
 
 # Read chunk index directly
 idx = r.read_chunk_index()
@@ -272,10 +272,10 @@ const reader = await CzReader.fromUrl(
 // Inspect header
 console.log(reader.header);
 // { magic: 'CZIP', formats: ['Q','B','B'], columns: ['pos','mc','cov'],
-//   sortCol: 0, dimensions: ['chrom'], ... }
+//   sortCol: 0, chunk_keys: ['chrom'], ... }
 
 // List all chunks (chromosomes)
-console.log(reader.dims);
+console.log(reader.chunkKeys);
 // ['chr1', 'chr2', ..., 'chrY']
 
 // Summary
@@ -359,3 +359,128 @@ The name "cytozip" is too narrow — the package is not just a compression tool 
 | **CytoMine** | **Cyto**(sine) + **Mine**(data mining) | Emphasizes mining insights from massive sc-methylation data |
 
 Top recommendations: **mCyte** (concise, domain-specific) or **MESA**.
+---
+
+## Roadmap: Submission Plan
+Strategic to-do list for scaling cytozip into a publication-ready framework supporting single-cell DNA methylation + methylation array data, with an online portal and expanded analysis features.
+
+### 1. Paper Positioning
+
+- [ ] Decide main narrative (recommended: *"A unified, cloud-native data format and analysis ecosystem for population-scale methylomes"*).
+- [ ] Benchmark vs. ALLCools / methylpy / bsseq / tabix+bgzip / TileDB / Zarr / Parquet on four axes: compression ratio, random-access latency, region query, cross-sample join.
+- [ ] Prepare at least one flagship biological application showcasing interactive-speed analysis over millions of cells.
+- [ ] Unify sc-methylation + Illumina array (450K/EPIC/EPICv2) under the same format — strong differentiator.
+
+### 2. Format / Algorithm Layer
+
+- [ ] Freeze **CZ format spec v1.0** — publish `docs/spec.md` formalizing the existing `CZIP` magic (4B) + version float (4B) already in the header. Define a policy to actually *use* the version field for backward-compatible reads on future header changes (prior DELTA-encoding addition broke old files — don't repeat).
+- [ ] Add array-data payload: dense matrix block + per-column zstd (TileDB-style tiles).
+- [ ] Implement importers: `idat2cz`, `sesame2cz`, `minfi2cz`.
+- [ ] Extend existing `catcz` output (already: many cells → one `.cz` with shared header + per-cell chunk + `chunk_key2offset` index) with two additions for cohort-scale use:
+    - Embed cell-level **obs metadata** (Arrow IPC / Parquet footer) so `reader.obs` returns a `pandas.DataFrame` — no external `obs.tsv` to keep in sync.
+    - Build a **group inverted index** (e.g. `cluster → [cell_id, ...]`) to coalesce remote range reads for queries like "all Oligo cells at chr9:60610139-60610151".
+- [ ] Add codec variants: RLE (long methylated runs), FOR (frame-of-reference for mc/cov), cross-block zstd dict for reference-aligned data.
+- [ ] Benchmark each codec's gain in the paper table.
+- [ ] Export C header + shared library from Cython core for R / Julia / Rust bindings.
+
+### 3. Analysis Features
+
+- [ ] `call_dmr`: port DSS / DMRfind to run natively on `.cz` streams (zero decompress to numpy) — target ≥10× speedup vs. methylpy/ALLCools.
+- [ ] `call_peak`: sliding-window + Poisson enrichment for 5hmC / mCH, input `.cz`.
+- [ ] Clustering: do NOT rewrite; export `AnnData` / `MuData` compatible objects for scanpy / ALLCools. Sell the I/O + feature extraction speed.
+- [ ] Unified API:
+  - `cz.pileup(region) -> array`
+  - `cz.call_dmr(groups, region)`
+  - `cz.to_anndata(features="100kb" | "gene" | "peaks")`
+- [ ] Provide Snakemake / Nextflow wrappers.
+
+### 4. Portal & Ecosystem
+
+- [ ] Backend: FastAPI + `.cz` HTTP-range server — stream directly from S3/GCS without full download.
+- [ ] Frontend: React + igv.js / higlass for tracks (no custom genome browser).
+- [ ] Flagship datasets: BICAN / HMBA / mouse_dev cohorts as paper Figure 4 material.
+- [ ] `cz.open("s3://bucket/file.cz")` and `https://...` support, fetching only queried blocks.
+- [ ] `czserve` CLI for local portal deployment.
+- [ ] PyPI + bioconda release; cibuildwheel prebuilt wheels for linux/mac/arm64.
+- [ ] Thin R package `cytozipR` (reticulate or C-API bindings).
+
+### 5. Engineering / Pre-submission Checklist
+
+- [ ] Versioned format spec document (`docs/spec.md`).
+- [ ] Bump version field + add version-aware read branches before any future header change (magic + version bytes already present).
+- [ ] Unit-test coverage >80%, CI on linux/mac/windows.
+- [ ] Reproducible benchmark suite under `benchmarks/`, archived with Zenodo DOI.
+- [ ] Docs on readthedocs with tutorials.
+- [ ] Colab-runnable demo notebooks.
+- [ ] Docker image.
+- [ ] bioRxiv preprint before NM submission.
+
+### 6. High-Level Timeline
+
+1. Freeze spec v1.0 (document existing magic + version fields, define version-bump policy) — ~2 weeks.
+2. Array support + obs/group-index extension to catcz output — ~1–2 months.
+3. Native `call_dmr` + benchmark — ~1 month.
+4. Portal MVP (FastAPI + S3 range read + one flagship dataset) — ~1–2 months.
+5. bioRxiv → Nature Methods submission.
+
+---
+
+## New modules (this iteration)
+
+### `cytozip/bam.py` — `bam_to_cz`
+Port of ALLCools `_bam_to_allc.bam_to_allc` (original author: Yupeng He) that writes
+directly into `.cz` instead of ALLC `tsv.gz` + tabix. Single pass over
+`samtools mpileup` output; emits `(pos, strand, context, mc, cov)` records
+(or `(pos, mc, cov)` when `--slim` is used). `pos` column is DELTA-encoded;
+`sort_col='pos'` gives O(log N) region queries from CLI.
+
+CLI: `czip bam_to_cz -I sample.bam -r ref.fa -O sample.cz [--slim] [--convert-strandness]`
+
+### `cytozip/features.py` — `cz_to_anndata` / `parse_features`
+Build a cell × feature `AnnData` over a BED / BED.gz / BED.bgz feature set.
+Inputs may be:
+1. A list of single-cell `.cz` files,
+2. A directory of `.cz` files,
+3. One `catcz`-merged `.cz` with `chunk_keys=[cell_id, chrom]` (the cell id
+   chunk_key prefix is auto-detected).
+
+Features grouped by chrom for I/O locality; per-region aggregation uses
+`Reader.query()` which engages the Cython `c_query_regions` path. Output
+has `X = mc/cov` (float32) plus integer CSR layers `mc` and `cov`.
+
+CLI: `czip cz_to_anndata -I cell*.cz -f gene_2kb.bed.bgz -O out.h5ad`
+
+## Rename: `chunksize` → `batch_size`
+Post-`chunk_keys` rename, the term "chunk" now refers exclusively to the
+on-disk file structure. The old `chunksize` parameter (rows flushed per
+write) was overloaded and is now `batch_size` everywhere. The on-disk field
+`chunk_size` (byte size of a chunk) is unchanged.
+
+Affected:
+- Python: `Writer.tocz`, `Writer.catcz`, `allc2cz`, `WriteC`, `extractCG`,
+  `merge_cz`, `bam_to_cz`, cz_accel.c_write_c_records.
+- CLI: `-c / --batch-size` (was `--chunksize`).
+
+## Update: `bam_to_cz` storage modes + `cz_to_anndata` numpy fast path
+
+### `bam_to_cz(mode=...)`
+Three on-disk layouts selectable via ``mode``:
+
+| mode | columns | size / site | notes |
+|---|---|---|---|
+| ``full`` (default) | ``[pos, strand, context, mc, cov]`` | ~13 B post-DEFLATE | self-contained |
+| ``pos_mc_cov``     | ``[pos, mc, cov]``                  | ~5 B  post-DEFLATE | needs ref for context |
+| ``mc_cov``         | ``[mc, cov]``                       | ~2-4 B post-DEFLATE | **requires ``reference_cz``**; output positions are aligned 1:1 against the reference (missing sites filled with ``(0, 0)``) |
+
+The legacy ``--slim`` flag is an alias for ``--mode pos_mc_cov``.
+
+### `cz_to_anndata` numpy fast path
+The per-region aggregation loop now uses
+``Reader.fetch_chunk_bytes`` + ``np.frombuffer`` + ``np.searchsorted`` on
+cumulative mc/cov arrays (same pattern as ``allc2cz``'s vectorised
+reference-alignment branch). For typical cell × feature matrices this
+is ~50-100x faster than the previous ``Reader.query`` Python loop.
+
+`cz_to_anndata` also gained a ``reference_cz=`` parameter that provides
+positions for ``mc_cov``-only cells. The chrom axis of the dim tuple is
+auto-detected (robust to catcz ordering).

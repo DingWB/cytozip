@@ -67,7 +67,7 @@ def _fisher_worker(df):
 
 # ==========================================================
 def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
-                    block_idx_start, batch_nblock, chunksize=5000):
+                    block_idx_start, batch_nblock, batch_size=5000):
     """Worker function for parallel merge of per-cell .cz data.
 
     Reads a batch of blocks (batch_nblock blocks starting at
@@ -89,7 +89,7 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
     reader1 = Reader(outfile_cat)
     data = None
     for dim in dims:  # each dim is a file of the same chrom
-        r = reader1._load_chunk(reader1.dim2chunk_start[dim], jump=False)
+        r = reader1._load_chunk(reader1.chunk_key2offset[dim], jump=False)
         block_start_offset = reader1._chunk_block_1st_record_virtual_offsets[
                                  block_idx_start] >> 16
         buf_parts = []
@@ -126,7 +126,7 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
 
     writer1 = Writer(outname, formats=formats,
                      columns=reader1.header['columns'],
-                     dimensions=reader1.header['dimensions'][:1],
+                     chunk_keys=reader1.header['chunk_keys'][:1],
                      message=outfile_cat)
     data_parts, i = [], 0
     dtfuncs = get_dtfuncs(writer1.formats)
@@ -134,7 +134,7 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         data_parts.append(struct.pack(f"<{writer1.fmts}",
                                  *[func(v) for v, func in zip(values, dtfuncs)]))
         i += 1
-        if i > chunksize:
+        if i > batch_size:
             writer1.write_chunk(b''.join(data_parts), [chrom])
             data_parts, i = [], 0
     if len(data_parts) > 0:
@@ -144,13 +144,13 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
     return
 
 
-def catchr(outdir, chrom, ext, batch_nblock, chunksize):
+def catchr(outdir, chrom, ext, batch_nblock, batch_size):
     """Concatenate per-batch txt shards for one chromosome."""
     outname = os.path.join(outdir, f"{chrom}.{ext}")
     block_idx_start = 0
     infile = os.path.join(outdir, chrom + f'.{block_idx_start}.{ext}')
     while os.path.exists(infile):
-        for df in pd.read_csv(infile, sep='\t', chunksize=chunksize):
+        for df in pd.read_csv(infile, sep='\t', batch_size=batch_size):
             if not os.path.exists(outname):
                 df.to_csv(outname, sep='\t', index=False, header=True)
             else:
@@ -164,7 +164,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
              output=None, prefix=None, threads=12, formats=['H', 'H'],
              chrom_order=None, reference=None,
              keep_cat=False, batchsize=10, temp=False, bgzip=True,
-             chunksize=50000, ext='.cz'):
+             batch_size=50000, ext='.cz'):
     """
     Merge multiple .cz files. For example:
     cytozip merge_cz -i ./ -o major_type.2D.txt -n 96 -f 2D \
@@ -196,7 +196,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     batchsize :int
     temp : bool
     bgzip : bool
-    chunksize : int
+    batch_size : int
 
     Returns
     -------
@@ -217,7 +217,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
                      formats=formats, chrom_order=chrom_order,
                      reference=reference, keep_cat=keep_cat,
                      batchsize=batchsize, temp=temp, bgzip=bgzip,
-                     chunksize=chunksize, ext=ext)
+                     batch_size=batch_size, ext=ext)
         return None
     if output is None:
         if prefix is None:
@@ -235,15 +235,15 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     header = reader.header
     reader.close()
     outfile_cat = output + '.cat.cz'
-    # cat all .cz files into one .cz file, add a dimension to chunk (filename)
+    # cat all .cz files into one .cz file, add a chunk_key to chunk (filename)
     writer = Writer(output=outfile_cat, formats=header['formats'],
-                    columns=header['columns'], dimensions=header['dimensions'],
+                    columns=header['columns'], chunk_keys=header['chunk_keys'],
                     message="catcz")
     writer.catcz(input=[os.path.join(indir, cz_path) for cz_path in cz_paths],
-                 add_dim=True)
+                 add_key=True)
 
     reader = Reader(outfile_cat)
-    chrom_col = reader.header['dimensions'][0]
+    chrom_col = reader.header['chunk_keys'][0]
     chunk_info = reader.chunk_info
     reader.close()
 
@@ -293,7 +293,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
             # merge batches into chrom (chunk)
             outname = os.path.join(outdir, f"{chrom}.{out_ext}")
             writer = Writer(output=outname, formats=formats,
-                            columns=header['columns'], dimensions=header['dimensions'],
+                            columns=header['columns'], chunk_keys=header['chunk_keys'],
                             message=outfile_cat)
             writer._chunk_start_offset = writer._handle.tell()
             writer._handle.write(_chunk_magic)
@@ -329,7 +329,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
         jobs = []
         for chrom in chroms:
             job = pool.apply_async(catchr,
-                                   (outdir, chrom, out_ext, batch_nblock, chunksize))
+                                   (outdir, chrom, out_ext, batch_nblock, batch_size))
             jobs.append(job)
         for job in jobs:
             r = job.get()
@@ -339,7 +339,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     # Second, merge chromosomes to output
     if out_ext == 'cz':  # merge chroms into final output
         writer = Writer(output=output, formats=formats,
-                        columns=header['columns'], dimensions=header['dimensions'],
+                        columns=header['columns'], chunk_keys=header['chunk_keys'],
                         message="merged")
         writer.catcz(input=[f"{outdir}/{chrom}.cz" for chrom in chroms])
     else:  # txt
@@ -369,11 +369,11 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
                 df_ref.insert(0, chrom_col, chrom)
                 df_ref.insert(1, 'start', df_ref.iloc[:, 1].map(int) - 1)
                 usecols = df_ref.columns.tolist() + columns
-            for df in pd.read_csv(infile, sep='\t', chunksize=chunksize):
+            for df in pd.read_csv(infile, sep='\t', batch_size=batch_size):
                 if not reference is None:
-                    df = pd.concat([df_ref.iloc[:chunksize].reset_index(drop=True),
+                    df = pd.concat([df_ref.iloc[:batch_size].reset_index(drop=True),
                                     df.reset_index(drop=True)], axis=1)
-                    df_ref = df_ref.iloc[chunksize:]
+                    df_ref = df_ref.iloc[batch_size:]
                 if not os.path.exists(output):
                     df.reindex(columns=usecols).to_csv(output, sep='\t', index=False, header=True)
                 else:

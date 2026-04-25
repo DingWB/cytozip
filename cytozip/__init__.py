@@ -24,6 +24,11 @@ _LAZY_EXPORTS = {
     # allc.py — methylation allc-file I/O
     'AllC': 'allc', 'allc2cz': 'allc', 'index_context': 'allc',
     'extractCG': 'allc',
+    # bam.py — BAM → .cz
+    'bam_to_cz': 'bam',
+    # features.py — feature aggregation / anndata
+    'cz_to_anndata': 'features', 'parse_features': 'features',
+    'parse_gtf': 'features', 'make_genome_bins': 'features',
     # merge.py — per-cell merging pipeline
     'merge_cz': 'merge', 'merge_cell_type': 'merge',
     # dmr.py — peak calling / DMR analysis
@@ -90,14 +95,14 @@ def _build_parser():
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names, comma-separated')
     p.add_argument('-D', '--dimensions', type=_csv_str, default=['chrom'], help='dimension names, comma-separated')
     p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack, comma-separated')
-    p.add_argument('-d', '--dim-cols', type=_csv_int, default=[0], help='dimension column indices')
+    p.add_argument('-d', '--dim_cols', type=_csv_int, default=[0], help='dimension column indices')
     p.add_argument('-s', '--sep', default='\t', help='separator')
     p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
     p.add_argument('--header', default=None, help='header row')
     p.add_argument('--skiprows', type=int, default=0, help='rows to skip')
     p.add_argument('-m', '--message', default='', help='message stored in header')
     p.add_argument('-l', '--level', type=int, default=6, help='compression level')
-    p.add_argument('--delta-cols', type=_csv_str, default=None,
+    p.add_argument('--delta_cols', type=_csv_str, default=None,
                    help='comma-separated integer column names/indices to store '
                         'as in-block deltas (shrinks strictly-monotonic '
                         'columns like pos; trades some query speed for size)')
@@ -109,16 +114,16 @@ def _build_parser():
     p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats')
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
     p.add_argument('-D', '--dimensions', type=_csv_str, default=['chrom'], help='dimension names')
-    p.add_argument('--dim-order', default=None, help='dimension order file or comma-separated')
-    p.add_argument('--add-dim', action='store_true', help='add filename as extra dimension')
+    p.add_argument('--dim_order', default=None, help='dimension order file or comma-separated')
+    p.add_argument('--add_dim', action='store_true', help='add filename as extra dimension')
     p.add_argument('--title', default='filename', help='title for added dimension')
     p.add_argument('-m', '--message', default='', help='message stored in header')
 
     # ---- view ----------------------------------------------------------------
     p = sub.add_parser('view', help='View .cz file contents', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
-    p.add_argument('--show-dim', type=_csv_int, default=None, help='dimension indices to show')
-    p.add_argument('--no-header', action='store_true', help='suppress header line')
+    p.add_argument('--show_dim', type=_csv_int, default=None, help='dimension indices to show')
+    p.add_argument('--no_header', action='store_true', help='suppress header line')
     p.add_argument('--dimension', default=None, help='filter by dimension')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
 
@@ -133,7 +138,7 @@ def _build_parser():
     p.add_argument('-s', '--start', type=int, default=None, help='start position')
     p.add_argument('-e', '--end', type=int, default=None, help='end position')
     p.add_argument('--regions', default=None, help='regions file (tab-separated, no header)')
-    p.add_argument('-q', '--query-col', type=_csv_int, default=[0], help='column indices to query on')
+    p.add_argument('-q', '--query_col', type=_csv_int, default=[0], help='column indices to query on')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
 
     # ---- to_allc -------------------------------------------------------------
@@ -142,8 +147,8 @@ def _build_parser():
     p.add_argument('-O', '--output', required=True, help='output .allc.tsv.gz file')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
     p.add_argument('-D', '--dimension', default=None, help='filter by dimension')
-    p.add_argument('--cov-col', default=None, help='coverage column name; rows with 0 are dropped (default: last data column)')
-    p.add_argument('--no-tabix', action='store_true', help='skip tabix indexing')
+    p.add_argument('--cov_col', default=None, help='coverage column name; rows with 0 are dropped (default: last data column)')
+    p.add_argument('--no_tabix', action='store_true', help='skip tabix indexing')
 
     # ---- summary_chunks / summary_blocks ------------------------------------
     p = sub.add_parser('summary', help='Print chunk summary of a .cz file', formatter_class=_fmt)
@@ -162,21 +167,21 @@ def _build_parser():
     p.add_argument('-I', '--input', required=True, help='input allc.tsv.gz')
     p.add_argument('-O', '--output', required=True, help='output .cz file')
     p.add_argument('-r', '--reference', default=None, help='reference .cz file')
-    p.add_argument('--missing-value', type=_csv_int, default=[0, 0], help='missing value fill')
+    p.add_argument('--missing_value', type=_csv_int, default=[0, 0], help='missing value fill')
     p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats')
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
     p.add_argument('-D', '--dimensions', type=_csv_str, default=['chrom'], help='dimension names')
     p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack')
-    p.add_argument('--ref-pos-col', type=int, default=0, help='position column index in reference')
-    p.add_argument('--allc-pos-col', type=int, default=1, help='position column index in input')
+    p.add_argument('--ref_pos_col', type=int, default=0, help='position column index in reference')
+    p.add_argument('--allc_pos_col', type=int, default=1, help='position column index in input')
     p.add_argument('-s', '--sep', default='\t', help='separator')
-    p.add_argument('--chrom-order', default=None, help='chrom order file')
+    p.add_argument('--chrom_order', default=None, help='chrom order file')
     p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
-    p.add_argument('--sort-col', default=None,
+    p.add_argument('--sort_col', default=None,
                    help='column name or index to index via per-block '
                         'first_coords (enables in-memory bisect for region '
                         'queries). Auto-enabled on "pos" when no reference is used.')
-    p.add_argument('--delta-cols', type=_csv_str, default=None,
+    p.add_argument('--delta_cols', type=_csv_str, default=None,
                    help='comma-separated integer column names/indices to '
                         'store as in-block deltas')
 
@@ -186,8 +191,8 @@ def _build_parser():
     p.add_argument('-O', '--output', default='hg38_allc.cz', help='output .cz file')
     p.add_argument('-p', '--pattern', default='C', help='nucleotide pattern')
     p.add_argument('-t', '--threads', type=int, default=12, help='parallel jobs')
-    p.add_argument('--keep-temp', action='store_true', help='keep temp directory')
-    p.add_argument('--no-delta', action='store_true',
+    p.add_argument('--keep_temp', action='store_true', help='keep temp directory')
+    p.add_argument('--no_delta', action='store_true',
                    help='disable DELTA encoding on the pos column (default: on, '
                         'gives ~3x smaller reference files with mild query overhead)')
 
@@ -231,28 +236,28 @@ def _build_parser():
     # ---- merge_cz ------------------------------------------------------------
     p = sub.add_parser('merge_cz', help='Merge per-cell .cz files', formatter_class=_fmt)
     p.add_argument('-i', '--indir', default=None, help='input directory')
-    p.add_argument('--cz-paths', default=None, help='file listing .cz paths')
-    p.add_argument('--class-table', default=None, help='cell class table')
+    p.add_argument('--cz_paths', default=None, help='file listing .cz paths')
+    p.add_argument('--class_table', default=None, help='cell class table')
     p.add_argument('-O', '--output', default=None, help='output file')
     p.add_argument('--prefix', default=None, help='output prefix')
     p.add_argument('-t', '--threads', type=int, default=12, help='parallel jobs')
     p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'], help='output formats')
-    p.add_argument('--chrom-order', default=None, help='chrom order file')
+    p.add_argument('--chrom_order', default=None, help='chrom order file')
     p.add_argument('-r', '--reference', default=None, help='reference .cz file')
-    p.add_argument('--keep-cat', action='store_true', help='keep intermediate cat file')
+    p.add_argument('--keep_cat', action='store_true', help='keep intermediate cat file')
     p.add_argument('--batchsize', type=int, default=10, help='blocks per batch')
     p.add_argument('--temp', action='store_true', help='keep temp directory')
-    p.add_argument('--no-bgzip', action='store_true', help='skip bgzip compression')
+    p.add_argument('--no_bgzip', action='store_true', help='skip bgzip compression')
     p.add_argument('-c', '--chunksize', type=int, default=50000, help='rows per chunk')
     p.add_argument('--ext', default='.cz', help='input file extension')
 
     # ---- merge_cell_type -----------------------------------------------------
     p = sub.add_parser('merge_cell_type', help='Merge by cell type', formatter_class=_fmt)
     p.add_argument('-i', '--indir', default=None, help='input directory')
-    p.add_argument('--cell-table', default=None, help='cell-type table')
+    p.add_argument('--cell_table', default=None, help='cell-type table')
     p.add_argument('-O', '--outdir', default=None, help='output directory')
     p.add_argument('-t', '--threads', type=int, default=64, help='parallel jobs')
-    p.add_argument('--chrom-order', default=None, help='chrom order file')
+    p.add_argument('--chrom_order', default=None, help='chrom order file')
     p.add_argument('--ext', default='.CGN.merged.cz', help='input file extension')
 
     # ---- extractCG -----------------------------------------------------------
@@ -261,7 +266,7 @@ def _build_parser():
     p.add_argument('-O', '--output', required=True, help='output .cz file')
     p.add_argument('-s', '--index', required=True, help='CGN subset index file')
     p.add_argument('-c', '--chunksize', type=int, default=5000, help='rows per chunk')
-    p.add_argument('--merge-cg', action='store_true', help='merge forward/reverse CG')
+    p.add_argument('--merge_cg', action='store_true', help='merge forward/reverse CG')
 
     # ---- aggregate -----------------------------------------------------------
     p = sub.add_parser('aggregate', help='Aggregate records within regions', formatter_class=_fmt)
@@ -287,7 +292,7 @@ def _build_parser():
     p.add_argument('-I', '--input', default='merged_dmr.txt', help='merged DMR file')
     p.add_argument('--matrix', default='merged_dmr.cell_class.beta.txt', help='beta matrix file')
     p.add_argument('-O', '--output', default='dmr.annotated.txt', help='output file')
-    p.add_argument('--delta-cutoff', type=float, default=None, help='min delta-beta cutoff')
+    p.add_argument('--delta_cutoff', type=float, default=None, help='min delta-beta cutoff')
 
     # ---- call_peaks ----------------------------------------------------------
     p = sub.add_parser('call_peaks', help='Call peaks from methylation .cz using MACS3', formatter_class=_fmt)
@@ -297,15 +302,15 @@ def _build_parser():
     p.add_argument('-n', '--name', default='peaks', help='name prefix for output files')
     p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth'], help='signal type: unmeth=(cov-mc), meth=mc')
     p.add_argument('-s', '--index', default=None, help='index file for context filtering (e.g., CpG-only)')
-    p.add_argument('-g', '--genome-size', default='mm', help='genome size for MACS3 (hs/mm/integer)')
-    p.add_argument('--fragment-size', type=int, default=300, help='pseudo-read fragment size (bp)')
+    p.add_argument('-g', '--genome_size', default='mm', help='genome size for MACS3 (hs/mm/integer)')
+    p.add_argument('--fragment_size', type=int, default=300, help='pseudo-read fragment size (bp)')
     p.add_argument('-q', '--qvalue', type=float, default=0.05, help='MACS3 q-value cutoff')
     p.add_argument('--broad', action='store_true', help='call broad peaks')
-    p.add_argument('--min-cov', type=int, default=1, help='minimum coverage to include a site')
-    p.add_argument('--keep-bed', action='store_true', help='keep intermediate pseudo-reads BED')
-    p.add_argument('--macs3-args', default='', help='additional MACS3 arguments (quoted string)')
-    p.add_argument('--mc-col', default=None, help='mc column name or 0-based index (default: first column)')
-    p.add_argument('--cov-col', default=None, help='cov column name or 0-based index (default: last column)')
+    p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
+    p.add_argument('--keep_bed', action='store_true', help='keep intermediate pseudo-reads BED')
+    p.add_argument('--macs3_args', default='', help='additional MACS3 arguments (quoted string)')
+    p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
+    p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
 
     # ---- to_bedgraph ---------------------------------------------------------
     p = sub.add_parser('to_bedgraph', help='Export methylation signal as bedGraph', formatter_class=_fmt)
@@ -314,9 +319,47 @@ def _build_parser():
     p.add_argument('-O', '--output', default=None, help='output bedGraph file')
     p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth', 'frac_unmeth'], help='signal type')
     p.add_argument('-s', '--index', default=None, help='index file for context filtering')
-    p.add_argument('--min-cov', type=int, default=1, help='minimum coverage to include a site')
-    p.add_argument('--mc-col', default=None, help='mc column name or 0-based index (default: first column)')
-    p.add_argument('--cov-col', default=None, help='cov column name or 0-based index (default: last column)')
+    p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
+    p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
+    p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
+
+    # ---- bam_to_cz -----------------------------------------------------------
+    p = sub.add_parser('bam_to_cz', help='Convert position-sorted BAM directly to .cz (skip ALLC text)', formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, help='input position-sorted BAM (bismark/hisat-3n)')
+    p.add_argument('-r', '--reference_fasta', required=True, help='indexed reference fasta (.fai required)')
+    p.add_argument('-O', '--output', default=None, help='output .cz path (default: <bam_stem>.cz)')
+    p.add_argument('--num_upstr', type=int, default=0, help='bases upstream of C in context (0 for BS-seq, 1 for NOMe)')
+    p.add_argument('--num_downstr', type=int, default=2, help='bases downstream of C in context')
+    p.add_argument('--min_mapq', type=int, default=10, help='min MAPQ passed to samtools mpileup')
+    p.add_argument('--min_base_quality', type=int, default=20, help='min base quality passed to samtools mpileup')
+    p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per batch (one on-disk chunk)')
+    p.add_argument('--convert_strandness', action='store_true', help='rewrite BAM so is_forward matches XG/YZ (hisat-3n PE)')
+    p.add_argument('--save_count_df', action='store_true', help='write <output>.count.csv context summary')
+    p.add_argument('--mode', choices=['full', 'pos_mc_cov', 'mc_cov'], default='mc_cov',
+                   help='storage layout: full=[pos,strand,context,mc,cov]; '
+                        'pos_mc_cov=[pos,mc,cov]; mc_cov=[mc,cov] (requires --reference-cz). '
+                        'Default mc_cov is the most compact.')
+    p.add_argument('--count_fmt', choices=['B', 'H', 'I', 'Q'], default='B',
+                   help='struct code for mc/cov columns: B=uint8 (1 B/max 255, clipped), '
+                        'H=uint16 (2 B/max 65535). B is the most compact and suits '
+                        'typical single-cell data.')
+    p.add_argument('--reference_cz', default=None,
+                   help='reference .cz with pos column; required when --mode mc_cov')
+
+    # ---- cz_to_anndata -------------------------------------------------------
+    p = sub.add_parser('cz_to_anndata', help='Aggregate many single-cell .cz files over a feature BED into AnnData h5ad', formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, nargs='+',
+                   help='input .cz file(s) or a directory; may also be one catcz-merged .cz with cell dim')
+    p.add_argument('-f', '--features', required=True,
+                   help='feature BED / BED.gz / BED.bgz (chrom,start,end[,name])')
+    p.add_argument('-O', '--output', default=None, help='output .h5ad path')
+    p.add_argument('--cell_ids', type=_csv_str, default=None, help='optional override list of cell ids')
+    p.add_argument('--pos_col', default='pos', help='name of position column in .cz header')
+    p.add_argument('--mc_col', default='mc', help='name of mc column')
+    p.add_argument('--cov_col', default='cov', help='name of cov column')
+    p.add_argument('--obs', default=None, help='optional TSV with cell metadata (index column = cell id)')
+    p.add_argument('--reference_cz', default=None,
+                   help='reference .cz supplying pos coords for mc_cov-only cells')
 
     return parser
 
@@ -336,27 +379,31 @@ def main():
     if cmd == 'tocz':
         from .cz import Writer
         w = Writer(output=args.output, formats=args.formats,
-                   columns=args.columns, dimensions=args.dimensions,
+                   columns=args.columns, chunk_keys=args.dimensions,
                    message=args.message, level=args.level,
                    delta_cols=args.delta_cols)
         w.tocz(input=args.input, usecols=args.usecols,
-               dim_cols=args.dim_cols, sep=args.sep,
-               chunksize=args.chunksize, header=args.header,
+               key_cols=args.dim_cols, sep=args.sep,
+               batch_size=args.chunksize, header=args.header,
                skiprows=args.skiprows)
 
     elif cmd == 'catcz':
         from .cz import Writer
         w = Writer(output=args.output, formats=args.formats,
-                   columns=args.columns, dimensions=args.dimensions,
+                   columns=args.columns, chunk_keys=args.dimensions,
                    message=args.message)
-        w.catcz(input=args.input, dim_order=args.dim_order,
-                add_dim=args.add_dim, title=args.title)
+        # CLI passes either a glob with '*' or a comma-separated path list.
+        inp = args.input
+        if isinstance(inp, str) and '*' not in inp:
+            inp = [p for p in inp.split(',') if p]
+        w.catcz(input=inp, chunk_order=args.dim_order,
+                add_key=args.add_dim, title=args.title)
 
     elif cmd == 'view':
         from .cz import Reader
         r = Reader(args.input)
-        r.view(show_dim=args.show_dim, header=not args.no_header,
-               dimension=args.dimension, reference=args.reference)
+        r.view(show_dims=args.show_dim, header=not args.no_header,
+               chunk_order=args.dimension, reference=args.reference)
 
     elif cmd == 'header':
         from .cz import Reader
@@ -367,7 +414,7 @@ def main():
     elif cmd == 'query':
         from .cz import Reader
         r = Reader(args.input)
-        r.query(dimension=args.dimension, start=args.start,
+        r.query(chunk_key=args.dimension, start=args.start,
                 end=args.end, regions=args.regions,
                 query_col=args.query_col, reference=args.reference,
                 printout=True)
@@ -376,7 +423,7 @@ def main():
         from .cz import Reader
         r = Reader(args.input)
         r.to_allc(output=args.output, reference=args.reference,
-                  dimension=args.dimension, tabix=not args.no_tabix,
+                  chunk_order=args.dimension, tabix=not args.no_tabix,
                   cov_col=args.cov_col)
         r.close()
 
@@ -391,7 +438,7 @@ def main():
     elif cmd == 'extract':
         from .cz import extract
         extract(input=args.input, output=args.output,
-                index=args.index, chunksize=args.chunksize)
+                index=args.index, batch_size=args.chunksize)
 
     # ---- allc.py commands --------------------------------------------------
     elif cmd == 'allc2cz':
@@ -399,9 +446,9 @@ def main():
         allc2cz(input=args.input, output=args.output,
                reference=args.reference, missing_value=args.missing_value,
                formats=args.formats, columns=args.columns,
-               dimensions=args.dimensions, usecols=args.usecols,
+               chunk_keys=args.dimensions, usecols=args.usecols,
                ref_pos_col=args.ref_pos_col, allc_pos_col=args.allc_pos_col, sep=args.sep,
-               chrom_order=args.chrom_order, chunksize=args.chunksize,
+               chrom_order=args.chrom_order, batch_size=args.chunksize,
                sort_col=args.sort_col, delta_cols=args.delta_cols)
 
     elif cmd == 'build_ref':
@@ -442,7 +489,7 @@ def main():
                  formats=args.formats, chrom_order=args.chrom_order,
                  reference=args.reference, keep_cat=args.keep_cat,
                  batchsize=args.batchsize, temp=args.temp,
-                 bgzip=not args.no_bgzip, chunksize=args.chunksize,
+                 bgzip=not args.no_bgzip, batch_size=args.chunksize,
                  ext=args.ext)
 
     elif cmd == 'merge_cell_type':
@@ -454,14 +501,14 @@ def main():
     elif cmd == 'extractCG':
         from .allc import extractCG
         extractCG(input=args.input, output=args.output,
-                  index=args.index, chunksize=args.chunksize,
+                  index=args.index, batch_size=args.chunksize,
                   merge_cg=args.merge_cg)
 
     elif cmd == 'aggregate':
         from .cz import aggregate
         aggregate(input=args.input, output=args.output,
                   index=args.index, intersect=args.intersect,
-                  exclude=args.exclude, chunksize=args.chunksize,
+                  exclude=args.exclude, batch_size=args.chunksize,
                   formats=args.formats)
 
     elif cmd == 'combp':
@@ -505,6 +552,34 @@ def main():
                     output=args.output, signal=args.signal,
                     index=args.index, min_cov=args.min_cov,
                     mc_col=mc_col, cov_col=cov_col)
+
+    elif cmd == 'bam_to_cz':
+        from .bam import bam_to_cz
+        bam_to_cz(bam_path=args.input, reference_fasta=args.reference_fasta,
+                  output=args.output,
+                  mode=args.mode,
+                  count_fmt=args.count_fmt,
+                  reference_cz=args.reference_cz,
+                  num_upstr_bases=args.num_upstr,
+                  num_downstr_bases=args.num_downstr,
+                  min_mapq=args.min_mapq,
+                  min_base_quality=args.min_base_quality,
+                  batch_size=args.batch_size,
+                  convert_bam_strandness=args.convert_strandness,
+                  save_count_df=args.save_count_df)
+
+    elif cmd == 'cz_to_anndata':
+        from .features import cz_to_anndata
+        inputs = args.input if len(args.input) > 1 else args.input[0]
+        obs_df = None
+        if args.obs:
+            import pandas as pd
+            obs_df = pd.read_csv(args.obs, sep='\t', index_col=0)
+        cz_to_anndata(cz_inputs=inputs, features=args.features,
+                      output=args.output, cell_ids=args.cell_ids,
+                      pos_col=args.pos_col, mc_col=args.mc_col,
+                      cov_col=args.cov_col, obs=obs_df,
+                      reference_cz=args.reference_cz)
 
 
 if __name__ == "__main__":

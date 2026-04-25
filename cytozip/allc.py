@@ -38,7 +38,7 @@ from .cz import (Reader, Writer, get_dtfuncs,
 from . import cz as _cz
 
 # ==========================================================
-def WriteC(record, outdir, chunksize=5000, delta_cols=None):
+def WriteC(record, outdir, batch_size=5000, delta_cols=None):
     """
     Extract C positions from a BioPython SeqRecord and write to .cz file.
     
@@ -50,7 +50,7 @@ def WriteC(record, outdir, chunksize=5000, delta_cols=None):
         A BioPython sequence record (chromosome)
     outdir : str
         output directory path
-    chunksize : int
+    batch_size : int
         Number of records per chunk (default: 5000)
     """
     chrom = record.id
@@ -61,7 +61,7 @@ def WriteC(record, outdir, chunksize=5000, delta_cols=None):
     print(chrom)
     writer = Writer(output, formats=['Q', 'c', '3s'],
                     columns=['pos', 'strand', 'context'],
-                    dimensions=['chrom'], sort_col='pos',
+                    chunk_keys=['chrom'], sort_col='pos',
                     delta_cols=delta_cols)
     
     # Use Cython-accelerated version if available
@@ -69,7 +69,7 @@ def WriteC(record, outdir, chunksize=5000, delta_cols=None):
     if _cz._c_write_c_records is not None: # 10 times faster than pure Python
         # Convert sequence to bytes once
         seq_bytes = str(record.seq).encode('ascii')
-        for data, count in _cz._c_write_c_records(seq_bytes, chunksize):
+        for data, count in _cz._c_write_c_records(seq_bytes, batch_size):
             if data:
                 writer.write_chunk(data, [chrom])
         writer.close()
@@ -101,7 +101,7 @@ def WriteC(record, outdir, chunksize=5000, delta_cols=None):
         values = [func(v) for v, func in zip([i + 1, strand, context], dtfuncs)]
         rows_buf.append(values)
         # position is 0-based (start) 1-based (end position, i+1)
-        if (i % chunksize == 0 and len(rows_buf) > 0):
+        if (i % batch_size == 0 and len(rows_buf) > 0):
             if writer._pack_records is not None:
                 data = writer._pack_records(rows_buf, writer.fmts)
             else:
@@ -171,7 +171,7 @@ class AllC:
     def merge(self):
         writer = Writer(output=self.output, formats=['Q', 'c', '3s'],
                         columns=['pos', 'strand', 'context'],
-                        dimensions=['chrom'], message=self.genome,
+                        chunk_keys=['chrom'], message=self.genome,
                         sort_col='pos', delta_cols=self.delta_cols)
         writer.catcz(input=f"{self.outdir}/*.cz")
 
@@ -183,9 +183,9 @@ class AllC:
 
 
 def allc2cz(input, output, reference=None, missing_value=[0, 0],
-           formats=['B', 'B'], columns=['mc', 'cov'], dimensions=['chrom'],
+           formats=['B', 'B'], columns=['mc', 'cov'], chunk_keys=['chrom'],
            usecols=[4, 5], ref_pos_col=0, allc_pos_col=1, sep='\t', chrom_order=None,
-           chunksize=5000, sort_col=None, delta_cols=None):
+           batch_size=5000, sort_col=None, delta_cols=None):
     """
     convert allc.tsv.gz to .cz file.
 
@@ -205,8 +205,8 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     columns: list
         columns names, in default is ['mc','cov'] (reference is provided), if no
         referene provided, one should use ['pos','mc','cov'].
-    dimensions: list
-        dimensions passed to cytozip.Writer, dimension name, for allc file, dimension
+    chunk_keys: list
+        chunk_keys passed to cytozip.Writer, chunk_key name, for allc file, chunk_key
         is chrom.
     usecols: list
         default is [4, 5], for a typical .allc.tsv.gz, if no reference is provided,
@@ -216,7 +216,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
         index of position column in reference .cz header columns [0]
     allc_pos_col: int
         index of position column in input input or bed column.
-    chunksize : int
+    batch_size : int
         default is 5000
     chrom_order : path
         path to chrom_size path or similar file containing chromosomes order,
@@ -259,7 +259,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     if delta_cols is None and reference is None and 'pos' in columns:
         delta_cols = ['pos']
     writer = Writer(output, formats=formats, columns=columns,
-                    dimensions=dimensions, message=message,
+                    chunk_keys=chunk_keys, message=message,
                     sort_col=sort_col, delta_cols=delta_cols)
     unit_size = writer._unit_size
     use_numpy = _all_numeric_formats(formats)  # use vectorized numpy path if all columns are numeric
@@ -298,7 +298,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                 if not lines:
                     # No query data: write all missing values
                     out = np.full(ref_pos_arr.size, mv_arr, dtype=struct_dtype)
-                    _write_np_chunks(writer, out, chrom, chunksize, unit_size)
+                    _write_np_chunks(writer, out, chrom, batch_size, unit_size)
                     continue
                 # Vectorized line parsing via pd.read_csv
                 parsed = _parse_tabix_lines(lines, parse_cols, parse_dtypes, sep)
@@ -316,7 +316,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                 matched_ref_idx = indices_clipped[valid]
                 for ci in range(len(usecols)):
                     out[f'f{ci}'][matched_ref_idx] = query_cols[ci][valid]
-                _write_np_chunks(writer, out, chrom, chunksize, unit_size)
+                _write_np_chunks(writer, out, chrom, batch_size, unit_size)
         else:
             # Fallback: non-numeric formats, use original per-row logic
             dtfuncs = get_dtfuncs(formats, tobytes=False)
@@ -346,14 +346,14 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                         except (StopIteration, ValueError, IndexError):
                             row_query_pos = None
                             break
-                    if i > chunksize:
+                    if i > batch_size:
                         writer.write_chunk(_pack_chunk_data(rows_buf, writer), [chrom])
                         rows_buf, i = [], 0
                 if row_query_pos is None:
                     for ref_pos in ref_positions:
                         rows_buf.append(tuple(missing_value))
                         i += 1
-                        if i > chunksize:
+                        if i > batch_size:
                             writer.write_chunk(_pack_chunk_data(rows_buf, writer), [chrom])
                             rows_buf, i = [], 0
                 if len(rows_buf) > 0:
@@ -373,7 +373,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                 out = np.empty(n, dtype=struct_dtype)
                 for ci in range(len(usecols)):
                     out[f'f{ci}'] = parsed[ci]
-                _write_np_chunks(writer, out, chrom, chunksize, unit_size)
+                _write_np_chunks(writer, out, chrom, batch_size, unit_size)
         else:
             dtfuncs = get_dtfuncs(formats, tobytes=False)
             for chrom in all_chroms:
@@ -384,7 +384,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                     vals = tuple(func(values[j]) for j, func in zip(usecols, dtfuncs))
                     rows_buf.append(vals)
                     i += 1
-                    if i >= chunksize:
+                    if i >= batch_size:
                         writer.write_chunk(_pack_chunk_data(rows_buf, writer), [chrom])
                         rows_buf, i = [], 0
                 if len(rows_buf) > 0:
@@ -424,13 +424,13 @@ def index_context(input, output=None, pattern="CGN"):
         output = os.path.abspath(os.path.expanduser(output))
     reader = Reader(input)
     reader.build_context_index(output=output, formats=['I'], columns=['ID'],
-                        dimensions=['chrom'], match_func=judge_func,
-                        chunksize=2000)
+                        chunk_keys=['chrom'], match_func=judge_func,
+                        batch_size=2000)
     reader.close()
 
 
 # ==========================================================
-def extractCG(input=None, output=None, index=None, chunksize=5000,
+def extractCG(input=None, output=None, index=None, batch_size=5000,
               merge_cg=False):
     """
     Extract CG context from .cz file
@@ -450,7 +450,7 @@ def extractCG(input=None, output=None, index=None, chunksize=5000,
         -o mm10_with_chrL.allCG.forward.cz
         -b mm10_with_chrL.allc.cz.+CGN.index`` and use
         mm10_with_chrL.allCG.forward.cz as new reference.
-    chunksize : int
+    batch_size : int
     merge_cg : bool
         after merging, only forward strand would be kept, reverse strand values
         would be added to the corresponding forward strand.
@@ -465,10 +465,10 @@ def extractCG(input=None, output=None, index=None, chunksize=5000,
     reader = Reader(cz_path)
     writer = Writer(output, formats=reader.header['formats'],
                     columns=reader.header['columns'],
-                    dimensions=reader.header['dimensions'],
+                    chunk_keys=reader.header['chunk_keys'],
                     message=index_path)
     dtfuncs = get_dtfuncs(writer.formats)
-    for dim in reader.dim2chunk_start.keys():
+    for dim in reader.chunk_key2offset.keys():
         # print(dim)
         IDs = index_reader.get_ids_from_index(dim)
         if len(IDs.shape) != 1:
@@ -486,14 +486,14 @@ def extractCG(input=None, output=None, index=None, chunksize=5000,
                     data_parts.append(struct.pack(writer.fmts,
                                         *[func(v) for v, func in zip(values, dtfuncs)]))
                     count += 1
-                if count > chunksize:
+                if count > batch_size:
                     writer.write_chunk(b''.join(data_parts), dim)
                     data_parts, count = [], 0
         else:
             for record in records:  # unpacked bytes
                 data_parts.append(record)
                 count += 1
-                if count > chunksize:
+                if count > batch_size:
                     writer.write_chunk(b''.join(data_parts), dim)
                     data_parts, count = [], 0
         if len(data_parts) > 0:

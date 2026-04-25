@@ -19,7 +19,7 @@ class TestChunkIndex(unittest.TestCase):
                 output=path,
                 formats=["Q", "H", "H"],
                 columns=["pos", "mc", "cov"],
-                dimensions=["chrom"],
+                chunk_keys=["chrom"],
             )
             w.write_chunk(data, ["chr1"])
             w.close()
@@ -43,7 +43,7 @@ class TestChunkIndex(unittest.TestCase):
                 output=path,
                 formats=["H", "H"],
                 columns=["mc", "cov"],
-                dimensions=["chrom"],
+                chunk_keys=["chrom"],
             )
             w.write_chunk(struct.pack(f"<{fmt}", 1, 2), ["chr1"])
             w.write_chunk(struct.pack(f"<{fmt}", 3, 4), ["chr2"])
@@ -72,7 +72,7 @@ class TestChunkIndex(unittest.TestCase):
                 output=path,
                 formats=["Q", "H", "H"],
                 columns=["pos", "mc", "cov"],
-                dimensions=["chrom"],
+                chunk_keys=["chrom"],
             )
             w.write_chunk(data1, ["chr1"])
             w.write_chunk(data2, ["chr2"])

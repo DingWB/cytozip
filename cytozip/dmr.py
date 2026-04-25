@@ -192,8 +192,8 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
 
     total_reads = 0
     with open(bed_path, 'w') as fh:
-        for dim in reader.dim2chunk_start:
-            if dim not in ref_reader.dim2chunk_start:
+        for dim in reader.chunk_key2offset:
+            if dim not in ref_reader.chunk_key2offset:
                 continue
             chrom = dim[0]
 
@@ -207,7 +207,7 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
                 continue
             ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
 
-            if index_reader is not None and dim in index_reader.dim2chunk_start:
+            if index_reader is not None and dim in index_reader.chunk_key2offset:
                 ids = index_reader.get_ids_from_index(dim)
                 if len(ids.shape) == 1:
                     data_arr = data_arr[ids]
@@ -363,8 +363,8 @@ def to_bedgraph(input=None, reference=None, output=None,
         cov_col = _cols[cov_col]
 
     with open(output, 'w') as fh:
-        for dim in reader.dim2chunk_start:
-            if dim not in ref_reader.dim2chunk_start:
+        for dim in reader.chunk_key2offset:
+            if dim not in ref_reader.chunk_key2offset:
                 continue
             chrom = dim[0]
 
@@ -378,7 +378,7 @@ def to_bedgraph(input=None, reference=None, output=None,
                 continue
             ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
 
-            if index_reader is not None and dim in index_reader.dim2chunk_start:
+            if index_reader is not None and dim in index_reader.chunk_key2offset:
                 ids = index_reader.get_ids_from_index(dim)
                 if len(ids.shape) == 1:
                     data_arr = data_arr[ids]

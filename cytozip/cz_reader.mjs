@@ -356,18 +356,18 @@ class CzReader {
     const sortColRaw = buf[off]; off += 1;
     const sortCol = sortColRaw === 0xff ? null : sortColRaw;
 
-    // dimensions
-    const nDims = buf[off]; off += 1;
-    const dimensions = [];
-    for (let i = 0; i < nDims; i++) {
+    // chunk_keys
+    const nChunkKeys = buf[off]; off += 1;
+    const chunk_keys = [];
+    for (let i = 0; i < nChunkKeys; i++) {
       const dLen = buf[off]; off += 1;
-      dimensions.push(new TextDecoder().decode(buf.subarray(off, off + dLen)));
+      chunk_keys.push(new TextDecoder().decode(buf.subarray(off, off + dLen)));
       off += dLen;
     }
 
     this.header = {
       magic, version, totalSize, message,
-      formats, columns, sortCol, dimensions,
+      formats, columns, sortCol, chunk_keys,
       headerSize: off,
     };
 
@@ -429,12 +429,12 @@ class CzReader {
     off = 4;
 
     const nChunks = Number(idxDv.getBigUint64(off, true)); off += 8;
-    const nDims = this.header.dimensions.length;
+    const nChunkKeys = this.header.chunk_keys.length;
     const index = new Map();
 
     for (let c = 0; c < nChunks; c++) {
       const dims = [];
-      for (let d = 0; d < nDims; d++) {
+      for (let d = 0; d < nChunkKeys; d++) {
         const dLen = idxBuf[off]; off += 1;
         dims.push(new TextDecoder().decode(idxBuf.subarray(off, off + dLen)));
         off += dLen;
@@ -450,8 +450,8 @@ class CzReader {
     this.chunkIndex = index;
   }
 
-  /** List all dimension keys. */
-  get dims() {
+  /** List all chunk_key keys. */
+  get chunkKeys() {
     return this.chunkIndex ? [...this.chunkIndex.keys()] : [];
   }
 
@@ -479,11 +479,11 @@ class CzReader {
    * Load chunk tail metadata (block virtual offsets, etc.) for a given dim key.
    * Caches results to avoid re-reading.
    */
-  async _loadChunkTail(dimKey) {
-    if (this._chunkTailCache.has(dimKey)) return this._chunkTailCache.get(dimKey);
+  async _loadChunkTail(chunkKey) {
+    if (this._chunkTailCache.has(chunkKey)) return this._chunkTailCache.get(chunkKey);
 
-    const info = this.chunkIndex.get(dimKey);
-    if (!info) throw new Error(`Unknown dimension: ${dimKey}`);
+    const info = this.chunkIndex.get(chunkKey);
+    if (!info) throw new Error(`Unknown chunk_key: ${chunkKey}`);
 
     // Chunk tail sits right after the compressed blocks.
     // Read from chunk_start + chunk_size (tail offset).
@@ -492,7 +492,7 @@ class CzReader {
 
     // tail header: data_len(8B) + n_blocks(8B) + virtual_offsets(N*8B)
     //   + [first_coords(N * sort_col_size) if sort_col enabled]
-    //   + dim_values
+    //   + chunk_key_values
     const sortSize = this._sortColSize || 0;
     const tailSize = 16 + info.nblocks * (8 + sortSize) + 256; // +256 for dim strings
     const tailBuf = await this._handle.read(tailSize);
@@ -526,7 +526,7 @@ class CzReader {
       blockVOs,
       firstCoords,
     };
-    this._chunkTailCache.set(dimKey, result);
+    this._chunkTailCache.set(chunkKey, result);
     return result;
   }
 
@@ -564,14 +564,14 @@ class CzReader {
 
   // ── Fetch ────────────────────────────────────────────────────────────────
   /**
-   * Fetch all records for a given dimension.
-   * @param {string|string[]} dim - dimension value(s), e.g. 'chr1' or ['cell1','chr1']
+   * Fetch all records for a given chunk_key.
+   * @param {string|string[]} dim - chunk_key value(s), e.g. 'chr1' or ['cell1','chr1']
    * @returns {Promise<Array<Array>>} array of records (each record = array of column values)
    */
   async fetch(dim) {
-    const dimKey = Array.isArray(dim) ? dim.join('\t') : dim;
-    const info = this.chunkIndex.get(dimKey);
-    if (!info) throw new Error(`Unknown dimension: ${dimKey}`);
+    const chunkKey = Array.isArray(dim) ? dim.join('\t') : dim;
+    const info = this.chunkIndex.get(chunkKey);
+    if (!info) throw new Error(`Unknown chunk_key: ${chunkKey}`);
 
     // Read all compressed blocks in one request
     this._handle.seek(info.start + 10); // skip chunk header (CC 2B + size 8B)
@@ -592,9 +592,9 @@ class CzReader {
    * @returns {Promise<Uint8Array>}
    */
   async fetchChunkBytes(dim) {
-    const dimKey = Array.isArray(dim) ? dim.join('\t') : dim;
-    const info = this.chunkIndex.get(dimKey);
-    if (!info) throw new Error(`Unknown dimension: ${dimKey}`);
+    const chunkKey = Array.isArray(dim) ? dim.join('\t') : dim;
+    const info = this.chunkIndex.get(chunkKey);
+    if (!info) throw new Error(`Unknown chunk_key: ${chunkKey}`);
 
     this._handle.seek(info.start + 10);
     const compressed = await this._handle.read(info.size - 10);
@@ -603,19 +603,19 @@ class CzReader {
 
   // ── Query (binary search) ─────────────────────────────────────────────────
   /**
-   * Query records in a genomic region [start, end] within a dimension.
+   * Query records in a genomic region [start, end] within a chunk_key.
    * Uses binary search on blocks (O(log N) decompressions) to find the
    * target block, then scans forward.
    *
-   * @param {string|string[]} dim - dimension, e.g. 'chr1'
+   * @param {string|string[]} dim - chunk_key, e.g. 'chr1'
    * @param {number} start - start position (inclusive)
    * @param {number} end   - end position (inclusive)
    * @param {number} [queryCol=0] - column index to query on (default: first column)
    * @returns {Promise<Array<Array>>} matching records
    */
   async query(dim, start, end, queryCol = 0) {
-    const dimKey = Array.isArray(dim) ? dim.join('\t') : dim;
-    const tail = await this._loadChunkTail(dimKey);
+    const chunkKey = Array.isArray(dim) ? dim.join('\t') : dim;
+    const tail = await this._loadChunkTail(chunkKey);
     const vos = tail.blockVOs;
     const nblocks = vos.length;
     if (nblocks === 0) return [];

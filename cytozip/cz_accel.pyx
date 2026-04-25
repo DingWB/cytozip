@@ -953,7 +953,7 @@ def c_query_regions_flat(handle, block_virtual_offsets, fmts, unit_size,
     Python) and lets ``Reader.query(..., printout=False)`` materialise the
     full result set in a single call into C code.
 
-    ``dim`` must be a tuple (the chunk's dimension values, e.g. ``('chr9',)``).
+    ``dim`` must be a tuple (the chunk's chunk_key values, e.g. ``('chr9',)``).
     Numeric columns only — callers should route records with bytes columns
     through the Python fallback so utf-8 decoding stays out of the hot loop.
 
@@ -1279,7 +1279,7 @@ def c_extract_c_positions(seq_bytes):
     return results
 
 
-def c_write_c_records(seq_bytes, chunksize=5000):
+def c_write_c_records(seq_bytes, batch_size=5000):
     """
     Generator version that yields batches of packed records for WriteC.
     
@@ -1290,7 +1290,7 @@ def c_write_c_records(seq_bytes, chunksize=5000):
     ----------
     seq_bytes : bytes
         DNA sequence as bytes
-    chunksize : int
+    batch_size : int
         Number of records per batch
     
     Yields
@@ -1317,7 +1317,7 @@ def c_write_c_records(seq_bytes, chunksize=5000):
     # Format: Q (8 bytes) + c (1 byte) + 3s (3 bytes) = 12 bytes per record
     # represent: position, strand, context
     cdef Py_ssize_t record_size = 12
-    batch_buf = bytearray(chunksize * record_size)
+    batch_buf = bytearray(batch_size * record_size)
     batch_count = 0
     cdef Py_ssize_t buf_offset = 0
     
@@ -1358,9 +1358,9 @@ def c_write_c_records(seq_bytes, chunksize=5000):
             buf_offset += record_size
             batch_count += 1
             
-            if batch_count >= chunksize:
+            if batch_count >= batch_size:
                 yield bytes(batch_buf[:buf_offset]), batch_count
-                batch_buf = bytearray(chunksize * record_size)
+                batch_buf = bytearray(batch_size * record_size)
                 buf_offset = 0
                 batch_count = 0
         
@@ -1393,9 +1393,9 @@ def c_write_c_records(seq_bytes, chunksize=5000):
             buf_offset += record_size
             batch_count += 1
             
-            if batch_count >= chunksize:
+            if batch_count >= batch_size:
                 yield bytes(batch_buf[:buf_offset]), batch_count
-                batch_buf = bytearray(chunksize * record_size)
+                batch_buf = bytearray(batch_size * record_size)
                 buf_offset = 0
                 batch_count = 0
     
@@ -1407,8 +1407,8 @@ def c_write_c_records(seq_bytes, chunksize=5000):
 # ---------------------------------------------------------------------------
 # CZIX footer fast parser
 # ---------------------------------------------------------------------------
-def c_parse_czix(bytes buf, int n_dims):
-    """Parse a CZIX chunk index buffer into ``(index_dict, dim2chunk_start)``.
+def c_parse_czix(bytes buf, int n_chunk_keys):
+    """Parse a CZIX chunk index buffer into ``(index_dict, chunk_key2offset)``.
 
     ``buf`` must be the CZIX payload read from the file tail starting at the
     'CZIX' magic and excluding the 28-byte EOF sentinel.  Returns ``None`` if
@@ -1436,8 +1436,8 @@ def c_parse_czix(bytes buf, int n_dims):
     cdef tuple dims
     cdef list dim_list
     for n_chunks_i in range(n_chunks):
-        dim_list = [None] * n_dims
-        for j in range(n_dims):
+        dim_list = [None] * n_chunk_keys
+        for j in range(n_chunk_keys):
             if off >= blen:
                 return None
             dlen = p[off]
