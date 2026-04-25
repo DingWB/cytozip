@@ -249,8 +249,7 @@ def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
     writer = Writer(output=outfile_cat, formats=header['formats'],
                     columns=header['columns'], chunk_dims=header['chunk_dims'],
                     message="catcz")
-    writer.catcz(input=[os.path.join(indir, p) for p in cz_paths],
-                 add_key=True)
+    writer.catcz(input=[os.path.join(indir, p) for p in cz_paths])
 
     reader = Reader(outfile_cat)
     chrom_col = reader.header['chunk_dims'][0]
@@ -315,7 +314,7 @@ def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
 
     # Final stitch: optionally splice reference (chrom, start, pos, …)
     # columns and write a single output TSV.
-    filenames = chunk_info.filename.unique().tolist()
+    filenames = chunk_info.cell_id.unique().tolist()
     if mode == 'fraction':
         columns = filenames
     else:  # fisher

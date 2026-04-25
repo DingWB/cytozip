@@ -1493,20 +1493,27 @@ class Reader:
 			if ref_reader is not None:
 				ref_reader.close()
 
-	def to_allc(self, output, reference=None, chunk_order=None,
-			 where=None, tabix=True, cov_col=None):
-		"""Convert a .cz file to allc.tsv.gz format.
+	def to_bgzip(self, output, reference=None, chunk_order=None,
+			 where=None, tabix=True, cov_col=None, trailing_columns=None):
+		"""Convert a .cz file to a bgzip-compressed TSV (``.tsv.gz``).
 
-		Produces a bgzip-compressed, tab-separated file whose columns are::
+		The output is bgzip (BGZF) compressed and tabix-indexable. The
+		exact column layout is data-driven, so this works for both
+		BS-seq (allc.tsv.gz) and methylation-array (probe-level beta)
+		.cz files. The output column order is::
 
-		  chrom  [ref_columns...]  [data_columns...]  1
+		  chrom  [ref_columns...]  [data_columns...]  [trailing_columns...]
 
-		The trailing ``1`` is the *methylated* flag required by the allc
-		format.  When a *reference* .cz is supplied, its columns (typically
-		``pos``, ``strand``, ``context``) are prepended to the data columns
-		so the output matches the standard allc layout::
+		Common recipes:
 
-		  chrom  pos  strand  context  mc  cov  1
+		* ALLCools allc.tsv.gz (with ``mc_flag=1`` trailing column)::
+
+		    reader.to_bgzip("x.allc.tsv.gz", reference=ref_cz,
+		                    cov_col="cov", trailing_columns={"mc_flag": 1})
+
+		* Methylation array beta TSV (no row filtering, no trailing)::
+
+		    reader.to_bgzip("x.beta.tsv.gz", reference=ref_cz)
 
 		Performance
 		-----------
@@ -1543,10 +1550,14 @@ class Reader:
 			If True (default), create a tabix index (``.tbi``) after
 			writing via ``pysam.tabix_index``.
 		cov_col : str, optional
-			Name of the coverage column.  Rows where this column is
-			zero are dropped.  Defaults to the last data column
-			(``self.header['columns'][-1]``).
-			Use `czip header` (or `Reader.header['columns']`) to view the header of a .cz file.
+			Name of a numeric column. When given, rows where the column
+			is zero are dropped before writing (allc convention). Default
+			``None`` keeps all rows (suitable for array data, where 0 is
+			a valid beta value).
+		trailing_columns : dict, optional
+			Extra literal-value columns appended after the data columns.
+			E.g. ``{"mc_flag": 1}`` to recreate the trailing ``1`` of
+			allc.tsv.gz. Default ``None``.
 		"""
 		import pysam
 		output = os.path.abspath(os.path.expanduser(output))
@@ -1604,8 +1615,11 @@ class Reader:
 										  ref_reader.header['columns'])
 
 		# ---- Write chunks to bgzip via pysam.BGZFile ----------------------
-		_cov = cov_col or self.header['columns'][-1]
+		# cov_col=None disables row filtering (suitable for array data).
 		_self_cols = self.header['columns']
+		if cov_col is not None and cov_col not in _self_cols:
+			raise ValueError(
+				f"cov_col={cov_col!r} not in header columns {_self_cols}")
 		_self_str_cols = [col for col, fmt in zip(_self_cols, self.header['formats'])
 						  if fmt[-1] in ('s', 'c')]
 		if ref_reader is not None:
@@ -1624,12 +1638,15 @@ class Reader:
 					continue
 				arr = np.frombuffer(raw, dtype=self_np_dtype)
 
-				# Filter zero-coverage rows at the numpy level before
-				# building the DataFrame — avoids processing discarded rows.
-				mask = arr[_cov] > 0
-				arr = arr[mask]
-				if len(arr) == 0:
-					continue
+				# Optional row filter: drop rows where ``cov_col`` == 0
+				# (allc convention; opt-in for general callers).
+				if cov_col is not None:
+					mask = arr[cov_col] > 0
+					arr = arr[mask]
+					if len(arr) == 0:
+						continue
+				else:
+					mask = None
 
 				# Build column dict in final output order to avoid
 				# pd.concat and df.insert overhead.
@@ -1637,12 +1654,16 @@ class Reader:
 				if ref_reader is not None:
 					ref_raw = ref_reader.fetch_chunk_bytes(d)
 					if ref_raw:
-						ref_arr = np.frombuffer(ref_raw, dtype=ref_np_dtype)[mask]
+						ref_arr = np.frombuffer(ref_raw, dtype=ref_np_dtype)
+						if mask is not None:
+							ref_arr = ref_arr[mask]
 						for col in _ref_cols:
 							cols[col] = ref_arr[col]
 				for col in _self_cols:
 					cols[col] = arr[col]
-				cols['_mc_flag'] = 1
+				if trailing_columns:
+					for col, val in trailing_columns.items():
+						cols[col] = val
 				df = pd.DataFrame(cols)
 
 				# Decode string columns (precomputed lists)
@@ -1730,7 +1751,7 @@ class Reader:
 		writer = Writer(output=output, formats=formats,
 						columns=columns, chunk_dims=chunk_dims,
 						message=os.path.basename(bed))
-		writer.catcz(input=f"{outdir}/*.cz")
+		writer.catcz(input=f"{outdir}/*.cz", key_added=None)
 		os.system(f"rm -rf {outdir}")
 
 	def build_context_index(self, output=None, formats=['I'], columns=['ID'],
@@ -2014,7 +2035,7 @@ class Reader:
 		records at once — typically 10-50x faster than iterating in Python.
 
 		Used by :func:`allc2cz` (vectorized reference alignment) and
-		:meth:`to_allc` (bulk .cz → allc.tsv.gz conversion).
+		:meth:`to_bgzip` (bulk .cz → bgzip-compressed allc.tsv.gz conversion).
 
 		Parameters
 		----------
@@ -3563,8 +3584,7 @@ class Writer:
 			return basename[:-3]
 		return basename
 
-	def catcz(self, input=None, chunk_order=None, add_key=False,
-			  title="filename"):
+	def catcz(self, input=None, chunk_order=None, key_added='cell_id'):
 		"""
 		Cat multiple .cz files into one .cz file.
 
@@ -3580,28 +3600,26 @@ class Writer:
 			or only use selected chroms) will be sorted as
 			the 1st column of the input file path (without header, tab-separated).
 			default is None
-		add_key: bool or function
-			whether to add .cz file names as an new chunk_key to the merged
-			.cz file. For example, we have multiple .cz files for many cells, in
-			each .cz file, the chunk_dims are ['chrom'], after merged, we would
-			like to add file name of .cz as a new chunk_key ['cell_id']. In this case,
-			the chunk_dims in the merged header would be ["chrom","cell_id"], and
-			in each chunk, in addition to the previous dim ['chr1'] or ['chr22'].., a
-			new dim would also be append to the previous dim, like ['chr1','cell_1'],
-			['chr22','cell_100'].
-			However, if add_key is a function, the input to this function is the .cz
-			file basename, the returned value from this funcion would be used
-			as new dim and added into the chunk_dims. The default function to
-			convert filename to dim name is self.create_new_dim.
-		title: str
-			if add_key is True or a python function, title would be append to
-			the header['chunk_dims'] of the merged .cz file's header. If the title of
-			new chunk_key had already given in Writer chunk_dims,
-			title can be None, otherwise, title should be provided.
+		key_added : None, str, callable, or (str, callable) tuple
+			Whether (and how) to append the source filename as an extra
+			``chunk_key`` to every chunk in the merged ``.cz``. For example,
+			merging multiple per-cell ``.cz`` files (each with
+			``chunk_dims=['chrom']``) into one whose ``chunk_dims`` becomes
+			``['chrom', 'cell_id']``.
 
-		Returns
-		-------
+			- ``None`` (default): no key is added; chunks are copied as-is.
+			- ``str``: use this string as the new ``chunk_dim`` name.
+			  Per-file value is derived by stripping a trailing ``.cz``
+			  from the basename (the default :meth:`create_new_dim` rule).
+			- callable: use this callable to derive per-file values from
+			  each source basename. The new ``chunk_dim`` name defaults
+			  to the callable's ``__name__`` if available, else
+			  ``'filename'``.
+			- ``(str, callable)`` tuple: explicit name + value-deriver.
 
+			If the destination ``Writer`` was already constructed with the
+			extra dim listed in ``chunk_dims``, the dim won't be appended
+			again; only per-chunk values get attached.
 		"""
 		if isinstance(input, str) and '*' in input:
 			input = glob.glob(input)
@@ -3625,14 +3643,25 @@ class Writer:
 				raise ValueError("input of chunk_order is not corrected !")
 		if self.verbose > 0:
 			logger.debug(input)
+		# Resolve ``key_added`` into ``(title, new_dim_creator)`` or
+		# ``(None, None)``. See the docstring above for the accepted shapes.
+		title = None
 		self.new_dim_creator = None
-		if add_key != False:  # add filename as another chunk_key.
-			if add_key == True:
+		if key_added is not None:
+			if isinstance(key_added, str):
+				title = key_added
 				self.new_dim_creator = self.create_new_dim
-			elif callable(add_key):  # is a function
-				self.new_dim_creator = add_key
+			elif isinstance(key_added, tuple) and len(key_added) == 2 \
+					and isinstance(key_added[0], str) and callable(key_added[1]):
+				title, self.new_dim_creator = key_added
+			elif callable(key_added):
+				title = getattr(key_added, "__name__", "filename")
+				self.new_dim_creator = key_added
 			else:
-				raise ValueError("add_key should either be True,False or a function")
+				raise ValueError(
+					"key_added must be None, a str, a callable, or a "
+					"(str, callable) tuple."
+				)
 
 		for file_path in input:
 			reader = Reader(file_path)

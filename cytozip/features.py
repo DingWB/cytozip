@@ -675,7 +675,7 @@ def _detect_chrom_axis(reader: Reader, known_chroms: set) -> int:
     Different producers stamp the chrom in different slots:
 
     * Single-cell (``chunk_dims=['chrom']``): position 0.
-    * ``catcz(add_key=True)``: appends the new key at the *end* of the
+    * ``catcz(key_added=...)``: appends the new key at the *end* of the
       source dim tuple, so chrom keeps its original position (typically 0)
       and the added cell id lives at the last slot.
     * User-built merged files may declare any order.
@@ -917,7 +917,8 @@ def cz_to_anndata(
     cz_inputs: Union[str, Sequence[str]],
     features: Union[str, pd.DataFrame, int],
     output: Optional[str] = None,
-    cell_ids: Optional[Sequence[str]] = None,
+    use_samples: Optional[Sequence[str]] = None,
+    ext: str = ".cz",
     pos_col: str = "pos",
     mc_col: str = "mc",
     cov_col: str = "cov",
@@ -963,10 +964,22 @@ def cz_to_anndata(
         :func:`parse_gtf`.
     output : str, optional
         If given, write the AnnData to this ``.h5ad`` path.
-    cell_ids : list, optional
-        Override cell ids. For per-file input the default is the file's
-        basename with ``.cz`` stripped; for merged input the default is
-        the first chunk-key value.
+    use_samples : list of str, optional
+        Whitelist of sample names to include. ``None`` (default) merges
+        ALL samples found in ``cz_inputs``. Sample names are matched
+        against:
+
+        * For per-file inputs: each file's basename with ``ext`` stripped.
+        * For a single pre-catcz'd ``.cz``: the non-chrom chunk-key value
+          (or ``/``-joined values when there are >1 non-chrom dims).
+
+        Use this to subset a large directory or merged file without
+        having to pre-filter the inputs yourself.
+    ext : str, default ``'.cz'``
+        Suffix stripped from per-file basenames to derive each sample
+        name. The sample name is what gets compared to ``use_samples``
+        and what becomes the row label in ``adata.obs``. For merged
+        inputs the chunk-key is used as-is and ``ext`` has no effect.
     pos_col, mc_col, cov_col : str
         Column names in the ``.cz`` header to use for position / methylated
         count / coverage.
@@ -1190,7 +1203,16 @@ def cz_to_anndata(
             for arr in ex.map(_pool_process_prefix, args, chunksize=chunk):
                 yield arr
 
+    # Whitelist set: O(1) membership tests; None = include all.
+    sample_set = set(use_samples) if use_samples is not None else None
+
+    def _basename_sample(p: str) -> str:
+        """Derive sample name from a per-cell .cz path: strip ``ext``."""
+        b = os.path.basename(p)
+        return b[:-len(ext)] if ext and b.endswith(ext) else b
+
     if len(paths) == 1:
+        # ---- Single-file mode: per-cell or pre-catcz'd merged file.
         r = Reader(paths[0])
         try:
             n_keys = len(r.header["chunk_dims"])
@@ -1198,20 +1220,23 @@ def cz_to_anndata(
             rpm = _get_ref_pos_map(r.header.get("message")) if pi is None else None
             chrom_axis = _detect_chrom_axis(r, set(features_by_chrom.keys()))
             if n_keys >= 2:
-                cell_prefixes = list(
-                    _enumerate_cell_prefixes(r, chrom_axis,
-                                             cell_ids=cell_ids))
-                prefixes = [p for p, _ in cell_prefixes]
-                labels = [lab for _, lab in cell_prefixes]
-                if n_workers > 1 and len(prefixes) > 1:
+                # Merged file: enumerate cells, filter by whitelist.
+                cell_prefixes = [
+                    (pref, lab) for pref, lab in
+                    _enumerate_cell_prefixes(r, chrom_axis)
+                    if sample_set is None or lab in sample_set
+                ]
+                if n_workers > 1 and len(cell_prefixes) > 1:
                     r.close()  # workers reopen independently
+                    r = None
+                    prefixes = [p for p, _ in cell_prefixes]
+                    labels = [lab for _, lab in cell_prefixes]
                     for arr, label in zip(
                             _run_parallel_prefixes(paths[0], prefixes),
                             labels):
                         builder.append(arr)
                         obs_names.append(label)
                         del arr
-                    r = None
                 else:
                     for prefix, label in cell_prefixes:
                         arr = _aggregate_one_reader(
@@ -1222,31 +1247,35 @@ def cz_to_anndata(
                         obs_names.append(label)
                         del arr
             else:
-                arr = _aggregate_one_reader(r, features_by_chrom,
-                                            pi, mc_i, cov_i,
-                                            chrom_axis=chrom_axis,
-                                            ref_pos_map=rpm)
-                builder.append(arr)
-                label = (cell_ids[0] if cell_ids else
-                         os.path.basename(paths[0]).rsplit(".cz", 1)[0])
-                obs_names.append(label)
-                del arr
+                # Single per-cell file: sample name from filename.
+                label = _basename_sample(paths[0])
+                if sample_set is None or label in sample_set:
+                    arr = _aggregate_one_reader(
+                        r, features_by_chrom, pi, mc_i, cov_i,
+                        chrom_axis=chrom_axis, ref_pos_map=rpm)
+                    builder.append(arr)
+                    obs_names.append(label)
+                    del arr
         finally:
             if r is not None:
                 r.close()
     else:
-        labels = [
-            (cell_ids[i] if cell_ids and i < len(cell_ids) else
-             os.path.basename(p).rsplit(".cz", 1)[0])
-            for i, p in enumerate(paths)
-        ]
+        # ---- Multi-file mode: derive sample names from basenames; filter.
+        keep_paths = []
+        labels = []
+        for p in paths:
+            lab = _basename_sample(p)
+            if sample_set is not None and lab not in sample_set:
+                continue
+            keep_paths.append(p)
+            labels.append(lab)
         if n_workers > 1:
-            for arr, label in zip(_run_parallel_files(paths), labels):
+            for arr, label in zip(_run_parallel_files(keep_paths), labels):
                 builder.append(arr)
                 obs_names.append(label)
                 del arr
         else:
-            for p, label in zip(paths, labels):
+            for p, label in zip(keep_paths, labels):
                 r = Reader(p)
                 try:
                     pi, mc_i, cov_i = _resolve_cols(r)
@@ -1317,11 +1346,14 @@ def _resolve_inputs(cz_inputs) -> List[str]:
     return [os.path.abspath(os.path.expanduser(p)) for p in cz_inputs]
 
 
-def _enumerate_cell_prefixes(reader: Reader, chrom_axis: int, cell_ids=None):
+def _enumerate_cell_prefixes(reader: Reader, chrom_axis: int):
     """Yield ``(cell_prefix_tuple, label)`` pairs for each cell.
 
     The cell prefix is the dim tuple with the ``chrom_axis`` slot removed,
-    preserving the original ordering of the other slots.
+    preserving the original ordering of the other slots. ``label`` is
+    the prefix joined with ``/`` when there are >1 non-chrom dims, or
+    the single value otherwise. Sample-name filtering is the caller's
+    responsibility.
     """
     n_keys = len(reader.header["chunk_dims"])
     if n_keys < 2:
@@ -1330,10 +1362,6 @@ def _enumerate_cell_prefixes(reader: Reader, chrom_axis: int, cell_ids=None):
     for dim in reader.chunk_key2offset.keys():
         prefix = tuple(v for j, v in enumerate(dim) if j != chrom_axis)
         seen.add(prefix)
-    selected = sorted(seen)
-    id_set = set(cell_ids) if cell_ids is not None else None
-    for prefix in selected:
+    for prefix in sorted(seen):
         label = "/".join(prefix) if len(prefix) > 1 else prefix[0]
-        if id_set is not None and label not in id_set:
-            continue
         yield prefix, label

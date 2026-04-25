@@ -174,7 +174,7 @@ class AllC:
                         columns=['pos', 'strand', 'context'],
                         chunk_dims=['chrom'], message=self.genome,
                         sort_col='pos', delta_cols=self.delta_cols)
-        writer.catcz(input=f"{self.outdir}/*.cz")
+        writer.catcz(input=f"{self.outdir}/*.cz", key_added=None)
 
     def run(self):
         self.writePattern()

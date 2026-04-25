@@ -348,6 +348,17 @@ ls docs
 vim .nojekyll #create empty file
 ```
 
+## Run test & notebooks
+```shell
+cd /home/x-wding2/Projects/Github/cytozip
+rm -rf cytozip_example_data/output/cz
+rm -rf cytozip_example_data/output/allc
+python tests/benchmark_bam_to_cz.py  -j 20
+python tests/benchmark_allc_to_cz.py -j 20
+python tests/benchmark_query.py
+nbexe notebooks/2.dnam.ipynb
+```
+
 ## Package Rename Candidates
 
 The name "cytozip" is too narrow — the package is not just a compression tool but a full single-cell DNA methylation analysis framework (DMR, clustering, motif analysis, etc.). Candidate names for publication:

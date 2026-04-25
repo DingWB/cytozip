@@ -161,14 +161,30 @@ def _bg_rmtree(path):
 # ==========================================================
 def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
                     block_idx_start, batch_nblock, batch_size=5000,
-                    level=6):
+                    level=6, agg='sum'):
     """Worker function for parallel merge of per-cell .cz data.
 
     Reads a batch of blocks (``batch_nblock`` blocks starting at
     ``block_idx_start``) for every cell/sample sharing the same chrom
-    in ``outfile_cat`` and sums their mc/cov values, writing the
-    aggregate as a per-chrom .cz shard ``chrom.{block_idx_start}.cz``
-    in ``outdir``.
+    in ``outfile_cat`` and aggregates their values column-wise,
+    writing the result as a per-chrom .cz shard
+    ``chrom.{block_idx_start}.cz`` in ``outdir``.
+
+    Aggregation
+    -----------
+    ``agg`` controls how each column is reduced across the N input
+    cells/samples (each contributes the same row count per batch).
+
+    * ``'sum'`` (default) — element-wise sum. The fast path for
+      BS-seq mc/cov style data: when both columns share an integer
+      format that fits in the chosen accumulator dtype, the worker
+      uses a 2-column ``np.frombuffer`` view + 1-D ``+=`` and the
+      output ``formats`` set the per-column overflow clip.
+    * ``'mean'`` — element-wise arithmetic mean. Suitable for array
+      beta / M-value style float columns. Output ``formats`` should
+      be float (``'f'`` / ``'d'``).
+    * list/tuple of strings — per-column aggregation, e.g.
+      ``['sum', 'sum']`` (explicit BS-seq) or ``['mean', 'mean']``.
 
     For non-summing pivot outputs (fraction matrix, Fisher matrix), see
     :mod:`cytozip.pivot`.
@@ -177,18 +193,31 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
     reader1 = Reader(outfile_cat)
     in_fmts = reader1.fmts
     in_unit_size = sum(struct.calcsize(c) for c in in_fmts)
+    n_cols = len(in_fmts)
+    # Normalise ``agg`` into a per-column list of strings.
+    if isinstance(agg, str):
+        agg_list = [agg] * n_cols
+    else:
+        agg_list = list(agg)
+        if len(agg_list) != n_cols:
+            raise ValueError(
+                f"agg list length {len(agg_list)} != n_cols {n_cols}")
+    for a in agg_list:
+        if a not in ('sum', 'mean'):
+            raise ValueError(
+                f"unsupported agg={a!r}; expected 'sum' or 'mean'")
+    all_sum = all(a == 'sum' for a in agg_list)
     # ---- Pick decode strategy (chosen once before the per-cell loop):
     # ``fast_dtype != None``: both columns share a homogeneous numeric
     # dtype (the typical 'BB' / 'HH' mc/cov layout). View raw block
     # bytes as a (n, 2) numpy array and accumulate columns directly
     # into 1D sums — eliminates the per-cell (n, 2) int64 allocation
-    # and the structured-dtype column-split copies.
-    # ``fast_dtype is None``: heterogeneous formats (rare) — fall back
-    # to the structured-dtype field path. Both paths feed the same
-    # ``(data_mc, data_cov)`` accumulators.
+    # and the structured-dtype column-split copies. Only used when
+    # ``agg='sum'`` for every column; otherwise we take the general
+    # structured-dtype path.
     fast_dtype = None
     accum_dtype = np.int64
-    if len(in_fmts) == 2 and in_fmts[0] == in_fmts[1] \
+    if all_sum and n_cols == 2 and in_fmts[0] == in_fmts[1] \
             and in_fmts[0] in _NP_FMT_MAP:
         fast_dtype = np.dtype(_NP_FMT_MAP[in_fmts[0]])
         # uint32 accumulator is enough for any realistic cell count when
@@ -200,8 +229,16 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
             accum_dtype = np.uint32
     in_dt_struct = None if fast_dtype is not None else _structured_dtype_for(in_fmts)
 
-    data_mc = None
-    data_cov = None
+    if fast_dtype is not None:
+        data_mc = None
+        data_cov = None
+    else:
+        # General path: one float64 accumulator per column. Covers
+        # 'mean' and arbitrary n_cols / heterogeneous dtypes uniformly.
+        # Float64 is wide enough to hold sums of any reasonable input
+        # without precision loss.
+        accum_cols = [None] * n_cols
+    n_cells_used = 0
     for dim in dims:  # each dim is a per-cell .cz chunk for this chrom
         reader1._load_chunk(reader1.chunk_key2offset[dim], jump=False)
         vos = reader1._chunk_block_1st_record_virtual_offsets
@@ -241,23 +278,30 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
                 f"merge_cz_worker: batch byte length {len(buffer)} for chrom "
                 f"{chrom!r} dim {dim!r} is not a multiple of unit_size "
                 f"{in_unit_size}; record alignment broken.")
-        # Decode this cell's batch into (mc, cov) 1-D views.
+        # Decode this cell's batch and accumulate. The fast path
+        # views the raw bytes as a (n, 2) homogeneous array and uses
+        # 1-D ``+=`` directly. The general path goes through a
+        # structured dtype and folds each column into a float64
+        # accumulator.
         if fast_dtype is not None:
             arr = np.frombuffer(buffer, dtype=fast_dtype).reshape(-1, 2)
             mc_view = arr[:, 0]
             cov_view = arr[:, 1]
+            if data_mc is None:
+                data_mc = np.array(mc_view, dtype=accum_dtype, copy=True)
+                data_cov = np.array(cov_view, dtype=accum_dtype, copy=True)
+            else:
+                data_mc += mc_view
+                data_cov += cov_view
         else:
             rec = np.frombuffer(buffer, dtype=in_dt_struct)
-            mc_view = rec['f0']
-            cov_view = rec['f1']
-        # Accumulate. First cell allocates and copies; later cells fold
-        # in via in-place ``+=`` (broadcasts safely from any int dtype).
-        if data_mc is None:
-            data_mc = np.array(mc_view, dtype=accum_dtype, copy=True)
-            data_cov = np.array(cov_view, dtype=accum_dtype, copy=True)
-        else:
-            data_mc += mc_view
-            data_cov += cov_view
+            for i in range(n_cols):
+                col_view = rec[f'f{i}']
+                if accum_cols[i] is None:
+                    accum_cols[i] = col_view.astype(np.float64, copy=True)
+                else:
+                    accum_cols[i] += col_view
+        n_cells_used += 1
 
     writer1 = Writer(outname, formats=formats,
                      columns=reader1.header['columns'],
@@ -265,25 +309,38 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
                      message=outfile_cat, level=level)
     out_fmts = ''.join(writer1.formats)
     out_dt = _structured_dtype_for(out_fmts)
-    n = data_mc.shape[0]
-    # Fused 1-pass clip: replaces ``data.max()`` scan + conditional
-    # ``np.clip`` (up to 2 passes + an extra allocation when overflow
-    # happens) with a single in-place ``np.minimum`` per column.
-    # Skipped entirely when the accumulator dtype's range already fits
-    # inside the output dtype's max (e.g. uint32 accumulator clipped to
-    # uint32 output).
-    max0, max1 = _NP_FMT_MAX[out_fmts[0]], _NP_FMT_MAX[out_fmts[1]]
-    accum_max = np.iinfo(data_mc.dtype).max
-    if max0 < accum_max:
-        np.minimum(data_mc, max0, out=data_mc)
-    if max1 < accum_max:
-        np.minimum(data_cov, max1, out=data_cov)
-    # Build the entire output buffer in one shot, then hand it to the
-    # writer in ``batch_size`` slices. Building once avoids per-batch
-    # structured-array allocations.
-    out_arr = np.empty(n, dtype=out_dt)
-    out_arr['f0'] = data_mc
-    out_arr['f1'] = data_cov
+    if fast_dtype is not None:
+        n = data_mc.shape[0]
+        # Fused 1-pass clip: replaces ``data.max()`` scan + conditional
+        # ``np.clip`` (up to 2 passes + an extra allocation when overflow
+        # happens) with a single in-place ``np.minimum`` per column.
+        # Skipped entirely when the accumulator dtype's range already fits
+        # inside the output dtype's max (e.g. uint32 accumulator clipped to
+        # uint32 output).
+        max0, max1 = _NP_FMT_MAX[out_fmts[0]], _NP_FMT_MAX[out_fmts[1]]
+        accum_max = np.iinfo(data_mc.dtype).max
+        if max0 < accum_max:
+            np.minimum(data_mc, max0, out=data_mc)
+        if max1 < accum_max:
+            np.minimum(data_cov, max1, out=data_cov)
+        # Build the entire output buffer in one shot, then hand it to the
+        # writer in ``batch_size`` slices. Building once avoids per-batch
+        # structured-array allocations.
+        out_arr = np.empty(n, dtype=out_dt)
+        out_arr['f0'] = data_mc
+        out_arr['f1'] = data_cov
+    else:
+        # General path: finalise per-column according to ``agg_list``,
+        # then clip/cast to output dtype.
+        n = accum_cols[0].shape[0]
+        out_arr = np.empty(n, dtype=out_dt)
+        for i, (col, op, ofmt) in enumerate(zip(accum_cols, agg_list, out_fmts)):
+            if op == 'mean' and n_cells_used > 1:
+                col = col / n_cells_used
+            # Clip integer outputs to format max; float outputs pass through.
+            if ofmt in _NP_FMT_MAX:
+                np.minimum(col, _NP_FMT_MAX[ofmt], out=col)
+            out_arr[f'f{i}'] = col
     out_bytes = out_arr.tobytes()
     rec_size = out_dt.itemsize
     chunk_step = batch_size * rec_size
@@ -297,7 +354,7 @@ def merge_cz(input=None, class_table=None,
              output=None, prefix=None, jobs=12, formats=['H', 'H'],
              chrom_order=None, reference=None,
              keep_cat=False, blocks_per_batch=None, temp=False, bgzip=True,
-             batch_size=50000, ext='.cz', level=6):
+             batch_size=50000, ext='.cz', level=6, agg='sum'):
     """
     Merge multiple per-cell .cz files into one summed .cz. Example:
 
@@ -376,6 +433,14 @@ def merge_cz(input=None, class_table=None,
     level : int
         DEFLATE compression level for output blocks (default 6).
         Drop to 1 for ~2x faster writes at ~12% larger output.
+    agg : str or list of str
+        How to aggregate each column across input cells/samples.
+        ``'sum'`` (default) — element-wise sum, suitable for BS-seq
+        mc/cov. ``'mean'`` — element-wise mean across cells, suitable
+        for methylation-array beta. May also be a per-column list,
+        e.g. ``['mean', 'mean']``. With non-default ``agg`` the
+        output ``formats`` should match: typically ``['f','f']``
+        (float32) for ``'mean'``.
 
     Returns
     -------
@@ -456,7 +521,7 @@ def merge_cz(input=None, class_table=None,
                         columns=header['columns'],
                         chunk_dims=header['chunk_dims'],
                         message="catcz")
-        writer.catcz(input=cz_paths_abs, add_key=True)
+        writer.catcz(input=cz_paths_abs)
 
     reader = Reader(outfile_cat)
     chrom_col = reader.header['chunk_dims'][0]
@@ -500,7 +565,8 @@ def merge_cz(input=None, class_table=None,
         while block_idx_start < chrom_nblocks[chrom]:
             task = pool.apply_async(merge_cz_worker,
                                    (outfile_cat, outdir, chrom, dims, formats,
-                                    block_idx_start, batch_nblock, 5000, level))
+                                    block_idx_start, batch_nblock, 5000, level,
+                                    agg))
             tasks.append(task)
             block_idx_start += batch_nblock
     for task in tasks:
@@ -577,7 +643,8 @@ def merge_cz(input=None, class_table=None,
     writer = Writer(output=output, formats=formats,
                     columns=header['columns'], chunk_dims=header['chunk_dims'],
                     message="merged")
-    writer.catcz(input=[f"{outdir}/{chrom}.cz" for chrom in chroms])
+    writer.catcz(input=[f"{outdir}/{chrom}.cz" for chrom in chroms],
+                 key_added=None)
     if not keep_cat and not user_supplied_cat:
         os.remove(outfile_cat)
     if not temp:

@@ -117,8 +117,9 @@ def _build_parser():
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
     p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key (dimension) names')
     p.add_argument('--chunk_order', default=None, help='chunk-key order file or comma-separated')
-    p.add_argument('--add_key', action='store_true', help='add filename as extra chunk key')
-    p.add_argument('--title', default='filename', help='title for added chunk key')
+    p.add_argument('--key_added', default='cell_id',
+                   help="name of an extra chunk_dim derived from each input's basename "
+                        "(default: 'cell_id'); pass empty string to disable")
     p.add_argument('-m', '--message', default='', help='message stored in header')
 
     # ---- view ----------------------------------------------------------------
@@ -143,13 +144,18 @@ def _build_parser():
     p.add_argument('-q', '--query_col', type=_csv_int, default=[0], help='column indices to query on')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
 
-    # ---- to_allc -------------------------------------------------------------
-    p = sub.add_parser('to_allc', help='Convert .cz to allc.tsv.gz', formatter_class=_fmt)
+    # ---- to_bgzip ------------------------------------------------------------
+    p = sub.add_parser('to_bgzip', help='Convert .cz to bgzip-compressed allc.tsv.gz', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
     p.add_argument('-O', '--output', required=True, help='output .allc.tsv.gz file')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
     p.add_argument('-K', '--chunk_order', default=None, help='filter/order by chunk-key value (e.g. chr1)')
-    p.add_argument('--cov_col', default=None, help='coverage column name; rows with 0 are dropped (default: last data column)')
+    p.add_argument('--cov_col', default=None,
+                   help='if given, drop rows where this column is 0 (allc convention)')
+    p.add_argument('--trailing', default=None,
+                   help='extra literal-value columns appended after data, '
+                        'as comma-separated key=value pairs '
+                        '(e.g. "mc_flag=1" for ALLCools allc.tsv.gz)')
     p.add_argument('--no_tabix', action='store_true', help='skip tabix indexing')
 
     # ---- summary_chunks / summary_blocks ------------------------------------
@@ -294,6 +300,10 @@ def _build_parser():
                    help='DEFLATE compression level for output blocks '
                         '(1=fastest, 6=default, 9=smallest). Level=1 is ~2x '
                         'faster at ~12%% larger output.')
+    p.add_argument('--agg', default='sum',
+                   help='aggregation across cells/samples: "sum" (default, '
+                        'BS-seq mc/cov) or "mean" (e.g. methylation-array '
+                        'beta). Comma-separated values give per-column agg.')
 
     # ---- merge_cell_type -----------------------------------------------------
     p = sub.add_parser('merge_cell_type', help='Merge by cell type', formatter_class=_fmt)
@@ -417,7 +427,12 @@ def _build_parser():
     p.add_argument('-f', '--features', required=True,
                    help='BED / BED.gz / BED.bgz path, GTF / GTF.gz path, or an int bin size in bp (e.g. 5000) for genome-wide tiling (then --chrom_size is required)')
     p.add_argument('-O', '--output', default=None, help='output .h5ad path')
-    p.add_argument('--cell_ids', type=_csv_str, default=None, help='optional override list of cell ids')
+    p.add_argument('--use_samples', type=_csv_str, default=None,
+                   help='comma-separated whitelist of sample names to '
+                        'include (default: all)')
+    p.add_argument('--ext', default='.cz',
+                   help='filename suffix stripped from per-file basenames '
+                        'to derive sample names (default: .cz)')
     p.add_argument('--pos_col', default='pos', help='name of position column in .cz header')
     p.add_argument('--mc_col', default='mc', help='name of mc column')
     p.add_argument('--cov_col', default='cov', help='name of cov column')
@@ -480,7 +495,7 @@ def main():
         if isinstance(inp, str) and '*' not in inp:
             inp = [p for p in inp.split(',') if p]
         w.catcz(input=inp, chunk_order=args.chunk_order,
-                add_key=args.add_key, title=args.title)
+                key_added=(args.key_added or None))
 
     elif cmd == 'view':
         from .cz import Reader
@@ -502,12 +517,30 @@ def main():
                 query_col=args.query_col, reference=args.reference,
                 printout=True)
 
-    elif cmd == 'to_allc':
+    elif cmd == 'to_bgzip':
         from .cz import Reader
         r = Reader(args.input)
-        r.to_allc(output=args.output, reference=args.reference,
-                  chunk_order=args.chunk_order, tabix=not args.no_tabix,
-                  cov_col=args.cov_col)
+        trailing = None
+        if args.trailing:
+            trailing = {}
+            for kv in args.trailing.split(','):
+                if not kv.strip():
+                    continue
+                if '=' not in kv:
+                    raise ValueError(f"--trailing entry {kv!r} must be key=value")
+                k, v = kv.split('=', 1)
+                # Coerce numeric where possible.
+                try:
+                    v_num = int(v)
+                except ValueError:
+                    try:
+                        v_num = float(v)
+                    except ValueError:
+                        v_num = v
+                trailing[k.strip()] = v_num
+        r.to_bgzip(output=args.output, reference=args.reference,
+                   chunk_order=args.chunk_order, tabix=not args.no_tabix,
+                   cov_col=args.cov_col, trailing_columns=trailing)
         r.close()
 
     elif cmd == 'summary':
@@ -568,6 +601,10 @@ def main():
 
     elif cmd == 'merge_cz':
         from .merge import merge_cz
+        # --agg: 'sum' / 'mean' / comma-list (parsed into a per-col list).
+        agg_arg = args.agg
+        if isinstance(agg_arg, str) and ',' in agg_arg:
+            agg_arg = [s.strip() for s in agg_arg.split(',') if s.strip()]
         merge_cz(input=args.input,
                  class_table=args.class_table, output=args.output,
                  prefix=args.prefix, jobs=args.jobs,
@@ -575,7 +612,7 @@ def main():
                  reference=args.reference, keep_cat=args.keep_cat,
                  blocks_per_batch=args.blocks_per_batch, temp=args.temp,
                  bgzip=not args.no_bgzip, batch_size=args.batch_size,
-                 ext=args.ext, level=args.level)
+                 ext=args.ext, level=args.level, agg=agg_arg)
 
     elif cmd == 'merge_cell_type':
         from .merge import merge_cell_type
@@ -689,7 +726,8 @@ def main():
         except (TypeError, ValueError):
             pass
         cz_to_anndata(cz_inputs=inputs, features=feats,
-                      output=args.output, cell_ids=args.cell_ids,
+                      output=args.output, use_samples=args.use_samples,
+                      ext=args.ext,
                       pos_col=args.pos_col, mc_col=args.mc_col,
                       cov_col=args.cov_col, obs=obs_df,
                       reference=args.reference,

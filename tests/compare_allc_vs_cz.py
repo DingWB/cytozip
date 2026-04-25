@@ -2,7 +2,7 @@
 """Compare a per-cell .allc.tsv.gz against its corresponding .cz file.
 
 The check round-trips the .cz back to .allc.tsv.gz via
-:meth:`cytozip.cz.Reader.to_allc` (using the reference .cz for coordinate
+:meth:`cytozip.cz.Reader.to_bgzip` (using the reference .cz for coordinate
 lookup) and diff-joins the two allc tables on ``(chrom, pos)``.
 
 Discrepancies are categorised as:

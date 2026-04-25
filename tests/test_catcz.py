@@ -2,7 +2,7 @@
 
 Concatenates the 9 single-cell .cz files in
 ``cytozip_example_data/output/cz/`` into one catcz output (with
-``add_key=True``, producing chunk_dims=['chrom','filename']), and
+``key_added="cell_id"``, producing chunk_dims=['chrom','cell_id']), and
 verifies that for every ``(chrom, cell_basename)`` chunk the raw
 decoded bytes are identical to the corresponding ``(chrom,)`` chunk
 in the original per-cell .cz file.
@@ -39,19 +39,19 @@ def test_catcz_bytes_identical_to_originals(tmp_path):
     out_path = str(tmp_path / 'cat.cz')
 
     # Pull header from the first cell and create a Writer with matching
-    # formats / columns / chunk_dims. ``add_key=True`` appends the basename
-    # (sans .cz) as a new chunk dim called 'filename'.
+    # formats / columns / chunk_dims. ``key_added="cell_id"`` appends the
+    # basename (sans .cz) as a new chunk dim called 'cell_id'.
     r0 = Reader(os.path.join(CELLS_DIR, cells[0]))
     h = r0.header
     r0.close()
 
     w = Writer(output=out_path, formats=h['formats'], columns=h['columns'],
                chunk_dims=h['chunk_dims'], message='catcz_test')
-    w.catcz(input=[os.path.join(CELLS_DIR, c) for c in cells], add_key=True)
+    w.catcz(input=[os.path.join(CELLS_DIR, c) for c in cells], key_added="cell_id")
     del w  # close+flush
 
     rcat = Reader(out_path)
-    assert rcat.header['chunk_dims'] == h['chunk_dims'] + ['filename'], (
+    assert rcat.header['chunk_dims'] == h['chunk_dims'] + ['cell_id'], (
         f"chunk_dims after catcz: {rcat.header['chunk_dims']}"
     )
 
