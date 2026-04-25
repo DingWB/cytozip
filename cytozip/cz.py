@@ -1700,7 +1700,7 @@ class Reader:
 	def build_region_index(self, output, formats=['I', 'I'],
 					columns=['ID_start', 'ID_end'],
 					chunk_dims=['chrom'], bed=None,
-					batch_size=2000, threads=4):
+					batch_size=2000, jobs=4):
 		n_chunk_dims = len(chunk_dims)
 		df = pd.read_csv(bed, sep='\t', header=None, usecols=list(range(n_chunk_dims + 3)),
 						 names=['chrom', 'start', 'end', 'Name'])
@@ -1708,8 +1708,8 @@ class Reader:
 		formats = formats + [f'{max_name_len}s']
 		columns = columns + ['Name']
 		chunk_dims = chunk_dims
-		pool = __import__('multiprocessing').Pool(threads)
-		jobs = []
+		pool = __import__('multiprocessing').Pool(jobs)
+		tasks = []
 		outdir = output + '.tmp'
 		if not os.path.exists(outdir):
 			os.mkdir(outdir)
@@ -1718,12 +1718,12 @@ class Reader:
 			if dim not in self.chunk_key2offset:
 				continue
 			output = os.path.join(outdir, chrom + '.cz')
-			job = pool.apply_async(self.build_region_index_worker,
+			task = pool.apply_async(self.build_region_index_worker,
 								   (self.input, output, dim, df1, formats, columns,
 									chunk_dims, batch_size))
-			jobs.append(job)
-		for job in jobs:
-			r = job.get()
+			tasks.append(task)
+		for task in tasks:
+			r = task.get()
 		pool.close()
 		pool.join()
 		# merge
@@ -1843,20 +1843,28 @@ class Reader:
 		"""
 		self._load_chunk(self.chunk_key2offset[dim], jump=False)
 		prev_id_end = float("inf")  # track previous range end to detect block reuse
+		# Delta files are record-aligned; non-delta files pack records across blocks.
+		delta = bool(self._delta_cols)
+		if delta:
+			records_per_block = _BLOCK_MAX_LEN // self._unit_size
 		for id_start, id_end in IDs:
 			if id_start < prev_id_end:
 				# New range starts before previous end; must re-seek
 				prev_block_start_offset = None
 			# Compute which block this ID falls in
-			block_index = ((id_start - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
+			if delta:
+				block_index = (id_start - 1) // records_per_block
+				within_block_offset = ((id_start - 1) % records_per_block) * self._unit_size
+			else:
+				block_index = ((id_start - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
+				within_block_offset = ((id_start - 1) * self._unit_size) % _BLOCK_MAX_LEN
 			block_start_offset = self._chunk_block_1st_record_virtual_offsets[
 									 block_index] >> 16
 			if block_start_offset != prev_block_start_offset:
 				self._load_block(block_start_offset)
 				prev_block_start_offset = block_start_offset
 			# Set the within-block offset to the start of the target record
-			self._within_block_offset = ((id_start - 1) * self._unit_size
-										 ) % _BLOCK_MAX_LEN
+			self._within_block_offset = within_block_offset
 			# Read all records in this range (inclusive)
 			yield [self.read(self._unit_size) for i in range(id_start, id_end + 1)]
 			prev_id_end = id_end
@@ -2121,9 +2129,17 @@ class Reader:
 			dims = tuple([dims])
 		r = self._load_chunk(self.chunk_key2offset[dims], jump=False)
 		if not n is None:  # seek to the position of the n rows
-			block_index = ((n - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
+			# Delta files are written record-aligned (each block holds exactly
+			# records_per_block complete records); non-delta files pack records
+			# contiguously across block boundaries.
+			if self._delta_cols:
+				records_per_block = _BLOCK_MAX_LEN // self._unit_size
+				block_index = (n - 1) // records_per_block
+				within_block_offset = ((n - 1) % records_per_block) * self._unit_size
+			else:
+				block_index = ((n - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
+				within_block_offset = ((n - 1) * self._unit_size) % (_BLOCK_MAX_LEN)
 			first_record_vos = self._chunk_block_1st_record_virtual_offsets[block_index]
-			within_block_offset = ((n - 1) * self._unit_size) % (_BLOCK_MAX_LEN)
 			block_start_offset = (first_record_vos >> 16)
 			virtual_start_offset = (block_start_offset << 16) | within_block_offset
 			self.seek(virtual_start_offset)  # load_block is inside sek
@@ -2193,8 +2209,16 @@ class Reader:
 				record = self._struct_obj.unpack(self.read(self._unit_size))
 			if self._block_start_offset > block_start_offset:
 				start_block_index += 1
-			primary_id = int((_BLOCK_MAX_LEN * start_block_index +
-							  self._within_block_offset) / self._unit_size)
+			# Record-aligned blocks (delta files) use record-count arithmetic;
+			# others use byte-position arithmetic that handles records spanning
+			# block boundaries.
+			if self._delta_col_names:
+				records_per_block = _BLOCK_MAX_LEN // self._unit_size
+				primary_id = (records_per_block * start_block_index
+							  + self._within_block_offset // self._unit_size)
+			else:
+				primary_id = int((_BLOCK_MAX_LEN * start_block_index +
+								  self._within_block_offset) / self._unit_size)
 			yield "primary_id_&_dim:", primary_id, dim
 			while record[e] <= end:
 				yield dim, record
@@ -2246,8 +2270,14 @@ class Reader:
 				continue
 			if self._block_start_offset > block_start_offset:
 				start_block_index += 1
-			primary_id = int((_BLOCK_MAX_LEN * start_block_index +
-				                  self._within_block_offset) / self._unit_size)
+			# Record-aligned blocks (delta files) need record-count arithmetic.
+			if self._delta_col_names:
+				records_per_block = _BLOCK_MAX_LEN // self._unit_size
+				primary_id = (records_per_block * start_block_index
+							  + self._within_block_offset // self._unit_size)
+			else:
+				primary_id = int((_BLOCK_MAX_LEN * start_block_index +
+					                  self._within_block_offset) / self._unit_size)
 			id_start = primary_id
 			while record[col_to_query] < end:
 				try:
@@ -2820,7 +2850,7 @@ def extract(input=None, output=None, index=None, batch_size=5000):
 
 # ==========================================================
 def index_regions(input, output=None, bed=None,
-				  threads=4):  # 2D index
+				  jobs=4):  # 2D index
 	"""
 	Build a region-based coordinate index from a BED file. For example::
 
@@ -2832,7 +2862,8 @@ def index_regions(input, output=None, bed=None,
 	input :
 	output :
 	bed :
-	threads :
+	jobs :
+		number of parallel processes (CPUs).
 
 	Returns
 	-------
@@ -2845,7 +2876,7 @@ def index_regions(input, output=None, bed=None,
 	else:
 		output = os.path.abspath(os.path.expanduser(output))
 	reader = Reader(input)
-	reader.build_region_index(output=output, bed=bed, threads=threads)
+	reader.build_region_index(output=output, bed=bed, jobs=jobs)
 	reader.close()
 
 

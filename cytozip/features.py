@@ -39,7 +39,7 @@ import pandas as pd
 from .cz import Reader, _fmt_to_np_dtype
 
 
-_VALID_SCORES = ("frac", "hypo-score", "hyper-score")
+_VALID_SCORES = ("frac", "hypo-score", "hyper-score", "mc", "cov", "umc")
 
 
 def _record_dtype_for(formats):
@@ -424,7 +424,13 @@ def _compute_beta_params(mc_mat, cov_mat):
 def _compute_score_matrix(mc_mat, cov_mat, score, score_cutoff):
     """Fully-vectorized dispatch to the requested scoring function.
 
-    Supported scores: ``'frac'``, ``'hypo-score'``, ``'hyper-score'``.
+    Supported scores: ``'frac'``, ``'hypo-score'``, ``'hyper-score'``,
+    ``'mc'``, ``'cov'``, ``'umc'``. The ``mc`` / ``cov`` / ``umc``
+    options place the raw integer counts (or unmethylated count
+    ``cov - mc``) directly into ``.X`` so callers can use
+    :func:`cz_to_anndata` purely as a per-cell raw-count aggregator over
+    a feature set.
+
     The ALLCools posterior-fraction transform is intentionally *not*
     computed here; per-cell Beta(alpha, beta) parameters are instead
     written to ``adata.obs`` by :func:`cz_to_anndata` so users can
@@ -436,6 +442,16 @@ def _compute_score_matrix(mc_mat, cov_mat, score, score_cutoff):
                          mc_mat.astype(np.float32) / np.maximum(cov_mat, 1),
                          0.0).astype(np.float32)
         return x
+
+    if score == "mc":
+        return mc_mat.astype(np.float32, copy=False)
+    if score == "cov":
+        return cov_mat.astype(np.float32, copy=False)
+    if score == "umc":
+        # Unmethylated count = cov - mc; clip at 0 in case of weird inputs.
+        umc = cov_mat.astype(np.int64) - mc_mat.astype(np.int64)
+        np.maximum(umc, 0, out=umc)
+        return umc.astype(np.float32, copy=False)
 
     mc = mc_mat.astype(np.float64, copy=False)
     cov = cov_mat.astype(np.float64, copy=False)
@@ -456,6 +472,196 @@ def _compute_score_matrix(mc_mat, cov_mat, score, score_cutoff):
             pv = np.where(pv >= float(score_cutoff), pv, 0.0)
             out[valid] = pv.astype(np.float32)
         return out
+
+    raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
+
+
+# ---------------------------------------------------------------------------
+# Sparse-streaming helpers (memory-efficient path for hundreds of thousands
+# of cells). The dense-matrix fallbacks above are kept for callers that
+# already pass ``mc_mat`` / ``cov_mat``.
+# ---------------------------------------------------------------------------
+class _StreamingSparseBuilder:
+    """Append-one-cell-at-a-time CSR builder.
+
+    Avoids materialising the dense ``(n_cells, n_feat)`` matrices that
+    otherwise dominate memory for large cohorts. Each cell is appended
+    by passing its ``(n_feat, 2)`` int64 array; only the (mc, cov)
+    entries on positions where ``cov > 0`` are kept (single-cell
+    methylation is typically <5% covered, so this is the bulk of the
+    saving).
+
+    Build the final sparse layers with :meth:`finalize`.
+    """
+
+    __slots__ = ("n_feat", "_mc_data", "_cov_data", "_indices",
+                 "_indptr", "_n_rows")
+
+    def __init__(self, n_feat: int):
+        self.n_feat = int(n_feat)
+        self._mc_data: list = []
+        self._cov_data: list = []
+        self._indices: list = []
+        # ``indptr`` always starts with 0 and grows by one entry per row.
+        self._indptr: list = [0]
+        self._n_rows = 0
+
+    def append(self, arr) -> None:
+        """Append one cell's ``(n_feat, 2)`` int64 array.
+
+        Only entries with ``cov > 0`` are stored. Since ``mc <= cov``,
+        the same sparsity pattern works for both layers.
+        """
+        cov = arr[:, 1]
+        # nonzero is a *fast* C-level select; no Python-loop overhead.
+        nz = np.flatnonzero(cov).astype(np.int32, copy=False)
+        if nz.size:
+            # Cast counts to uint32 — methylation calls fit easily.
+            self._mc_data.append(arr[nz, 0].astype(np.uint32, copy=False))
+            self._cov_data.append(cov[nz].astype(np.uint32, copy=False))
+            self._indices.append(nz)
+        self._n_rows += 1
+        self._indptr.append(self._indptr[-1] + int(nz.size))
+
+    def finalize(self):
+        """Materialise ``(mc_csr, cov_csr)`` shape ``(n_rows, n_feat)``.
+
+        After this call the internal buffers are dropped so the builder
+        cannot be reused.
+        """
+        import scipy.sparse as ss
+        n_rows = self._n_rows
+        shape = (n_rows, self.n_feat)
+        # ``indptr`` may exceed int32 for >2.1B nonzeros total — pick
+        # the narrowest dtype that still covers the value range.
+        last = self._indptr[-1]
+        indptr_dtype = np.int64 if last > np.iinfo(np.int32).max else np.int32
+        indptr = np.asarray(self._indptr, dtype=indptr_dtype)
+        if self._indices:
+            indices = np.concatenate(self._indices)
+            mc_data = np.concatenate(self._mc_data)
+            cov_data = np.concatenate(self._cov_data)
+        else:
+            indices = np.empty(0, dtype=np.int32)
+            mc_data = np.empty(0, dtype=np.uint32)
+            cov_data = np.empty(0, dtype=np.uint32)
+        # Drop the chunk lists so concatenation buffers are reclaimed
+        # before two more arrays are allocated for the second layer.
+        self._mc_data.clear()
+        self._cov_data.clear()
+        self._indices.clear()
+        # Note: ``indices`` is shared between the two CSRs because both
+        # layers have the same sparsity pattern.
+        mc_csr = ss.csr_matrix((mc_data, indices, indptr), shape=shape)
+        cov_csr = ss.csr_matrix((cov_data, indices, indptr), shape=shape)
+        # Indicate the layers are already canonical (sorted, no dups).
+        mc_csr.has_sorted_indices = True
+        cov_csr.has_sorted_indices = True
+        mc_csr.has_canonical_format = True
+        cov_csr.has_canonical_format = True
+        return mc_csr, cov_csr
+
+
+def _compute_beta_params_sparse(mc_csr, cov_csr):
+    """Sparse-input version of :func:`_compute_beta_params`.
+
+    Operates only on the non-zero entries of each row, never building
+    the full dense matrix. Equivalent to the dense version because the
+    raw fraction at zero-coverage entries is NaN and dropped from the
+    nan-mean / nan-var anyway.
+    """
+    n_rows = cov_csr.shape[0]
+    indptr = np.asarray(cov_csr.indptr)
+    counts = np.diff(indptr).astype(np.int64)
+    nz_rows = counts > 0
+
+    raw = np.divide(
+        mc_csr.data.astype(np.float64),
+        np.maximum(cov_csr.data, 1).astype(np.float64),
+    )
+    sums = np.zeros(n_rows, dtype=np.float64)
+    sums_sq = np.zeros(n_rows, dtype=np.float64)
+    if nz_rows.any():
+        starts = indptr[:-1][nz_rows]
+        sums[nz_rows] = np.add.reduceat(raw, starts)
+        sums_sq[nz_rows] = np.add.reduceat(raw * raw, starts)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mean = np.where(nz_rows, sums / np.maximum(counts, 1), np.nan)
+        var = np.where(nz_rows,
+                       sums_sq / np.maximum(counts, 1) - mean * mean,
+                       np.nan)
+    ok = (np.isfinite(mean) & np.isfinite(var)
+          & (mean > 0) & (mean < 1) & (var > 0))
+    alpha = np.full(n_rows, np.nan, dtype=np.float64)
+    beta = np.full(n_rows, np.nan, dtype=np.float64)
+    if ok.any():
+        m = mean[ok]
+        v = var[ok]
+        a = (1.0 - m) * m * m / v - m
+        b = a * (1.0 / m - 1.0)
+        alpha[ok] = np.maximum(a, 1e-6)
+        beta[ok] = np.maximum(b, 1e-6)
+    prior_mean = alpha / (alpha + beta)
+    return (alpha.astype(np.float32),
+            beta.astype(np.float32),
+            prior_mean.astype(np.float32))
+
+
+def _compute_score_matrix_sparse(mc_csr, cov_csr, score, score_cutoff):
+    """Sparse-input version of :func:`_compute_score_matrix`.
+
+    Returns a ``csr_matrix`` of shape ``(n_cells, n_features)`` with
+    ``float32`` data. Zero-coverage entries are *implicit* zeros — they
+    are not materialised, which is the whole point of the streaming
+    path.
+    """
+    import scipy.sparse as ss
+    indptr = np.asarray(cov_csr.indptr)
+    indices = np.asarray(cov_csr.indices)
+    shape = cov_csr.shape
+
+    if score == "mc":
+        return mc_csr.astype(np.float32)
+    if score == "cov":
+        return cov_csr.astype(np.float32)
+    if score == "umc":
+        umc = (cov_csr.data.astype(np.int64)
+               - mc_csr.data.astype(np.int64))
+        np.maximum(umc, 0, out=umc)
+        return ss.csr_matrix((umc.astype(np.float32), indices, indptr),
+                             shape=shape, dtype=np.float32)
+    if score == "frac":
+        data = (mc_csr.data.astype(np.float32)
+                / np.maximum(cov_csr.data, 1).astype(np.float32))
+        return ss.csr_matrix((data, indices, indptr),
+                             shape=shape, dtype=np.float32)
+
+    if score in ("hypo-score", "hyper-score"):
+        from scipy.stats import binom
+        n_rows = shape[0]
+        counts = np.diff(indptr).astype(np.int64)
+        nz_rows = counts > 0
+        tot_mc = np.zeros(n_rows, dtype=np.float64)
+        tot_cov = np.zeros(n_rows, dtype=np.float64)
+        if nz_rows.any():
+            starts = indptr[:-1][nz_rows]
+            tot_mc[nz_rows] = np.add.reduceat(
+                mc_csr.data.astype(np.float64), starts)
+            tot_cov[nz_rows] = np.add.reduceat(
+                cov_csr.data.astype(np.float64), starts)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            p_cell = tot_mc / (tot_cov + 1e-6)
+        valid = (np.isfinite(p_cell) & (p_cell > 0) & (p_cell < 1)
+                 & (tot_cov > 0))
+        # Broadcast per-row stats out to per-nz arrays via repeat.
+        p_per_nz = np.repeat(p_cell, counts)
+        valid_per_nz = np.repeat(valid, counts)
+        sf = binom.sf(mc_csr.data, cov_csr.data, p_per_nz)
+        pv = (1.0 - sf) if score == "hyper-score" else sf
+        pv = np.where(valid_per_nz & (pv >= float(score_cutoff)),
+                      pv, 0.0).astype(np.float32)
+        return ss.csr_matrix((pv, indices, indptr),
+                             shape=shape, dtype=np.float32)
 
     raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
 
@@ -564,9 +770,15 @@ def _aggregate_one_reader(
         if pos_col is not None:
             positions = arr[f"c{pos_col}"].astype(np.int64, copy=False)
         elif ref_pos_map is not None and chrom in ref_pos_map:
-            positions = ref_pos_map[chrom]
-            if positions.size != arr.size:
+            # ref_pos_map may be a plain dict (legacy) or a
+            # _LazyRefPositions (current bam.py); both expose ``.get`` and
+            # ``__contains__``, but only the dict supports ``[]``.
+            getter = getattr(ref_pos_map, "get", None)
+            positions = (getter(chrom) if callable(getter)
+                         else ref_pos_map[chrom])
+            if positions is None or positions.size != arr.size:
                 continue
+            positions = np.asarray(positions, dtype=np.int64)
         else:
             continue
 
@@ -718,7 +930,7 @@ def cz_to_anndata(
     gtf_id_col: str = "gene_name",
     score: str = "frac",
     score_cutoff: float = 0.9,
-    threads: int = 1,
+    jobs: int = 1,
 ):
     """Build an :class:`anndata.AnnData` of shape ``(n_cells, n_features)``.
 
@@ -785,7 +997,7 @@ def cz_to_anndata(
         becomes ``var_names``. When ``'gene_name'`` (the default), GENCODE
         records that share a symbol on one chrom are merged into a single
         interval so the output has exactly one row per gene symbol.
-    score : {'frac', 'hypo-score', 'hyper-score'}
+    score : {'frac', 'hypo-score', 'hyper-score', 'mc', 'cov', 'umc'}
         What to store in ``.X``:
 
         - ``'frac'`` (default): raw ``mc/cov`` fraction. Zero-cov
@@ -796,6 +1008,18 @@ def cz_to_anndata(
           to zero. High values mark hypo-methylated sites.
         - ``'hyper-score'``: ``1 - sf`` with the same sparsification;
           high values mark hyper-methylated sites.
+        - ``'mc'``: raw methylated-count per (cell, feature) (sum of
+          per-site mc inside the feature interval).
+        - ``'cov'``: raw coverage count per (cell, feature) (sum of
+          per-site cov).
+        - ``'umc'``: raw unmethylated count = ``cov - mc`` per
+          (cell, feature). Useful when you want to assemble ``mc`` and
+          ``umc`` matrices side-by-side for downstream Beta-binomial /
+          ALLCools-style modeling without recomputing.
+
+        ``mc`` / ``cov`` always also live in ``.layers['mc']`` /
+        ``.layers['cov']`` regardless of which score is selected; the
+        ``score`` choice only changes ``.X``.
 
         The ALLCools posterior-fraction transform is intentionally *not*
         offered as a score; instead, per-cell Beta(alpha, beta) are
@@ -804,8 +1028,8 @@ def cz_to_anndata(
         ``(mc + alpha) / (cov + alpha + beta) / prior_mean``.
     score_cutoff : float
         Sparsification threshold for hypo/hyper scores. Default 0.9.
-    threads : int
-        Number of worker processes for parallel per-cell aggregation.
+    jobs : int
+        Number of worker processes (CPUs) for parallel per-cell aggregation.
         ``1`` (default) runs serially in-process. ``>1`` uses a
         :class:`concurrent.futures.ProcessPoolExecutor`: for a list of
         per-cell ``.cz`` files each worker opens its own Reader and
@@ -821,7 +1045,6 @@ def cz_to_anndata(
         counts (``uint32``) as CSR sparse matrices.
     """
     import anndata
-    import scipy.sparse as ss
 
     if score not in _VALID_SCORES:
         raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
@@ -928,10 +1151,19 @@ def cz_to_anndata(
 
     # Resolve input mode.
     paths = _resolve_inputs(cz_inputs)
-    n_workers = int(threads) if threads and int(threads) > 1 else 1
+    n_workers = int(jobs) if jobs and int(jobs) > 1 else 1
 
-    cell_arrays = []
+    # Streaming sparse builder: each cell's (n_feat, 2) array is appended
+    # immediately and dropped, so peak memory is dominated by the sparse
+    # CSRs (~nnz * 8 B) instead of n_cells * n_feat * 8 B.
+    builder = _StreamingSparseBuilder(n_feat)
     obs_names: List[str] = []
+
+    # Cap pool chunksize so the executor's in-flight buffer cannot scale
+    # with n_cells. Default ``len // (n_workers*4)`` blew up to thousands
+    # of arrays buffered for cohorts >100k cells. ``32`` keeps in-flight
+    # memory bounded at ~ ``n_workers * 32 * (n_feat * 16 B)``.
+    _POOL_CHUNK_CAP = 32
 
     def _run_parallel_files(paths_):
         from concurrent.futures import ProcessPoolExecutor
@@ -940,7 +1172,8 @@ def cz_to_anndata(
                 initializer=_pool_init,
                 initargs=(features_by_chrom, pos_col, mc_col, cov_col,
                           reference)) as ex:
-            chunk = max(1, len(paths_) // (n_workers * 4) or 1)
+            chunk = max(1, min(_POOL_CHUNK_CAP,
+                               len(paths_) // (n_workers * 4) or 1))
             for arr in ex.map(_pool_process_file, paths_, chunksize=chunk):
                 yield arr
 
@@ -952,7 +1185,8 @@ def cz_to_anndata(
                 initargs=(features_by_chrom, pos_col, mc_col, cov_col,
                           reference)) as ex:
             args = [(cz_path, pref) for pref in prefix_list]
-            chunk = max(1, len(args) // (n_workers * 4) or 1)
+            chunk = max(1, min(_POOL_CHUNK_CAP,
+                               len(args) // (n_workers * 4) or 1))
             for arr in ex.map(_pool_process_prefix, args, chunksize=chunk):
                 yield arr
 
@@ -974,8 +1208,9 @@ def cz_to_anndata(
                     for arr, label in zip(
                             _run_parallel_prefixes(paths[0], prefixes),
                             labels):
-                        cell_arrays.append(arr)
+                        builder.append(arr)
                         obs_names.append(label)
+                        del arr
                     r = None
                 else:
                     for prefix, label in cell_prefixes:
@@ -983,17 +1218,19 @@ def cz_to_anndata(
                             r, features_by_chrom, pi, mc_i, cov_i,
                             cell_prefix=prefix, chrom_axis=chrom_axis,
                             ref_pos_map=rpm)
-                        cell_arrays.append(arr)
+                        builder.append(arr)
                         obs_names.append(label)
+                        del arr
             else:
                 arr = _aggregate_one_reader(r, features_by_chrom,
                                             pi, mc_i, cov_i,
                                             chrom_axis=chrom_axis,
                                             ref_pos_map=rpm)
-                cell_arrays.append(arr)
+                builder.append(arr)
                 label = (cell_ids[0] if cell_ids else
                          os.path.basename(paths[0]).rsplit(".cz", 1)[0])
                 obs_names.append(label)
+                del arr
         finally:
             if r is not None:
                 r.close()
@@ -1005,8 +1242,9 @@ def cz_to_anndata(
         ]
         if n_workers > 1:
             for arr, label in zip(_run_parallel_files(paths), labels):
-                cell_arrays.append(arr)
+                builder.append(arr)
                 obs_names.append(label)
+                del arr
         else:
             for p, label in zip(paths, labels):
                 r = Reader(p)
@@ -1021,19 +1259,13 @@ def cz_to_anndata(
                         chrom_axis=chrom_axis, ref_pos_map=rpm)
                 finally:
                     r.close()
-                cell_arrays.append(arr)
+                builder.append(arr)
                 obs_names.append(label)
+                del arr
 
-    # Stack into dense -> sparse matrices.
-    n_cells = len(cell_arrays)
-    mc_mat = np.zeros((n_cells, n_feat), dtype=np.uint32)
-    cov_mat = np.zeros((n_cells, n_feat), dtype=np.uint32)
-    for i, arr in enumerate(cell_arrays):
-        mc_mat[i] = arr[:, 0].astype(np.uint32)
-        cov_mat[i] = arr[:, 1].astype(np.uint32)
-
-    mc_sp = ss.csr_matrix(mc_mat)
-    cov_sp = ss.csr_matrix(cov_mat)
+    # Materialise sparse layers (no dense intermediate).
+    mc_sp, cov_sp = builder.finalize()
+    n_cells = mc_sp.shape[0]
 
     # Build var_df. For GTF inputs we attach gene_id / gene_type /
     # strand alongside the coordinates; for BED / bins var carries just
@@ -1042,12 +1274,13 @@ def cz_to_anndata(
     if gtf_meta_df is not None:
         var_df = var_df.join(gtf_meta_df)
 
-    X = _compute_score_matrix(mc_mat, cov_mat, score,
-                              score_cutoff=score_cutoff)
+    X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
+                                     score_cutoff=score_cutoff)
 
     # Per-cell Beta(alpha, beta) + prior_mean for ALLCools-style
-    # posterior fraction reconstruction downstream.
-    alpha, beta, prior_mean = _compute_beta_params(mc_mat, cov_mat)
+    # posterior fraction reconstruction downstream — sparse-aware so
+    # we don't densify just to compute per-row stats.
+    alpha, beta, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
 
     obs_df = pd.DataFrame(index=obs_names)
     obs_df["alpha"] = alpha

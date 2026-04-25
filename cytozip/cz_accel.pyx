@@ -571,6 +571,10 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions,
     cdef Py_ssize_t id_start, id_end
     cdef object fc = block_first_coords
     cdef bint has_fc = (fc is not None) and (len(fc) == nblocks)
+    # Record-aligned blocks (delta files) need record-count arithmetic — see
+    # explanation in c_query_regions.
+    cdef bint record_aligned = bool(delta_col_names)
+    cdef Py_ssize_t records_per_block = _BLOCK_MAX_LEN // unit_size
 
     # Pre-build struct for repeated use
     cdef object st = _get_struct(fmts)
@@ -608,7 +612,10 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions,
             continue
         while rec[col_to_query] < start:
             off += unit_size
-            primary_id = ((_BLOCK_MAX_LEN * start_block_index) + off) // unit_size
+            if record_aligned:
+                primary_id = records_per_block * start_block_index + (off // unit_size)
+            else:
+                primary_id = ((_BLOCK_MAX_LEN * start_block_index) + off) // unit_size
             if off + unit_size > len(data):
                 try:
                     block_size_data = load_bcz_block(handle, True)
@@ -626,7 +633,10 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions,
             results.append(None)
             continue
         # compute primary id for start
-        primary_id = int((_BLOCK_MAX_LEN * start_block_index + off) / unit_size)
+        if record_aligned:
+            primary_id = records_per_block * start_block_index + (off // unit_size)
+        else:
+            primary_id = int((_BLOCK_MAX_LEN * start_block_index + off) / unit_size)
         id_start = primary_id
         # advance until record[col] >= end
         while True:
@@ -868,6 +878,14 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
     cdef Py_ssize_t primary_id
     cdef object fc = block_first_coords
     cdef bint has_fc = (fc is not None) and (len(fc) == nblocks)
+    # When delta encoding is enabled, the writer aligns records to block
+    # boundaries: every block holds exactly ``records_per_block`` records
+    # (= _BLOCK_MAX_LEN // unit_size) and the trailing bytes are unused.
+    # The byte-arithmetic formula ``(_BLOCK_MAX_LEN * idx + off) / unit_size``
+    # is then wrong by ``(_BLOCK_MAX_LEN % unit_size) * idx / unit_size``
+    # records.  Use record-count arithmetic instead.
+    cdef bint record_aligned = bool(delta_col_names)
+    cdef Py_ssize_t records_per_block = _BLOCK_MAX_LEN // unit_size
 
     cdef object st = _get_struct(fmts)
     unpack_from = st.unpack_from
@@ -916,7 +934,10 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
         if rec[s] < start:
             continue
         # +1 to make primary_id 1-based, matching fetchByStartID expectation
-        primary_id = int((_BLOCK_MAX_LEN * start_block_index + off) / unit_size) + 1
+        if record_aligned:
+            primary_id = records_per_block * start_block_index + (off // unit_size) + 1
+        else:
+            primary_id = int((_BLOCK_MAX_LEN * start_block_index + off) / unit_size) + 1
         results.append(("primary_id_&_dim:", primary_id, dim))
         while True:
             if rec[e] <= end:

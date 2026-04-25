@@ -93,12 +93,12 @@ def _count_reads(bam: Path) -> int:
     return int(r.stdout.strip())
 
 
-def _ensure_ref_cz(threads: int) -> None:
+def _ensure_ref_cz(jobs: int) -> None:
     if REF_CZ.exists() and REF_CZ.stat().st_mtime >= REF_FA.stat().st_mtime:
         return
     REF_CZ.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([CZIP, "build_ref", "-g", str(REF_FA),
-                    "-O", str(REF_CZ), "-t", str(threads)], check=True)
+                    "-O", str(REF_CZ), "-j", str(jobs)], check=True)
 
 
 def bench_one(bam_path: str) -> dict:
@@ -140,13 +140,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("-j", "--jobs", type=int, default=20,
                     help="parallel BAMs (each worker uses ~2 CPUs serially)")
-    ap.add_argument("--ref_threads", type=int, default=20,
-                    help="threads for build_ref if reference .cz is missing")
+    ap.add_argument("--ref_jobs", type=int, default=20,
+                    help="number of parallel processes (CPUs) for build_ref if reference .cz is missing")
     args = ap.parse_args()
 
     for d in (ALLC_DIR, CZ_DIR, BENCH):
         d.mkdir(parents=True, exist_ok=True)
-    _ensure_ref_cz(args.ref_threads)
+    _ensure_ref_cz(args.ref_jobs)
 
     bams = sorted(BAM_DIR.glob("*.hisat3n_dna.all_reads.deduped.bam"))
     if not bams:

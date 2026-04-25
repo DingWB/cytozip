@@ -31,6 +31,8 @@ _LAZY_EXPORTS = {
     'parse_gtf': 'features', 'make_genome_bins': 'features',
     # merge.py — per-cell merging pipeline
     'merge_cz': 'merge', 'merge_cell_type': 'merge',
+    # pivot.py — per-cell pivot matrices (fraction / fisher)
+    'pivot_fraction': 'pivot', 'pivot_fisher': 'pivot',
     # dmr.py — peak calling / DMR analysis
     'call_peaks': 'dmr', 'to_bedgraph': 'dmr',
     'combp': 'dmr', 'annot_dmr': 'dmr',
@@ -164,8 +166,11 @@ def _build_parser():
 
     # ---- allc2cz --------------------------------------------------------------
     p = sub.add_parser('allc2cz', help='Convert tabix-indexed allc.tsv.gz to .cz', formatter_class=_fmt)
-    p.add_argument('-I', '--input', required=True, help='input allc.tsv.gz')
-    p.add_argument('-O', '--output', required=True, help='output .cz file')
+    p.add_argument('-I', '--input', required=True,
+                   help='input allc.tsv.gz, OR a directory containing many allc.tsv.gz '
+                        '(batch mode: --output must be a directory)')
+    p.add_argument('-O', '--output', required=True,
+                   help='output .cz file (single-file), or output directory (batch mode)')
     p.add_argument('-r', '--reference', default=None, help='reference .cz file')
     p.add_argument('--missing_value', type=_csv_int, default=[0, 0], help='missing value fill')
     p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats')
@@ -184,13 +189,21 @@ def _build_parser():
     p.add_argument('--delta_cols', type=_csv_str, default=None,
                    help='comma-separated integer column names/indices to '
                         'store as in-block deltas')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='number of parallel workers in batch mode (input is a '
+                        'directory). Reference is decoded once and shared via '
+                        'fork copy-on-write, so memory cost is paid only once.')
+    p.add_argument('--pattern', default='*.allc.tsv.gz',
+                   help='glob pattern for batch mode file discovery')
+    p.add_argument('--no_skip_existing', action='store_true',
+                   help='in batch mode, do NOT skip files whose output already exists')
 
     # ---- build_ref (AllC) ----------------------------------------------------
     p = sub.add_parser('build_ref', help='Extract C positions from reference genome', formatter_class=_fmt)
     p.add_argument('-g', '--genome', required=True, help='reference genome FASTA')
     p.add_argument('-O', '--output', default='hg38_allc.cz', help='output .cz file')
     p.add_argument('-p', '--pattern', default='C', help='nucleotide pattern')
-    p.add_argument('-t', '--threads', type=int, default=12, help='parallel jobs')
+    p.add_argument('-j', '--jobs', type=int, default=12, help='number of parallel processes (CPUs)')
     p.add_argument('--keep_temp', action='store_true', help='keep temp directory')
     p.add_argument('--no_delta', action='store_true',
                    help='disable DELTA encoding on the pos column (default: on, '
@@ -221,7 +234,7 @@ def _build_parser():
     sp.add_argument('-I', '--input', required=True, help='input reference .cz file')
     sp.add_argument('-O', '--output', default=None, help='output index .cz file')
     sp.add_argument('-b', '--bed', required=True, help='BED file with regions')
-    sp.add_argument('-t', '--threads', type=int, default=4, help='parallel jobs')
+    sp.add_argument('-j', '--jobs', type=int, default=4, help='number of parallel processes (CPUs)')
 
     # --- index probes (methylation array probe manifest) ----------------------
     # Planned: maps illumina EPIC / 450K probe IDs to ref primary_id + pos.
@@ -234,31 +247,82 @@ def _build_parser():
     sp.add_argument('--manifest', required=True, help='illumina manifest CSV')
 
     # ---- merge_cz ------------------------------------------------------------
-    p = sub.add_parser('merge_cz', help='Merge per-cell .cz files', formatter_class=_fmt)
-    p.add_argument('-i', '--indir', default=None, help='input directory')
-    p.add_argument('--cz_paths', default=None, help='file listing .cz paths')
-    p.add_argument('--class_table', default=None, help='cell class table')
-    p.add_argument('-O', '--output', default=None, help='output file')
-    p.add_argument('--prefix', default=None, help='output prefix')
-    p.add_argument('-t', '--threads', type=int, default=12, help='parallel jobs')
-    p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'], help='output formats')
-    p.add_argument('--chrom_order', default=None, help='chrom order file')
-    p.add_argument('-r', '--reference', default=None, help='reference .cz file')
-    p.add_argument('--keep_cat', action='store_true', help='keep intermediate cat file')
-    p.add_argument('--blocks_per_batch', type=int, default=10, help='blocks per batch')
-    p.add_argument('--temp', action='store_true', help='keep temp directory')
-    p.add_argument('--no_bgzip', action='store_true', help='skip bgzip compression')
-    p.add_argument('-c', '--batch_size', type=int, default=50000, help='rows per chunk')
+    p = sub.add_parser(
+        'merge_cz',
+        help='Sum-merge per-cell .cz files (or a single pre-catcz\'d .cz)',
+        formatter_class=_fmt,
+    )
+    p.add_argument('-i', '--input', default=None,
+                   help='Unified input. Accepts ANY of: '
+                        '(a) directory of per-cell .cz files; '
+                        '(b) single per-cell .cz path; '
+                        '(c) single pre-catcz\'d .cz path (chunk_dims >= 2; '
+                        'catcz step is then skipped); '
+                        '(d) comma-separated list of .cz paths.')
+    p.add_argument('--class_table', default=None,
+                   help='cell class table; requires --input to be a directory')
+    p.add_argument('-O', '--output', default=None, help='output .cz path')
+    p.add_argument('--prefix', default=None,
+                   help='output filename prefix (used when -O/--output is unset)')
+    p.add_argument('-j', '--jobs', type=int, default=12,
+                   help='number of parallel worker processes')
+    p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'],
+                   help='per-column struct formats for the output .cz '
+                        '(default H,H = uint16 mc,cov)')
+    p.add_argument('--chrom_order', default=None,
+                   help='chrom-size file; output chunks are emitted in the '
+                        'order of its first column when set')
+    p.add_argument('-r', '--reference', default=None,
+                   help='unused for sum mode (kept for API compatibility)')
+    p.add_argument('--keep_cat', action='store_true',
+                   help='keep intermediate output.cat.cz; no effect when '
+                        'input is a pre-catcz\'d .cz (always kept)')
+    p.add_argument('--blocks_per_batch', type=int, default=None,
+                   help='number of batches the LARGEST chrom is split into '
+                        '(default = jobs). Smaller chroms get 1 batch each '
+                        'via the single-shard rename fast-path.')
+    p.add_argument('--temp', action='store_true',
+                   help='keep per-shard tmp directory')
+    p.add_argument('--no_bgzip', action='store_true',
+                   help='skip final bgzip + tabix (only applies if output '
+                        'does not already end with --ext)')
+    p.add_argument('-c', '--batch_size', type=int, default=50000,
+                   help='per-worker buffer pack size (rows); does not affect '
+                        'output, only peak worker memory')
     p.add_argument('--ext', default='.cz', help='input file extension')
+    p.add_argument('-l', '--level', type=int, default=6,
+                   help='DEFLATE compression level for output blocks '
+                        '(1=fastest, 6=default, 9=smallest). Level=1 is ~2x '
+                        'faster at ~12%% larger output.')
 
     # ---- merge_cell_type -----------------------------------------------------
     p = sub.add_parser('merge_cell_type', help='Merge by cell type', formatter_class=_fmt)
     p.add_argument('-i', '--indir', default=None, help='input directory')
     p.add_argument('--cell_table', default=None, help='cell-type table')
     p.add_argument('-O', '--outdir', default=None, help='output directory')
-    p.add_argument('-t', '--threads', type=int, default=64, help='parallel jobs')
+    p.add_argument('-j', '--jobs', type=int, default=64, help='number of parallel processes (CPUs)')
     p.add_argument('--chrom_order', default=None, help='chrom order file')
     p.add_argument('--ext', default='.CGN.merged.cz', help='input file extension')
+
+    # ---- pivot_fraction ------------------------------------------------------
+    for _name, _help in (
+        ('pivot_fraction', 'Pivot per-cell .cz into a wide mc/cov fraction TSV'),
+        ('pivot_fisher', 'Pivot per-cell .cz into a one-vs-rest Fisher TSV'),
+    ):
+        p = sub.add_parser(_name, help=_help, formatter_class=_fmt)
+        p.add_argument('-i', '--indir', default=None, help='input directory')
+        p.add_argument('--cz_paths', default=None, help='file listing .cz paths')
+        p.add_argument('-O', '--output', default=None, help='output .txt file')
+        p.add_argument('--prefix', default=None, help='output prefix')
+        p.add_argument('-j', '--jobs', type=int, default=12, help='number of parallel processes (CPUs)')
+        p.add_argument('--chrom_order', default=None, help='chrom order file')
+        p.add_argument('-r', '--reference', default=None, help='reference .cz file (adds chrom/start/pos columns)')
+        p.add_argument('--keep_cat', action='store_true', help='keep intermediate cat file')
+        p.add_argument('--blocks_per_batch', type=int, default=None, help='blocks per batch (auto if unset)')
+        p.add_argument('--temp', action='store_true', help='keep temp directory')
+        p.add_argument('--no_bgzip', action='store_true', help='skip bgzip compression')
+        p.add_argument('-c', '--batch_size', type=int, default=50000, help='rows per chunk')
+        p.add_argument('--ext', default='.cz', help='input file extension')
 
     # ---- extractCG -----------------------------------------------------------
     p = sub.add_parser('extractCG', help='Extract CG-context records', formatter_class=_fmt)
@@ -282,7 +346,7 @@ def _build_parser():
     p = sub.add_parser('combp', help='Run comb-p on Fisher results', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input Fisher result')
     p.add_argument('-O', '--outdir', default='cpv', help='output directory')
-    p.add_argument('-t', '--threads', type=int, default=24, help='parallel jobs')
+    p.add_argument('-j', '--jobs', type=int, default=24, help='number of parallel processes (CPUs)')
     p.add_argument('--dist', type=int, default=300, help='max distance between sites')
     p.add_argument('--temp', action='store_true', help='keep temp directory')
     p.add_argument('--bed', action='store_true', help='keep bed directory')
@@ -351,7 +415,7 @@ def _build_parser():
     p.add_argument('-I', '--input', required=True, nargs='+',
                    help='input .cz file(s) or a directory; may also be one catcz-merged .cz with cell dim')
     p.add_argument('-f', '--features', required=True,
-                   help='feature BED / BED.gz / BED.bgz (chrom,start,end[,name])')
+                   help='BED / BED.gz / BED.bgz path, GTF / GTF.gz path, or an int bin size in bp (e.g. 5000) for genome-wide tiling (then --chrom_size is required)')
     p.add_argument('-O', '--output', default=None, help='output .h5ad path')
     p.add_argument('--cell_ids', type=_csv_str, default=None, help='optional override list of cell ids')
     p.add_argument('--pos_col', default='pos', help='name of position column in .cz header')
@@ -360,6 +424,25 @@ def _build_parser():
     p.add_argument('--obs', default=None, help='optional TSV with cell metadata (index column = cell id)')
     p.add_argument('-r', '--reference', default=None,
                    help='reference .cz supplying pos coords for mc_cov-only cells')
+    p.add_argument('--chrom_size', default=None,
+                   help='chrom-size / .fai file (required when --features is an int bin size)')
+    p.add_argument('--exclude_chroms', type=_csv_str, default=['chrL'],
+                   help='comma-separated chroms to drop (genome-bin tiling only)')
+    p.add_argument('--blacklist', default=None,
+                   help='BED / bed.gz of regions to exclude before aggregation')
+    p.add_argument('--flank_bp', type=int, default=2000,
+                   help='bp to extend each side of GTF gene intervals (GTF input only)')
+    p.add_argument('--gtf_id_col', choices=['gene_name', 'gene_id'],
+                   default='gene_name',
+                   help='which GTF attribute becomes var_names (GTF input only)')
+    p.add_argument('--score', choices=['frac', 'hypo-score', 'hyper-score',
+                                       'mc', 'cov', 'umc'],
+                   default='frac',
+                   help='what to store in .X (mc/cov/umc place raw counts in .X)')
+    p.add_argument('--score_cutoff', type=float, default=0.9,
+                   help='sparsification threshold for hypo/hyper scores')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='number of parallel processes (CPUs)')
 
     return parser
 
@@ -449,12 +532,14 @@ def main():
                chunk_dims=args.chunk_dims, usecols=args.usecols,
                ref_pos_col=args.ref_pos_col, allc_pos_col=args.allc_pos_col, sep=args.sep,
                chrom_order=args.chrom_order, batch_size=args.batch_size,
-               sort_col=args.sort_col, delta_cols=args.delta_cols)
+               sort_col=args.sort_col, delta_cols=args.delta_cols,
+               jobs=args.jobs, pattern=args.pattern,
+               skip_existing=not args.no_skip_existing)
 
     elif cmd == 'build_ref':
         from .allc import AllC
         a = AllC(genome=args.genome, output=args.output,
-                 pattern=args.pattern, threads=args.threads,
+                 pattern=args.pattern, jobs=args.jobs,
                  keep_temp=args.keep_temp, delta=not args.no_delta)
         a.run()
 
@@ -470,7 +555,7 @@ def main():
         elif kind == 'regions':
             from .cz import index_regions
             index_regions(input=args.input, output=args.output,
-                          bed=args.bed, threads=args.threads)
+                          bed=args.bed, jobs=args.jobs)
         elif kind == 'probes':
             raise NotImplementedError(
                 "`czip index probes` is not implemented yet. "
@@ -483,20 +568,42 @@ def main():
 
     elif cmd == 'merge_cz':
         from .merge import merge_cz
-        merge_cz(indir=args.indir, cz_paths=args.cz_paths,
+        merge_cz(input=args.input,
                  class_table=args.class_table, output=args.output,
-                 prefix=args.prefix, threads=args.threads,
+                 prefix=args.prefix, jobs=args.jobs,
                  formats=args.formats, chrom_order=args.chrom_order,
                  reference=args.reference, keep_cat=args.keep_cat,
                  blocks_per_batch=args.blocks_per_batch, temp=args.temp,
                  bgzip=not args.no_bgzip, batch_size=args.batch_size,
-                 ext=args.ext)
+                 ext=args.ext, level=args.level)
 
     elif cmd == 'merge_cell_type':
         from .merge import merge_cell_type
         merge_cell_type(indir=args.indir, cell_table=args.cell_table,
-                        outdir=args.outdir, threads=args.threads,
+                        outdir=args.outdir, jobs=args.jobs,
                         chrom_order=args.chrom_order, ext=args.ext)
+
+    elif cmd == 'pivot_fraction':
+        from .pivot import pivot_fraction
+        pivot_fraction(
+            indir=args.indir, cz_paths=args.cz_paths,
+            output=args.output, prefix=args.prefix, jobs=args.jobs,
+            chrom_order=args.chrom_order, reference=args.reference,
+            keep_cat=args.keep_cat,
+            blocks_per_batch=args.blocks_per_batch, temp=args.temp,
+            bgzip=not args.no_bgzip, batch_size=args.batch_size,
+            ext=args.ext)
+
+    elif cmd == 'pivot_fisher':
+        from .pivot import pivot_fisher
+        pivot_fisher(
+            indir=args.indir, cz_paths=args.cz_paths,
+            output=args.output, prefix=args.prefix, jobs=args.jobs,
+            chrom_order=args.chrom_order, reference=args.reference,
+            keep_cat=args.keep_cat,
+            blocks_per_batch=args.blocks_per_batch, temp=args.temp,
+            bgzip=not args.no_bgzip, batch_size=args.batch_size,
+            ext=args.ext)
 
     elif cmd == 'extractCG':
         from .allc import extractCG
@@ -514,7 +621,7 @@ def main():
     elif cmd == 'combp':
         from .dmr import combp
         combp(input=args.input, outdir=args.outdir,
-              threads=args.threads, dist=args.dist,
+              jobs=args.jobs, dist=args.dist,
               temp=args.temp, bed=args.bed)
 
     elif cmd == 'annot_dmr':
@@ -575,11 +682,25 @@ def main():
         if args.obs:
             import pandas as pd
             obs_df = pd.read_csv(args.obs, sep='\t', index_col=0)
-        cz_to_anndata(cz_inputs=inputs, features=args.features,
+        # Allow --features <int> for genome-wide bin tiling.
+        feats = args.features
+        try:
+            feats = int(feats)
+        except (TypeError, ValueError):
+            pass
+        cz_to_anndata(cz_inputs=inputs, features=feats,
                       output=args.output, cell_ids=args.cell_ids,
                       pos_col=args.pos_col, mc_col=args.mc_col,
                       cov_col=args.cov_col, obs=obs_df,
-                      reference=args.reference)
+                      reference=args.reference,
+                      chrom_size=args.chrom_size,
+                      exclude_chroms=args.exclude_chroms,
+                      blacklist=args.blacklist,
+                      flank_bp=args.flank_bp,
+                      gtf_id_col=args.gtf_id_col,
+                      score=args.score,
+                      score_cutoff=args.score_cutoff,
+                      jobs=args.jobs)
 
 
 if __name__ == "__main__":

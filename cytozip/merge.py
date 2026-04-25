@@ -1,23 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-merge.py — Parallel merging of multiple per-cell methylation .cz files.
+merge.py — Parallel merging (sum) of multiple per-cell methylation .cz files.
 
 Pipeline stages provided here:
-  - :func:`merge_cz`: main entry point. Merges many per-cell .cz files into
-    a single aggregate (summed mc/cov .cz, fraction .txt, 2D mc,cov matrix,
-    or Fisher-test one-vs-rest p-value matrix).
+  - :func:`merge_cz`: main entry point. Sums mc/cov across many per-cell
+    .cz files into a single aggregate .cz.
   - :func:`merge_cz_worker`: per-chrom, per-batch worker executed by the
     multiprocessing pool.
-  - :func:`_fisher_worker`: per-chunk Fisher's exact test (one-vs-rest)
-    helper, used when ``formats='fisher'``.
-  - :func:`catchr`: chromosome-level txt batch concatenator.
   - :func:`merge_cell_type`: convenience wrapper that calls :func:`merge_cz`
     once per cell-type grouping defined by a cell-table TSV.
 
-These operations are methylation-specific (mc/cov column semantics,
-Fisher-test mode) and therefore live in their own module rather than
-in the generic :mod:`cytozip.cz` format layer.
+For *pivot* outputs (per-cell fraction matrix, per-cell Fisher-test
+matrix), see :mod:`cytozip.pivot`.
 
 @author: DingWB
 """
@@ -43,196 +38,372 @@ def _structured_dtype_for(fmts):
     return np.dtype([(f'f{i}', _NP_FMT_MAP[c]) for i, c in enumerate(fmts)])
 
 
-# ==========================================================
-def _fisher_worker(df):
-    """Perform one-versus-rest Fisher's exact test on each CpG site.
+def _is_merged_cz(path):
+    """Return True if ``path`` is a single .cz that is *already* the
+    output of a multi-cell ``catcz`` (i.e., its ``chunk_dims`` length is
+    >= 2, e.g. ``['chrom', 'cell_id']``).
 
-    For each sample, tests whether its methylation level differs
-    significantly from the rest of the samples combined.  Computes
-    odds ratio and p-value per site per sample.
+    Used by :func:`merge_cz` and :func:`cytozip.features.cz_to_anndata`
+    to detect whether the user passed a per-cell directory or a single
+    pre-catcz'd file as input.
     """
-    import warnings
-    warnings.filterwarnings("ignore")
-    from fast_fisher import fast_fisher_exact, odds_ratio
-    # one verse rest
-    columns = df.columns.tolist()
-    snames = [col[:-3] for col in columns if col.endswith('.mc')]
-    df['mc_sum'] = df.loc[:, [name for name in columns if name.endswith('.mc')]].sum(axis=1)
-    df['cov_sum'] = df.loc[:, [name for name in columns if name.endswith('.cov')]].sum(axis=1)
-    df['uc_sum'] = df.cov_sum - df.mc_sum
+    if not os.path.isfile(path):
+        return False
+    try:
+        r = Reader(path)
+        try:
+            return len(r.header['chunk_dims']) >= 2
+        finally:
+            r.close()
+    except Exception:
+        return False
 
-    def cal_fisher_or_p(x):
-        uc = int(x[f"{sname}.cov"] - x[f"{sname}.mc"])
-        a, b, c, d = int(x[f"{sname}.mc"]), uc, int(x.mc_sum - x[f"{sname}.mc"]), int(x.uc_sum - uc)
-        or_val = odds_ratio(a, b, c, d)
-        p_val = fast_fisher_exact(a, b, c, d)
-        return tuple(['%.3g' % or_val, '%.3g' % p_val])
 
-    for sname in snames:
-        df[sname] = df.apply(cal_fisher_or_p, axis=1)
-        df[f"{sname}.odd_ratio"] = df[sname].apply(lambda x: x[0])
-        df[f"{sname}.pval"] = df[sname].apply(lambda x: x[1])
-        df.drop([f"{sname}.cov", f"{sname}.mc", sname], axis=1, inplace=True)
-    usecols = []
-    for sname in snames:
-        usecols.extend([f"{sname}.odd_ratio", f"{sname}.pval"])
-    return df.reindex(columns=usecols)
+def _resolve_cz_input(input, ext='.cz'):
+    """Resolve the unified ``input`` argument of :func:`merge_cz` /
+    :func:`cytozip.features.cz_to_anndata`-style entry points.
+
+    Accepts:
+      * a directory path (string) → list all ``*<ext>`` files inside.
+      * a single ``.cz`` file path (string) → either a per-cell file
+        or a pre-catcz'd file (auto-detected).
+      * a list / tuple of ``.cz`` file paths.
+      * a comma-separated string of ``.cz`` paths (CLI convenience).
+
+    Returns
+    -------
+    cz_paths_abs : list of str
+        Absolute paths to the per-cell ``.cz`` files. When the input is
+        already a pre-catcz'd ``.cz``, this is a single-element list
+        pointing at it.
+    merged_path : str or None
+        Absolute path to the pre-catcz'd ``.cz`` if detected, else
+        ``None``. When non-None, the caller can skip the ``catcz``
+        step entirely.
+    """
+    if input is None:
+        raise ValueError("merge_cz: 'input' is required")
+    if isinstance(input, str) and ',' in input \
+            and not os.path.exists(os.path.expanduser(input)):
+        input = [s for s in input.split(',') if s]
+    if isinstance(input, (list, tuple)):
+        paths = [os.path.abspath(os.path.expanduser(p)) for p in input]
+    elif isinstance(input, str):
+        p = os.path.abspath(os.path.expanduser(input))
+        if os.path.isdir(p):
+            paths = sorted(os.path.join(p, f) for f in os.listdir(p)
+                           if f.endswith(ext))
+        elif os.path.isfile(p):
+            paths = [p]
+        else:
+            raise FileNotFoundError(f"merge_cz: input {input!r} not found")
+    else:
+        raise TypeError(
+            f"merge_cz: 'input' must be str or list, got {type(input).__name__}")
+    if not paths:
+        raise ValueError(
+            f"merge_cz: no '*{ext}' files resolved from input={input!r}")
+    for p in paths:
+        if not os.path.isfile(p):
+            raise FileNotFoundError(f"merge_cz: input file not found: {p}")
+    merged_path = paths[0] if (len(paths) == 1 and _is_merged_cz(paths[0])) else None
+    return paths, merged_path
+
+
+def _iter_shard_paths(outdir, chrom, batch_nblock):
+    """Yield ordered shard paths produced by the worker pool.
+
+    Workers write ``{outdir}/{chrom}.{block_idx_start}.cz`` where
+    ``block_idx_start`` advances by ``batch_nblock``. Yields paths in
+    ascending order while the next file exists; stops at the first
+    missing index.
+    """
+    block_idx_start = 0
+    while True:
+        p = os.path.join(outdir, f"{chrom}.{block_idx_start}.cz")
+        if not os.path.exists(p):
+            return
+        yield p
+        block_idx_start += batch_nblock
+
+
+def _bg_rmtree(path):
+    """Recursively delete ``path`` in a detached background process.
+
+    Removing hundreds of small per-shard files via ``shutil.rmtree`` /
+    ``rm -rf`` synchronously costs ~10-20 s on networked filesystems
+    and adds nothing to the produced output. The double-fork pattern
+    detaches the deleter so the calling Python process returns
+    immediately; the intermediate child is reaped here so no zombie
+    is left behind.
+    """
+    logger.info(f"Removing temp dir {path} (in background)")
+    if os.fork() == 0:
+        # Child: become a session leader so our death does not signal
+        # the grandchild.
+        try:
+            os.setsid()
+        except OSError:
+            pass
+        if os.fork() == 0:
+            # Grandchild: do the actual delete and exit.
+            try:
+                os.system(f"rm -rf {path}")
+            finally:
+                os._exit(0)
+        os._exit(0)
+    else:
+        # Parent: reap the (immediately exiting) child so it does not
+        # become a zombie. The grandchild keeps running detached.
+        os.wait()
 
 
 # ==========================================================
 def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
-                    block_idx_start, batch_nblock, batch_size=5000):
+                    block_idx_start, batch_nblock, batch_size=5000,
+                    level=6):
     """Worker function for parallel merge of per-cell .cz data.
 
-    Reads a batch of blocks (batch_nblock blocks starting at
-    block_idx_start) for every cell/sample sharing the same chrom,
-    then either:
+    Reads a batch of blocks (``batch_nblock`` blocks starting at
+    ``block_idx_start``) for every cell/sample sharing the same chrom
+    in ``outfile_cat`` and sums their mc/cov values, writing the
+    aggregate as a per-chrom .cz shard ``chrom.{block_idx_start}.cz``
+    in ``outdir``.
 
-    - Sums mc/cov values across cells (when formats is a list like ['H','H'])
-    - Computes fraction (mc/cov) per cell ('fraction' mode)
-    - Produces a 2D matrix of mc,cov per cell ('2D' mode)
-    - Runs Fisher's exact test per cell ('fisher' mode)
-
-    Results are written to per-chrom temporary files.
+    For non-summing pivot outputs (fraction matrix, Fisher matrix), see
+    :mod:`cytozip.pivot`.
     """
-    if formats in ['fraction', '2D', 'fisher']:
-        ext = 'txt'
-    else:
-        ext = 'cz'
-    outname = os.path.join(outdir, chrom + f'.{block_idx_start}.{ext}')
+    outname = os.path.join(outdir, chrom + f'.{block_idx_start}.cz')
     reader1 = Reader(outfile_cat)
-    data = None
-    for dim in dims:  # each dim is a file of the same chrom
-        r = reader1._load_chunk(reader1.chunk_key2offset[dim], jump=False)
-        block_start_offset = reader1._chunk_block_1st_record_virtual_offsets[
-                                 block_idx_start] >> 16
+    in_fmts = reader1.fmts
+    in_unit_size = sum(struct.calcsize(c) for c in in_fmts)
+    # ---- Pick decode strategy (chosen once before the per-cell loop):
+    # ``fast_dtype != None``: both columns share a homogeneous numeric
+    # dtype (the typical 'BB' / 'HH' mc/cov layout). View raw block
+    # bytes as a (n, 2) numpy array and accumulate columns directly
+    # into 1D sums — eliminates the per-cell (n, 2) int64 allocation
+    # and the structured-dtype column-split copies.
+    # ``fast_dtype is None``: heterogeneous formats (rare) — fall back
+    # to the structured-dtype field path. Both paths feed the same
+    # ``(data_mc, data_cov)`` accumulators.
+    fast_dtype = None
+    accum_dtype = np.int64
+    if len(in_fmts) == 2 and in_fmts[0] == in_fmts[1] \
+            and in_fmts[0] in _NP_FMT_MAP:
+        fast_dtype = np.dtype(_NP_FMT_MAP[in_fmts[0]])
+        # uint32 accumulator is enough for any realistic cell count when
+        # the per-record input is <= 16 bits (cov rarely exceeds a few
+        # hundred): max sum = 65535 * 65535 = ~4.3e9, exactly fitting
+        # uint32. Halves the bandwidth of the inner ``+=`` step versus
+        # int64.
+        if fast_dtype.itemsize <= 2:
+            accum_dtype = np.uint32
+    in_dt_struct = None if fast_dtype is not None else _structured_dtype_for(in_fmts)
+
+    data_mc = None
+    data_cov = None
+    for dim in dims:  # each dim is a per-cell .cz chunk for this chrom
+        reader1._load_chunk(reader1.chunk_key2offset[dim], jump=False)
+        vos = reader1._chunk_block_1st_record_virtual_offsets
+        # Records may straddle block boundaries because the catcz writer
+        # uses _block_size = _BLOCK_MAX_LEN = 65535 (which is *not* a
+        # multiple of unit_size for typical mc/cov record sizes). The
+        # ``batch_nblock = nunit_perbatch * unit_nblock`` choice in
+        # ``merge_cz`` guarantees that batch boundaries (multiples of
+        # ``unit_nblock``) always land on a record boundary, so the
+        # decompressed bytes for ``[block_idx_start, block_idx_start +
+        # batch_nblock)`` start with a complete record
+        # (``within_block_offset == 0``) and end on a record boundary.
+        # Validate that invariant defensively so a future change that
+        # breaks it raises clearly here instead of silently corrupting
+        # output.
+        leading_skip = vos[block_idx_start] & 0xFFFF
+        if leading_skip != 0:
+            reader1.close()
+            raise RuntimeError(
+                f"merge_cz_worker: batch start at block {block_idx_start} "
+                f"is not record-aligned (within_block_offset={leading_skip}, "
+                f"unit_size={in_unit_size}). Check that batch_nblock is a "
+                f"multiple of unit_nblock.")
+        # Decompress ``batch_nblock`` blocks and concatenate so records
+        # straddling internal block boundaries are reassembled before
+        # decode.
+        block_start_offset = vos[block_idx_start] >> 16
         buf_parts = []
-        for i in range(batch_nblock):
+        for _ in range(batch_nblock):
             reader1._load_block(start_offset=block_start_offset)
             buf_parts.append(reader1._buffer)
             block_start_offset = None
         buffer = b''.join(buf_parts)
-        # Vectorised parse of (mc, cov) — replaces the per-record Python
-        # ``iter_unpack`` loop, which was the dominant cost in the worker.
-        # ``reader1.fmts`` is e.g. "HH" / "BB" for the input mc_cov layout.
-        in_fmts = reader1.fmts
-        in_dt = _structured_dtype_for(in_fmts)
-        rec = np.frombuffer(buffer, dtype=in_dt)
-        # Materialise as a 2-column int64 matrix so accumulation cannot
-        # overflow when summing thousands of cells.
-        values = np.empty((rec.size, 2), dtype=np.int64)
-        values[:, 0] = rec['f0']
-        values[:, 1] = rec['f1']
-        if formats == 'fraction':
-            with np.errstate(divide='ignore', invalid='ignore'):
-                frac = np.where(values[:, 1] == 0, 0.0,
-                                values[:, 0] / values[:, 1])
-            values = np.array(['%.3g' % v for v in frac]).reshape(-1, 1)
-        if data is None:
-            data = values.copy()
+        if len(buffer) % in_unit_size != 0:
+            reader1.close()
+            raise RuntimeError(
+                f"merge_cz_worker: batch byte length {len(buffer)} for chrom "
+                f"{chrom!r} dim {dim!r} is not a multiple of unit_size "
+                f"{in_unit_size}; record alignment broken.")
+        # Decode this cell's batch into (mc, cov) 1-D views.
+        if fast_dtype is not None:
+            arr = np.frombuffer(buffer, dtype=fast_dtype).reshape(-1, 2)
+            mc_view = arr[:, 0]
+            cov_view = arr[:, 1]
         else:
-            if formats in ["fraction", "2D", 'fisher']:
-                data = np.hstack((data, values))
-            else:
-                data += values
-    if formats in ['fraction', '2D', 'fisher']:
-        snames = [dim[1] for dim in dims]
-        if formats == 'fraction':
-            columns = snames
+            rec = np.frombuffer(buffer, dtype=in_dt_struct)
+            mc_view = rec['f0']
+            cov_view = rec['f1']
+        # Accumulate. First cell allocates and copies; later cells fold
+        # in via in-place ``+=`` (broadcasts safely from any int dtype).
+        if data_mc is None:
+            data_mc = np.array(mc_view, dtype=accum_dtype, copy=True)
+            data_cov = np.array(cov_view, dtype=accum_dtype, copy=True)
         else:
-            columns = []
-            for sname in snames:
-                columns.extend([sname + '.mc', sname + '.cov'])
-        df = pd.DataFrame(data, columns=columns)
-        if formats == 'fisher':
-            df = _fisher_worker(df)
-        df.to_csv(outname, sep='\t', index=False)
-        return
+            data_mc += mc_view
+            data_cov += cov_view
 
     writer1 = Writer(outname, formats=formats,
                      columns=reader1.header['columns'],
                      chunk_dims=reader1.header['chunk_dims'][:1],
-                     message=outfile_cat)
-    # Vectorised pack: clip the int64 sums to the output dtype range,
-    # build a structured array, and emit one ``tobytes`` blob per
-    # ``batch_size`` records — replaces the per-record ``struct.pack``
-    # loop which dominated the writer cost on large merges.
+                     message=outfile_cat, level=level)
     out_fmts = ''.join(writer1.formats)
     out_dt = _structured_dtype_for(out_fmts)
-    n = data.shape[0]
-    # Clip per output column to its dtype max (matches old per-record
-    # behaviour silently truncating overflow via struct).
-    col0 = np.clip(data[:, 0], 0, _NP_FMT_MAX[out_fmts[0]])
-    col1 = np.clip(data[:, 1], 0, _NP_FMT_MAX[out_fmts[1]])
+    n = data_mc.shape[0]
+    # Fused 1-pass clip: replaces ``data.max()`` scan + conditional
+    # ``np.clip`` (up to 2 passes + an extra allocation when overflow
+    # happens) with a single in-place ``np.minimum`` per column.
+    # Skipped entirely when the accumulator dtype's range already fits
+    # inside the output dtype's max (e.g. uint32 accumulator clipped to
+    # uint32 output).
+    max0, max1 = _NP_FMT_MAX[out_fmts[0]], _NP_FMT_MAX[out_fmts[1]]
+    accum_max = np.iinfo(data_mc.dtype).max
+    if max0 < accum_max:
+        np.minimum(data_mc, max0, out=data_mc)
+    if max1 < accum_max:
+        np.minimum(data_cov, max1, out=data_cov)
+    # Build the entire output buffer in one shot, then hand it to the
+    # writer in ``batch_size`` slices. Building once avoids per-batch
+    # structured-array allocations.
     out_arr = np.empty(n, dtype=out_dt)
-    out_arr['f0'] = col0
-    out_arr['f1'] = col1
-    for s in range(0, n, batch_size):
-        writer1.write_chunk(out_arr[s:s + batch_size].tobytes(), [chrom])
+    out_arr['f0'] = data_mc
+    out_arr['f1'] = data_cov
+    out_bytes = out_arr.tobytes()
+    rec_size = out_dt.itemsize
+    chunk_step = batch_size * rec_size
+    for s in range(0, len(out_bytes), chunk_step):
+        writer1.write_chunk(out_bytes[s:s + chunk_step], [chrom])
     writer1.close()
     reader1.close()
-    return
 
 
-def catchr(outdir, chrom, ext, batch_nblock, batch_size):
-    """Concatenate per-batch txt shards for one chromosome."""
-    outname = os.path.join(outdir, f"{chrom}.{ext}")
-    block_idx_start = 0
-    infile = os.path.join(outdir, chrom + f'.{block_idx_start}.{ext}')
-    while os.path.exists(infile):
-        for df in pd.read_csv(infile, sep='\t', batch_size=batch_size):
-            if not os.path.exists(outname):
-                df.to_csv(outname, sep='\t', index=False, header=True)
-            else:
-                df.to_csv(outname, sep='\t', index=False, header=False, mode='a')
-        block_idx_start += batch_nblock
-        infile = os.path.join(outdir, chrom + f'.{block_idx_start}.{ext}')
-    return
-
-
-def merge_cz(indir=None, cz_paths=None, class_table=None,
-             output=None, prefix=None, threads=12, formats=['H', 'H'],
+def merge_cz(input=None, class_table=None,
+             output=None, prefix=None, jobs=12, formats=['H', 'H'],
              chrom_order=None, reference=None,
-             keep_cat=False, blocks_per_batch=10, temp=False, bgzip=True,
-             batch_size=50000, ext='.cz'):
+             keep_cat=False, blocks_per_batch=None, temp=False, bgzip=True,
+             batch_size=50000, ext='.cz', level=6):
     """
-    Merge multiple .cz files. For example:
-    cytozip merge_cz -i ./ -o major_type.2D.txt -n 96 -f 2D \
-                          -P ~/Ref/mm10/mm10_ucsc_with_chrL.main.chrom.sizes.txt \
-                          -r ~/Ref/mm10/annotations/mm10_with_chrL.allCG.forward.cz
+    Merge multiple per-cell .cz files into one summed .cz. Example:
+
+    cytozip merge_cz -i ./ -O major_type.cz -j 96 \
+                          -P ~/Ref/mm10/mm10_ucsc_with_chrL.main.chrom.sizes.txt
+
+    The single ``input`` argument accepts any of:
+
+    1. A directory of per-cell .cz files
+       (e.g. ``input='/path/to/dir'``). All ``*<ext>`` files inside are
+       picked up, then concatenated via ``catcz`` (a ``cell_id``
+       chunk_key is added) before parallel summing.
+    2. A list of per-cell .cz file paths
+       (e.g. ``input=['a.cz', 'b.cz', ...]``). Same as (1) but with an
+       explicit selection. Also accepts a comma-separated string from
+       the CLI.
+    3. A single pre-catcz'd .cz file
+       (e.g. ``input='all_cells.cz'``). The file must already be the
+       output of a ``catcz`` (header ``chunk_dims`` length >= 2, e.g.
+       ``['chrom', 'cell_id']``). The catcz step is skipped, and the
+       user-supplied file is reused as-is and never deleted by
+       ``keep_cat``.
+
+    For per-cell pivot outputs (fraction matrix, Fisher one-vs-rest
+    matrix), use ``czip pivot_fraction`` / ``czip pivot_fisher`` — see
+    :mod:`cytozip.pivot`.
 
     Parameters
     ----------
-    indir :path
-        If cz_paths is not provided, indir will be used to get cz_paths.
-    cz_paths :paths
-    class_table: path
-        If class_table is given, multiple output will be generated based on the
-        snames and class from this class_table, each output will have a suffix of
-        class name in this table.
+    input : str or list of str
+        Directory of per-cell ``.cz`` files, single ``.cz`` path
+        (per-cell or pre-catcz'd), or list of ``.cz`` paths. See above.
+    class_table : path
+        If given, multiple outputs will be generated based on the
+        snames and class from this class_table; each output has a
+        suffix of class name in this table. ``input`` must then be a
+        directory.
     output : path
-    threads :int
-    formats : str of list
-        Could be fraction, 2D, fisher or list of formats.
-        if formats is a list, then mc and cov will be summed up and write to .cz file.
-        otherwise, if formats=='fraction', summed mc divided by summed cov
-        will be calculated and written to .txt file. If formats=='2D', mc and cov
-        will be kept and write to .txt matrix file.
+        Output ``.cz`` (or ``.txt`` legacy) path. Defaults to
+        ``'merged.cz'`` (or ``f'{prefix}.cz'``).
+    prefix : str
+        Output filename prefix when ``output`` is None.
+    jobs : int
+        Number of parallel worker processes.
+    formats : list of str
+        Per-column struct formats for the *output* .cz (e.g.
+        ``['H', 'H']`` for uint16 mc/cov). The legacy ``'fraction'`` /
+        ``'fisher'`` / ``'2D'`` modes were moved to
+        :mod:`cytozip.pivot` and now raise.
     chrom_order : path
-        path to chrom size file.
+        Chrom-size file. If provided, output chunks are written in
+        the order of this file's first column (rather than sorted).
     reference : path
-        path to reference .cz file, only need if fraction="fraction" or "2D".
+        Unused for sum mode (kept for API compatibility).
     keep_cat : bool
-    blocks_per_batch :int
+        Keep the intermediate ``output + '.cat.cz'`` file. Has no
+        effect when ``input`` is a pre-catcz'd file (which is always
+        kept).
+    blocks_per_batch : int
+        Number of batches the LARGEST chrom is split into. ``None``
+        (default) = ``jobs``. Smaller chroms get 1 batch each via the
+        single-shard rename fast-path. Multi-shard chroms are merged
+        via raw compressed-block splice (no decompress + re-deflate),
+        so oversharding has near-zero overhead.
     temp : bool
+        If True, keep the per-shard tmp directory.
     bgzip : bool
+        If True (default) and the output filename does not end with
+        ``ext``, bgzip + tabix the output.
     batch_size : int
+        Worker batch row count when packing the merged record buffer
+        into the output writer. Has no effect on the result, only on
+        peak memory of the worker.
+    ext : str
+        Input file extension (default ``'.cz'``).
+    level : int
+        DEFLATE compression level for output blocks (default 6).
+        Drop to 1 for ~2x faster writes at ~12% larger output.
 
     Returns
     -------
-
+    None
+        Writes ``output`` (and optionally ``output + '.gz'`` if
+        ``bgzip=True``).
     """
-    if not class_table is None:
+    if isinstance(formats, str):
+        if formats in ('fraction', 'fisher', '2D'):
+            raise ValueError(
+                f"merge_cz formats={formats!r} was moved to cytozip.pivot."
+                " Use cytozip.pivot.pivot_fraction() / pivot_fisher() or"
+                " the `czip pivot_fraction` / `czip pivot_fisher` CLI"
+                " subcommands instead."
+            )
+        raise ValueError(
+            f"merge_cz expects a list of struct formats, got {formats!r}."
+        )
+    if class_table is not None:
+        # ``class_table`` mode requires a directory of per-cell .cz files
+        # so that snames can be matched against the directory listing.
+        if not (isinstance(input, str)
+                and os.path.isdir(os.path.expanduser(input))):
+            raise ValueError(
+                "merge_cz: class_table mode requires 'input' to be a "
+                "directory of per-cell .cz files."
+            )
+        indir = os.path.abspath(os.path.expanduser(input))
         df_class = pd.read_csv(class_table, sep='\t', header=None,
                                names=['sname', 'cell_class'])
         snames = [file.replace(ext, '') for file in os.listdir(indir)]
@@ -241,36 +412,51 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
             lambda x: x.tolist()).to_dict()
         for key in class_groups:
             logger.info(key)
-            cz_paths = [sname + ext for sname in class_groups[key]]
-            merge_cz(indir, cz_paths, class_table=None,
-                     output=None, prefix=f"{prefix}.{key}", threads=threads,
+            cz_paths = [os.path.join(indir, sname + ext)
+                        for sname in class_groups[key]]
+            merge_cz(input=cz_paths, class_table=None,
+                     output=None, prefix=f"{prefix}.{key}", jobs=jobs,
                      formats=formats, chrom_order=chrom_order,
                      reference=reference, keep_cat=keep_cat,
                      blocks_per_batch=blocks_per_batch, temp=temp, bgzip=bgzip,
-                     batch_size=batch_size, ext=ext)
+                     batch_size=batch_size, ext=ext, level=level)
         return None
     if output is None:
-        if prefix is None:
-            output = 'merged.cz' if formats not in ['fraction', '2D', 'fisher'] else 'merged.txt'
-        else:
-            output = f'{prefix}.cz' if formats not in ['fraction', '2D', 'fisher'] else f'{prefix}.txt'
+        output = 'merged.cz' if prefix is None else f'{prefix}.cz'
     logger.info(output)
     output = os.path.abspath(os.path.expanduser(output))
     if os.path.exists(output):
         logger.info(f"{output} existed, skip.")
         return
-    if cz_paths is None:
-        cz_paths = [file for file in os.listdir(indir) if file.endswith(ext)]
-    reader = Reader(os.path.join(indir, cz_paths[0]))
-    header = reader.header
-    reader.close()
-    outfile_cat = output + '.cat.cz'
-    # cat all .cz files into one .cz file, add a chunk_key to chunk (filename)
-    writer = Writer(output=outfile_cat, formats=header['formats'],
-                    columns=header['columns'], chunk_dims=header['chunk_dims'],
-                    message="catcz")
-    writer.catcz(input=[os.path.join(indir, cz_path) for cz_path in cz_paths],
-                 add_key=True)
+    # Resolve the unified ``input`` argument into an absolute path list
+    # plus an optional pre-catcz'd path.
+    cz_paths_abs, merged_path = _resolve_cz_input(input, ext=ext)
+    user_supplied_cat = False
+    if merged_path is not None:
+        # User passed an already-catcz'd file; reuse it directly.
+        outfile_cat = merged_path
+        user_supplied_cat = True
+        reader = Reader(outfile_cat)
+        # Synthesize the per-cell-shape header used by downstream
+        # writers: keep formats/columns/etc., but trim ``chunk_dims``
+        # back to just the chrom axis (first dim) so per-chrom shards
+        # and the final output are written as single-key chunks.
+        header = dict(reader.header)
+        header['chunk_dims'] = list(reader.header['chunk_dims'])[:1]
+        reader.close()
+        logger.info(f"Detected pre-catcz'd input {outfile_cat}; "
+                    f"skipping catcz step.")
+    else:
+        reader = Reader(cz_paths_abs[0])
+        header = reader.header
+        reader.close()
+        outfile_cat = output + '.cat.cz'
+        # cat all .cz files into one .cz file, add a chunk_key to chunk (filename)
+        writer = Writer(output=outfile_cat, formats=header['formats'],
+                        columns=header['columns'],
+                        chunk_dims=header['chunk_dims'],
+                        message="catcz")
+        writer.catcz(input=cz_paths_abs, add_key=True)
 
     reader = Reader(outfile_cat)
     chrom_col = reader.header['chunk_dims'][0]
@@ -288,12 +474,21 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
     chrom_nblocks = chunk_info.reset_index().loc[:, [chrom_col, 'chunk_nblocks']
                     ].drop_duplicates().set_index(chrom_col).chunk_nblocks.to_dict()
     # how many blocks can be multiplied by self.unit_size
-    unit_nblock = int(writer._unit_size / (math.gcd(writer._unit_size, _BLOCK_MAX_LEN)))
+    in_unit_size = sum(struct.calcsize(c) for c in header['formats'])
+    unit_nblock = int(in_unit_size / (math.gcd(in_unit_size, _BLOCK_MAX_LEN)))
+    # Auto-pick ``blocks_per_batch``. Now that the per-chrom shard merge
+    # is a raw byte-copy splice (no decompress + re-deflate), oversharding
+    # has near-zero overhead, so we aim to give the *largest* chrom enough
+    # shards to keep all workers busy. Small chroms get 1 shard each via
+    # the rename fast-path.  ``blocks_per_batch`` here is the number of
+    # batches the LARGEST chrom is split into.
+    if blocks_per_batch is None:
+        blocks_per_batch = max(1, jobs)
     nunit_perbatch = int(np.ceil((chunk_info.chunk_nblocks.max() / blocks_per_batch
                                   ) / unit_nblock))
     batch_nblock = nunit_perbatch * unit_nblock  # how many block for each batch
-    pool = multiprocessing.Pool(threads)
-    jobs = []
+    pool = multiprocessing.Pool(jobs)
+    tasks = []
     outdir = output + '.tmp'
     if not os.path.exists(outdir):
         os.mkdir(outdir)
@@ -303,119 +498,93 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
             continue
         block_idx_start = 0
         while block_idx_start < chrom_nblocks[chrom]:
-            job = pool.apply_async(merge_cz_worker,
+            task = pool.apply_async(merge_cz_worker,
                                    (outfile_cat, outdir, chrom, dims, formats,
-                                    block_idx_start, batch_nblock))
-            jobs.append(job)
+                                    block_idx_start, batch_nblock, 5000, level))
+            tasks.append(task)
             block_idx_start += batch_nblock
-    for job in jobs:
-        r = job.get()
+    for task in tasks:
+        r = task.get()
     pool.close()
     pool.join()
 
-    # First, merge different batch for each chrom
-    if formats in ['fraction', '2D', 'fisher']:
-        out_ext = 'txt'
-    else:
-        out_ext = 'cz'
-    if out_ext == 'cz':
-        for chrom in chroms:
-            # merge batches into chrom (chunk)
-            outname = os.path.join(outdir, f"{chrom}.{out_ext}")
-            writer = Writer(output=outname, formats=formats,
-                            columns=header['columns'], chunk_dims=header['chunk_dims'],
-                            message=outfile_cat)
-            writer._chunk_start_offset = writer._handle.tell()
-            writer._handle.write(_chunk_magic)
-            # chunk total size place holder: 0
-            writer._handle.write(struct.pack("<Q", 0))  # 8 bytes; including this chunk_size
-            writer._chunk_data_len = 0
-            writer._block_1st_record_virtual_offsets = []
-            writer._chunk_dims = [chrom]
-            block_idx_start = 0
-            infile = os.path.join(outdir, chrom + f'.{block_idx_start}.{out_ext}')
-            while os.path.exists(infile):
-                reader = Reader(infile)
-                reader._load_chunk(reader.header['header_size'])
-                block_start_offset = reader._chunk_start_offset + 10
-                writer._buffer = bytearray()
-                for i in range(reader._chunk_nblocks):
-                    reader._load_block(start_offset=block_start_offset)
-                    if len(writer._buffer) + len(reader._buffer) < _BLOCK_MAX_LEN:
-                        writer._buffer.extend(reader._buffer)
-                    else:
-                        writer._buffer.extend(reader._buffer)
-                        while len(writer._buffer) >= _BLOCK_MAX_LEN:
-                            writer._write_block(bytes(writer._buffer[:_BLOCK_MAX_LEN]))
-                            del writer._buffer[:_BLOCK_MAX_LEN]
-                    block_start_offset = None
-                reader.close()
-                block_idx_start += batch_nblock
-                infile = os.path.join(outdir, chrom + f'.{block_idx_start}.{out_ext}')
-            # write chunk tail
-            writer.close()
-    else:  # txt
-        pool = multiprocessing.Pool(threads)
-        jobs = []
-        for chrom in chroms:
-            job = pool.apply_async(catchr,
-                                   (outdir, chrom, out_ext, batch_nblock, batch_size))
-            jobs.append(job)
-        for job in jobs:
-            r = job.get()
-        pool.close()
-        pool.join()
+    # First, merge per-batch shards into one .cz per chrom.
+    # When >1 shard exists for a chrom we splice their compressed blocks
+    # raw — no decompress / re-deflate. This relies on three properties of
+    # the shards produced by ``merge_cz_worker``:
+    #   1. Each shard is a single (chrom,) chunk with sort_col=None.
+    #   2. Each shard's chunk_data_len is record-aligned (we feed
+    #      ``write_chunk`` with record-aligned slices), so the
+    #      ``within_block_offset`` bits stored in each block's virtual
+    #      offset remain valid when shard payloads are concatenated.
+    #   3. Blocks are independently DEFLATE-compressed (no cross-block
+    #      dictionary), so raw byte-copy is sound.
+    _COPY_BUF = 4 * 1024 * 1024
+    for chrom in chroms:
+        outname = os.path.join(outdir, f"{chrom}.cz")
+        # Fast path: if only a single batch shard exists for this chrom
+        # (the typical case when blocks_per_batch covers the whole
+        # chrom), the shard is already a complete .cz file with the
+        # exact (chrom,) chunk we want — just rename it.
+        single = os.path.join(outdir, f"{chrom}.0.cz")
+        second = os.path.join(outdir, f"{chrom}.{batch_nblock}.cz")
+        if os.path.exists(single) and not os.path.exists(second):
+            os.rename(single, outname)
+            continue
+        shard_paths = list(_iter_shard_paths(outdir, chrom, batch_nblock))
 
-    # Second, merge chromosomes to output
-    if out_ext == 'cz':  # merge chroms into final output
-        writer = Writer(output=output, formats=formats,
-                        columns=header['columns'], chunk_dims=header['chunk_dims'],
-                        message="merged")
-        writer.catcz(input=[f"{outdir}/{chrom}.cz" for chrom in chroms])
-    else:  # txt
-        filenames = chunk_info.filename.unique().tolist()
-        if formats == 'fraction':
-            columns = filenames
-        elif formats == '2D':
-            columns = []
-            for sname in filenames:
-                columns.extend([sname + '.mc', sname + '.cov'])
-        else:  # fisher
-            columns = []
-            for sname in filenames:
-                columns.extend([sname + '.odd_ratio', sname + '.pval'])
-        if not reference is None:
-            reference = os.path.abspath(os.path.expanduser(reference))
-            reader = Reader(reference)
-        logger.info("Merging chromosomes..")
-        for chrom in chroms:
-            logger.debug(chrom)
-            infile = os.path.join(outdir, f"{chrom}.{out_ext}")
-            if not reference is None:
-                df_ref = pd.DataFrame([
-                    record for record in reader.fetch(tuple([chrom]))
-                ], columns=reader.header['columns'])
-                # insert a column 'start'
-                df_ref.insert(0, chrom_col, chrom)
-                df_ref.insert(1, 'start', df_ref.iloc[:, 1].map(int) - 1)
-                usecols = df_ref.columns.tolist() + columns
-            for df in pd.read_csv(infile, sep='\t', batch_size=batch_size):
-                if not reference is None:
-                    df = pd.concat([df_ref.iloc[:batch_size].reset_index(drop=True),
-                                    df.reset_index(drop=True)], axis=1)
-                    df_ref = df_ref.iloc[batch_size:]
-                if not os.path.exists(output):
-                    df.reindex(columns=usecols).to_csv(output, sep='\t', index=False, header=True)
-                else:
-                    df.reindex(columns=usecols).to_csv(output, sep='\t', index=False,
-                                                       header=False, mode='a')
-        if not reference is None:
+        writer = Writer(output=outname, formats=formats,
+                        columns=header['columns'],
+                        chunk_dims=header['chunk_dims'],
+                        message=outfile_cat, level=level)
+        # Open the chunk manually so we can splice raw block bytes.
+        writer._chunk_start_offset = writer._handle.tell()
+        writer._handle.write(_chunk_magic)
+        writer._handle.write(struct.pack("<Q", 0))  # chunk_size placeholder
+        writer._chunk_data_len = 0
+        writer._block_1st_record_virtual_offsets = []
+        writer._block_first_coords = []
+        writer._chunk_dims = [chrom]
+        for shard_path in shard_paths:
+            reader = Reader(shard_path)
+            reader._load_chunk(reader.header['header_size'], jump=False)
+            shard_payload_start = reader._chunk_start_offset + 10
+            # chunk_size = 10 (magic+size field) + payload (blocks);
+            # the chunk tail lives AFTER the chunk_size bytes, so payload
+            # size is just chunk_size - 10.
+            payload_size = reader._chunk_size - 10
+            # Translate per-block virtual offsets to the merged file.
+            cur_phys = writer._handle.tell()
+            delta_phys = cur_phys - shard_payload_start
+            vos_app = writer._block_1st_record_virtual_offsets.append
+            for vo in reader._chunk_block_1st_record_virtual_offsets:
+                vos_app(((((vo >> 16) + delta_phys)) << 16) | (vo & 0xFFFF))
+            # Raw copy of the compressed-block payload region.
+            reader._handle.seek(shard_payload_start)
+            remaining = payload_size
+            while remaining > 0:
+                buf = reader._handle.read(min(remaining, _COPY_BUF))
+                if not buf:
+                    break
+                writer._handle.write(buf)
+                remaining -= len(buf)
+            writer._chunk_data_len += reader._chunk_data_len
             reader.close()
-    if not keep_cat:
+        # write chunk tail
+        writer.close()
+
+    # Second, concatenate per-chrom .cz into the final output.
+    writer = Writer(output=output, formats=formats,
+                    columns=header['columns'], chunk_dims=header['chunk_dims'],
+                    message="merged")
+    writer.catcz(input=[f"{outdir}/{chrom}.cz" for chrom in chroms])
+    if not keep_cat and not user_supplied_cat:
         os.remove(outfile_cat)
     if not temp:
-        logger.info(f"Removing temp dir {outdir}")
-        os.system(f"rm -rf {outdir}")
+        # Detached cleanup: deleting hundreds of small per-shard .cz
+        # files (~17s for 9-cell × 67-chrom on a network FS) adds
+        # nothing to the output, so we fork-and-forget it.
+        _bg_rmtree(outdir)
     if bgzip and not output.endswith(ext):
         cmd = f"bgzip {output} && tabix -S 1 -s 1 -b 2 -e 3 -f {output}.gz"
         logger.info(f"Run bgzip, CMD: {cmd}")
@@ -423,7 +592,7 @@ def merge_cz(indir=None, cz_paths=None, class_table=None,
 
 
 def merge_cell_type(indir=None, cell_table=None, outdir=None,
-                    threads=64, chrom_order=None, ext='.CGN.merged.cz'):
+                    jobs=64, chrom_order=None, ext='.CGN.merged.cz'):
     """Merge per-cell .cz files into per-cell-type aggregates.
 
     Reads a TSV ``cell_table`` with columns (cell, cell_type), groups
@@ -443,8 +612,8 @@ def merge_cell_type(indir=None, cell_table=None, outdir=None,
         logger.info(ct)
         snames = df_ct.loc[df_ct.ct == ct, 'cell'].tolist()
         cz_paths = [os.path.join(indir, sname + ext) for sname in snames]
-        merge_cz(indir=indir, cz_paths=cz_paths, bgzip=False,
-                 output=output, threads=threads, chrom_order=chrom_order)
+        merge_cz(input=cz_paths, bgzip=False,
+                 output=output, jobs=jobs, chrom_order=chrom_order)
 
 
 if __name__ == "__main__":

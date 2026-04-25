@@ -123,10 +123,10 @@ def WriteC(record, outdir, batch_size=5000, delta_cols=None):
 # ==========================================================
 class AllC:
     def __init__(self, genome=None, output="hg38_allc.cz",
-                 pattern="C", threads=12, keep_temp=False, delta=True):
+                 pattern="C", jobs=12, keep_temp=False, delta=True):
         """
         Extract position of specific pattern in the reference genome, for example C.
-            Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --threads 10 run
+            Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --jobs 10 run
             Or call within python: ac=AllC(genome="/gale/netapp/home2/wding/genome/hg38/hg38.fa")
         Parameters
         ----------
@@ -136,8 +136,8 @@ class AllC:
             path for output
         pattern: str
             pattern [C]
-        threads: int
-            number of CPU used for Pool.
+        jobs: int
+            number of CPU (parallel processes) used for the Pool.
         """
         self.genome=os.path.abspath(os.path.expanduser(genome))
         self.output=os.path.abspath(os.path.expanduser(output))
@@ -147,7 +147,7 @@ class AllC:
         self.pattern=pattern
         from Bio import SeqIO
         self.records = SeqIO.parse(self.genome, "fasta")
-        self.threads = threads if not threads is None else os.cpu_count()
+        self.jobs = jobs if not jobs is None else os.cpu_count()
         self.keep_temp = keep_temp
         # DELTA-encode the strictly-monotonic ``pos`` column by default.
         # Positions in a reference .cz are sorted and closely spaced (~3-10 bp
@@ -159,13 +159,13 @@ class AllC:
             self.func=WriteC
 
     def writePattern(self):
-        pool = multiprocessing.Pool(self.threads)
-        jobs = []
+        pool = multiprocessing.Pool(self.jobs)
+        tasks = []
         for record in self.records:
-            job = pool.apply_async(self.func, (record, self.outdir, 5000, self.delta_cols))
-            jobs.append(job)
-        for job in jobs:
-            job.get()
+            task = pool.apply_async(self.func, (record, self.outdir, 5000, self.delta_cols))
+            tasks.append(task)
+        for task in tasks:
+            task.get()
         pool.close()
         pool.join()
 
@@ -186,18 +186,34 @@ class AllC:
 def allc2cz(input, output, reference=None, missing_value=[0, 0],
            formats=['B', 'B'], columns=['mc', 'cov'], chunk_dims=['chrom'],
            usecols=[4, 5], ref_pos_col=0, allc_pos_col=1, sep='\t', chrom_order=None,
-           batch_size=5000, sort_col=None, delta_cols=None):
+           batch_size=5000, sort_col=None, delta_cols=None,
+           jobs=1, pattern='*.allc.tsv.gz', skip_existing=True,
+           _ref_pos_dict=None):
     """
     convert allc.tsv.gz to .cz file.
+
+    When ``input`` is a directory, ALL matching allc files in the directory
+    are converted in parallel. The reference .cz (if given) is decoded once
+    in the parent process and shared with workers via fork-based copy-on-write,
+    so the reference memory cost is paid only once regardless of ``jobs``.
 
     Parameters
     ----------
     input : path
-        path to allc.tsv.gz, should has .tbi index.
+        Path to allc.tsv.gz (must have .tbi index), OR a directory containing
+        many allc.tsv.gz files (batch mode).
     output : path
-        output .cz file
+        Output .cz file (single-file mode), or output directory (batch mode).
     reference : path
         path to reference coordinates.
+    jobs : int
+        Number of parallel worker processes for batch mode (default: 1).
+        Ignored when ``input`` is a single file.
+    pattern : str
+        Glob pattern used to discover allc files when ``input`` is a directory
+        (default: ``'*.allc.tsv.gz'``).
+    skip_existing : bool
+        In batch mode, skip files whose output .cz already exists (default: True).
     formats: list
         When reference is provided, we only need to pack mc and cov,
         ['H', 'H'] is suggested (H is unsigned short integer, only 2 bytes),
@@ -227,6 +243,17 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     -------
 
     """
+    # ---- Batch mode: input is a directory --------------------------------
+    if isinstance(input, str) and os.path.isdir(os.path.expanduser(input)):
+        return _allc2cz_batch(
+            input_dir=input, output_dir=output, reference=reference,
+            missing_value=missing_value, formats=formats, columns=columns,
+            chunk_dims=chunk_dims, usecols=usecols,
+            ref_pos_col=ref_pos_col, allc_pos_col=allc_pos_col, sep=sep,
+            chrom_order=chrom_order, batch_size=batch_size,
+            sort_col=sort_col, delta_cols=delta_cols,
+            jobs=jobs, pattern=pattern, skip_existing=skip_existing,
+        )
     if os.path.exists(output):
         logger.info(f"{output} existed, skip.")
         return
@@ -266,19 +293,26 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     use_numpy = _all_numeric_formats(formats)  # use vectorized numpy path if all columns are numeric
 
     if not reference is None:
-        ref_reader = Reader(reference)
-        # Hint the kernel to evict pages we've already walked. Without
-        # this, sequentially reading every chunk of a multi-GB ref
-        # (e.g. mm10 at ~1.3 GB) would pin the whole file in our RSS.
-        ref_reader.advise_sequential()
-        # Build a numpy structured dtype from the reference file's column
-        # formats so we can bulk-read reference positions via np.frombuffer
-        # instead of iterating record-by-record in Python.
-        ref_fmts = ref_reader.header['formats']
-        ref_record_dtype = np.dtype(
-            [(f'c{i}', _fmt_to_np_dtype(f[-1]) if _fmt_to_np_dtype(f[-1]) else f'S{struct.calcsize(f)}')
-             for i, f in enumerate(ref_fmts)]
-        )
+        # When a pre-decoded ref_pos dict is supplied (batch mode), we can
+        # skip opening the reference Reader entirely — every worker shares
+        # the same numpy arrays via fork copy-on-write.
+        need_ref_reader = _ref_pos_dict is None
+        ref_reader = None
+        ref_record_dtype = None
+        if need_ref_reader:
+            ref_reader = Reader(reference)
+            # Hint the kernel to evict pages we've already walked. Without
+            # this, sequentially reading every chunk of a multi-GB ref
+            # (e.g. mm10 at ~1.3 GB) would pin the whole file in our RSS.
+            ref_reader.advise_sequential()
+            # Build a numpy structured dtype from the reference file's column
+            # formats so we can bulk-read reference positions via np.frombuffer
+            # instead of iterating record-by-record in Python.
+            ref_fmts = ref_reader.header['formats']
+            ref_record_dtype = np.dtype(
+                [(f'c{i}', _fmt_to_np_dtype(f[-1]) if _fmt_to_np_dtype(f[-1]) else f'S{struct.calcsize(f)}')
+                 for i, f in enumerate(ref_fmts)]
+            )
         if use_numpy:
             np_dtypes = [_fmt_to_np_dtype(f[-1]) for f in formats]
             # Build a structured dtype matching the Writer's struct layout
@@ -291,13 +325,18 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                 # FAST PATH: bulk-read all reference positions for this chrom
                 # as a numpy array, then use searchsorted for O(n log n)
                 # alignment of query positions against reference positions.
-                raw = ref_reader.fetch_chunk_bytes(tuple([chrom]))
-                if not raw:
-                    continue
-                ref_records = np.frombuffer(raw, dtype=ref_record_dtype)
-                ref_pos_arr = ref_records[f'c{ref_pos_col}'].astype(np.int64)
-                if ref_pos_arr.size == 0:
-                    continue
+                if _ref_pos_dict is not None:
+                    ref_pos_arr = _ref_pos_dict.get(chrom)
+                    if ref_pos_arr is None or ref_pos_arr.size == 0:
+                        continue
+                else:
+                    raw = ref_reader.fetch_chunk_bytes(tuple([chrom]))
+                    if not raw:
+                        continue
+                    ref_records = np.frombuffer(raw, dtype=ref_record_dtype)
+                    ref_pos_arr = ref_records[f'c{ref_pos_col}'].astype(np.int64)
+                    if ref_pos_arr.size == 0:
+                        continue
                 # Bulk-read allc query data
                 lines = list(tbi.fetch(chrom))
                 if not lines:
@@ -324,9 +363,14 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                 _write_np_chunks(writer, out, chrom, batch_size, unit_size)
                 # Done with this chrom's ref pages: hand them back to
                 # the kernel so they don't accumulate in RSS.
-                ref_reader.release_chunk(tuple([chrom]))
+                if need_ref_reader:
+                    ref_reader.release_chunk(tuple([chrom]))
         else:
             # Fallback: non-numeric formats, use original per-row logic
+            if not need_ref_reader:
+                raise ValueError(
+                    "Pre-loaded ref_pos_dict only supports numeric formats; "
+                    "got non-numeric formats=%r" % (formats,))
             dtfuncs = get_dtfuncs(formats, tobytes=False)
             for chrom in all_chroms:
                 ref_positions = ref_reader.__fetch__(tuple([chrom]), s=ref_pos_col, e=ref_pos_col + 1)
@@ -366,7 +410,8 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                             rows_buf, i = [], 0
                 if len(rows_buf) > 0:
                     writer.write_chunk(_pack_chunk_data(rows_buf, writer), [chrom])
-        ref_reader.close()
+        if need_ref_reader and ref_reader is not None:
+            ref_reader.close()
     else:
         if use_numpy:
             np_dtypes = [_fmt_to_np_dtype(f[-1]) for f in formats]
@@ -399,6 +444,143 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                     writer.write_chunk(_pack_chunk_data(rows_buf, writer), [chrom])
     writer.close()
     tbi.close()
+
+
+# ==========================================================
+# Batch allc2cz: process a directory in parallel with a shared reference.
+# The reference is decoded once in the parent and inherited by workers via
+# fork copy-on-write, so the per-process memory cost is paid only once.
+# ==========================================================
+_BATCH_REF_POS_DICT = None  # populated in parent before fork; inherited by workers
+
+
+def _load_ref_pos_dict(reference, ref_pos_col=0):
+    """Decode reference .cz once and return ``{chrom: int64 pos array}``.
+
+    The arrays are sorted ascending (which is the on-disk layout for any
+    reference produced by :class:`AllC`). Workers can then run
+    ``np.searchsorted`` directly without re-opening the reference file.
+    """
+    ref_path = os.path.abspath(os.path.expanduser(reference))
+    ref_reader = Reader(ref_path)
+    ref_fmts = ref_reader.header['formats']
+    ref_record_dtype = np.dtype(
+        [(f'c{i}', _fmt_to_np_dtype(f[-1]) if _fmt_to_np_dtype(f[-1]) else f'S{struct.calcsize(f)}')
+         for i, f in enumerate(ref_fmts)]
+    )
+    chroms = []
+    seen = set()
+    for dims_key in ref_reader._raw_chunk_index.keys():
+        c = dims_key[0]
+        if c not in seen:
+            seen.add(c)
+            chroms.append(c)
+    ref_pos = {}
+    for chrom in chroms:
+        raw = ref_reader.fetch_chunk_bytes(tuple([chrom]))
+        if not raw:
+            continue
+        recs = np.frombuffer(raw, dtype=ref_record_dtype)
+        if recs.size == 0:
+            continue
+        ref_pos[chrom] = recs[f'c{ref_pos_col}'].astype(np.int64)
+        ref_reader.release_chunk(tuple([chrom]))
+    ref_reader.close()
+    return ref_pos
+
+
+def _allc2cz_worker(args):
+    """Pool worker: convert a single allc file using the inherited ref dict."""
+    inp, outp, kwargs = args
+    try:
+        allc2cz(inp, outp, _ref_pos_dict=_BATCH_REF_POS_DICT, **kwargs)
+        return (inp, True, None)
+    except Exception:
+        import traceback
+        return (inp, False, traceback.format_exc())
+
+
+def _strip_allc_suffix(basename):
+    for suf in ('.allc.tsv.gz', '.allc.tsv.bgz', '.tsv.gz', '.allc.gz'):
+        if basename.endswith(suf):
+            return basename[:-len(suf)]
+    return os.path.splitext(basename)[0]
+
+
+def _allc2cz_batch(input_dir, output_dir, reference=None, jobs=1,
+                   pattern='*.allc.tsv.gz', skip_existing=True, **kwargs):
+    """Parallel allc -> cz over a directory, sharing the decoded reference.
+
+    Workers are forked from the parent so the pre-decoded reference dict is
+    shared via copy-on-write (zero extra RSS per worker on Linux).
+    """
+    import glob
+    input_dir = os.path.abspath(os.path.expanduser(input_dir))
+    output_dir = os.path.abspath(os.path.expanduser(output_dir))
+    os.makedirs(output_dir, exist_ok=True)
+
+    files = sorted(glob.glob(os.path.join(input_dir, pattern)))
+    files = [f for f in files if os.path.exists(f + '.tbi')]
+    if not files:
+        logger.warning(f"No allc files matching {pattern!r} (with .tbi) found in {input_dir}")
+        return
+
+    job_args = []
+    for inp in files:
+        outp = os.path.join(output_dir, _strip_allc_suffix(os.path.basename(inp)) + '.cz')
+        if skip_existing and os.path.exists(outp):
+            logger.info(f"{outp} existed, skip.")
+            continue
+        job_args.append((inp, outp, dict(reference=reference, **kwargs)))
+
+    if not job_args:
+        logger.info("Nothing to do (all outputs already exist).")
+        return
+
+    logger.info(f"Found {len(files)} allc files; {len(job_args)} to convert; jobs={jobs}")
+
+    # Pre-load reference once in the parent so workers share it via fork COW.
+    global _BATCH_REF_POS_DICT
+    _BATCH_REF_POS_DICT = None
+    if reference is not None:
+        ref_pos_col = kwargs.get('ref_pos_col', 0)
+        logger.info(f"Pre-loading reference into shared memory: {reference}")
+        _BATCH_REF_POS_DICT = _load_ref_pos_dict(reference, ref_pos_col=ref_pos_col)
+        n_sites = sum(a.size for a in _BATCH_REF_POS_DICT.values())
+        logger.info(
+            f"Reference loaded: {len(_BATCH_REF_POS_DICT)} chroms, "
+            f"{n_sites:,} sites (~{n_sites * 8 / 1e9:.2f} GB int64, shared via COW)"
+        )
+
+    try:
+        if jobs <= 1 or len(job_args) == 1:
+            for args in job_args:
+                inp, ok, err = _allc2cz_worker(args)
+                if not ok:
+                    logger.error(f"failed: {inp}\n{err}")
+            return
+
+        try:
+            ctx = multiprocessing.get_context('fork')
+        except ValueError:
+            logger.warning("fork start method unavailable; falling back to default "
+                           "(reference will not be shared across workers).")
+            ctx = multiprocessing.get_context()
+
+        n_done = 0
+        n_fail = 0
+        with ctx.Pool(processes=int(jobs)) as pool:
+            for inp, ok, err in pool.imap_unordered(_allc2cz_worker, job_args):
+                if ok:
+                    n_done += 1
+                    logger.info(f"[{n_done}/{len(job_args)}] done: {os.path.basename(inp)}")
+                else:
+                    n_fail += 1
+                    logger.error(f"failed: {inp}\n{err}")
+        logger.info(f"Batch finished: {n_done} ok, {n_fail} failed.")
+    finally:
+        # Drop reference from parent so subsequent calls start fresh.
+        _BATCH_REF_POS_DICT = None
 
 
 # ==========================================================
