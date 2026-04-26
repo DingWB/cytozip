@@ -1607,6 +1607,21 @@ def c_write_chunk_tail(handle, chunk_data_len, block_1st_record_virtual_offsets,
     return None
 
 
+def c_parse_blocks_buffer(bytes raw_all, delta_dtype=None, delta_col_names=None):
+    """Public wrapper around the internal block-buffer parser.
+
+    Lets a caller (Reader async prefetch) read the compressed bytes
+    itself (e.g. on a background thread) and then hand them in for
+    multi-threaded decompression. Mirrors the in-process logic of
+    :func:`c_fetch_chunk`'s bulk-I/O path without doing the I/O.
+    """
+    if not raw_all:
+        return b""
+    if delta_dtype is not None and delta_col_names:
+        return _parse_blocks_from_buffer_delta(raw_all, delta_dtype, delta_col_names)
+    return _parse_blocks_from_buffer(raw_all)
+
+
 def c_fetch_chunk(handle, chunk_start_offset_plus10, block_virtual_offsets, fmts, unit_size,
                   chunk_compressed_size=None,
                   delta_dtype=None, delta_col_names=None):

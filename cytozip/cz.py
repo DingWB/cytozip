@@ -160,6 +160,7 @@ _CZ_ACCEL_LOADED = False
 _c_load_bcz_block = None
 _c_compress_block = None
 _c_compress_blocks_parallel = None
+_c_parse_blocks_buffer = None
 _c_unpack_records = None
 _c_read = None
 _c_readline = None
@@ -199,6 +200,7 @@ def _ensure_cz_accel():
 	g['_c_load_bcz_block'] = getattr(_a, 'load_bcz_block', None)
 	g['_c_compress_block'] = getattr(_a, 'compress_block', None)
 	g['_c_compress_blocks_parallel'] = getattr(_a, 'c_compress_blocks_parallel', None)
+	g['_c_parse_blocks_buffer'] = getattr(_a, 'c_parse_blocks_buffer', None)
 	g['_c_unpack_records'] = getattr(_a, 'unpack_records', None)
 	# Rebind the public dispatcher so callers transparently use the
 	# Cython implementation. Without this the module-level binding
@@ -1465,6 +1467,111 @@ class Reader:
 			# Only close the reader if we opened it ourselves.
 			if isinstance(reference, str):
 				ref_reader.close()
+
+	def query_numpy_multi(self, regions, reference=None, sort_col=None,
+	                      max_workers=None):
+		"""Vectorized multi-region query with thread-pool parallelism.
+
+		Runs many :meth:`query_numpy` calls concurrently using a thread
+		pool with **per-thread Reader instances** (the underlying file
+		handle isn't thread-safe).  Useful when scanning thousands of
+		small intervals (e.g., gene bodies, DMRs) over cold chunks:
+		decompression releases the GIL, so threads scale well.
+
+		Parameters
+		----------
+		regions : iterable of (chunk_key, start, end)
+			Each chunk_key is a str or tuple.
+		reference : str, ``Reader``, or None
+			Same semantics as :meth:`query_numpy`.  Each worker thread
+			opens its own reference Reader as well.
+		sort_col : int or None
+			Forwarded to :meth:`query_numpy`.
+		max_workers : int or None
+			Thread count.  Defaults to ``min(8, len(regions))`` or the
+			value of ``CYTOZIP_QUERY_THREADS`` if set.
+
+		Returns
+		-------
+		list
+			One result per input region, in the same order, with the same
+			shape as :meth:`query_numpy` returns.
+		"""
+		import os as _os
+		import threading
+		from concurrent.futures import ThreadPoolExecutor
+
+		regions = list(regions)
+		if not regions:
+			return []
+		env_t = _os.environ.get("CYTOZIP_QUERY_THREADS")
+		if max_workers is None:
+			if env_t:
+				max_workers = max(1, int(env_t))
+			else:
+				max_workers = min(8, len(regions))
+
+		# Single-thread fast path: reuse self.
+		if max_workers <= 1 or len(regions) == 1:
+			ref_obj = (Reader(reference) if isinstance(reference, str)
+			           else reference)
+			try:
+				return [self.query_numpy(ck, s, e, reference=ref_obj,
+				                         sort_col=sort_col)
+				        for (ck, s, e) in regions]
+			finally:
+				if isinstance(reference, str):
+					ref_obj.close()
+
+		# Per-thread Reader (shared file handles aren't thread-safe).
+		path = getattr(self, 'input', None)
+		if not isinstance(path, str):
+			# Can't reopen (fileobj-backed); fall back to serial.
+			return self.query_numpy_multi(regions, reference=reference,
+			                              sort_col=sort_col, max_workers=1)
+
+		ref_path = None
+		if reference is not None:
+			if isinstance(reference, str):
+				ref_path = reference
+			else:
+				ref_path = getattr(reference, 'input', None)
+				if not isinstance(ref_path, str):
+					ref_path = None
+		_local = threading.local()
+		_openers = []  # track to close at end
+
+		def _get_reader():
+			r = getattr(_local, 'r', None)
+			if r is None:
+				r = Reader(path)
+				_local.r = r
+				_openers.append(r)
+				if reference is not None:
+					if ref_path is not None:
+						rr = Reader(ref_path)
+						_openers.append(rr)
+						_local.ref = rr
+					else:
+						_local.ref = reference  # not openable, share (risky)
+				else:
+					_local.ref = None
+			return r, _local.ref
+
+		def _one(args):
+			ck, s, e = args
+			r, ref = _get_reader()
+			return r.query_numpy(ck, s, e, reference=ref, sort_col=sort_col)
+
+		try:
+			with ThreadPoolExecutor(max_workers=max_workers) as ex:
+				return list(ex.map(_one, regions))
+		finally:
+			for r in _openers:
+				try:
+					r.close()
+				except Exception:
+					pass
 	def chunk2df(self, dims, reformat=False, batch_size=None):
 		"""Read an entire chunk into a pandas DataFrame.
 
@@ -2403,6 +2510,83 @@ class Reader:
 				_off += _bsize
 			raw = b"".join(chunks)
 		return raw
+
+	def iter_chunks_bytes(self, dims=None, prefetch=1):
+		"""Iterate ``(dim, raw_bytes)`` pairs with background I/O prefetch.
+
+		While the consumer processes chunk N, a background thread reads
+		the compressed bytes of chunks N+1 .. N+prefetch from disk. The
+		main thread still does the (multi-threaded) decompression so the
+		GIL is released by libdeflate during inflate, overlapping nicely
+		with the next chunk's read.
+
+		Parameters
+		----------
+		dims : iterable of chunk_key tuples, optional
+			Chunks to iterate. Defaults to all chunks in file order.
+		prefetch : int
+			Number of chunks to read ahead (1 is usually enough). Set to
+			0 to disable prefetching (useful for benchmarking).
+
+		Yields
+		------
+		(dim, bytes)
+		"""
+		if dims is None:
+			dims = list(self.chunk_key2offset.keys())
+		else:
+			dims = list(dims)
+		if prefetch <= 0 or _c_parse_blocks_buffer is None or len(dims) < 2:
+			# Fallback: synchronous fetch.
+			for d in dims:
+				yield d, self.fetch_chunk_bytes(d)
+			return
+
+		import queue
+		import threading
+
+		# Items put on q: (dim, raw_compressed_bytes_or_None,
+		#                  block_vos, chunk_size_minus10) or sentinel.
+		q: "queue.Queue" = queue.Queue(maxsize=max(1, prefetch))
+		_SENTINEL = object()
+
+		def _prefetcher():
+			try:
+				for d in dims:
+					# _load_chunk seeks + reads chunk header / VO table.
+					if not self._load_chunk(self.chunk_key2offset[d], jump=False):
+						q.put((d, None, None, 0))
+						continue
+					payload_size = self._chunk_size - 10
+					self._handle.seek(self._chunk_start_offset + 10)
+					raw = self._handle.read(payload_size)
+					q.put((d, raw,
+					       list(self._chunk_block_1st_record_virtual_offsets),
+					       payload_size))
+			except Exception as exc:  # propagate to consumer
+				q.put((None, exc, None, 0))
+			finally:
+				q.put(_SENTINEL)
+
+		t = threading.Thread(target=_prefetcher, daemon=True)
+		t.start()
+		try:
+			while True:
+				item = q.get()
+				if item is _SENTINEL:
+					return
+				d, raw, _vos, _payload = item
+				if d is None:
+					raise raw  # exception object
+				if not raw:
+					yield d, b""
+					continue
+				yield d, _c_parse_blocks_buffer(
+					raw, self._delta_np_dtype,
+					self._delta_col_names or None,
+				)
+		finally:
+			t.join(timeout=1.0)
 
 	@classmethod
 	def from_url(cls, url, cache_size=2 * 1024 * 1024, session=None):
