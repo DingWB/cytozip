@@ -20,7 +20,7 @@ from ._version import version as __version__
 _LAZY_EXPORTS = {
     # cz.py — generic .cz format layer
     'Reader': 'cz', 'Writer': 'cz', 'RemoteFile': 'cz', 'extract': 'cz',
-    'index_regions': 'cz', 'aggregate': 'cz',
+    'index_regions': 'cz', 'aggregate': 'cz', 'open': 'cz',
     # allc.py — methylation allc-file I/O
     'AllC': 'allc', 'allc2cz': 'allc', 'index_context': 'allc',
     'extractCG': 'allc',

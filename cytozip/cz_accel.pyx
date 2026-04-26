@@ -32,9 +32,9 @@ from cython.parallel cimport prange
 # ---------------------------------------------------------------------------
 _block_magic = b"CB"  # 2-byte magic at the start of each compressed block
 
-# v2 format constants — must match cz.py.
-cdef unsigned long _BLOCK_MAX_LEN = (1 << 20) - 1  # 1 MiB - 1 (was 65535)
-cdef int _VO_OFFSET_BITS = 20                       # was 16 in v1
+# Block format constants — must match cz.py.
+cdef unsigned long _BLOCK_MAX_LEN = (1 << 18) - 1  # 256 KiB - 1
+cdef int _VO_OFFSET_BITS = 20
 cdef unsigned long long _VO_OFFSET_MASK = (1 << 20) - 1  # 0xFFFFF
 cdef Py_ssize_t _BLOCK_HEADER_TRAILER_BYTES = 10    # magic(2)+bsize(4)+data_len(4)
 
@@ -53,7 +53,7 @@ cdef object _get_struct(str fmts):
 cdef bytes _parse_blocks_from_buffer(bytes raw_all):
     """Parse and decompress all BCZ blocks from an in-memory buffer.
 
-    v2 block layout: magic(2B) + bsize(uint32 4B) + deflate(bsize-10) +
+    Block layout: magic(2B) + bsize(uint32 4B) + deflate(bsize-10) +
     data_len(uint32 4B).
 
     Two-phase implementation:
@@ -229,6 +229,11 @@ cdef inline bytes _apply_delta_bytes(bytes data, object delta_dtype, object delt
     Returns the original *data* unchanged when delta_dtype is None or
     delta_col_names is empty. Otherwise returns a new bytes object with
     cumsum applied to each named column.
+
+    Fast path: when every delta column has a homogeneous unsigned-int
+    field of width 1/2/4/8 bytes, run an inline in-place cumsum on a
+    bytearray copy (one allocation) instead of going through numpy
+    (frombuffer + copy + np.cumsum + tobytes ≈ four allocations).
     """
     if delta_dtype is None or not delta_col_names:
         return data
@@ -236,13 +241,233 @@ cdef inline bytes _apply_delta_bytes(bytes data, object delta_dtype, object delt
     cdef Py_ssize_t nrec = len(data) // itemsize
     if nrec == 0:
         return data
+    cdef Py_ssize_t used = nrec * itemsize
+    # Try the fast inline path first.
+    cdef bytes fast = _try_inline_cumsum(data, delta_dtype, delta_col_names)
+    if fast is not None:
+        if used == len(data):
+            return fast
+        return fast + data[used:]
+    # Fallback: numpy cumsum.
     np = _get_np()
     arr = np.frombuffer(data, dtype=delta_dtype, count=nrec).copy()
     for name in delta_col_names:
         np.cumsum(arr[name], out=arr[name])
-    # Preserve any trailing bytes beyond record alignment (shouldn't exist
-    # for delta files, but be defensive).
+    if used == len(data):
+        return arr.tobytes()
+    return arr.tobytes() + data[used:]
+
+
+cdef bytes _try_inline_cumsum(bytes data, object delta_dtype, object delta_col_names):
+    """Inline in-place cumsum for delta columns when every column is a
+    uint8/16/32/64 field of the structured dtype.
+
+    Returns the patched bytes, or None if the dtype is unsupported (the
+    caller falls back to the numpy path).
+    """
+    cdef Py_ssize_t itemsize = delta_dtype.itemsize
+    cdef Py_ssize_t nrec = len(data) // itemsize
     cdef Py_ssize_t used = nrec * itemsize
+    # Validate every column upfront; bail to numpy on heterogeneous input.
+    fields = delta_dtype.fields
+    if fields is None:
+        return None
+    cdef list specs = []  # list of (offset, width)
+    for name in delta_col_names:
+        if name not in fields:
+            return None
+        sub = fields[name]
+        sub_dtype = sub[0]
+        sub_off = sub[1]
+        # Reject non-numeric or signed dtypes; cumsum on signed differs.
+        if sub_dtype.kind != 'u':
+            return None
+        if sub_dtype.itemsize not in (1, 2, 4, 8):
+            return None
+        specs.append((<Py_ssize_t> sub_off, <Py_ssize_t> sub_dtype.itemsize))
+
+    cdef bytearray out = bytearray(data[:used])
+    cdef unsigned char *base = <unsigned char *> PyByteArray_AsString(out)
+    cdef Py_ssize_t off, w, i
+    cdef unsigned long long acc
+    cdef unsigned char *p
+    for spec in specs:
+        off = spec[0]
+        w = spec[1]
+        p = base + off
+        acc = 0
+        if w == 1:
+            for i in range(nrec):
+                acc = (acc + (<unsigned long long> p[0])) & 0xff
+                p[0] = <unsigned char> acc
+                p += itemsize
+        elif w == 2:
+            for i in range(nrec):
+                acc = (acc + (<unsigned long long> (
+                    p[0] | (<unsigned long long> p[1] << 8)))) & 0xffff
+                p[0] = <unsigned char> (acc & 0xff)
+                p[1] = <unsigned char> ((acc >> 8) & 0xff)
+                p += itemsize
+        elif w == 4:
+            for i in range(nrec):
+                acc = (acc + (<unsigned long long> (
+                    p[0]
+                    | (<unsigned long long> p[1] << 8)
+                    | (<unsigned long long> p[2] << 16)
+                    | (<unsigned long long> p[3] << 24)))) & 0xffffffffULL
+                p[0] = <unsigned char> (acc & 0xff)
+                p[1] = <unsigned char> ((acc >> 8) & 0xff)
+                p[2] = <unsigned char> ((acc >> 16) & 0xff)
+                p[3] = <unsigned char> ((acc >> 24) & 0xff)
+                p += itemsize
+        else:  # w == 8
+            for i in range(nrec):
+                acc = (acc + (<unsigned long long> (
+                    p[0]
+                    | (<unsigned long long> p[1] << 8)
+                    | (<unsigned long long> p[2] << 16)
+                    | (<unsigned long long> p[3] << 24)
+                    | (<unsigned long long> p[4] << 32)
+                    | (<unsigned long long> p[5] << 40)
+                    | (<unsigned long long> p[6] << 48)
+                    | (<unsigned long long> p[7] << 56))))
+                p[0] = <unsigned char> (acc & 0xff)
+                p[1] = <unsigned char> ((acc >> 8) & 0xff)
+                p[2] = <unsigned char> ((acc >> 16) & 0xff)
+                p[3] = <unsigned char> ((acc >> 24) & 0xff)
+                p[4] = <unsigned char> ((acc >> 32) & 0xff)
+                p[5] = <unsigned char> ((acc >> 40) & 0xff)
+                p[6] = <unsigned char> ((acc >> 48) & 0xff)
+                p[7] = <unsigned char> ((acc >> 56) & 0xff)
+                p += itemsize
+    return bytes(out)
+
+
+cdef bytes _try_inline_diff(bytes data, object delta_dtype, object delta_col_names):
+    """Symmetric encoder for `_try_inline_cumsum`: in-place finite
+    difference (block[i] -= block[i-1]) for delta-encoded uint columns.
+
+    Returns the patched bytes, or None if the dtype is unsupported (the
+    caller falls back to the numpy path).
+    """
+    cdef Py_ssize_t itemsize = delta_dtype.itemsize
+    cdef Py_ssize_t nrec = len(data) // itemsize
+    cdef Py_ssize_t used = nrec * itemsize
+    if nrec < 2:
+        # 0- or 1-record blocks: encoded == raw.
+        return bytes(data[:used]) if used == len(data) else bytes(data[:used])
+    fields = delta_dtype.fields
+    if fields is None:
+        return None
+    cdef list specs = []
+    for name in delta_col_names:
+        if name not in fields:
+            return None
+        sub = fields[name]
+        sub_dtype = sub[0]
+        sub_off = sub[1]
+        if sub_dtype.kind != 'u':
+            return None
+        if sub_dtype.itemsize not in (1, 2, 4, 8):
+            return None
+        specs.append((<Py_ssize_t> sub_off, <Py_ssize_t> sub_dtype.itemsize))
+
+    cdef bytearray out = bytearray(data[:used])
+    cdef unsigned char *base = <unsigned char *> PyByteArray_AsString(out)
+    cdef Py_ssize_t off, w, i
+    cdef unsigned long long prev, cur, diff
+    cdef unsigned char *p
+    for spec in specs:
+        off = spec[0]
+        w = spec[1]
+        # Walk records right-to-left so each subtraction uses the
+        # original value (not the just-overwritten delta).
+        if w == 1:
+            for i in range(nrec - 1, 0, -1):
+                p = base + off + i * itemsize
+                cur = p[0]
+                prev = (p - itemsize)[0]
+                diff = (cur - prev) & 0xff
+                p[0] = <unsigned char> diff
+        elif w == 2:
+            for i in range(nrec - 1, 0, -1):
+                p = base + off + i * itemsize
+                cur = p[0] | (<unsigned long long> p[1] << 8)
+                prev = (p - itemsize)[0] | (<unsigned long long> (p - itemsize)[1] << 8)
+                diff = (cur - prev) & 0xffffULL
+                p[0] = <unsigned char> (diff & 0xff)
+                p[1] = <unsigned char> ((diff >> 8) & 0xff)
+        elif w == 4:
+            for i in range(nrec - 1, 0, -1):
+                p = base + off + i * itemsize
+                cur = (p[0]
+                       | (<unsigned long long> p[1] << 8)
+                       | (<unsigned long long> p[2] << 16)
+                       | (<unsigned long long> p[3] << 24))
+                prev = ((p - itemsize)[0]
+                        | (<unsigned long long> (p - itemsize)[1] << 8)
+                        | (<unsigned long long> (p - itemsize)[2] << 16)
+                        | (<unsigned long long> (p - itemsize)[3] << 24))
+                diff = (cur - prev) & 0xffffffffULL
+                p[0] = <unsigned char> (diff & 0xff)
+                p[1] = <unsigned char> ((diff >> 8) & 0xff)
+                p[2] = <unsigned char> ((diff >> 16) & 0xff)
+                p[3] = <unsigned char> ((diff >> 24) & 0xff)
+        else:  # w == 8
+            for i in range(nrec - 1, 0, -1):
+                p = base + off + i * itemsize
+                cur = (p[0]
+                       | (<unsigned long long> p[1] << 8)
+                       | (<unsigned long long> p[2] << 16)
+                       | (<unsigned long long> p[3] << 24)
+                       | (<unsigned long long> p[4] << 32)
+                       | (<unsigned long long> p[5] << 40)
+                       | (<unsigned long long> p[6] << 48)
+                       | (<unsigned long long> p[7] << 56))
+                prev = ((p - itemsize)[0]
+                        | (<unsigned long long> (p - itemsize)[1] << 8)
+                        | (<unsigned long long> (p - itemsize)[2] << 16)
+                        | (<unsigned long long> (p - itemsize)[3] << 24)
+                        | (<unsigned long long> (p - itemsize)[4] << 32)
+                        | (<unsigned long long> (p - itemsize)[5] << 40)
+                        | (<unsigned long long> (p - itemsize)[6] << 48)
+                        | (<unsigned long long> (p - itemsize)[7] << 56))
+                diff = cur - prev
+                p[0] = <unsigned char> (diff & 0xff)
+                p[1] = <unsigned char> ((diff >> 8) & 0xff)
+                p[2] = <unsigned char> ((diff >> 16) & 0xff)
+                p[3] = <unsigned char> ((diff >> 24) & 0xff)
+                p[4] = <unsigned char> ((diff >> 32) & 0xff)
+                p[5] = <unsigned char> ((diff >> 40) & 0xff)
+                p[6] = <unsigned char> ((diff >> 48) & 0xff)
+                p[7] = <unsigned char> ((diff >> 56) & 0xff)
+    return bytes(out)
+
+
+def c_delta_encode_block(bytes data, object delta_dtype, object delta_col_names):
+    """Public entry: encode delta-columns in `data` (per-record diff).
+
+    Mirror of the cumsum decoder. Returns bytes; preserves trailing
+    bytes beyond the last full record. Falls back to numpy when dtype
+    is unsupported.
+    """
+    if delta_dtype is None or not delta_col_names:
+        return data
+    cdef Py_ssize_t itemsize = delta_dtype.itemsize
+    cdef Py_ssize_t nrec = len(data) // itemsize
+    if nrec == 0:
+        return data
+    cdef Py_ssize_t used = nrec * itemsize
+    cdef bytes fast = _try_inline_diff(data, delta_dtype, delta_col_names)
+    if fast is not None:
+        if used == len(data):
+            return fast
+        return fast + data[used:]
+    np = _get_np()
+    arr = np.frombuffer(data, dtype=delta_dtype, count=nrec).copy()
+    if nrec > 1:
+        for name in delta_col_names:
+            arr[name][1:] = np.diff(arr[name])
     if used == len(data):
         return arr.tobytes()
     return arr.tobytes() + data[used:]
@@ -850,9 +1075,9 @@ cdef bytes _c_inflate(bytes data):
     cdef libdeflate_decompressor *d = _get_decompressor()
     cdef const unsigned char *in_ptr = <const unsigned char *> data
     cdef Py_ssize_t in_len = len(data)
-    # v2: blocks are up to _BLOCK_MAX_LEN (1 MiB) uncompressed; allocate
-    # one extra byte to make INSUFFICIENT_SPACE detectable distinct from
-    # "exact fit".
+    # Blocks are up to _BLOCK_MAX_LEN bytes uncompressed; allocate one
+    # extra byte to make INSUFFICIENT_SPACE detectable distinct from an
+    # exact fit.
     cdef size_t out_size = _BLOCK_MAX_LEN + 1
     cdef unsigned char *out_buf = <unsigned char *> malloc(out_size)
     cdef size_t actual_out = 0
@@ -906,7 +1131,7 @@ def load_bcz_block(handle, decompress=False):
     magic = handle.read(2)
     if not magic or magic != _block_magic:
         raise StopIteration
-    # v2: block_size is 4-byte little-endian unsigned int (was uint16 in v1).
+    # block_size is 4-byte little-endian unsigned int.
     cdef bytes bs_raw = handle.read(4)
     cdef unsigned long block_size = ((<unsigned char>bs_raw[0])
                                       | ((<unsigned long><unsigned char>bs_raw[1]) << 8)
@@ -2034,3 +2259,101 @@ def c_parse_czix(bytes buf, int n_chunk_dims):
         }
         dim2cs[dims] = start
     return index, dim2cs
+
+
+# ---------------------------------------------------------------------------
+# Tab-separated text parser for allc.tsv-style files (N4)
+# ---------------------------------------------------------------------------
+def c_parse_tab_lines_int(list lines, list cols, int sep_byte=0x09):
+    """Fast parser for tab-separated lines with integer-only target columns.
+
+    Used by `_parse_tabix_lines` when every output column is an integer
+    type. Returns a list of int64 numpy arrays (one per requested column),
+    in the order of `cols`. Caller is responsible for clipping to the
+    final dtype.
+
+    This bypasses pandas.read_csv (which builds a DataFrame and a Python
+    string→int loop on a temporary buffer) and is ~2-3× faster on long
+    line lists composed of small integers.
+
+    `cols` must be sorted ascending (caller's responsibility).
+    """
+    np = _get_np()
+    cdef Py_ssize_t n_lines = len(lines)
+    cdef Py_ssize_t n_cols = len(cols)
+    if n_cols == 0:
+        return []
+    # Allocate output as int64 (caller clips); avoids overflow during parse.
+    out_arrays = [np.empty(n_lines, dtype=np.int64) for _ in range(n_cols)]
+    cdef Py_ssize_t[:] target_cols = np.asarray(cols, dtype=np.intp)
+    cdef Py_ssize_t li, ci
+    cdef long long[::1] _v
+    cdef long long** ptrs = <long long**> malloc(n_cols * sizeof(long long*))
+    if ptrs == NULL:
+        raise MemoryError()
+    for ci in range(n_cols):
+        _v = out_arrays[ci]
+        ptrs[ci] = &_v[0]
+
+    cdef bytes line_b
+    cdef const unsigned char* lp
+    cdef Py_ssize_t llen
+    cdef Py_ssize_t pos
+    cdef Py_ssize_t cur_col
+    cdef Py_ssize_t want_idx
+    cdef Py_ssize_t target_col
+    cdef long long val
+    cdef int neg
+    cdef unsigned char c
+
+    try:
+        for li in range(n_lines):
+            line = lines[li]
+            if isinstance(line, str):
+                line_b = line.encode('ascii')
+            else:
+                line_b = line
+            lp = <const unsigned char*> (<const char*> line_b)
+            llen = len(line_b)
+            pos = 0
+            cur_col = 0
+            want_idx = 0
+            target_col = target_cols[0]
+            while pos < llen and want_idx < n_cols:
+                if cur_col == target_col:
+                    # Parse signed integer at pos until tab or EOL.
+                    val = 0
+                    neg = 0
+                    if pos < llen and lp[pos] == 0x2d:  # '-'
+                        neg = 1
+                        pos += 1
+                    while pos < llen:
+                        c = lp[pos]
+                        if c == sep_byte or c == 0x0a or c == 0x0d:
+                            break
+                        if 0x30 <= c <= 0x39:
+                            val = val * 10 + (c - 0x30)
+                            pos += 1
+                        else:
+                            # Non-numeric content (e.g. context letters): skip rest of field.
+                            val = 0
+                            while pos < llen and lp[pos] != sep_byte and lp[pos] != 0x0a and lp[pos] != 0x0d:
+                                pos += 1
+                            break
+                    ptrs[want_idx][li] = -val if neg else val
+                    want_idx += 1
+                    if want_idx < n_cols:
+                        target_col = target_cols[want_idx]
+                # Skip to next tab or end of line.
+                while pos < llen and lp[pos] != sep_byte and lp[pos] != 0x0a and lp[pos] != 0x0d:
+                    pos += 1
+                if pos < llen and lp[pos] == sep_byte:
+                    pos += 1
+                    cur_col += 1
+            # Fill missing trailing columns with 0.
+            while want_idx < n_cols:
+                ptrs[want_idx][li] = 0
+                want_idx += 1
+    finally:
+        free(ptrs)
+    return out_arrays

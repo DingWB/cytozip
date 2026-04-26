@@ -244,8 +244,8 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         reader1._load_chunk(reader1.chunk_key2offset[dim], jump=False)
         vos = reader1._chunk_block_1st_record_virtual_offsets
         # Records may straddle block boundaries because the catcz writer
-        # uses _block_size = _BLOCK_MAX_LEN = 65535 (which is *not* a
-        # multiple of unit_size for typical mc/cov record sizes). The
+        # uses _block_size = _BLOCK_MAX_LEN (which is *not* a multiple of
+        # unit_size for typical mc/cov record sizes). The
         # ``batch_nblock = nunit_perbatch * unit_nblock`` choice in
         # ``merge_cz`` guarantees that batch boundaries (multiples of
         # ``unit_nblock``) always land on a record boundary, so the

@@ -6,9 +6,15 @@ Runs both tools on every ``*.hisat3n_dna.all_reads.deduped.bam`` under
 and peak-RSS measured by ``/usr/bin/time -f '%e %M'``. Writes:
 
   cytozip_example_data/output/allc/<cell>.allc.tsv.gz       (+ .tbi)
+  cytozip_example_data/output/allc/<cell>.allc.bench.json   (cached metrics)
   cytozip_example_data/output/cz/<cell>.cz
   cytozip_example_data/output/bam_benchmark/bam_benchmark.tsv
   cytozip_example_data/output/bam_benchmark/bam_benchmark.txt
+
+ALLCools output is **cached**: if the ``.allc.tsv.gz`` already exists and a
+sibling ``.allc.bench.json`` records its previous timing/RSS, the ALLCools
+run is skipped and the cached metrics are reused. cytozip ``.cz`` output is
+**always regenerated** so the cz benchmark reflects the current build.
 
 Reference FASTA  : ``~/Ref/mm10/mm10_ucsc_with_chrL.fa``
 Reference .cz    : ``cytozip_example_data/output/mm10_with_chrL.allc.cz``
@@ -16,11 +22,13 @@ Reference .cz    : ``cytozip_example_data/output/mm10_with_chrL.allc.cz``
 
 Usage:
     python tests/benchmark_bam_to_cz.py -j 9
+    python tests/benchmark_bam_to_cz.py -j 9 --redo-allc   # force rerun
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import subprocess
 import sys
@@ -101,18 +109,47 @@ def _ensure_ref_cz(jobs: int) -> None:
                     "-O", str(REF_CZ), "-j", str(jobs)], check=True)
 
 
-def bench_one(bam_path: str) -> dict:
+def bench_one(bam_path: str, redo_allc: bool = False) -> dict:
     bam = Path(bam_path)
     _ensure_index(bam)
     cid = bam.name.split(".hisat3n_dna")[0]
     allc_out = ALLC_DIR / f"{cid}.allc.tsv.gz"
+    allc_tbi = Path(str(allc_out) + ".tbi")
+    allc_bench = ALLC_DIR / f"{cid}.allc.bench.json"
     cz_out = CZ_DIR / f"{cid}.cz"
-    for p in (allc_out, Path(str(allc_out) + ".tbi"), cz_out):
-        if p.exists():
-            p.unlink()
 
-    r_a = _time_child([PY, "-c", _ALLC_CALL.format(
-        bam=str(bam), fa=str(REF_FA), out=str(allc_out))])
+    # ALLCools: reuse cached output + metrics unless --redo-allc.
+    cached = (
+        not redo_allc
+        and allc_out.exists()
+        and allc_tbi.exists()
+        and allc_bench.exists()
+    )
+    if cached:
+        try:
+            r_a = json.loads(allc_bench.read_text())
+            r_a.setdefault("ok", True)
+            r_a.setdefault("stderr_tail", "")
+            r_a["cached"] = True
+        except Exception:
+            cached = False
+    if not cached:
+        for p in (allc_out, allc_tbi, allc_bench):
+            if p.exists():
+                p.unlink()
+        r_a = _time_child([PY, "-c", _ALLC_CALL.format(
+            bam=str(bam), fa=str(REF_FA), out=str(allc_out))])
+        r_a["cached"] = False
+        if r_a["ok"] and allc_out.exists():
+            allc_bench.write_text(json.dumps({
+                "wall_s": r_a["wall_s"],
+                "rss_mb": r_a["rss_mb"],
+                "ok": True,
+            }))
+
+    # cytozip: always regenerate so cz numbers reflect the current build.
+    if cz_out.exists():
+        cz_out.unlink()
     r_c = _time_child([PY, "-c", _CZ_CALL.format(
         bam=str(bam), fa=str(REF_FA), out=str(cz_out), ref=str(REF_CZ))])
 
@@ -129,10 +166,11 @@ def bench_one(bam_path: str) -> dict:
         bam_size_mb=bam.stat().st_size / 1e6,
         n_reads=_count_reads(bam),
         allc_ok=r_a["ok"], allc_wall_s=r_a["wall_s"], allc_rss_mb=r_a["rss_mb"],
+        allc_cached=r_a.get("cached", False),
         allc_size_mb=(allc_out.stat().st_size / 1e6) if allc_out.exists() else 0,
         cz_ok=r_c["ok"], cz_wall_s=r_c["wall_s"], cz_rss_mb=r_c["rss_mb"],
         cz_size_mb=(cz_out.stat().st_size / 1e6) if cz_out.exists() else 0,
-        allc_err=r_a["stderr_tail"], cz_err=r_c["stderr_tail"],
+        allc_err=r_a.get("stderr_tail", ""), cz_err=r_c["stderr_tail"],
     )
 
 
@@ -142,6 +180,9 @@ def main():
                     help="parallel BAMs (each worker uses ~2 CPUs serially)")
     ap.add_argument("--ref_jobs", type=int, default=20,
                     help="number of parallel processes (CPUs) for build_ref if reference .cz is missing")
+    ap.add_argument("--redo-allc", action="store_true",
+                    help="force re-running ALLCools even when cached "
+                         ".allc.tsv.gz + .allc.bench.json already exist")
     args = ap.parse_args()
 
     for d in (ALLC_DIR, CZ_DIR, BENCH):
@@ -158,19 +199,21 @@ def main():
     t0 = time.perf_counter()
     rows = []
     with ProcessPoolExecutor(max_workers=args.jobs) as ex:
-        futs = {ex.submit(bench_one, str(b)): b for b in bams}
+        futs = {ex.submit(bench_one, str(b), args.redo_allc): b for b in bams}
         for i, fut in enumerate(as_completed(futs), 1):
             r = fut.result()
             rows.append(r)
             ok = "OK" if (r["allc_ok"] and r["cz_ok"]) else "FAIL"
+            allc_tag = "(cached)" if r["allc_cached"] else "        "
             print(f"[{i:>2}/{len(bams)}] {ok:4s} {r['cell']:<32}  "
-                  f"allc={r['allc_wall_s']:6.1f}s  cz={r['cz_wall_s']:6.1f}s",
+                  f"allc={r['allc_wall_s']:6.1f}s {allc_tag}  "
+                  f"cz={r['cz_wall_s']:6.1f}s",
                   flush=True)
     print(f"[bench] total wall-clock: {time.perf_counter()-t0:.1f}s")
 
     rows.sort(key=lambda r: r["cell"])
     cols = ["cell", "bam_size_mb", "n_reads",
-            "allc_wall_s", "allc_rss_mb", "allc_size_mb",
+            "allc_wall_s", "allc_rss_mb", "allc_size_mb", "allc_cached",
             "cz_wall_s", "cz_rss_mb", "cz_size_mb"]
     tsv = BENCH / "bam_benchmark.tsv"
     with tsv.open("w", newline="") as f:
@@ -188,6 +231,9 @@ def main():
     tot_ct = sum(r["cz_wall_s"] for r in rows)
     tot_as = sum(r["allc_size_mb"] for r in rows)
     tot_cs = sum(r["cz_size_mb"] for r in rows)
+    max_arss = max((r["allc_rss_mb"] for r in rows), default=0.0)
+    max_crss = max((r["cz_rss_mb"] for r in rows), default=0.0)
+    n_cached = sum(1 for r in rows if r["allc_cached"])
     txt = BENCH / "bam_benchmark.txt"
     txt.write_text(
         "cytozip bam_to_cz  vs  ALLCools bam_to_allc\n"
@@ -195,9 +241,10 @@ def main():
         f"reference FASTA : {REF_FA}\n"
         f"reference .cz   : {REF_CZ}\n"
         f"BAMs            : {len(rows)}   total reads = {tot_reads:,}\n"
+        f"ALLCools cached : {n_cached}/{len(rows)} (timing reused from disk)\n"
         "\n"
-        f"ALLCools : time={tot_at:8.1f} s   size={tot_as:8.1f} MB\n"
-        f"cytozip  : time={tot_ct:8.1f} s   size={tot_cs:8.1f} MB\n"
+        f"ALLCools : time={tot_at:8.1f} s   peak_rss={max_arss:7.1f} MB   size={tot_as:8.1f} MB\n"
+        f"cytozip  : time={tot_ct:8.1f} s   peak_rss={max_crss:7.1f} MB   size={tot_cs:8.1f} MB\n"
         "\n"
         f"speedup (allc / cz time)  = {tot_at / max(tot_ct, 1e-9):5.2f}x\n"
         f"compression (cz / allc)   = {tot_cs / max(tot_as, 1e-9) * 100:5.1f}%\n"

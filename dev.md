@@ -93,14 +93,18 @@ decompressing the first record of candidate blocks during `query`.
 | magic | 2s | 2B | `CC` |
 | chunk_size | `<Q` | 8B | Byte size from chunk start to chunk tail (excludes tail) |
 
-## Block Structure (6B overhead per block)
+## Block Structure (10B overhead per block)
 
 | Field | Type | Size | Description |
 |-------|------|------|-------------|
 | magic | 2s | 2B | `CB` |
-| block_size | `<H` | 2B | compressed_data + 6 |
+| block_size | `<I` | 4B | compressed_data + 10 |
 | compressed_data | bytes | var | Raw DEFLATE (-15 wbits) |
-| raw_len | `<H` | 2B | Uncompressed data length |
+| raw_len | `<I` | 4B | Uncompressed data length |
+
+Maximum uncompressed block size is 256 KiB − 1 (chosen empirically; DEFLATE's
+32 KiB sliding window saturates compression at 256 KiB while keeping per-block
+point queries ~4× faster than 1 MiB blocks).
 
 ## Chunk Tail Structure
 
@@ -108,7 +112,7 @@ decompressing the first record of candidate blocks during `query`.
 |-------|------|------|-------------|
 | data_len | `<Q` | 8B | Total uncompressed bytes |
 | n_blocks | `<Q` | 8B | Number of blocks |
-| virtual_offsets[] | `<Q`×N | 8B×N | `(block_disk_offset << 16) \| within_block_offset` |
+| virtual_offsets[] | `<Q`×N | 8B×N | `(block_disk_offset << 20) \| within_block_offset` (44+20 split) |
 | first_coords[] | fmt×N | k×N | First record's `sort_col` value per block (only if `sort_col != 0xFF`; `k` = size of `sort_col`'s format) |
 | chunk_key_values[] | B+s | var | Dimension value strings |
 
@@ -163,7 +167,7 @@ python -c "from cytozip.cz import Reader"
 
 ## Reference file
 ```shell
-time czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -t 20
+time czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -j 20
 # 0m44.284s
 
 # create a coordinate index for all CG (including forward and reverse strand)
@@ -179,6 +183,35 @@ time czip extract -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -s ~/Ref/mm10
 # about 1m23.855s
 
 # Index files are themselves .cz files — inspect with `czip view -I *.idx.cz --show-keys 0`
+```
+
+## Python API quick start
+
+```python
+import cytozip as cz, pandas as pd
+
+# Write — infer struct formats from DataFrame dtypes, partition by 'chrom'
+df = pd.DataFrame({'chrom': 'chr1', 'pos': [...], 'mc': [...], 'cov': [...]})
+cz.Writer.from_dataframe(df, 'out.cz',
+                         partition_by='chrom',
+                         sort_col='pos',           # column name, not index
+                         delta_cols=['pos'])
+
+# Read — unified open() + Pythonic helpers
+with cz.open('out.cz') as r:
+    print(len(r))                          # total record count
+    print(r.head(5))                       # first 5 records
+    print(list(r.regions()))               # (chunk_key, min_pos, max_pos) per chunk
+    df_chr1 = r.to_pandas(chunk_key=('chr1',))
+    df_regs = r.to_pandas(regions=[(('chr1',), 1000, 2000),
+                                    (('chr2',), 5000, 6000)])
+    with r.region(('chr1',), 1000, 2000) as records:
+        for rec in records:
+            ...
+    with r.region(('chr1',), 1000, 2000, as_numpy=True) as arr:
+        ...                                # structured ndarray, vectorized
+    for rec in r:                          # iterate every record
+        ...
 ```
 
 ## Remote Reading
@@ -353,11 +386,10 @@ vim .nojekyll #create empty file
 cd /home/x-wding2/Projects/Github/cytozip
 pip uninstall -y cytozip && python3 -m pip install .
 rm -rf cytozip_example_data/output/cz
-rm -rf cytozip_example_data/output/allc
+czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O cytozip_example_data/output/mm10_with_chrL.allc.cz -j 20
 python tests/benchmark_bam_to_cz.py  -j 20
-python tests/benchmark_allc_to_cz.py -j 20
 python tests/benchmark_query.py
-nbexe notebooks/2.dnam.ipynb
+# nbexe notebooks/2.dnam.ipynb
 ```
 
 ## Package Rename Candidates
@@ -385,7 +417,7 @@ Strategic to-do list for scaling cytozip into a publication-ready framework supp
 
 ### 2. Format / Algorithm Layer
 
-- [ ] Freeze **CZ format spec v1.0** — publish `docs/spec.md` formalizing the existing `CZIP` magic (4B) + version float (4B) already in the header. Define a policy to actually *use* the version field for backward-compatible reads on future header changes (prior DELTA-encoding addition broke old files — don't repeat).
+- [ ] Freeze the **CZ format spec** — publish `docs/spec.md` formalizing the existing `CZIP` magic (4B) + version float (4B) already in the header. Define a policy to actually *use* the version field for backward-compatible reads on future header changes (prior on-disk changes broke older files — don't repeat).
 - [ ] Add array-data payload: dense matrix block + per-column zstd (TileDB-style tiles).
 - [ ] Implement importers: `idat2cz`, `sesame2cz`, `minfi2cz`.
 - [ ] Extend existing `catcz` output (already: many cells → one `.cz` with shared header + per-cell chunk + `chunk_key2offset` index) with two additions for cohort-scale use:
@@ -429,7 +461,7 @@ Strategic to-do list for scaling cytozip into a publication-ready framework supp
 
 ### 6. High-Level Timeline
 
-1. Freeze spec v1.0 (document existing magic + version fields, define version-bump policy) — ~2 weeks.
+1. Freeze the format spec (document existing magic + version fields, define version-bump policy) — ~2 weeks.
 2. Array support + obs/group-index extension to catcz output — ~1–2 months.
 3. Native `call_dmr` + benchmark — ~1 month.
 4. Portal MVP (FastAPI + S3 range read + one flagship dataset) — ~1–2 months.
