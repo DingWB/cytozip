@@ -493,7 +493,7 @@ def combp(input, outdir="cpv", jobs=24, dist=300, temp=True, bed=False):
                                    (infile, chrom, snames, bed_dir, 5))
             tasks.append(task)
         for task in tasks:
-            r = task.get()
+            task.get()
         pool.close()
         pool.join()
     else:
@@ -519,7 +519,7 @@ def combp(input, outdir="cpv", jobs=24, dist=300, temp=True, bed=False):
                                     None, True))
             tasks.append(task)
     for task in tasks:
-        r = task.get()
+        task.get()
     pool.close()
     pool.join()
 

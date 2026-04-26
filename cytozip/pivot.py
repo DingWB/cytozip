@@ -47,7 +47,7 @@ import math
 import multiprocessing
 from loguru import logger
 
-from .cz import (Reader, Writer, _BLOCK_MAX_LEN, _chunk_magic,
+from .cz import (Reader, Writer, _BLOCK_MAX_LEN,
                  _NP_FMT_MAP, np, pd)
 from .merge import _structured_dtype_for, _bg_rmtree
 

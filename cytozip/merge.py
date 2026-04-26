@@ -21,8 +21,9 @@ import struct
 import math
 from loguru import logger
 import multiprocessing
-from .cz import (Reader, Writer, get_dtfuncs,
-                 _BLOCK_MAX_LEN, _chunk_magic, _NP_FMT_MAP, np, pd)
+from .cz import (Reader, Writer,
+                 _BLOCK_MAX_LEN, _VO_OFFSET_BITS, _VO_OFFSET_MASK,
+                 _chunk_magic, _NP_FMT_MAP, np, pd)
 
 
 # Per-format-char numpy max value (used to clip sums before packing).
@@ -254,7 +255,7 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         # Validate that invariant defensively so a future change that
         # breaks it raises clearly here instead of silently corrupting
         # output.
-        leading_skip = vos[block_idx_start] & 0xFFFF
+        leading_skip = vos[block_idx_start] & _VO_OFFSET_MASK
         if leading_skip != 0:
             reader1.close()
             raise RuntimeError(
@@ -265,7 +266,7 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         # Decompress ``batch_nblock`` blocks and concatenate so records
         # straddling internal block boundaries are reassembled before
         # decode.
-        block_start_offset = vos[block_idx_start] >> 16
+        block_start_offset = vos[block_idx_start] >> _VO_OFFSET_BITS
         buf_parts = []
         for _ in range(batch_nblock):
             reader1._load_block(start_offset=block_start_offset)
@@ -570,7 +571,7 @@ def merge_cz(input=None, class_table=None,
             tasks.append(task)
             block_idx_start += batch_nblock
     for task in tasks:
-        r = task.get()
+        task.get()
     pool.close()
     pool.join()
 
@@ -624,7 +625,7 @@ def merge_cz(input=None, class_table=None,
             delta_phys = cur_phys - shard_payload_start
             vos_app = writer._block_1st_record_virtual_offsets.append
             for vo in reader._chunk_block_1st_record_virtual_offsets:
-                vos_app(((((vo >> 16) + delta_phys)) << 16) | (vo & 0xFFFF))
+                vos_app(((((vo >> _VO_OFFSET_BITS) + delta_phys)) << _VO_OFFSET_BITS) | (vo & _VO_OFFSET_MASK))
             # Raw copy of the compressed-block payload region.
             reader._handle.seek(shard_payload_start)
             remaining = payload_size

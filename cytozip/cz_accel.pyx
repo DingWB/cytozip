@@ -18,17 +18,25 @@ operations that would otherwise be bottlenecks in pure Python:
 All functions are optional: cz.py gracefully falls back to pure-Python
 implementations if this module is not compiled or importable.
 """
+import os
 import struct
 import zlib
 
 from bisect import bisect_right
+
+cimport openmp
+from cython.parallel cimport prange
 
 # ---------------------------------------------------------------------------
 # Constants shared with cz.py (must match exactly).
 # ---------------------------------------------------------------------------
 _block_magic = b"CB"  # 2-byte magic at the start of each compressed block
 
-cdef unsigned long _BLOCK_MAX_LEN = 65535  # max decompressed block size
+# v2 format constants — must match cz.py.
+cdef unsigned long _BLOCK_MAX_LEN = (1 << 20) - 1  # 1 MiB - 1 (was 65535)
+cdef int _VO_OFFSET_BITS = 20                       # was 16 in v1
+cdef unsigned long long _VO_OFFSET_MASK = (1 << 20) - 1  # 0xFFFFF
+cdef Py_ssize_t _BLOCK_HEADER_TRAILER_BYTES = 10    # magic(2)+bsize(4)+data_len(4)
 
 # Module-level Struct cache to avoid re-parsing format strings on every call.
 _struct_cache = {}
@@ -45,27 +53,156 @@ cdef object _get_struct(str fmts):
 cdef bytes _parse_blocks_from_buffer(bytes raw_all):
     """Parse and decompress all BCZ blocks from an in-memory buffer.
 
-    This avoids N seek+read syscalls by processing the pre-read buffer
-    directly. Each block is: magic(2B) + bsize(2B) + deflate_data + data_len(2B).
+    v2 block layout: magic(2B) + bsize(uint32 4B) + deflate(bsize-10) +
+    data_len(uint32 4B).
+
+    Two-phase implementation:
+      Phase 1 (serial): walk block headers, record (deflate_off, deflate_size).
+      Phase 2 (parallel via OpenMP, opt-in): inflate each block into a
+        scratch buffer using a per-thread decompressor.
+      Phase 3 (serial): concatenate scratch buffers into the result bytes.
+
+    Threading is gated by ``CYTOZIP_INFLATE_THREADS`` (default min(4, omp_max));
+    with 0 or 1 threads, or fewer than 2 blocks, the serial path runs.
     """
-    cdef list chunks = []
-    cdef Py_ssize_t offset = 0
     cdef Py_ssize_t total = len(raw_all)
-    cdef unsigned short bsize
+    cdef const unsigned char *base = <const unsigned char *> (<const char *> raw_all)
+    cdef Py_ssize_t offset = 0
+    cdef unsigned long bsize
     cdef Py_ssize_t deflate_size
-    while offset + 4 <= total:
-        # Check block magic 'CB' (0x43, 0x42)
-        if raw_all[offset] != 67 or raw_all[offset + 1] != 66:
+
+    # ---- Phase 1: header scan (serial) --------------------------------
+    cdef Py_ssize_t cap = 16
+    cdef Py_ssize_t n = 0
+    cdef Py_ssize_t *def_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+    cdef Py_ssize_t *def_sz = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+    cdef Py_ssize_t *new_off
+    cdef Py_ssize_t *new_sz
+    if def_off == NULL or def_sz == NULL:
+        if def_off != NULL: free(def_off)
+        if def_sz != NULL: free(def_sz)
+        raise MemoryError()
+    while offset + 6 <= total:
+        if base[offset] != 67 or base[offset + 1] != 66:  # 'C', 'B'
             break
-        bsize = (<unsigned char>raw_all[offset + 2]) | ((<unsigned char>raw_all[offset + 3]) << 8)
-        if offset + bsize > total:
+        bsize = ((<unsigned long> base[offset + 2])
+                 | ((<unsigned long> base[offset + 3]) << 8)
+                 | ((<unsigned long> base[offset + 4]) << 16)
+                 | ((<unsigned long> base[offset + 5]) << 24))
+        if offset + <Py_ssize_t> bsize > total:
             break
-        deflate_size = bsize - 6
-        chunks.append(_c_inflate(raw_all[offset + 4:offset + 4 + deflate_size]))
-        offset += bsize
-    if not chunks:
+        deflate_size = <Py_ssize_t> bsize - _BLOCK_HEADER_TRAILER_BYTES
+        if n == cap:
+            cap *= 2
+            new_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+            new_sz = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+            if new_off == NULL or new_sz == NULL:
+                if new_off != NULL: free(new_off)
+                if new_sz != NULL: free(new_sz)
+                free(def_off); free(def_sz)
+                raise MemoryError()
+            memcpy(new_off, def_off, n * sizeof(Py_ssize_t))
+            memcpy(new_sz, def_sz, n * sizeof(Py_ssize_t))
+            free(def_off); free(def_sz)
+            def_off = new_off
+            def_sz = new_sz
+        def_off[n] = offset + 6
+        def_sz[n] = deflate_size
+        n += 1
+        offset += <Py_ssize_t> bsize
+
+    if n == 0:
+        free(def_off); free(def_sz)
         return b""
-    return b"".join(chunks)
+
+    # ---- Phase 2: parallel inflate ------------------------------------
+    cdef int n_threads = _get_inflate_threads_setting()
+    if n < 2:
+        n_threads = 1
+    cdef size_t out_cap = <size_t> _BLOCK_MAX_LEN + 1
+    cdef Py_ssize_t *act_sz = <Py_ssize_t *> malloc(n * sizeof(Py_ssize_t))
+    cdef unsigned char **out_bufs = <unsigned char **> malloc(n * sizeof(void*))
+    cdef int *ret_codes = <int *> malloc(n * sizeof(int))
+    if act_sz == NULL or out_bufs == NULL or ret_codes == NULL:
+        if act_sz != NULL: free(act_sz)
+        if out_bufs != NULL: free(out_bufs)
+        if ret_codes != NULL: free(ret_codes)
+        free(def_off); free(def_sz)
+        raise MemoryError()
+
+    cdef Py_ssize_t i
+    for i in range(n):
+        out_bufs[i] = NULL
+        act_sz[i] = 0
+        ret_codes[i] = 0
+
+    cdef libdeflate_decompressor *single_d
+    cdef int tid
+    cdef size_t actual_local
+    cdef int rc
+
+    if n_threads > 1:
+        _ensure_thread_decoms(n_threads)
+        with nogil:
+            for i in prange(n, num_threads=n_threads, schedule='static'):
+                tid = openmp.omp_get_thread_num()
+                out_bufs[i] = <unsigned char *> malloc(out_cap)
+                if out_bufs[i] == NULL:
+                    ret_codes[i] = -1
+                else:
+                    actual_local = 0
+                    rc = libdeflate_deflate_decompress(
+                        _ld_thread_decoms[tid],
+                        base + def_off[i], <size_t> def_sz[i],
+                        out_bufs[i], out_cap, &actual_local)
+                    ret_codes[i] = rc
+                    act_sz[i] = <Py_ssize_t> actual_local
+    else:
+        single_d = _get_decompressor()
+        for i in range(n):
+            out_bufs[i] = <unsigned char *> malloc(out_cap)
+            if out_bufs[i] == NULL:
+                ret_codes[i] = -1
+                continue
+            actual_local = 0
+            rc = libdeflate_deflate_decompress(
+                single_d,
+                base + def_off[i], <size_t> def_sz[i],
+                out_bufs[i], out_cap, &actual_local)
+            ret_codes[i] = rc
+            act_sz[i] = <Py_ssize_t> actual_local
+
+    # ---- Phase 3: validate + concat -----------------------------------
+    cdef Py_ssize_t total_out = 0
+    cdef int err_rc = 0
+    cdef Py_ssize_t err_idx = -1
+    for i in range(n):
+        if ret_codes[i] != LIBDEFLATE_SUCCESS:
+            err_rc = ret_codes[i]
+            err_idx = i
+            break
+        total_out += act_sz[i]
+
+    if err_rc != 0:
+        for i in range(n):
+            if out_bufs[i] != NULL:
+                free(out_bufs[i])
+        free(def_off); free(def_sz); free(act_sz); free(out_bufs); free(ret_codes)
+        if err_rc == -1:
+            raise MemoryError("alloc per-block output buffer")
+        raise RuntimeError(
+            f"libdeflate_deflate_decompress failed at block {err_idx}: rc={err_rc}")
+
+    cdef bytes result = PyBytes_FromStringAndSize(NULL, total_out)
+    cdef char *dst = PyBytes_AsString(result)  # mutable while refcount==1
+    cdef Py_ssize_t off2 = 0
+    for i in range(n):
+        if act_sz[i] > 0:
+            memcpy(dst + off2, out_bufs[i], <size_t> act_sz[i])
+            off2 += act_sz[i]
+        free(out_bufs[i])
+    free(def_off); free(def_sz); free(act_sz); free(out_bufs); free(ret_codes)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -114,27 +251,145 @@ cdef inline bytes _apply_delta_bytes(bytes data, object delta_dtype, object delt
 cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, object delta_col_names):
     """Delta-aware variant of _parse_blocks_from_buffer.
 
-    Each block is inflated and immediately delta-decoded before being
-    concatenated, because delta is block-local.
+    Each block is inflated (in parallel when enabled) and delta-decoded
+    serially before concatenation, because delta decode runs Python/numpy
+    code that requires the GIL.
     """
     if delta_dtype is None or not delta_col_names:
         return _parse_blocks_from_buffer(raw_all)
-    cdef list chunks = []
-    cdef Py_ssize_t offset = 0
+
     cdef Py_ssize_t total = len(raw_all)
-    cdef unsigned short bsize
+    cdef const unsigned char *base = <const unsigned char *> (<const char *> raw_all)
+    cdef Py_ssize_t offset = 0
+    cdef unsigned long bsize
     cdef Py_ssize_t deflate_size
+
+    # ---- Phase 1: header scan ----------------------------------------
+    cdef Py_ssize_t cap = 16
+    cdef Py_ssize_t n = 0
+    cdef Py_ssize_t *def_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+    cdef Py_ssize_t *def_sz = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+    cdef Py_ssize_t *new_off
+    cdef Py_ssize_t *new_sz
+    if def_off == NULL or def_sz == NULL:
+        if def_off != NULL: free(def_off)
+        if def_sz != NULL: free(def_sz)
+        raise MemoryError()
+    while offset + 6 <= total:
+        if base[offset] != 67 or base[offset + 1] != 66:
+            break
+        bsize = ((<unsigned long> base[offset + 2])
+                 | ((<unsigned long> base[offset + 3]) << 8)
+                 | ((<unsigned long> base[offset + 4]) << 16)
+                 | ((<unsigned long> base[offset + 5]) << 24))
+        if offset + <Py_ssize_t> bsize > total:
+            break
+        deflate_size = <Py_ssize_t> bsize - _BLOCK_HEADER_TRAILER_BYTES
+        if n == cap:
+            cap *= 2
+            new_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+            new_sz = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+            if new_off == NULL or new_sz == NULL:
+                if new_off != NULL: free(new_off)
+                if new_sz != NULL: free(new_sz)
+                free(def_off); free(def_sz)
+                raise MemoryError()
+            memcpy(new_off, def_off, n * sizeof(Py_ssize_t))
+            memcpy(new_sz, def_sz, n * sizeof(Py_ssize_t))
+            free(def_off); free(def_sz)
+            def_off = new_off
+            def_sz = new_sz
+        def_off[n] = offset + 6
+        def_sz[n] = deflate_size
+        n += 1
+        offset += <Py_ssize_t> bsize
+
+    if n == 0:
+        free(def_off); free(def_sz)
+        return b""
+
+    # ---- Phase 2: parallel inflate -----------------------------------
+    cdef int n_threads = _get_inflate_threads_setting()
+    if n < 2:
+        n_threads = 1
+    cdef size_t out_cap = <size_t> _BLOCK_MAX_LEN + 1
+    cdef Py_ssize_t *act_sz = <Py_ssize_t *> malloc(n * sizeof(Py_ssize_t))
+    cdef unsigned char **out_bufs = <unsigned char **> malloc(n * sizeof(void*))
+    cdef int *ret_codes = <int *> malloc(n * sizeof(int))
+    if act_sz == NULL or out_bufs == NULL or ret_codes == NULL:
+        if act_sz != NULL: free(act_sz)
+        if out_bufs != NULL: free(out_bufs)
+        if ret_codes != NULL: free(ret_codes)
+        free(def_off); free(def_sz)
+        raise MemoryError()
+    cdef Py_ssize_t i
+    for i in range(n):
+        out_bufs[i] = NULL
+        act_sz[i] = 0
+        ret_codes[i] = 0
+
+    cdef libdeflate_decompressor *single_d
+    cdef int tid
+    cdef size_t actual_local
+    cdef int rc
+
+    if n_threads > 1:
+        _ensure_thread_decoms(n_threads)
+        with nogil:
+            for i in prange(n, num_threads=n_threads, schedule='static'):
+                tid = openmp.omp_get_thread_num()
+                out_bufs[i] = <unsigned char *> malloc(out_cap)
+                if out_bufs[i] == NULL:
+                    ret_codes[i] = -1
+                else:
+                    actual_local = 0
+                    rc = libdeflate_deflate_decompress(
+                        _ld_thread_decoms[tid],
+                        base + def_off[i], <size_t> def_sz[i],
+                        out_bufs[i], out_cap, &actual_local)
+                    ret_codes[i] = rc
+                    act_sz[i] = <Py_ssize_t> actual_local
+    else:
+        single_d = _get_decompressor()
+        for i in range(n):
+            out_bufs[i] = <unsigned char *> malloc(out_cap)
+            if out_bufs[i] == NULL:
+                ret_codes[i] = -1
+                continue
+            actual_local = 0
+            rc = libdeflate_deflate_decompress(
+                single_d,
+                base + def_off[i], <size_t> def_sz[i],
+                out_bufs[i], out_cap, &actual_local)
+            ret_codes[i] = rc
+            act_sz[i] = <Py_ssize_t> actual_local
+
+    # Validate inflate phase
+    cdef int err_rc = 0
+    cdef Py_ssize_t err_idx = -1
+    for i in range(n):
+        if ret_codes[i] != LIBDEFLATE_SUCCESS:
+            err_rc = ret_codes[i]
+            err_idx = i
+            break
+    if err_rc != 0:
+        for i in range(n):
+            if out_bufs[i] != NULL:
+                free(out_bufs[i])
+        free(def_off); free(def_sz); free(act_sz); free(out_bufs); free(ret_codes)
+        if err_rc == -1:
+            raise MemoryError("alloc per-block output buffer")
+        raise RuntimeError(
+            f"libdeflate_deflate_decompress failed at block {err_idx}: rc={err_rc}")
+
+    # ---- Phase 3: delta-decode + concat (serial, GIL) ----------------
+    cdef list chunks = []
     cdef bytes blk
-    while offset + 4 <= total:
-        if raw_all[offset] != 67 or raw_all[offset + 1] != 66:
-            break
-        bsize = (<unsigned char>raw_all[offset + 2]) | ((<unsigned char>raw_all[offset + 3]) << 8)
-        if offset + bsize > total:
-            break
-        deflate_size = bsize - 6
-        blk = _c_inflate(raw_all[offset + 4:offset + 4 + deflate_size])
+    for i in range(n):
+        blk = PyBytes_FromStringAndSize(<char *> out_bufs[i], act_sz[i])
+        free(out_bufs[i])
         chunks.append(_apply_delta_bytes(blk, delta_dtype, delta_col_names))
-        offset += bsize
+    free(def_off); free(def_sz); free(act_sz); free(out_bufs); free(ret_codes)
     if not chunks:
         return b""
     return b"".join(chunks)
@@ -177,18 +432,18 @@ cdef extern from "libdeflate.h":
     int libdeflate_deflate_decompress(libdeflate_decompressor *d,
                                       const void *in_, size_t in_nbytes,
                                       void *out, size_t out_nbytes_avail,
-                                      size_t *actual_out_nbytes_ret)
+                                      size_t *actual_out_nbytes_ret) nogil
 
     libdeflate_compressor *libdeflate_alloc_compressor(int compression_level)
     void libdeflate_free_compressor(libdeflate_compressor *c)
-    size_t libdeflate_deflate_compress_bound(libdeflate_compressor *c, size_t in_nbytes)
+    size_t libdeflate_deflate_compress_bound(libdeflate_compressor *c, size_t in_nbytes) nogil
     size_t libdeflate_deflate_compress(libdeflate_compressor *c,
                                        const void *in_, size_t in_nbytes,
-                                       void *out, size_t out_nbytes_avail)
+                                       void *out, size_t out_nbytes_avail) nogil
 
 
 from cpython.bytearray cimport PyByteArray_FromStringAndSize, PyByteArray_AsString
-from cpython.bytes cimport PyBytes_FromStringAndSize
+from cpython.bytes cimport PyBytes_FromStringAndSize, PyBytes_AsString
 from libc.string cimport memset, memcpy
 from libc.stdlib cimport malloc, free
 
@@ -211,6 +466,69 @@ cdef libdeflate_decompressor *_get_decompressor() except NULL:
     return _ld_decompressor
 
 
+# ---------------------------------------------------------------------------
+# Per-thread decompressor pool for multi-threaded inflate.
+#
+# libdeflate decompressors are NOT thread-safe (each holds a working
+# state buffer that gets mutated during decompress). For OpenMP-parallel
+# block inflation we keep one decompressor per OpenMP thread slot.
+# Allocated lazily; never freed until process exit.
+# ---------------------------------------------------------------------------
+cdef libdeflate_decompressor **_ld_thread_decoms = NULL
+cdef int _ld_thread_decoms_n = 0
+cdef int _inflate_threads_cached = 0  # 0 = uninitialized; 1 = serial; >1 = parallel
+
+
+cdef int _get_inflate_threads_setting():
+    """Return desired number of inflate threads (cached after first call)."""
+    global _inflate_threads_cached
+    if _inflate_threads_cached != 0:
+        return _inflate_threads_cached
+    cdef int n = 0
+    env = os.environ.get("CYTOZIP_INFLATE_THREADS")
+    if env is not None:
+        try:
+            n = int(env)
+        except (TypeError, ValueError):
+            n = 0
+    if n <= 0:
+        # Default: cap at 4 to avoid oversubscription on shared nodes.
+        omp_max = openmp.omp_get_max_threads()
+        n = omp_max if omp_max < 4 else 4
+    if n < 1:
+        n = 1
+    _inflate_threads_cached = n
+    return n
+
+
+cdef int _ensure_thread_decoms(int n_threads) except -1:
+    """Ensure the per-thread decompressor pool has at least *n_threads* slots."""
+    global _ld_thread_decoms, _ld_thread_decoms_n
+    cdef int i
+    cdef libdeflate_decompressor **new_arr
+    if n_threads <= _ld_thread_decoms_n:
+        return 0
+    new_arr = <libdeflate_decompressor **> malloc(n_threads * sizeof(void*))
+    if new_arr == NULL:
+        raise MemoryError("alloc thread decompressor array")
+    for i in range(_ld_thread_decoms_n):
+        new_arr[i] = _ld_thread_decoms[i]
+    for i in range(_ld_thread_decoms_n, n_threads):
+        new_arr[i] = libdeflate_alloc_decompressor()
+        if new_arr[i] == NULL:
+            # Free anything we just allocated, restore old state.
+            for j in range(_ld_thread_decoms_n, i):
+                libdeflate_free_decompressor(new_arr[j])
+            free(new_arr)
+            raise MemoryError("libdeflate_alloc_decompressor failed (per-thread)")
+    if _ld_thread_decoms != NULL:
+        free(_ld_thread_decoms)
+    _ld_thread_decoms = new_arr
+    _ld_thread_decoms_n = n_threads
+    return 0
+
+
+
 cdef libdeflate_compressor *_get_compressor(int level) except NULL:
     global _ld_compressors
     if level < 0 or level > 12:
@@ -226,6 +544,211 @@ cdef libdeflate_compressor *_get_compressor(int level) except NULL:
 cdef int _i
 for _i in range(13):
     _ld_compressors[_i] = NULL
+
+
+# ---------------------------------------------------------------------------
+# Per-thread compressor pool for multi-threaded deflate.
+# Indexed by [level][thread_id]. Lazily allocated.
+# ---------------------------------------------------------------------------
+cdef libdeflate_compressor **_ld_thread_comps[13]
+cdef int _ld_thread_comps_n = 0
+cdef int _deflate_threads_cached = 0  # 0 = uninitialized; >=1 = chosen value
+
+# Initialize per-thread compressor slot array.
+for _i in range(13):
+    _ld_thread_comps[_i] = NULL
+
+
+cdef int _get_deflate_threads_setting():
+    """Return desired number of deflate threads (cached after first call)."""
+    global _deflate_threads_cached
+    if _deflate_threads_cached != 0:
+        return _deflate_threads_cached
+    cdef int n = 0
+    env = os.environ.get("CYTOZIP_DEFLATE_THREADS")
+    if env is not None:
+        try:
+            n = int(env)
+        except (TypeError, ValueError):
+            n = 0
+    if n <= 0:
+        # Default: cap at 4 to avoid oversubscription on shared nodes.
+        omp_max = openmp.omp_get_max_threads()
+        n = omp_max if omp_max < 4 else 4
+    if n < 1:
+        n = 1
+    _deflate_threads_cached = n
+    return n
+
+
+cdef int _ensure_thread_comps(int level, int n_threads) except -1:
+    """Ensure the per-thread compressor pool for *level* has at least
+    *n_threads* slots."""
+    global _ld_thread_comps, _ld_thread_comps_n
+    cdef int i, j
+    cdef libdeflate_compressor **new_arr
+    if level < 0 or level > 12:
+        level = 6
+    # First-time grow: allocate slot array up to n_threads for this level.
+    if _ld_thread_comps[level] == NULL or n_threads > _ld_thread_comps_n:
+        new_arr = <libdeflate_compressor **> malloc(n_threads * sizeof(void*))
+        if new_arr == NULL:
+            raise MemoryError("alloc thread compressor array")
+        # Copy existing pointers (if any) for this level.
+        for i in range(_ld_thread_comps_n):
+            if _ld_thread_comps[level] != NULL:
+                new_arr[i] = _ld_thread_comps[level][i]
+            else:
+                new_arr[i] = NULL
+        # Allocate any new slots.
+        for i in range(_ld_thread_comps_n, n_threads):
+            new_arr[i] = libdeflate_alloc_compressor(level)
+            if new_arr[i] == NULL:
+                for j in range(_ld_thread_comps_n, i):
+                    libdeflate_free_compressor(new_arr[j])
+                free(new_arr)
+                raise MemoryError(
+                    f"libdeflate_alloc_compressor(level={level}) failed")
+        if _ld_thread_comps[level] != NULL:
+            free(_ld_thread_comps[level])
+        _ld_thread_comps[level] = new_arr
+        # Track the largest pool size across levels.
+        if n_threads > _ld_thread_comps_n:
+            _ld_thread_comps_n = n_threads
+    else:
+        # Already large enough, but this level's slots may be NULL if a
+        # previous call used a different level. Fill in any NULL entries.
+        for i in range(n_threads):
+            if _ld_thread_comps[level][i] == NULL:
+                _ld_thread_comps[level][i] = libdeflate_alloc_compressor(level)
+                if _ld_thread_comps[level][i] == NULL:
+                    raise MemoryError(
+                        f"libdeflate_alloc_compressor(level={level}) failed")
+    return 0
+
+
+def c_compress_blocks_parallel(blocks, level=6):
+    """Compress a list of bytes objects in parallel via libdeflate + OpenMP.
+
+    Each input block is compressed independently using a per-thread
+    compressor instance (libdeflate compressors are not thread-safe).
+
+    Parameters
+    ----------
+    blocks : list of bytes
+        Block payloads to compress.
+    level : int
+        Compression level (1-12).
+
+    Returns
+    -------
+    list of bytes
+        Same length as *blocks*; element i is raw DEFLATE of blocks[i].
+    """
+    cdef int lvl = int(level)
+    if lvl < 0 or lvl > 12:
+        lvl = 6
+    cdef Py_ssize_t n = len(blocks)
+    if n == 0:
+        return []
+
+    cdef int n_threads = _get_deflate_threads_setting()
+    if n < 2:
+        n_threads = 1
+
+    # Convert input list to C arrays of (ptr, len). Holding a ref via
+    # py_blocks keeps the input bytes objects alive throughout.
+    cdef list py_blocks = list(blocks)
+    cdef const unsigned char **in_ptrs = <const unsigned char **> malloc(
+        n * sizeof(void*))
+    cdef Py_ssize_t *in_lens = <Py_ssize_t *> malloc(n * sizeof(Py_ssize_t))
+    cdef unsigned char **out_bufs = <unsigned char **> malloc(n * sizeof(void*))
+    cdef size_t *out_caps = <size_t *> malloc(n * sizeof(size_t))
+    cdef size_t *out_actual = <size_t *> malloc(n * sizeof(size_t))
+    cdef int *err_codes = <int *> malloc(n * sizeof(int))
+    if (in_ptrs == NULL or in_lens == NULL or out_bufs == NULL
+            or out_caps == NULL or out_actual == NULL or err_codes == NULL):
+        if in_ptrs != NULL: free(in_ptrs)
+        if in_lens != NULL: free(in_lens)
+        if out_bufs != NULL: free(out_bufs)
+        if out_caps != NULL: free(out_caps)
+        if out_actual != NULL: free(out_actual)
+        if err_codes != NULL: free(err_codes)
+        raise MemoryError()
+
+    cdef Py_ssize_t i
+    cdef bytes b
+    cdef libdeflate_compressor *single_c
+    # Compute bounds and allocate per-block output buffers (serial, GIL).
+    # Use the level-0 compressor (or any pre-allocated one) to compute
+    # bounds — bound is the same regardless of level.
+    single_c = _get_compressor(lvl)
+    for i in range(n):
+        b = py_blocks[i]
+        in_ptrs[i] = <const unsigned char *> (<const char *> b)
+        in_lens[i] = len(b)
+        out_caps[i] = libdeflate_deflate_compress_bound(single_c, <size_t> in_lens[i])
+        out_bufs[i] = <unsigned char *> malloc(out_caps[i])
+        out_actual[i] = 0
+        err_codes[i] = 0
+        if out_bufs[i] == NULL:
+            err_codes[i] = -1
+
+    cdef int tid
+    cdef size_t actual_local
+    cdef libdeflate_compressor **comps_for_level
+
+    if n_threads > 1:
+        _ensure_thread_comps(lvl, n_threads)
+        comps_for_level = _ld_thread_comps[lvl]
+        with nogil:
+            for i in prange(n, num_threads=n_threads, schedule='static'):
+                if err_codes[i] == 0:
+                    actual_local = libdeflate_deflate_compress(
+                        comps_for_level[openmp.omp_get_thread_num()],
+                        in_ptrs[i], <size_t> in_lens[i],
+                        out_bufs[i], out_caps[i])
+                    out_actual[i] = actual_local
+                    if actual_local == 0:
+                        err_codes[i] = -2
+    else:
+        for i in range(n):
+            if err_codes[i] == 0:
+                actual_local = libdeflate_deflate_compress(
+                    single_c,
+                    in_ptrs[i], <size_t> in_lens[i],
+                    out_bufs[i], out_caps[i])
+                out_actual[i] = actual_local
+                if actual_local == 0:
+                    err_codes[i] = -2
+
+    # Validate; build result list.
+    cdef list result = [None] * n
+    cdef int err_rc = 0
+    cdef Py_ssize_t err_idx = -1
+    for i in range(n):
+        if err_codes[i] != 0:
+            err_rc = err_codes[i]
+            err_idx = i
+            break
+    if err_rc != 0:
+        for i in range(n):
+            if out_bufs[i] != NULL:
+                free(out_bufs[i])
+        free(in_ptrs); free(in_lens); free(out_bufs)
+        free(out_caps); free(out_actual); free(err_codes)
+        if err_rc == -1:
+            raise MemoryError("alloc per-block compress output buffer")
+        raise RuntimeError(
+            f"libdeflate_deflate_compress failed at block {err_idx}: rc={err_rc}")
+
+    for i in range(n):
+        result[i] = PyBytes_FromStringAndSize(
+            <char *> out_bufs[i], <Py_ssize_t> out_actual[i])
+        free(out_bufs[i])
+    free(in_ptrs); free(in_lens); free(out_bufs)
+    free(out_caps); free(out_actual); free(err_codes)
+    return result
 
 
 def c_inflate_bytes(data):
@@ -327,7 +850,10 @@ cdef bytes _c_inflate(bytes data):
     cdef libdeflate_decompressor *d = _get_decompressor()
     cdef const unsigned char *in_ptr = <const unsigned char *> data
     cdef Py_ssize_t in_len = len(data)
-    cdef size_t out_size = 65536  # blocks are at most 65535 bytes uncompressed
+    # v2: blocks are up to _BLOCK_MAX_LEN (1 MiB) uncompressed; allocate
+    # one extra byte to make INSUFFICIENT_SPACE detectable distinct from
+    # "exact fit".
+    cdef size_t out_size = _BLOCK_MAX_LEN + 1
     cdef unsigned char *out_buf = <unsigned char *> malloc(out_size)
     cdef size_t actual_out = 0
     cdef int ret
@@ -380,24 +906,29 @@ def load_bcz_block(handle, decompress=False):
     magic = handle.read(2)
     if not magic or magic != _block_magic:
         raise StopIteration
-    # Read block_size as 2-byte little-endian unsigned short directly,
-    # avoiding struct.unpack overhead on this hot path.
-    cdef bytes bs_raw = handle.read(2)
-    cdef unsigned short block_size = (<unsigned char>bs_raw[0]) | ((<unsigned char>bs_raw[1]) << 8)
-    cdef Py_ssize_t deflate_size = block_size - 6
+    # v2: block_size is 4-byte little-endian unsigned int (was uint16 in v1).
+    cdef bytes bs_raw = handle.read(4)
+    cdef unsigned long block_size = ((<unsigned char>bs_raw[0])
+                                      | ((<unsigned long><unsigned char>bs_raw[1]) << 8)
+                                      | ((<unsigned long><unsigned char>bs_raw[2]) << 16)
+                                      | ((<unsigned long><unsigned char>bs_raw[3]) << 24))
+    cdef Py_ssize_t deflate_size = block_size - _BLOCK_HEADER_TRAILER_BYTES
     cdef bytes dl_raw
-    cdef unsigned short data_len
+    cdef unsigned long data_len
     if decompress:
         raw = handle.read(deflate_size)
         data = _c_inflate(raw)
-        # skip the trailing uncompressed length field
-        handle.read(2)
+        # skip the trailing uncompressed length field (uint32, 4 bytes)
+        handle.read(4)
         return block_size, data
     else:
-        # seek forward deflate data and read trailing uncompressed length
-        handle.seek(deflate_size, 1) # skip the compressed data.
-        dl_raw = handle.read(2)
-        data_len = (<unsigned char>dl_raw[0]) | ((<unsigned char>dl_raw[1]) << 8)
+        # seek forward over deflate data and read trailing uncompressed length
+        handle.seek(deflate_size, 1)
+        dl_raw = handle.read(4)
+        data_len = ((<unsigned char>dl_raw[0])
+                    | ((<unsigned long><unsigned char>dl_raw[1]) << 8)
+                    | ((<unsigned long><unsigned char>dl_raw[2]) << 16)
+                    | ((<unsigned long><unsigned char>dl_raw[3]) << 24))
         return block_size, data_len
 
 
@@ -593,8 +1124,8 @@ def c_pos2id(handle, block_virtual_offsets, fmts, unit_size, positions,
                 handle, block_offsets, unpack_from, unit_size, col_to_query, start,
                 start_block_index, nblocks)
         vo = block_offsets[start_block_index]
-        block_start = vo >> 16
-        within = vo & 0xFFFF
+        block_start = vo >> _VO_OFFSET_BITS
+        within = vo & _VO_OFFSET_MASK
         handle.seek(block_start)
         try:
             block_size_data = load_bcz_block(handle, True)
@@ -706,8 +1237,8 @@ def _read_block_first_value(handle, unsigned long vo, object unpack_from, Py_ssi
 
     Returns None if the block cannot be read.
     """
-    cdef unsigned long block_start = vo >> 16
-    cdef unsigned long within = vo & 0xFFFF
+    cdef unsigned long block_start = vo >> _VO_OFFSET_BITS
+    cdef unsigned long within = vo & _VO_OFFSET_MASK
     handle.seek(block_start)
     try:
         block_size_data = load_bcz_block(handle, True)
@@ -757,8 +1288,8 @@ def c_block_first_values(handle, block_virtual_offsets, fmts, unit_size, s):
     cdef object st = _get_struct(fmts)
     unpack_from = st.unpack_from
     for vo in block_virtual_offsets:
-        block_start = vo >> 16
-        within = vo & 0xFFFF
+        block_start = vo >> _VO_OFFSET_BITS
+        within = vo & _VO_OFFSET_MASK
         handle.seek(block_start)
         try:
             block_size_data = load_bcz_block(handle, True)
@@ -817,8 +1348,8 @@ def c_seek_and_read_1record(handle, virtual_offset, fmts, unit_size,
     Each loaded block is delta-decoded when ``delta_dtype``/``delta_col_names``
     are supplied.
     """
-    start = virtual_offset >> 16
-    within = virtual_offset & 0xFFFF
+    start = virtual_offset >> _VO_OFFSET_BITS
+    within = virtual_offset & _VO_OFFSET_MASK
     handle.seek(start)
     cdef object st = _get_struct(fmts)
     try:
@@ -902,8 +1433,8 @@ def c_query_regions(handle, block_virtual_offsets, fmts, unit_size, regions, s, 
                 handle, block_offsets, unpack_from, unit_size, s, start,
                 start_block_index, nblocks)
         vo = block_offsets[start_block_index]
-        block_start = vo >> 16
-        within = vo & 0xFFFF
+        block_start = vo >> _VO_OFFSET_BITS
+        within = vo & _VO_OFFSET_MASK
         handle.seek(block_start)
         try:
             block_size_data = load_bcz_block(handle, True)
@@ -1008,8 +1539,8 @@ def c_query_regions_flat(handle, block_virtual_offsets, fmts, unit_size,
             handle, block_offsets, unpack_from, unit_size, s, start,
             0, nblocks)
     vo = block_offsets[start_block_index]
-    block_start = vo >> 16
-    within = vo & 0xFFFF
+    block_start = vo >> _VO_OFFSET_BITS
+    within = vo & _VO_OFFSET_MASK
     handle.seek(block_start)
     try:
         block_size_data = load_bcz_block(handle, True)
@@ -1092,7 +1623,7 @@ def c_fetch_chunk(handle, chunk_start_offset_plus10, block_virtual_offsets, fmts
     cdef list block_offsets = list(block_virtual_offsets)
     if not block_offsets:
         return b""
-    cdef unsigned long first_block_start = block_offsets[0] >> 16
+    cdef unsigned long first_block_start = block_offsets[0] >> _VO_OFFSET_BITS
     handle.seek(first_block_start)
     # Bulk I/O path: read all compressed block data in one syscall
     if chunk_compressed_size is not None and chunk_compressed_size > 0:
@@ -1145,7 +1676,7 @@ def c_get_records_by_ids(handle, chunk_block_virtual_offsets, unit_size, IDs,
         idx = ((ID - 1) * unit_size) // effective_block
         within = ((ID - 1) * unit_size) % effective_block
         vo = chunk_block_virtual_offsets[idx]
-        block_start = vo >> 16
+        block_start = vo >> _VO_OFFSET_BITS
         if block_start != current_block_start:
             handle.seek(block_start)
             try:

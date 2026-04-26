@@ -23,6 +23,8 @@ import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# Prefer the in-repo cytozip over any pip-installed copy in site-packages.
+sys.path.insert(0, str(REPO_ROOT))
 DATA = REPO_ROOT / "cytozip_example_data"
 OUT = DATA / "output"
 ALLC_DIR = OUT / "allc"
@@ -121,14 +123,29 @@ def main():
             chunk_key=REGION["chrom"],
             start=REGION["start"], end=REGION["end"],
             reference=str(REF_CZ), printout=False)))
-        reader.close()
         rows.append(dict(cell=cid, tool=f"cytozip Reader.query() (warm avg/{NQ})",
                          time_s=t_cz, peak_rss_mb=float("nan"), n=cz_n))
 
-        print(f"[bench] {cid}  tabix={rows[-4]['time_s']:.3f}s  "
-              f"czip_cli={rows[-3]['time_s']:.3f}s  "
+        # 5) cytozip Reader.query_numpy() (warm — vectorized, returns ndarray)
+        # Prime the chunk caches once, then time pure searchsorted hot path.
+        qn_arr = reader.query_numpy(
+            chunk_key=REGION["chrom"],
+            start=REGION["start"], end=REGION["end"],
+            reference=str(REF_CZ))
+        qn_n = 0 if qn_arr is None else len(qn_arr)
+        t_qn = _warm_time(lambda: reader.query_numpy(
+            chunk_key=REGION["chrom"],
+            start=REGION["start"], end=REGION["end"],
+            reference=str(REF_CZ)))
+        reader.close()
+        rows.append(dict(cell=cid, tool=f"cytozip Reader.query_numpy() (warm avg/{NQ})",
+                         time_s=t_qn, peak_rss_mb=float("nan"), n=qn_n))
+
+        print(f"[bench] {cid}  tabix={rows[-5]['time_s']:.3f}s  "
+              f"czip_cli={rows[-4]['time_s']:.3f}s  "
               f"pytabix_warm={t_tb*1e3:.2f}ms  "
-              f"czip_warm={t_cz*1e3:.2f}ms")
+              f"czip_warm={t_cz*1e3:.2f}ms  "
+              f"qnumpy_warm={t_qn*1e6:.1f}us")
 
     tsv = BENCH / "query_benchmark.tsv"
     with tsv.open("w", newline="") as f:

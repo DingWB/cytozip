@@ -32,7 +32,21 @@ setup(
     author_email="ding.wu.bin.gm@gmail.com",
     url="https://github.com/DingWB/cytozip",
     packages=find_packages(exclude=('docs',)),
-    install_requires=['pandas', 'numpy', 'cython', 'pysam','fast-fisher','loguru'],
+    install_requires=['pandas', 'numpy', 'loguru'],
+    extras_require={
+        # Heavy/optional dependencies, opted in by feature group:
+        #   pip install cytozip[allc]   # bgzip, BAM, allc IO via pysam
+        #   pip install cytozip[stats]  # DMR fisher-exact tests
+        #   pip install cytozip[cloud]  # remote S3/GCS/Azure/HF reading
+        #   pip install cytozip[anndata]# cz_to_anndata helper
+        #   pip install cytozip[all]    # everything
+        'allc': ['pysam'],
+        'stats': ['fast-fisher'],
+        'cloud': ['fsspec', 's3fs', 'gcsfs', 'requests'],
+        'anndata': ['anndata', 'scipy'],
+        'all': ['pysam', 'fast-fisher', 'fsspec', 's3fs', 'gcsfs',
+                'requests', 'anndata', 'scipy'],
+    },
     include_package_data=True,
     package_data={
         '': ['*.txt', '*.tsv', '*.csv', '*.fa', '*Snakefile', '*ipynb']
@@ -54,7 +68,9 @@ setup(
                     "-Wno-unused-result",
                     "-Wno-sign-compare",
                     "-O3",
+                    "-fopenmp",
                 ],
+                extra_link_args=["-fopenmp"], # for multiple threads in cython.
                 libraries=["deflate"],
                 # Pick up libdeflate from the active conda/virtual env first,
                 # then fall back to system paths. Build-time: compile error

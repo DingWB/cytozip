@@ -22,14 +22,12 @@ Sibling modules:
 
 @author: DingWB
 """
-import itertools
 import os
-import sys
 import struct
 import multiprocessing
 from loguru import logger
 from .cz import (Reader, Writer, get_dtfuncs,
-                 _STRUCT_TO_NP_DTYPE, _fmt_to_np_dtype,
+                 _fmt_to_np_dtype,
                  _all_numeric_formats, _pack_chunk_data,
                  _write_np_chunks, _parse_tabix_lines,
                  _isCG, _isForwardCG, _isCH,
@@ -259,7 +257,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
         return
     allc_path = os.path.abspath(os.path.expanduser(input))
     if not os.path.exists(allc_path + '.tbi'):
-        raise ValueError(f"index file .tbi not existed, please create index first.")
+        raise ValueError("index file .tbi not existed, please create index first.")
     logger.info(allc_path)
     import pysam
     tbi = pysam.TabixFile(allc_path)

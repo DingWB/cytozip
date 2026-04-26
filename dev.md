@@ -351,6 +351,7 @@ vim .nojekyll #create empty file
 ## Run test & notebooks
 ```shell
 cd /home/x-wding2/Projects/Github/cytozip
+pip uninstall -y cytozip && python3 -m pip install .
 rm -rf cytozip_example_data/output/cz
 rm -rf cytozip_example_data/output/allc
 python tests/benchmark_bam_to_cz.py  -j 20

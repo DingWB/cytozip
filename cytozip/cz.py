@@ -37,6 +37,7 @@ import os, sys
 import struct
 import zlib
 import bisect
+import collections
 import mmap
 from builtins import open as _open
 import gzip
@@ -70,7 +71,20 @@ pd = _LazyModule('pandas', 'pd')
 _cz_magic = b'CZIP'              # 4-byte file magic identifying a .cz file
 _block_magic = b"CB"              # 2-byte magic at the start of each block
 _chunk_magic = b"CC"              # 2-byte magic at the start of each chunk
-_BLOCK_MAX_LEN = 65535            # Maximum uncompressed block size (2^16 - 1)
+# new format: 1 MiB blocks (was 64 KiB in previous version). Larger blocks improve
+# DEFLATE ratio by ~5-10% on biological repeats and reduce inflate-call
+# count by ~16x. The hard upper bound is fixed by the within-block
+# offset width in virtual offsets (see _VO_OFFSET_BITS below).
+_BLOCK_MAX_LEN = (1 << 20) - 1    # 1 MiB - 1 (fits 20 bits); 1 << 20  = 0b100000000000000000000; (1 << 20) - 1 = 0b11111111111111111111   (20 b'1's)
+# Virtual offset packing: high bits = file position, low bits = byte
+# offset within decompressed block. v2 uses 44 + 20 (was 48 + 16 in v1)
+# so blocks can grow up to 1 MiB while files can still reach 16 TiB.
+_VO_OFFSET_BITS = 20
+_VO_OFFSET_MASK = (1 << _VO_OFFSET_BITS) - 1  # 0xFFFFF
+# v2 block header layout: magic(2) + bsize(uint32) + deflate(bsize-10)
+# + data_len(uint32). The 4-byte size fields permit blocks up to 4 GiB
+# in principle (we cap at _BLOCK_MAX_LEN+a bit for safety).
+_BLOCK_HEADER_TRAILER_BYTES = 10  # magic(2) + bsize(4) + data_len(4)
 # 28-byte BGZF-style EOF marker written at the end of every .cz file.
 _cz_eof = b"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00CZ\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 _chunk_index_magic = b"CZIX"      # 4-byte magic for the chunk index section
@@ -117,6 +131,7 @@ def _build_record_dtype(formats):
 # Using Struct.unpack/pack avoids re-parsing the format string on every call.
 _struct_B = struct.Struct("<B")   # unsigned byte
 _struct_H = struct.Struct("<H")   # unsigned short
+_struct_I = struct.Struct("<I")   # unsigned int (4 bytes; v2 block sizes)
 _struct_Q = struct.Struct("<Q")   # unsigned long long
 _struct_f = struct.Struct("<f")   # float
 _struct_4s = struct.Struct("<4s") # 4-byte string (magic)
@@ -144,6 +159,7 @@ except Exception:
 _CZ_ACCEL_LOADED = False
 _c_load_bcz_block = None
 _c_compress_block = None
+_c_compress_blocks_parallel = None
 _c_unpack_records = None
 _c_read = None
 _c_readline = None
@@ -182,6 +198,7 @@ def _ensure_cz_accel():
 	g = globals()
 	g['_c_load_bcz_block'] = getattr(_a, 'load_bcz_block', None)
 	g['_c_compress_block'] = getattr(_a, 'compress_block', None)
+	g['_c_compress_blocks_parallel'] = getattr(_a, 'c_compress_blocks_parallel', None)
 	g['_c_unpack_records'] = getattr(_a, 'unpack_records', None)
 	# Rebind the public dispatcher so callers transparently use the
 	# Cython implementation. Without this the module-level binding
@@ -197,7 +214,6 @@ def _ensure_cz_accel():
 		'c_extract_c_positions', 'c_write_c_records', 'c_parse_czix',
 	):
 		g['_' + _n] = getattr(_a, _n, None)
-	_c_parse_czix = None
 
 def dtype_func(fmt_char):
 	"""Return a type-casting function for a given struct format character.
@@ -255,26 +271,29 @@ def get_dtfuncs(formats, tobytes=True):
 def make_virtual_offset(block_start_offset, within_block_offset):
 	"""Encode a (block_start, within_block) pair into a 64-bit virtual offset.
 
-	The upper 48 bits store the physical file offset of the compressed
-	block; the lower 16 bits store the byte offset within the *decompressed*
-	block data.  This scheme is the same as BGZF virtual offsets.
+	v2 layout: high (64 - _VO_OFFSET_BITS) bits hold the physical file
+	offset of the compressed block; low ``_VO_OFFSET_BITS`` bits hold the
+	byte offset within the *decompressed* block data.  Default is 44+20
+	(allows files up to 16 TiB and blocks up to 1 MiB).
 	"""
-	if within_block_offset < 0 or within_block_offset >= _BLOCK_MAX_LEN:
+	if within_block_offset < 0 or within_block_offset > _VO_OFFSET_MASK:
 		raise ValueError(
-			"Require 0 <= within_block_offset < 2**16, got %i" % within_block_offset
+			"Require 0 <= within_block_offset <= 2**%i-1, got %i" % (
+				_VO_OFFSET_BITS, within_block_offset)
 		)
-	if block_start_offset < 0 or block_start_offset >= 2 ** 48:
+	if block_start_offset < 0 or block_start_offset >= (1 << (64 - _VO_OFFSET_BITS)):
 		raise ValueError(
-			"Require 0 <= block_start_offset < 2**48, got %i" % block_start_offset
+			"Require 0 <= block_start_offset < 2**%i, got %i" % (
+				64 - _VO_OFFSET_BITS, block_start_offset)
 		)
-	return (block_start_offset << 16) | within_block_offset
+	return (block_start_offset << _VO_OFFSET_BITS) | within_block_offset
 
 
 # ==========================================================
 def split_virtual_offset(virtual_offset):
 	"""Decode a 64-bit virtual offset into (block_start_offset, within_block_offset)."""
-	start = virtual_offset >> 16
-	return start, virtual_offset ^ (start << 16)
+	start = virtual_offset >> _VO_OFFSET_BITS
+	return start, virtual_offset & _VO_OFFSET_MASK
 
 
 # ==========================================================
@@ -309,8 +328,9 @@ def SummaryBczBlocks(handle):
 def _py_load_bcz_block(handle, decompress=False):
 	"""Pure-Python fallback for reading a single BCZ block from *handle*.
 
-	Block layout on disk:
-	  [magic 2B] [block_size 2B] [deflate_data (block_size-6)B] [data_len 2B]
+	v2 block layout on disk:
+	  [magic 2B] [block_size uint32 4B] [deflate_data (block_size-10)B]
+	  [data_len uint32 4B]
 
 	Parameters
 	----------
@@ -329,17 +349,16 @@ def _py_load_bcz_block(handle, decompress=False):
 	magic = handle.read(2)
 	if not magic or magic != _block_magic:  # next chunk or EOF
 		raise StopIteration
-	block_size = _struct_H.unpack(handle.read(2))[0]
-	# equal to struct.unpack("<H", handle.read(2))[0]
+	block_size = _struct_I.unpack(handle.read(4))[0]
 	if decompress:
-		deflate_size = block_size - 6
+		deflate_size = block_size - _BLOCK_HEADER_TRAILER_BYTES
 		d = zlib.decompressobj(-15)
 		data = d.decompress(handle.read(deflate_size)) + d.flush()
-		data_len = _struct_H.unpack(handle.read(2))[0]
+		data_len = _struct_I.unpack(handle.read(4))[0]
 		return block_size, data
 	else:
-		handle.seek(block_size - 6, 1)
-		data_len = _struct_H.unpack(handle.read(2))[0]
+		handle.seek(block_size - _BLOCK_HEADER_TRAILER_BYTES, 1)
+		data_len = _struct_I.unpack(handle.read(4))[0]
 		return block_size, data_len
 
 # Use accelerated loader if available, otherwise use Python fallback.
@@ -651,6 +670,25 @@ def _resolve_ref_path(reference):
 	return os.path.abspath(os.path.expanduser(reference))
 
 
+# Module-level helper so concurrent.futures.ProcessPoolExecutor can
+# pickle it. Each worker opens its own Reader on the given path; mmap
+# means the page cache is shared with the parent process.
+def _chunk2numpy_worker(args):
+	path, dims, reformat = args
+	# Open in this child process; first call also does the small CZIX
+	# read which is cheap (a few KB).
+	r = Reader(path)
+	try:
+		return r.chunk2numpy(dims, reformat=reformat)
+	finally:
+		# Be explicit: the mmap goes out of scope but on some systems
+		# the file descriptor lingers. Don't leak per-call.
+		try:
+			r._handle.close()
+		except Exception:
+			pass
+
+
 # ==========================================================
 class Reader:
 	"""Reader for .cz (ChunkZIP) files.
@@ -691,7 +729,33 @@ class Reader:
 				handle = RemoteFile(input)
 				self._mm = None
 				self._fd = None
+			elif isinstance(input, str) and '://' in input and not input.startswith('file://'):
+				# fsspec-backed scheme: s3://, gs://, az://, hf://,
+				# sftp://, ftp://, etc. Each backend uses HTTP-style
+				# range reads under the hood, so the cz tail-CZIX layout
+				# is naturally efficient (3-5 small range requests to
+				# init, then one range request per chunk).
+				try:
+					import fsspec  # type: ignore
+				except ImportError as e:
+					raise ImportError(
+						f"Reading {input!r} requires fsspec. "
+						f"Install with `pip install cytozip[cloud]` "
+						f"or `pip install fsspec` plus the appropriate "
+						f"backend (s3fs, gcsfs, ...)."
+					) from e
+				# block_size sets the read-ahead window; 4MB matches
+				# typical chunk size for single-cell methylation cz.
+				of = fsspec.open(input, mode='rb',
+				                 block_size=4 * 1024 * 1024)
+				handle = of.open()
+				self._fsspec_handle = of  # keep wrapper alive
+				self._mm = None
+				self._fd = None
 			else:
+				# Strip optional file:// prefix for local paths.
+				if isinstance(input, str) and input.startswith('file://'):
+					input = input[len('file://'):]
 				if input.startswith('~'):
 					input = os.path.expanduser(input)
 				if not input.startswith('/'):
@@ -716,7 +780,7 @@ class Reader:
 					self._mm = None
 					self._fd = None
 		self._handle = handle
-		self._is_remote = isinstance(handle, RemoteFile)
+		self._is_remote = isinstance(handle, RemoteFile) or hasattr(self, '_fsspec_handle')
 		self.input = input
 		self.max_cache = max_cache
 		self._block_start_offset = None
@@ -725,6 +789,17 @@ class Reader:
 		# Avoids re-reading the tail on repeated _load_chunk calls
 		# for the same chunk (especially beneficial for remote files).
 		self._chunk_tail_cache = {}
+		# Cache decoded whole-chunk numpy arrays keyed by chunk_key tuple.
+		# Used by ``query_numpy`` to make warm region queries O(log N)
+		# searchsorted on a cached buffer instead of repeatedly
+		# decompressing the same blocks. Bounded to a small N (default 4)
+		# to avoid runaway memory on cohort-scale workflows.
+		self._chunk_array_cache = collections.OrderedDict()
+		self._chunk_array_cache_size = 4
+		# Companion cache: contiguous 1-D ndarray of the sort column for
+		# each cached chunk. ``np.searchsorted`` runs ~100× faster on a
+		# contiguous buffer than on a strided view of a structured dtype.
+		self._chunk_sortcol_cache = collections.OrderedDict()
 		self.read_header()
 
 	def read_header(self):
@@ -1090,7 +1165,6 @@ class Reader:
 		n_chunks = _struct_Q.unpack_from(buf, 4)[0]
 		index = {}
 		off = 12
-		unpack_from_Q = _struct_Q.unpack_from
 		unpack_from_4Q = _struct_4Q.unpack_from
 		for _ in range(n_chunks):
 			dims = []
@@ -1166,6 +1240,231 @@ class Reader:
 			df = pd.DataFrame(rows, columns=header)
 			return df
 
+	def chunk2numpy(self, dims, reformat=False):
+		"""Read an entire chunk as a numpy structured ndarray.
+
+		This is the fastest single-cell read path: it skips the per-row
+		Python tuple construction and the ``pd.DataFrame`` build that
+		dominate :meth:`chunk2df`. Internally it calls
+		:meth:`fetch_chunk_bytes` (which already runs DELTA decode and the
+		Cython block fetcher) and views the raw bytes as a structured
+		dtype with one field per column.
+
+		Parameters
+		----------
+		dims : tuple
+			Chunk key (e.g. ``('chr1',)``).
+		reformat : bool, default False
+			If True, decode bytes-typed columns ('s'/'c') into Python
+			str (returned as a separate ``object`` ndarray, since numpy
+			structured arrays can't hold variable-length str directly).
+			Most analysis pipelines should leave this False and operate
+			on the raw bytes columns.
+
+		Returns
+		-------
+		np.ndarray
+			A structured ndarray of length ``len(chunk_bytes) //
+			unit_size``. Field names are ``f0, f1, ...`` matching the
+			header column order; access via
+			``arr['f0']`` or use ``arr.view(np.recarray)`` for attribute
+			access. The ``dtype.names`` and ``self.header['columns']``
+			are positionally aligned.
+		"""
+		raw = self.fetch_chunk_bytes(dims)
+		dtype = _build_record_dtype(self.header['formats'])
+		if not raw:
+			return np.empty(0, dtype=dtype)
+		# np.frombuffer gives a zero-copy view; copy() so the caller owns
+		# the memory (decompressed buffer can otherwise be freed).
+		arr = np.frombuffer(raw, dtype=dtype).copy()
+		if reformat:
+			# For 's'/'c' columns the structured dtype field is V{n}
+			# (opaque bytes). Decode them to Python str on the fly only
+			# if asked.
+			out = {}
+			for i, (name, fmt) in enumerate(zip(self.header['columns'],
+			                                    self.header['formats'])):
+				if fmt[-1] in ('s', 'c'):
+					# View the V{n} bytes as a fixed-length |S{n} array
+					# then call .astype(str) — done in C.
+					n = struct.calcsize(fmt)
+					raw_col = arr[f'f{i}'].view(f'|S{n}')
+					out[name] = np.char.decode(raw_col, 'utf-8')
+				else:
+					out[name] = arr[f'f{i}']
+			return out
+		return arr
+
+	def chunks2numpy(self, dims_list, n_workers=None, reformat=False):
+		"""Read multiple chunks in parallel as a list of structured ndarrays.
+
+		Spawns a process pool (libdeflate's GIL constraint makes thread
+		pools useless for raw-bytes decompression) where each worker
+		opens its own :class:`Reader` on the same file path. mmap is
+		shared by the OS so memory cost is fixed.
+
+		Parameters
+		----------
+		dims_list : list of tuple
+			Chunk keys to read (e.g. ``[('chr1',), ('chr2',), ...]``).
+		n_workers : int or None
+			Number of worker processes. If None or 1, runs sequentially
+			in the current process. Recommended: number of physical cores.
+		reformat : bool
+			Forwarded to :meth:`chunk2numpy`.
+
+		Returns
+		-------
+		list of np.ndarray
+			One structured ndarray per *dims_list* entry, in input order.
+
+		Notes
+		-----
+		Only useful for remote files when there are many chunks
+		(``n >> n_workers``). For local mmap files, sequential reads are
+		usually fast enough that process startup overhead outweighs
+		gains until *n_workers* >= 4 and many chunks.
+		"""
+		if not dims_list:
+			return []
+		if n_workers is None or n_workers <= 1 or len(dims_list) <= 1:
+			return [self.chunk2numpy(d, reformat=reformat) for d in dims_list]
+		# Remote files: pickling a RemoteFile across processes is
+		# unsupported, fall back to sequential.
+		if getattr(self, '_is_remote', False):
+			return [self.chunk2numpy(d, reformat=reformat) for d in dims_list]
+		import concurrent.futures as _cf
+		path = self.input
+		# Use a top-level helper so it can be pickled by ProcessPoolExecutor.
+		fn = _chunk2numpy_worker
+		args = [(path, d, reformat) for d in dims_list]
+		with _cf.ProcessPoolExecutor(max_workers=n_workers) as ex:
+			return list(ex.map(fn, args))
+
+	def _chunk2numpy_cached(self, dims):
+		"""Internal: ``chunk2numpy(dims)`` with a small LRU cache.
+
+		Used by :meth:`query_numpy` to make warm region queries — the
+		same chunk hit repeatedly with different (start, end) windows —
+		O(log N) numpy bisect on a cached array instead of repeatedly
+		re-decompressing every block.
+
+		Cache size is capped by ``self._chunk_array_cache_size`` (default 4).
+		"""
+		key = tuple(dims) if not isinstance(dims, tuple) else dims
+		cache = self._chunk_array_cache
+		hit = cache.get(key)
+		if hit is not None:
+			cache.move_to_end(key)
+			return hit
+		arr = self.chunk2numpy(key, reformat=False)
+		cache[key] = arr
+		if len(cache) > self._chunk_array_cache_size:
+			cache.popitem(last=False)
+		return arr
+
+	def _cached_sort_column(self, dims, sort_col):
+		"""Return a *contiguous* 1-D ndarray of the sort column for the
+		given chunk. Cached alongside the structured array.
+
+		Pulling the sort column out of a structured ndarray returns a
+		strided view (stride = ``unit_size``). ``np.searchsorted`` on a
+		strided array runs ~100× slower than on a contiguous buffer
+		because it can't vectorize. We pay the contiguous-copy cost
+		once per chunk and amortize over all subsequent region queries.
+		"""
+		key = tuple(dims) if not isinstance(dims, tuple) else dims
+		ck = (key, int(sort_col))
+		hit = self._chunk_sortcol_cache.get(ck)
+		if hit is not None:
+			self._chunk_sortcol_cache.move_to_end(ck)
+			return hit
+		arr = self._chunk2numpy_cached(key)
+		col = np.ascontiguousarray(arr[f'f{sort_col}'])
+		self._chunk_sortcol_cache[ck] = col
+		if len(self._chunk_sortcol_cache) > self._chunk_array_cache_size:
+			self._chunk_sortcol_cache.popitem(last=False)
+		return col
+
+	def query_numpy(self, chunk_key, start, end, reference=None,
+	                sort_col=None):
+		"""Vectorized region query — returns a structured ``np.ndarray``.
+
+		~10× faster than :meth:`query` for warm in-process queries
+		because it bypasses the per-record Python tuple loop and uses
+		``np.searchsorted`` on a cached whole-chunk numpy array.
+
+		Parameters
+		----------
+		chunk_key : str or tuple
+			Chunk key, e.g. ``'chr1'`` or ``('chr1',)``.
+		start, end : int
+			Inclusive genomic interval [start, end] on the sort column.
+		reference : str, ``Reader``, or None
+			If given, treats this file as ref-aligned (e.g. ``mode='mc_cov'``)
+			where positions live in ``reference``. Returns the same
+			vectorized slice paired with the reference position column.
+		sort_col : int or None
+			Column index to bisect on. Defaults to ``self.header['sort_col']``.
+
+		Returns
+		-------
+		np.ndarray
+			Structured ndarray with one record per hit. When *reference*
+			is supplied, returns ``(positions, records)`` where
+			``positions`` is a 1-D int ndarray.
+		"""
+		if isinstance(chunk_key, str):
+			chunk_key = (chunk_key,)
+		if reference is None:
+			# Self-positioning .cz: pos lives in this file.
+			sc = sort_col if sort_col is not None else self.header.get('sort_col')
+			if sc is None or sc == _NO_SORT_COL:
+				raise ValueError(
+					"query_numpy without reference requires sort_col index")
+			arr = self._chunk2numpy_cached(chunk_key)
+			if not len(arr):
+				return arr
+			pos = self._cached_sort_column(chunk_key, sc)
+			# Cast targets to the column dtype: ``np.searchsorted`` on a
+			# uint64 array with a Python int target falls into a slow
+			# object-comparison path (~60 ms for 50M rows). Casting
+			# brings it down to <1 μs.
+			s = pos.dtype.type(start)
+			e = pos.dtype.type(end)
+			lo = pos.searchsorted(s, side='left')
+			hi = pos.searchsorted(e, side='right')
+			return arr[lo:hi]
+		# Ref-aligned (mc_cov mode): rows in self are 1:1 with rows in
+		# reference for the same chunk_key. Look up positions in ref,
+		# slice both arrays the same way.
+		ref_reader = (Reader(reference) if isinstance(reference, str)
+		              else reference)
+		try:
+			cell_arr = self._chunk2numpy_cached(chunk_key)
+			if not len(cell_arr):
+				return (np.empty(0, dtype=np.uint64), cell_arr)
+			ref_sc = sort_col if sort_col is not None else (
+				ref_reader.header.get('sort_col'))
+			if ref_sc is None or ref_sc == _NO_SORT_COL:
+				raise ValueError(
+					"query_numpy with reference requires sort_col on reference")
+			ref_pos = ref_reader._cached_sort_column(chunk_key, ref_sc)
+			s = ref_pos.dtype.type(start)
+			e = ref_pos.dtype.type(end)
+			lo = ref_pos.searchsorted(s, side='left')
+			hi = ref_pos.searchsorted(e, side='right')
+			# Defensive: cell may be shorter than ref if writer skipped
+			# trailing zero rows. Clip to common length.
+			n = min(len(cell_arr), len(ref_pos))
+			lo = min(lo, n)
+			hi = min(hi, n)
+			return ref_pos[lo:hi], cell_arr[lo:hi]
+		finally:
+			# Only close the reader if we opened it ourselves.
+			if isinstance(reference, str):
+				ref_reader.close()
 	def chunk2df(self, dims, reformat=False, batch_size=None):
 		"""Read an entire chunk into a pandas DataFrame.
 
@@ -1183,7 +1482,31 @@ class Reader:
 			If set, yield DataFrames of at most *batch_size* blocks instead
 			of returning a single DataFrame.
 		"""
-		r = self._load_chunk(self.chunk_key2offset[dims], jump=False)
+		# Fast path: when no batching is requested, build the DataFrame
+		# from a single structured ndarray (constructed in C via
+		# np.frombuffer). This avoids the Python-level list-of-tuples →
+		# pd.DataFrame path which dominates wall-time for chunks with
+		# tens of millions of rows.
+		if batch_size is None:
+			arr = self.chunk2numpy(dims, reformat=False)
+			if arr.size == 0:
+				df = pd.DataFrame(
+					{c: pd.Series(dtype=object) for c in self.header['columns']},
+					columns=self.header['columns'])
+			else:
+				cols = self.header['columns']
+				fmts = self.header['formats']
+				data = {}
+				for i, (col, fmt) in enumerate(zip(cols, fmts)):
+					field = arr[f'f{i}']
+					if reformat and fmt[-1] in ('s', 'c'):
+						n = struct.calcsize(fmt)
+						data[col] = np.char.decode(field.view(f'|S{n}'), 'utf-8')
+					else:
+						data[col] = field
+				df = pd.DataFrame(data, columns=cols, copy=False)
+			return df
+		self._load_chunk(self.chunk_key2offset[dims], jump=False)
 		# Fast path: use Cython chunk fetcher to read all blocks at once.
 		if _c_fetch_chunk is not None and batch_size is None:
 			chunk_bytes = _c_fetch_chunk(self._handle, self._chunk_start_offset + 10,
@@ -1230,7 +1553,7 @@ class Reader:
 
 	def _chunk2df_gen(self, dims, reformat, batch_size):
 		"""Generator variant of chunk2df when batch_size is set."""
-		r = self._load_chunk(self.chunk_key2offset[dims], jump=False)
+		self._load_chunk(self.chunk_key2offset[dims], jump=False)
 		self._cached_data = b''
 		self._load_block(start_offset=self._chunk_start_offset + 10)
 		rows = []
@@ -1744,7 +2067,7 @@ class Reader:
 									chunk_dims, batch_size))
 			tasks.append(task)
 		for task in tasks:
-			r = task.get()
+			task.get()
 		pool.close()
 		pool.join()
 		# merge
@@ -1828,7 +2151,7 @@ class Reader:
 			block_index = ((IDs - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
 			within_block_offsets = ((IDs - 1) * self._unit_size) % (_BLOCK_MAX_LEN)
 		block_start_offsets = np.array([self._chunk_block_1st_record_virtual_offsets[
-											idx] >> 16 for idx in block_index])
+											idx] >> _VO_OFFSET_BITS for idx in block_index])
 		prev_block_start_offset = None
 		for block_start_offset, within_block_offset in zip(
 			block_start_offsets, within_block_offsets):
@@ -1880,7 +2203,7 @@ class Reader:
 				block_index = ((id_start - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
 				within_block_offset = ((id_start - 1) * self._unit_size) % _BLOCK_MAX_LEN
 			block_start_offset = self._chunk_block_1st_record_virtual_offsets[
-									 block_index] >> 16
+									 block_index] >> _VO_OFFSET_BITS
 			if block_start_offset != prev_block_start_offset:
 				self._load_block(block_start_offset)
 				prev_block_start_offset = block_start_offset
@@ -1984,7 +2307,7 @@ class Reader:
 		"""
 		s = 0 if s is None else s  # 0-based
 		e = len(self.header['columns']) if e is None else e  # 1-based
-		r = self._load_chunk(self.chunk_key2offset[chunk_key], jump=(_c_fetch_chunk is None))
+		self._load_chunk(self.chunk_key2offset[chunk_key], jump=(_c_fetch_chunk is None))
 		# Fast path: if Cython chunk fetcher is available, read and decompress
 		# the entire chunk at once without decompressing blocks individually.
 		if _c_fetch_chunk is not None:
@@ -2006,14 +2329,14 @@ class Reader:
 		_all_compressed = self._handle.read(self._chunk_size - 10)
 		_parts = []
 		_off = 0
-		while _off + 4 <= len(_all_compressed):
+		while _off + 6 <= len(_all_compressed):
 			if _all_compressed[_off:_off + 2] != _block_magic:
 				break
-			_bsize = _struct_H.unpack_from(_all_compressed, _off + 2)[0]
+			_bsize = _struct_I.unpack_from(_all_compressed, _off + 2)[0]
 			if _off + _bsize > len(_all_compressed):
 				break
 			_parts.append(zlib.decompress(
-				_all_compressed[_off + 4:_off + _bsize - 2], -15))
+				_all_compressed[_off + 6:_off + _bsize - 4], -15))
 			_off += _bsize
 		_cached_data = b"".join(_parts)
 		if _cached_data:
@@ -2069,14 +2392,14 @@ class Reader:
 			_all_compressed = self._handle.read(self._chunk_size - 10)
 			chunks = []
 			_off = 0
-			while _off + 4 <= len(_all_compressed):
+			while _off + 6 <= len(_all_compressed):
 				if _all_compressed[_off:_off + 2] != _block_magic:
 					break
-				_bsize = _struct_H.unpack_from(_all_compressed, _off + 2)[0]
+				_bsize = _struct_I.unpack_from(_all_compressed, _off + 2)[0]
 				if _off + _bsize > len(_all_compressed):
 					break
 				chunks.append(zlib.decompress(
-					_all_compressed[_off + 4:_off + _bsize - 2], -15))
+					_all_compressed[_off + 6:_off + _bsize - 4], -15))
 				_off += _bsize
 			raw = b"".join(chunks)
 		return raw
@@ -2148,7 +2471,7 @@ class Reader:
 	def fetchByStartID(self, dims, n=None):  # n is 1-based, n >=1
 		if isinstance(dims, str):
 			dims = tuple([dims])
-		r = self._load_chunk(self.chunk_key2offset[dims], jump=False)
+		self._load_chunk(self.chunk_key2offset[dims], jump=False)
 		if not n is None:  # seek to the position of the n rows
 			# Delta files are written record-aligned (each block holds exactly
 			# records_per_block complete records); non-delta files pack records
@@ -2161,8 +2484,8 @@ class Reader:
 				block_index = ((n - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
 				within_block_offset = ((n - 1) * self._unit_size) % (_BLOCK_MAX_LEN)
 			first_record_vos = self._chunk_block_1st_record_virtual_offsets[block_index]
-			block_start_offset = (first_record_vos >> 16)
-			virtual_start_offset = (block_start_offset << 16) | within_block_offset
+			block_start_offset = (first_record_vos >> _VO_OFFSET_BITS)
+			virtual_start_offset = (block_start_offset << _VO_OFFSET_BITS) | within_block_offset
 			self.seek(virtual_start_offset)  # load_block is inside sek
 		while True:
 			# yield self._read_1record()
@@ -2189,7 +2512,7 @@ class Reader:
 			if dim != prev_dim:
 				start_block_index = 0
 				prev_dim = dim
-				r = self._load_chunk(self.chunk_key2offset[dim], jump=False)
+				self._load_chunk(self.chunk_key2offset[dim], jump=False)
 			# Fast path: Cython handles each (start, end) individually.
 			if _c_query_regions is not None:
 				res = _c_query_regions(
@@ -2558,16 +2881,16 @@ class Reader:
 			# but for a maximal block can't use _BLOCK_MAX_LEN as the within block
 			# offset. Therefore for consistency, use the next block and a
 			# within block offset of zero.
-			return (self._block_start_offset + self._block_raw_length) << 16
+			return (self._block_start_offset + self._block_raw_length) << _VO_OFFSET_BITS
 		else:
-			return (self._block_start_offset << 16) | self._within_block_offset
+			return (self._block_start_offset << _VO_OFFSET_BITS) | self._within_block_offset
 
 	def seek(self, virtual_offset):
 		"""Seek to a 64-bit unsigned BGZF virtual offset."""
 		# Do this inline to avoid a function call,
 		# start_offset, within_block = split_virtual_offset(virtual_offset)
-		start_offset = virtual_offset >> 16
-		within_block = virtual_offset ^ (start_offset << 16)
+		start_offset = virtual_offset >> _VO_OFFSET_BITS
+		within_block = virtual_offset & _VO_OFFSET_MASK
 		if start_offset != self._block_start_offset:
 			# Don't need to load the block if already there
 			self._load_block(start_offset)
@@ -2944,7 +3267,6 @@ def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 		assert len(IDs.shape) == 2
 		records = reader._getRecordsByIdRegions(dim=dim, IDs=IDs)
 		data_parts, count = [], 0
-		st_reader = struct.Struct(f"<{reader.fmts}")
 		st_writer = struct.Struct(f"<{writer.fmts}")
 		agg_dtype = np.dtype(
 			[(f'f{i}', _fmt_to_np_dtype(f[-1])) for i, f in enumerate(reader.header['formats'])])
@@ -3040,7 +3362,7 @@ class Writer:
 		else:
 			if not output is None:  # write output to a file
 				if "w" not in mode.lower() and "a" not in mode.lower():
-					raise ValueError(f"Must use write or append mode")
+					raise ValueError("Must use write or append mode")
 				handle = _open(output, mode)
 				self.output = output
 			else:  # write to stdout buffer
@@ -3258,21 +3580,14 @@ class Writer:
 		else:
 			self._sort_col_struct = None
 
-	def _write_block(self, block):
-		"""Compress and write a single block of raw record data.
+	def _delta_encode_block(self, block):
+		"""Apply in-place delta encoding on designated integer columns.
 
-		Steps:
-		  1. Compress with raw DEFLATE (via Cython or Python zlib).
-		  2. Write block header: magic (2B) + block_size (2B).
-		  3. Write compressed payload.
-		  4. Write uncompressed data length (2B) as trailer.
-		  5. Record the virtual offset of this block's first record in
-		     ``self._block_1st_record_virtual_offsets`` for the chunk index.
+		Blocks written for delta files are record-aligned (see
+		``self._block_size``) so each block holds exactly n_rec complete
+		records starting at byte 0 — no partial records to preserve.
+		Returns the (possibly delta-encoded) block as bytes.
 		"""
-		# Apply in-place delta encoding on the designated integer columns
-		# before DEFLATE. Blocks written for delta files are record-aligned
-		# (see self._block_size) so each block holds exactly n_rec complete
-		# records starting at byte 0 — no partial records to preserve.
 		if self._delta_cols and len(block) >= self._unit_size:
 			n_rec = len(block) // self._unit_size
 			body_len = n_rec * self._unit_size
@@ -3282,55 +3597,60 @@ class Writer:
 				for name in self._delta_col_names:
 					arr[name][1:] = np.diff(arr[name])
 			if body_len == len(block):
-				block = arr.tobytes()
-			else:
-				block = arr.tobytes() + bytes(block[body_len:])
-		compressed = self._compress(block, self.level)
-		bsize = _struct_H.pack(len(compressed) + 6)
-		# block size: magic (2 btyes) + block_size (2bytes) + compressed data +
-		# block_data_len (2 bytes)
+				return arr.tobytes()
+			return arr.tobytes() + bytes(block[body_len:])
+		# Ensure caller always receives bytes (callers may pass bytearray).
+		if isinstance(block, (bytes, bytearray, memoryview)):
+			return bytes(block)
+		return block
+
+	def _emit_compressed_block(self, block, compressed):
+		"""Write a single (delta-encoded, compressed) block to disk and
+		update bookkeeping (virtual offsets, first_coords, data_len).
+
+		``block`` must be the *post*-delta-encoded bytes used to compute
+		``compressed`` so first_coords match what readers will see.
+		"""
+		bsize = _struct_I.pack(len(compressed) + _BLOCK_HEADER_TRAILER_BYTES)
 		data_len = len(block)
-		uncompressed_length = _struct_H.pack(data_len)  # 2 bytes
+		uncompressed_length = _struct_I.pack(data_len)  # 4 bytes
 		data = _block_magic + bsize + compressed + uncompressed_length
-		# Physical file offset where this compressed block starts on disk.
 		block_start_offset = self._handle.tell()
-		# Compute the byte offset of the first *complete* record within this
-		# block's decompressed data.  Records may span block boundaries: if
-		# the previous block ended in the middle of a record, the beginning
-		# of this block contains the tail of that partial record.
-		# Example: unit_size=12, chunk_data_len=65535 (not a multiple of 12).
-		# 65535 % 12 = 3, so 3 bytes of the last record spill into this block,
-		# and within_block_offset = 12 - 3 = 9.
-		# If chunk_data_len is already aligned, within_block_offset = 0.
-		# old formula: within_block_offset=int(np.ceil(self._chunk_data_len / self._unit_size) * self._unit_size - self._chunk_data_len)
 		within_block_offset = (-self._chunk_data_len) % self._unit_size
-		# d=65535, u=12
-		# d % u  =  65535 % 12  =  3 # How many bytes have been exceeded from the previous alignment point?
-		# (-d) % u = -65535 % 12  =  9 # How many more bytes are needed to reach the next alignment point?
-		# Encode as a 64-bit BGZF virtual offset: upper 48 bits hold the
-		# physical block position, lower 16 bits hold the within-block
-		# offset of the first complete record.
-		virtual_offset = (block_start_offset << 16) | within_block_offset
-		# Store for the chunk tail / chunk index so readers can do O(1)
-		# random access to any block's first record.
+		virtual_offset = (block_start_offset << _VO_OFFSET_BITS) | within_block_offset
 		self._block_1st_record_virtual_offsets.append(virtual_offset)
-		# ---- first_coords index: capture the first complete record's
-		# sort_col value for this block. Used by readers for in-memory
-		# O(log N) binary search on genomic coordinates (no inflate probes).
 		if self.sort_col is not None:
 			if within_block_offset + self._unit_size <= len(block):
 				rec = self._sort_col_struct.unpack_from(block, within_block_offset)
 				self._block_first_coords.append(rec[self.sort_col])
 			else:
-				# Block too small for a complete record (unusual: only
-				# possible for a tiny trailing block). Use 0 as sentinel;
-				# queries hitting this block will fall through to linear
-				# scan within the block anyway.
 				self._block_first_coords.append(0)
-		# block_start_offset are real position on disk, not a virtual offset
 		self._handle.write(data)
-		# how many bytes (uncompressed) have been writen.
 		self._chunk_data_len += data_len
+
+	def _write_block(self, block):
+		"""Compress and write a single block of raw record data."""
+		block = self._delta_encode_block(block)
+		compressed = self._compress(block, self.level)
+		self._emit_compressed_block(block, compressed)
+
+	def _write_blocks_batch(self, blocks):
+		"""Compress *blocks* in parallel (when available) and emit them
+		sequentially. Falls back to per-block serial path if the batch
+		Cython entry point is missing or only one block is pending."""
+		if not blocks:
+			return
+		# Single-block fast path; or no batch entry point available.
+		if len(blocks) == 1 or _c_compress_blocks_parallel is None:
+			for b in blocks:
+				self._write_block(b)
+			return
+		# Pre-encode all blocks (serial; numpy releases GIL on big ops).
+		encoded = [self._delta_encode_block(b) for b in blocks]
+		compressed_list = _c_compress_blocks_parallel(encoded, self.level)
+		for enc, comp in zip(encoded, compressed_list):
+			self._emit_compressed_block(enc, comp)
+
 
 	def _write_chunk_tail(self):
 		"""Write the chunk tail after all blocks.
@@ -3421,9 +3741,11 @@ class Writer:
 			self._buffer.extend(data)
 		else:
 			self._buffer.extend(data)
+			pending = []
 			while len(self._buffer) >= self._block_size:
-				self._write_block(bytes(self._buffer[:self._block_size]))
+				pending.append(bytes(self._buffer[:self._block_size]))
 				del self._buffer[:self._block_size]
+			self._write_blocks_batch(pending)
 
 	def _parse_input_no_ref(self, input_handle):
 		"""Generator that parses input data (DataFrame or file) into
@@ -3541,7 +3863,7 @@ class Writer:
 		elif isinstance(input, pd.DataFrame):
 			data_generator = self._parse_input_no_ref(input)
 		else:
-			raise ValueError(f"Unknow input type")
+			raise ValueError("Unknow input type")
 
 		# if self.verbose > 0:
 		#     print(self.usecols, self.key_cols)
@@ -3714,9 +4036,9 @@ class Writer:
 				# modify the chunk_black_1st_record_virtual_offsets
 				# Vectorized: shift all block physical offsets by delta_offset
 				offsets = np.array(b1str_virtual_offsets, dtype=np.uint64)
-				block_starts = offsets >> 16
-				within_offsets = offsets & 0xFFFF
-				new_offsets = (((block_starts + np.uint64(delta_offset)).astype(np.uint64) << np.uint64(16))
+				block_starts = offsets >> np.uint64(_VO_OFFSET_BITS)
+				within_offsets = offsets & np.uint64(_VO_OFFSET_MASK)
+				new_offsets = (((block_starts + np.uint64(delta_offset)).astype(np.uint64) << np.uint64(_VO_OFFSET_BITS))
 							   | within_offsets.astype(np.uint64))
 				self._handle.write(new_offsets.tobytes())
 				# Copy first_coords array (if sort_col is enabled) between
@@ -3757,10 +4079,12 @@ class Writer:
 
 	def flush(self):
 		"""Flush data explicitally."""
+		pending = []
 		while len(self._buffer) >= _BLOCK_MAX_LEN:
-			self._write_block(bytes(self._buffer[:_BLOCK_MAX_LEN]))
+			pending.append(bytes(self._buffer[:_BLOCK_MAX_LEN]))
 			del self._buffer[:_BLOCK_MAX_LEN]
-		self._write_block(bytes(self._buffer))
+		pending.append(bytes(self._buffer))
+		self._write_blocks_batch(pending)
 		self._chunk_finished()
 		self._buffer = bytearray()
 		self._handle.flush()
@@ -3830,7 +4154,10 @@ class Writer:
 		"""
 		if self._buffer:
 			self.flush()
-		else:
+		elif self._chunk_start_offset is not None:
+			# Only finalize a chunk if one was actually started.
+			# An empty input (no write_chunk calls) leaves
+			# _chunk_start_offset = None and there is nothing to finalize.
 			self._chunk_finished()
 		self._write_chunk_index()
 		self._write_total_size_eof_close()

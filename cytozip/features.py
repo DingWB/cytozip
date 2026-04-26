@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import os
 import struct
-from typing import Iterable, List, Optional, Sequence, Union
+from typing import List, Optional, Sequence, Union
 
 from loguru import logger
 import numpy as np
@@ -117,9 +117,21 @@ def parse_gtf(
 
     Extracts one row per ``feature_type`` (default ``'gene'``) record,
     optionally extends each interval by ``flank_bp`` on each side, and
-    returns a DataFrame whose 4th column (``name``) is guaranteed unique
-    so it can be passed straight to :func:`cz_to_anndata` as
-    ``features=``.
+    returns a DataFrame whose 4th column (``name``) is unique so it can
+    be passed straight to :func:`cz_to_anndata` as ``features=``.
+
+    Handling of duplicate ``gene_name``
+    -----------------------------------
+    GENCODE / Ensembl annotations frequently map a single ``gene_name``
+    symbol to multiple distinct ``gene_id`` records (small RNAs like
+    ``Y_RNA`` / ``Metazoa_SRP`` / ``5S_rRNA`` / ``Mir*`` reuse a symbol
+    across dozens of unrelated loci, sometimes spanning megabases).
+    Naive ``min(start), max(end)`` would collapse them into a single
+    monstrous interval. Following Bioconductor / featureCounts /
+    scanpy convention we instead **keep only the longest gene_id** per
+    ``gene_name`` so every symbol maps to a single, biologically
+    meaningful interval. ``gene_id`` is always unique by GTF spec, so
+    when ``id_col='gene_id'`` no disambiguation is needed.
 
     Parameters
     ----------
@@ -131,13 +143,12 @@ def parse_gtf(
     feature_type : str, default ``'gene'``
         GTF ``feature`` (column 3) to keep.
     id_col : {'gene_name', 'gene_id'}, default ``'gene_name'``
-        Which GTF attribute becomes the unique feature ``name`` and
-        ``var_names`` on the final AnnData. When ``'gene_name'`` (the
-        default) and multiple gene_ids share the same name on the same
-        chrom, their intervals are merged (min start / max end) so the
-        output has one row per gene symbol; any residual duplicate on a
-        different chrom is kept as-is by falling back to a
-        ``<name>|<chrom>`` suffix to preserve uniqueness.
+        Which GTF attribute becomes the human-readable ``name`` (the
+        4th column of the returned DataFrame, used as ``var_names`` on
+        the AnnData built by :func:`cz_to_anndata`). With ``'gene_id'``
+        every GTF record stays a row of its own; with ``'gene_name'``
+        same-name records are de-duplicated by keeping the longest
+        gene_id.
     exclude_chroms : sequence of str, optional
         Chromosomes to drop (e.g. ``['chrM']``).
 
@@ -145,8 +156,8 @@ def parse_gtf(
     -------
     DataFrame with columns
     ``['chrom', 'start', 'end', 'name', 'gene_id', 'gene_name',
-    'gene_type', 'strand']``. ``name`` equals the chosen ``id_col``
-    (``gene_name`` by default) and is unique.
+    'gene_type', 'strand']``. ``name`` equals the chosen ``id_col`` and
+    is unique.
     """
     if id_col not in ("gene_name", "gene_id"):
         raise ValueError(
@@ -185,32 +196,34 @@ def parse_gtf(
     if exclude_chroms:
         df = df[~df["chrom"].isin(set(exclude_chroms))]
 
-    # Collapse records sharing the chosen id (gene_name by default) on
-    # the same chrom into a single interval spanning all of them. This
-    # is the fix for GENCODE entries where one gene_name is split over
-    # multiple gene_ids (e.g. readthrough / PAR-aliased records).
-    agg = (df.groupby(["chrom", id_col], sort=False, as_index=False)
-             .agg(start=("start", "min"),
-                  end=("end", "max"),
-                  gene_id=("gene_id", "first"),
-                  gene_name=("gene_name", "first"),
-                  gene_type=("gene_type", "first"),
-                  strand=("strand", "first")))
-    # Apply flanking after the merge so flanking is symmetric per gene.
+    agg = df[["chrom", "start", "end",
+              "gene_id", "gene_name", "gene_type", "strand"]
+             ].reset_index(drop=True)
+
+    if id_col == "gene_name":
+        # Resolve duplicate gene_names by keeping only the longest
+        # gene_id per name. This collapses small-RNA symbol clutter
+        # (Y_RNA × 100s of loci) to a single representative locus
+        # without the megabase-span artefact a coordinate merge would
+        # produce. ``idxmax`` on (end-start) gives us that row directly.
+        spans = agg["end"] - agg["start"]
+        winner_idx = (spans.groupby(agg["gene_name"]).idxmax()
+                      .to_numpy())
+        agg = agg.loc[winner_idx].reset_index(drop=True)
+
+    # Apply flanking after dedup so flanking is symmetric per kept locus.
     if flank_bp and int(flank_bp) > 0:
         fb = int(flank_bp)
         agg["start"] = (agg["start"] - fb).clip(lower=0)
         agg["end"] = agg["end"] + fb
 
-    # Guarantee uniqueness of `name`: if the same id survives on more
-    # than one chrom (e.g. PAR), disambiguate by appending '|<chrom>'.
-    name_counts = agg[id_col].value_counts()
-    dup = set(name_counts.index[name_counts > 1])
-    agg["name"] = np.where(
-        agg[id_col].isin(dup),
-        agg[id_col].astype(str) + "|" + agg["chrom"].astype(str),
-        agg[id_col].astype(str),
-    )
+    agg["name"] = agg[id_col].astype(str)
+    # Defensive: if id_col entries are somehow non-unique (e.g. empty
+    # gene_name fields, malformed GTF), append a numeric suffix.
+    if agg["name"].duplicated().any():
+        agg["name"] = (agg["name"]
+                       + "_"
+                       + agg.groupby("name").cumcount().astype(str))
     return agg[["chrom", "start", "end", "name",
                 "gene_id", "gene_name", "gene_type", "strand"]
                ].reset_index(drop=True)
@@ -1294,7 +1307,6 @@ def cz_to_anndata(
 
     # Materialise sparse layers (no dense intermediate).
     mc_sp, cov_sp = builder.finalize()
-    n_cells = mc_sp.shape[0]
 
     # Build var_df. For GTF inputs we attach gene_id / gene_type /
     # strand alongside the coordinates; for BED / bins var carries just

@@ -45,9 +45,8 @@ import pandas as pd
 
 from . import cz as _cz_mod
 from .cz import (
-    Writer, Reader, _all_numeric_formats, _fmt_to_np_dtype,
+    Writer, Reader, _fmt_to_np_dtype,
     _ensure_cz_accel,
-    _write_np_chunks,
 )
 # Trigger Cython accel load so ``_cz_mod._load_bcz_block`` is the C
 # implementation (the symbol imported at module import time would be
@@ -244,7 +243,6 @@ class _LazyRefPositions:
         delta_pos_field = f"f{self._pos_i}"
         record_dtype = self._record_dtype
         delta_cols = reader._delta_cols
-        delta_col_names = reader._delta_col_names if delta_cols else ()
         delta_np_dtype = reader._delta_np_dtype if delta_cols else None
         unit_size = reader._unit_size
         handle = reader._handle
@@ -313,7 +311,6 @@ class _LazyRefPositions:
         pos_field = f"c{self._pos_i}"
         record_dtype = self._record_dtype
         delta_cols = reader._delta_cols
-        delta_col_names = reader._delta_col_names if delta_cols else ()
         delta_np_dtype = reader._delta_np_dtype if delta_cols else None
         unit_size = reader._unit_size
         handle = reader._handle
@@ -471,27 +468,33 @@ def bam_to_cz(
         delta_cols=delta_cols,
         message=writer_message,
     )
-    unit_size = writer._unit_size
-    _ = _all_numeric_formats(formats)  # sanity check
     fmt_struct = struct.Struct("<" + "".join(formats))
 
     mpileup_cmd = (
         f"samtools mpileup -Q {min_base_quality} -q {min_mapq} -B "
         f"-f {genome} {bam_path}"
     )
-    pipes = subprocess.Popen(
-        shlex.split(mpileup_cmd),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-    )
-
-    cur_chrom = ""
-    seq = None
-    context_len = num_upstr_bases + 1 + num_downstr_bases
+    # Legacy backend: keep a fast path that shells out to ``samtools
+    # mpileup`` and parses tabular text. Selected via the env var
+    # ``CYTOZIP_BAM_BACKEND_MPILEUP=1``. Default is the in-process pysam
+    # backend below which avoids the per-line text round-trip.
+    use_mpileup = bool(int(os.environ.get("CYTOZIP_BAM_BACKEND_MPILEUP", "0")))
+    if use_mpileup:
+        pipes = subprocess.Popen(
+            shlex.split(mpileup_cmd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        _bam_handle = None
+    else:
+        pipes = None
+        import pysam as _pysam
+        _bam_handle = _pysam.AlignmentFile(bam_path, "rb")
     cov_dict: dict = {}
     mc_dict: dict = {}
-    total_line = 0
+    total_line = 0  # set from nonlocal_state after the consume loop
+    context_len = num_upstr_bases + 1 + num_downstr_bases
 
     # Per-chrom buffers. For full / pos_mc_cov we flush incrementally in
     # batch_size chunks; for mc_cov we must buffer the whole chrom (we need
@@ -609,99 +612,174 @@ def bam_to_cz(
         if _malloc_trim is not None:
             _malloc_trim(0)
 
+    # ----- Per-site consumer (shared by both backends) -----
+    # Captures cur_chrom / seq / total_line in the enclosing scope.
+    # Returns nothing; mutates the various buffers and counters.
+    nonlocal_state = {"cur_chrom": "", "seq": None, "total_line": 0}
+
+    def _handle_site(chrom: str, pos0: int, ref_base: str,
+                      unconverted: int, converted: int) -> None:
+        nonlocal_state["total_line"] += 1
+        if chrom != nonlocal_state["cur_chrom"]:
+            if nonlocal_state["cur_chrom"]:
+                # Release the previous chromosome's sequence string
+                # (≈100-200 MB for large chroms) BEFORE running its
+                # flush — otherwise the flush's transient allocations
+                # stack on top of it and inflate MaxRSS.
+                nonlocal_state["seq"] = None
+                _flush(nonlocal_state["cur_chrom"])
+            nonlocal_state["cur_chrom"] = chrom
+            nonlocal_state["seq"] = _get_chromosome_sequence_upper(
+                genome, fai_df, chrom)
+        seq_local = nonlocal_state["seq"]
+        if ref_base == "C":
+            lo = pos0 - num_upstr_bases
+            hi = pos0 + num_downstr_bases + 1
+            if lo < 0 or hi > len(seq_local):
+                return
+            context = seq_local[lo:hi]
+            strand = b"+"
+        else:  # 'G'
+            lo = pos0 - num_downstr_bases
+            hi = pos0 + num_upstr_bases + 1
+            if lo < 0 or hi > len(seq_local):
+                return
+            context = seq_local[lo:hi].translate(_RC_TABLE)[::-1]
+            strand = b"-"
+        cov = unconverted + converted
+        if cov == 0 or len(context) != context_len:
+            return
+        cov_dict[context] = cov_dict.get(context, 0) + cov
+        mc_dict[context] = mc_dict.get(context, 0) + unconverted
+        if unconverted > count_max or cov > count_max:
+            if not _overflow_warned[0]:
+                import warnings
+                warnings.warn(
+                    f"mc/cov value exceeds count_fmt={count_fmt!r} max "
+                    f"({count_max}); clipping. Consider count_fmt='H' "
+                    "for bulk/high-coverage data.",
+                    stacklevel=2,
+                )
+                _overflow_warned[0] = True
+            if unconverted > count_max:
+                unconverted = count_max
+            if cov > count_max:
+                cov = count_max
+        pos1 = pos0 + 1
+        if mode == "full":
+            ctx_bytes = context.encode("ascii")[:3].ljust(3, b"N")
+            buf_records.append(fmt_struct.pack(pos1, strand, ctx_bytes,
+                                                unconverted, cov))
+            if len(buf_records) >= batch_size:
+                _flush_records(chrom)
+        elif mode == "pos_mc_cov":
+            buf_records.append(fmt_struct.pack(pos1, unconverted, cov))
+            if len(buf_records) >= batch_size:
+                _flush_records(chrom)
+        else:  # mc_cov: buffer whole chrom
+            chrom_pos_buf.append(pos1)
+            chrom_mc_buf.append(unconverted)
+            chrom_cov_buf.append(cov)
+
     try:
-        for line in pipes.stdout:
-            total_line += 1
-            fields = line.rstrip("\n").split("\t")
-            if len(fields) < 5:
-                continue
-            ref_base = fields[2].upper()
-
-            if fields[0] != cur_chrom:
-                if cur_chrom:
-                    # Release the previous chromosome's sequence string
-                    # (≈100-200 MB for large chroms) BEFORE running its
-                    # flush — otherwise the flush's transient allocations
-                    # (ref_pos, searchsorted intermediates, out_batch)
-                    # stack on top of it and inflate MaxRSS.
-                    seq = None
-                    _flush(cur_chrom)
-                cur_chrom = fields[0]
-                seq = _get_chromosome_sequence_upper(genome, fai_df, cur_chrom)
-
-            if ref_base not in _MC_SITES:
-                continue
-
-            read_bases = fields[4]
-            if ("+" in read_bases) or ("-" in read_bases):
-                read_bases = _strip_indels(read_bases)
-
-            pos0 = int(fields[1]) - 1  # mpileup is 1-based; 0-based for seq
-
-            if ref_base == "C":
-                lo = pos0 - num_upstr_bases
-                hi = pos0 + num_downstr_bases + 1
-                if lo < 0 or hi > len(seq):
+        if use_mpileup:
+            for line in pipes.stdout:
+                fields = line.rstrip("\n").split("\t")
+                if len(fields) < 5:
                     continue
-                context = seq[lo:hi]
-                strand = b"+"
-                unconverted = read_bases.count(".")
-                converted = read_bases.count("T")
-            else:  # ref_base == 'G'
-                lo = pos0 - num_downstr_bases
-                hi = pos0 + num_upstr_bases + 1
-                if lo < 0 or hi > len(seq):
+                ref_base = fields[2].upper()
+                if ref_base not in _MC_SITES:
+                    # Still need to register chrom change so seq gets
+                    # reloaded for the next C/G site. Do it cheaply by
+                    # passing through _handle_site only on relevant sites.
+                    if fields[0] != nonlocal_state["cur_chrom"]:
+                        # Lightweight chrom switch (no-op for non-C/G).
+                        if nonlocal_state["cur_chrom"]:
+                            nonlocal_state["seq"] = None
+                            _flush(nonlocal_state["cur_chrom"])
+                        nonlocal_state["cur_chrom"] = fields[0]
+                        nonlocal_state["seq"] = _get_chromosome_sequence_upper(
+                            genome, fai_df, fields[0])
                     continue
-                # Reverse-complement via C-level translate + slice reverse.
-                context = seq[lo:hi].translate(_RC_TABLE)[::-1]
-                strand = b"-"
-                unconverted = read_bases.count(",")
-                converted = read_bases.count("a")
-
-            cov = unconverted + converted
-            if cov == 0 or len(context) != context_len:
-                continue
-
-            # Context counters use raw (unclipped) values.
-            cov_dict[context] = cov_dict.get(context, 0) + cov
-            mc_dict[context] = mc_dict.get(context, 0) + unconverted
-
-            # Clip to count_fmt range so struct.pack does not raise.
-            if unconverted > count_max or cov > count_max:
-                if not _overflow_warned[0]:
-                    import warnings
-                    warnings.warn(
-                        f"mc/cov value exceeds count_fmt={count_fmt!r} max "
-                        f"({count_max}); clipping. Consider count_fmt='H' "
-                        "for bulk/high-coverage data.",
-                        stacklevel=2,
+                read_bases = fields[4]
+                if ("+" in read_bases) or ("-" in read_bases):
+                    read_bases = _strip_indels(read_bases)
+                pos0 = int(fields[1]) - 1
+                if ref_base == "C":
+                    unconverted = read_bases.count(".")
+                    converted = read_bases.count("T")
+                else:
+                    unconverted = read_bases.count(",")
+                    converted = read_bases.count("a")
+                _handle_site(fields[0], pos0, ref_base, unconverted, converted)
+        else:
+            # In-process pysam pileup. ``stepper='samtools'`` and
+            # ``compute_baq=False`` mirror the ``-B`` flag of mpileup.
+            # min_mapping_quality and min_base_quality are applied by
+            # pysam internally so we don't need to recheck.
+            #
+            # Hot path: ``col.get_query_sequences(mark_matches=False,
+            # mark_ends=False, add_indels=False)`` is implemented in C
+            # and returns mpileup-style bases (uppercase = forward
+            # strand, lowercase = reverse). For BS-seq sites we then
+            # count C/T (forward) or g/a (reverse) just like the mpileup
+            # text path does (its '.' / ',' would be the converted base
+            # only when it matches the ref — which for C/G ref bases is
+            # exactly the unconverted methylated read base).
+            bam = _bam_handle
+            for chrom in bam.references:
+                if chrom not in fai_df.index:
+                    continue
+                if chrom != nonlocal_state["cur_chrom"]:
+                    if nonlocal_state["cur_chrom"]:
+                        nonlocal_state["seq"] = None
+                        _flush(nonlocal_state["cur_chrom"])
+                    nonlocal_state["cur_chrom"] = chrom
+                    nonlocal_state["seq"] = _get_chromosome_sequence_upper(
+                        genome, fai_df, chrom)
+                seq_local = nonlocal_state["seq"]
+                seq_len = len(seq_local)
+                for col in bam.pileup(
+                    chrom,
+                    truncate=True,
+                    stepper="samtools",
+                    compute_baq=False,
+                    min_mapping_quality=min_mapq,
+                    min_base_quality=min_base_quality,
+                    ignore_overlaps=True,
+                ):
+                    pos0 = col.reference_pos
+                    if pos0 >= seq_len:
+                        continue
+                    ref_base = seq_local[pos0]
+                    if ref_base not in _MC_SITES:
+                        continue
+                    bases = col.get_query_sequences(
+                        mark_matches=False,
+                        mark_ends=False,
+                        add_indels=False,
                     )
-                    _overflow_warned[0] = True
-                if unconverted > count_max:
-                    unconverted = count_max
-                if cov > count_max:
-                    cov = count_max
+                    if not bases:
+                        continue
+                    s = "".join(bases)
+                    if ref_base == "C":
+                        unconverted = s.count("C")
+                        converted = s.count("T")
+                    else:  # 'G'
+                        unconverted = s.count("g")
+                        converted = s.count("a")
+                    if unconverted == 0 and converted == 0:
+                        continue
+                    _handle_site(chrom, pos0, ref_base, unconverted, converted)
 
-            pos1 = pos0 + 1
-            if mode == "full":
-                ctx_bytes = context.encode("ascii")[:3].ljust(3, b"N")
-                buf_records.append(fmt_struct.pack(pos1, strand, ctx_bytes,
-                                                   unconverted, cov))
-                if len(buf_records) >= batch_size:
-                    _flush_records(cur_chrom)
-            elif mode == "pos_mc_cov":
-                buf_records.append(fmt_struct.pack(pos1, unconverted, cov))
-                if len(buf_records) >= batch_size:
-                    _flush_records(cur_chrom)
-            else:  # mc_cov: buffer whole chrom
-                chrom_pos_buf.append(pos1)
-                chrom_mc_buf.append(unconverted)
-                chrom_cov_buf.append(cov)
-
-        if cur_chrom:
-            _flush(cur_chrom)
+        if nonlocal_state["cur_chrom"]:
+            _flush(nonlocal_state["cur_chrom"])
+        total_line = nonlocal_state["total_line"]
     finally:
-        pipes.stdout.close()
+        if pipes is not None:
+            pipes.stdout.close()
+        if _bam_handle is not None:
+            _bam_handle.close()
         writer.close()
         if ref_pos_map is not None:
             ref_pos_map.close()
