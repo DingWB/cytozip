@@ -1,0 +1,76 @@
+{% set name = "cytozip" %}
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.3.0').lstrip('v') %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  # For local builds:
+  #   conda build conda-recipe -c bioconda -c conda-forge
+  # For upstream (bioconda-recipes / conda-forge feedstock), replace
+  # ``path`` with a ``url`` + ``sha256`` block pointing at a release
+  # tarball, e.g.:
+  #   url: https://github.com/DingWB/cytozip/archive/refs/tags/v{{ version }}.tar.gz
+  #   sha256: <fill-in>
+  path: ..
+
+build:
+  number: 0
+  skip: true  # [py<38 or win]
+  script: |
+    {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv
+  entry_points:
+    - czip = cytozip:main
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - make
+  host:
+    - python
+    - pip
+    - setuptools >=61
+    - setuptools_scm
+    - cython
+    - numpy
+    # C-library dependencies — both headers AND libs are needed at
+    # build time. ``htslib`` provides ``-lhts`` for cytozip._bam_pileup;
+    # ``libdeflate`` provides ``-ldeflate`` for cytozip.cz_accel.
+    - htslib
+    - libdeflate
+  run:
+    - python
+    - {{ pin_compatible('numpy') }}
+    - pandas
+    - loguru
+    - pysam
+    # Pulled in transitively via the .so's RPATH, but pin them
+    # explicitly so ``conda install cytozip`` brings them along.
+    - htslib
+    - libdeflate
+
+test:
+  imports:
+    - cytozip
+    - cytozip.cz_accel
+    - cytozip._bam_pileup
+  commands:
+    - czip --help
+
+about:
+  home: https://github.com/DingWB/cytozip
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE
+  summary: 'cytozip: Chunk-based ZIP for cytosine (methylation) data'
+  description: |
+    A columnar, randomly-accessible compressed format for single-base
+    cytosine methylation data, with a fast in-process htslib pileup
+    backend for BAM → cz conversion.
+  doc_url: https://dingwb.github.io/cytozip
+  dev_url: https://github.com/DingWB/cytozip
+
+extra:
+  recipe-maintainers:
+    - DingWB

@@ -474,28 +474,34 @@ def bam_to_cz(
         f"samtools mpileup -Q {min_base_quality} -q {min_mapq} -B "
         f"-f {genome} {bam_path}"
     )
-    # Backend selection. ``samtools mpileup`` is the reference: it
-    # exactly matches the ALLCools ``bam_to_allc`` output (which itself
-    # shells out to mpileup) modulo intentional u8 truncation. The
-    # in-process pysam pileup is faster but cannot perfectly emulate
-    # mpileup's overlap-vs-deletion heuristics for paired-end mates,
-    # so it produces a small number of cov=1..3 differences (~700 sites
-    # out of ~40M for a typical mC BAM). Default to mpileup for
-    # correctness; opt out via ``CYTOZIP_BAM_BACKEND_PYSAM=1``.
-    use_pysam = bool(int(os.environ.get("CYTOZIP_BAM_BACKEND_PYSAM", "0")))
-    use_mpileup = not use_pysam
-    if use_mpileup:
+    # Backend selection. Two options:
+    #
+    #   1. htslib (in-process via cytozip._bam_pileup, ~10-20x faster
+    #      than mpileup subprocess, byte-equivalent to ALLCools).
+    #      Default if the optional ``_bam_pileup`` extension was built.
+    #   2. ``samtools mpileup`` subprocess (the reference: matches
+    #      ALLCools ``bam_to_allc`` modulo u8 truncation). Fallback when
+    #      htslib is unavailable, and forced via
+    #      ``CYTOZIP_BAM_BACKEND_MPILEUP=1``.
+    force_mpileup = bool(int(os.environ.get(
+        "CYTOZIP_BAM_BACKEND_MPILEUP", "0")))
+    _PileupCounter = None
+    if not force_mpileup:
+        try:
+            from ._bam_pileup import PileupCounter as _PileupCounter
+        except ImportError:
+            _PileupCounter = None
+    use_htslib = (_PileupCounter is not None) and not force_mpileup
+    use_mpileup = not use_htslib
+    if use_htslib:
+        pipes = None
+    else:
         pipes = subprocess.Popen(
             shlex.split(mpileup_cmd),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
         )
-        _bam_handle = None
-    else:
-        pipes = None
-        import pysam as _pysam
-        _bam_handle = _pysam.AlignmentFile(bam_path, "rb")
     cov_dict: dict = {}
     mc_dict: dict = {}
     total_line = 0  # set from nonlocal_state after the consume loop
@@ -687,7 +693,44 @@ def bam_to_cz(
             chrom_cov_buf.append(cov)
 
     try:
-        if use_mpileup:
+        if use_htslib:
+            # In-process htslib mpileup wrapper. Byte-equivalent to
+            # ``samtools mpileup -Q -q -B -f`` (and therefore to
+            # ALLCools ``bam_to_allc``), but ~10-20x faster because we
+            # avoid the subprocess + text parsing roundtrip.
+            pc = _PileupCounter(
+                bam_path.encode() if isinstance(bam_path, str) else bam_path,
+                genome.encode() if isinstance(genome, str) else genome,
+                min_mapq=min_mapq,
+                min_base_quality=min_base_quality,
+            )
+            for chrom in pc.references:
+                if chrom not in fai_df.index:
+                    continue
+                if chrom != nonlocal_state["cur_chrom"]:
+                    if nonlocal_state["cur_chrom"]:
+                        nonlocal_state["seq"] = None
+                        _flush(nonlocal_state["cur_chrom"])
+                    nonlocal_state["cur_chrom"] = chrom
+                    nonlocal_state["seq"] = _get_chromosome_sequence_upper(
+                        genome, fai_df, chrom)
+                pos_arr, ref_arr, mc_arr, cov_arr = pc.iter_chrom(chrom)
+                # ref_arr is uint8 (ascii). Vectorize the dispatch:
+                # ``_handle_site`` expects (chrom, pos0, ref_base,
+                # unconverted=mc, converted=cov-mc).
+                for i in range(pos_arr.shape[0]):
+                    cov_i = int(cov_arr[i])
+                    if cov_i == 0:
+                        continue
+                    mc_i = int(mc_arr[i])
+                    _handle_site(
+                        chrom,
+                        int(pos_arr[i]) - 1,
+                        chr(int(ref_arr[i])),
+                        mc_i,
+                        cov_i - mc_i,
+                    )
+        elif use_mpileup:
             for line in pipes.stdout:
                 fields = line.rstrip("\n").split("\t")
                 if len(fields) < 5:
@@ -717,141 +760,6 @@ def bam_to_cz(
                     unconverted = read_bases.count(",")
                     converted = read_bases.count("a")
                 _handle_site(fields[0], pos0, ref_base, unconverted, converted)
-        else:
-            # In-process pysam pileup. ``stepper='samtools'`` and
-            # ``compute_baq=False`` mirror the ``-B`` flag of mpileup.
-            # min_mapping_quality and min_base_quality are applied by
-            # pysam internally so we don't need to recheck.
-            #
-            # Hot path: ``col.get_query_sequences(mark_matches=False,
-            # mark_ends=False, add_indels=False)`` is implemented in C
-            # and returns mpileup-style bases (uppercase = forward
-            # strand, lowercase = reverse). For BS-seq sites we then
-            # count C/T (forward) or g/a (reverse) just like the mpileup
-            # text path does (its '.' / ',' would be the converted base
-            # only when it matches the ref — which for C/G ref bases is
-            # exactly the unconverted methylated read base).
-            bam = _bam_handle
-            for chrom in bam.references:
-                if chrom not in fai_df.index:
-                    continue
-                if chrom != nonlocal_state["cur_chrom"]:
-                    if nonlocal_state["cur_chrom"]:
-                        nonlocal_state["seq"] = None
-                        _flush(nonlocal_state["cur_chrom"])
-                    nonlocal_state["cur_chrom"] = chrom
-                    nonlocal_state["seq"] = _get_chromosome_sequence_upper(
-                        genome, fai_df, chrom)
-                seq_local = nonlocal_state["seq"]
-                seq_len = len(seq_local)
-                for col in bam.pileup(
-                    chrom,
-                    truncate=True,
-                    stepper="samtools",
-                    compute_baq=False,
-                    min_mapping_quality=min_mapq,
-                    min_base_quality=min_base_quality,
-                    ignore_overlaps=True,
-                ):
-                    pos0 = col.reference_pos
-                    if pos0 >= seq_len:
-                        continue
-                    ref_base = seq_local[pos0]
-                    if ref_base not in _MC_SITES:
-                        continue
-                    # Per-pair dedup to mimic ``samtools mpileup``
-                    # overlap removal. pysam's ``ignore_overlaps`` relies
-                    # on mate-position cross references which are
-                    # unreliable in m3C / split-mapped BAMs (hisat-3n),
-                    # so the same fragment's two mates can both appear
-                    # at an overlapping site and be double-counted.
-                    #
-                    # mpileup only dedups reads that are flagged as
-                    # paired-end mates of the SAME pair (same QNAME +
-                    # both ``is_paired=True``). Chimeric / split-mapped
-                    # alignments share QNAME but have ``is_paired=False``
-                    # — they represent independent contacts (m3C trans
-                    # contacts) and must be counted separately even when
-                    # they share QNAME.
-                    #
-                    # Within a paired pair, mpileup behavior:
-                    # - matching bases: keep the higher-BQ entry
-                    #   (ties: empirically the later mate)
-                    # - base-vs-base disagreement: drop both
-                    # - base-vs-deletion (one mate has CIGAR D at site):
-                    #   drop both (mpileup outputs ``*`` and contributes
-                    #   nothing to mc/cov counts)
-                    #
-                    # We pre-pass once to learn which paired-fragment
-                    # qnames have a deletion mate, then run the main
-                    # base-collecting pass.
-                    paired_del_qnames: set = set()
-                    for pr in col.pileups:
-                        if pr.is_del and not pr.is_refskip:
-                            r = pr.alignment
-                            if r.is_paired:
-                                paired_del_qnames.add(r.query_name)
-                    best: dict = {}
-                    uniq_idx = 0
-                    for pr in col.pileups:
-                        if pr.is_refskip or pr.is_del:
-                            continue
-                        qpos = pr.query_position
-                        if qpos is None:
-                            continue
-                        r = pr.alignment
-                        if r.is_paired and r.query_name in paired_del_qnames:
-                            # Mate had a deletion at this site → drop
-                            # both mates to mirror mpileup.
-                            continue
-                        quals = r.query_qualities
-                        bq = quals[qpos] if quals is not None else 0
-                        if bq < min_base_quality:
-                            continue
-                        base_uc = r.query_sequence[qpos]
-                        is_rev = r.is_reverse
-                        if r.is_paired:
-                            key = r.query_name
-                        else:
-                            key = (r.query_name, uniq_idx)
-                            uniq_idx += 1
-                        prev = best.get(key)
-                        if prev is None:
-                            best[key] = (bq, base_uc, is_rev, True)
-                        else:
-                            prev_bq, prev_base, _prev_rev, prev_alive = prev
-                            if not prev_alive:
-                                continue
-                            if base_uc != prev_base:
-                                # Mate base-vs-base disagreement → drop both.
-                                best[key] = (0, None, False, False)
-                            elif bq >= prev_bq:
-                                best[key] = (bq, base_uc, is_rev, True)
-                    if not best:
-                        continue
-                    if ref_base == "C":
-                        unconverted = 0
-                        converted = 0
-                        for _bq, b, is_rev, alive in best.values():
-                            if not alive or is_rev:
-                                continue
-                            if b == "C":
-                                unconverted += 1
-                            elif b == "T":
-                                converted += 1
-                    else:  # 'G'
-                        unconverted = 0
-                        converted = 0
-                        for _bq, b, is_rev, alive in best.values():
-                            if not alive or not is_rev:
-                                continue
-                            if b == "G":
-                                unconverted += 1
-                            elif b == "A":
-                                converted += 1
-                    if unconverted == 0 and converted == 0:
-                        continue
-                    _handle_site(chrom, pos0, ref_base, unconverted, converted)
 
         if nonlocal_state["cur_chrom"]:
             _flush(nonlocal_state["cur_chrom"])
@@ -859,8 +767,6 @@ def bam_to_cz(
     finally:
         if pipes is not None:
             pipes.stdout.close()
-        if _bam_handle is not None:
-            _bam_handle.close()
         writer.close()
         if ref_pos_map is not None:
             ref_pos_map.close()
