@@ -474,11 +474,16 @@ def bam_to_cz(
         f"samtools mpileup -Q {min_base_quality} -q {min_mapq} -B "
         f"-f {genome} {bam_path}"
     )
-    # Legacy backend: keep a fast path that shells out to ``samtools
-    # mpileup`` and parses tabular text. Selected via the env var
-    # ``CYTOZIP_BAM_BACKEND_MPILEUP=1``. Default is the in-process pysam
-    # backend below which avoids the per-line text round-trip.
-    use_mpileup = bool(int(os.environ.get("CYTOZIP_BAM_BACKEND_MPILEUP", "0")))
+    # Backend selection. ``samtools mpileup`` is the reference: it
+    # exactly matches the ALLCools ``bam_to_allc`` output (which itself
+    # shells out to mpileup) modulo intentional u8 truncation. The
+    # in-process pysam pileup is faster but cannot perfectly emulate
+    # mpileup's overlap-vs-deletion heuristics for paired-end mates,
+    # so it produces a small number of cov=1..3 differences (~700 sites
+    # out of ~40M for a typical mC BAM). Default to mpileup for
+    # correctness; opt out via ``CYTOZIP_BAM_BACKEND_PYSAM=1``.
+    use_pysam = bool(int(os.environ.get("CYTOZIP_BAM_BACKEND_PYSAM", "0")))
+    use_mpileup = not use_pysam
     if use_mpileup:
         pipes = subprocess.Popen(
             shlex.split(mpileup_cmd),
@@ -754,20 +759,96 @@ def bam_to_cz(
                     ref_base = seq_local[pos0]
                     if ref_base not in _MC_SITES:
                         continue
-                    bases = col.get_query_sequences(
-                        mark_matches=False,
-                        mark_ends=False,
-                        add_indels=False,
-                    )
-                    if not bases:
+                    # Per-pair dedup to mimic ``samtools mpileup``
+                    # overlap removal. pysam's ``ignore_overlaps`` relies
+                    # on mate-position cross references which are
+                    # unreliable in m3C / split-mapped BAMs (hisat-3n),
+                    # so the same fragment's two mates can both appear
+                    # at an overlapping site and be double-counted.
+                    #
+                    # mpileup only dedups reads that are flagged as
+                    # paired-end mates of the SAME pair (same QNAME +
+                    # both ``is_paired=True``). Chimeric / split-mapped
+                    # alignments share QNAME but have ``is_paired=False``
+                    # — they represent independent contacts (m3C trans
+                    # contacts) and must be counted separately even when
+                    # they share QNAME.
+                    #
+                    # Within a paired pair, mpileup behavior:
+                    # - matching bases: keep the higher-BQ entry
+                    #   (ties: empirically the later mate)
+                    # - base-vs-base disagreement: drop both
+                    # - base-vs-deletion (one mate has CIGAR D at site):
+                    #   drop both (mpileup outputs ``*`` and contributes
+                    #   nothing to mc/cov counts)
+                    #
+                    # We pre-pass once to learn which paired-fragment
+                    # qnames have a deletion mate, then run the main
+                    # base-collecting pass.
+                    paired_del_qnames: set = set()
+                    for pr in col.pileups:
+                        if pr.is_del and not pr.is_refskip:
+                            r = pr.alignment
+                            if r.is_paired:
+                                paired_del_qnames.add(r.query_name)
+                    best: dict = {}
+                    uniq_idx = 0
+                    for pr in col.pileups:
+                        if pr.is_refskip or pr.is_del:
+                            continue
+                        qpos = pr.query_position
+                        if qpos is None:
+                            continue
+                        r = pr.alignment
+                        if r.is_paired and r.query_name in paired_del_qnames:
+                            # Mate had a deletion at this site → drop
+                            # both mates to mirror mpileup.
+                            continue
+                        quals = r.query_qualities
+                        bq = quals[qpos] if quals is not None else 0
+                        if bq < min_base_quality:
+                            continue
+                        base_uc = r.query_sequence[qpos]
+                        is_rev = r.is_reverse
+                        if r.is_paired:
+                            key = r.query_name
+                        else:
+                            key = (r.query_name, uniq_idx)
+                            uniq_idx += 1
+                        prev = best.get(key)
+                        if prev is None:
+                            best[key] = (bq, base_uc, is_rev, True)
+                        else:
+                            prev_bq, prev_base, _prev_rev, prev_alive = prev
+                            if not prev_alive:
+                                continue
+                            if base_uc != prev_base:
+                                # Mate base-vs-base disagreement → drop both.
+                                best[key] = (0, None, False, False)
+                            elif bq >= prev_bq:
+                                best[key] = (bq, base_uc, is_rev, True)
+                    if not best:
                         continue
-                    s = "".join(bases)
                     if ref_base == "C":
-                        unconverted = s.count("C")
-                        converted = s.count("T")
+                        unconverted = 0
+                        converted = 0
+                        for _bq, b, is_rev, alive in best.values():
+                            if not alive or is_rev:
+                                continue
+                            if b == "C":
+                                unconverted += 1
+                            elif b == "T":
+                                converted += 1
                     else:  # 'G'
-                        unconverted = s.count("g")
-                        converted = s.count("a")
+                        unconverted = 0
+                        converted = 0
+                        for _bq, b, is_rev, alive in best.values():
+                            if not alive or not is_rev:
+                                continue
+                            if b == "G":
+                                unconverted += 1
+                            elif b == "A":
+                                converted += 1
                     if unconverted == 0 and converted == 0:
                         continue
                     _handle_site(chrom, pos0, ref_base, unconverted, converted)

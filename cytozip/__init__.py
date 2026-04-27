@@ -152,10 +152,9 @@ def _build_parser():
     p.add_argument('-K', '--chunk_order', default=None, help='filter/order by chunk-key value (e.g. chr1)')
     p.add_argument('--cov_col', default=None,
                    help='if given, drop rows where this column is 0 (allc convention)')
-    p.add_argument('--trailing', default=None,
-                   help='extra literal-value columns appended after data, '
-                        'as comma-separated key=value pairs '
-                        '(e.g. "mc_flag=1" for ALLCools allc.tsv.gz)')
+    p.add_argument('--allc_format', action='store_true',
+                   help='append a 7th mc_flag=1 column to produce the '
+                        'standard ALLCools allc.tsv.gz 7-column layout')
     p.add_argument('--no_tabix', action='store_true', help='skip tabix indexing')
 
     # ---- summary_chunks / summary_blocks ------------------------------------
@@ -520,27 +519,9 @@ def main():
     elif cmd == 'to_bgzip':
         from .cz import Reader
         r = Reader(args.input)
-        trailing = None
-        if args.trailing:
-            trailing = {}
-            for kv in args.trailing.split(','):
-                if not kv.strip():
-                    continue
-                if '=' not in kv:
-                    raise ValueError(f"--trailing entry {kv!r} must be key=value")
-                k, v = kv.split('=', 1)
-                # Coerce numeric where possible.
-                try:
-                    v_num = int(v)
-                except ValueError:
-                    try:
-                        v_num = float(v)
-                    except ValueError:
-                        v_num = v
-                trailing[k.strip()] = v_num
         r.to_bgzip(output=args.output, reference=args.reference,
                    chunk_order=args.chunk_order, tabix=not args.no_tabix,
-                   cov_col=args.cov_col, trailing_columns=trailing)
+                   cov_col=args.cov_col, allc_format=args.allc_format)
         r.close()
 
     elif cmd == 'summary':

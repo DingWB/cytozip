@@ -2015,7 +2015,7 @@ class Reader:
 				ref_reader.close()
 
 	def to_bgzip(self, output, reference=None, chunk_order=None,
-			 where=None, tabix=True, cov_col=None, trailing_columns=None):
+			 where=None, tabix=True, cov_col=None, allc_format=False):
 		"""Convert a .cz file to a bgzip-compressed TSV (``.tsv.gz``).
 
 		The output is bgzip (BGZF) compressed and tabix-indexable. The
@@ -2023,16 +2023,16 @@ class Reader:
 		BS-seq (allc.tsv.gz) and methylation-array (probe-level beta)
 		.cz files. The output column order is::
 
-		  chrom  [ref_columns...]  [data_columns...]  [trailing_columns...]
+		  chrom  [ref_columns...]  [data_columns...]  [mc_flag if allc_format]
 
 		Common recipes:
 
-		* ALLCools allc.tsv.gz (with ``mc_flag=1`` trailing column)::
+		* ALLCools allc.tsv.gz (7-column format, trailing ``mc_flag=1``)::
 
 		    reader.to_bgzip("x.allc.tsv.gz", reference=ref_cz,
-		                    cov_col="cov", trailing_columns={"mc_flag": 1})
+		                    cov_col="cov", allc_format=True)
 
-		* Methylation array beta TSV (no row filtering, no trailing)::
+		* Methylation array beta TSV (no row filtering, no trailing col)::
 
 		    reader.to_bgzip("x.beta.tsv.gz", reference=ref_cz)
 
@@ -2075,10 +2075,10 @@ class Reader:
 			is zero are dropped before writing (allc convention). Default
 			``None`` keeps all rows (suitable for array data, where 0 is
 			a valid beta value).
-		trailing_columns : dict, optional
-			Extra literal-value columns appended after the data columns.
-			E.g. ``{"mc_flag": 1}`` to recreate the trailing ``1`` of
-			allc.tsv.gz. Default ``None``.
+		allc_format : bool, optional
+			If True, append a 7th ``mc_flag`` column with constant value
+			``1`` to produce the standard ALLCools ``allc.tsv.gz`` 7-column
+			layout. Default ``False``.
 		"""
 		import pysam
 		output = os.path.abspath(os.path.expanduser(output))
@@ -2182,9 +2182,8 @@ class Reader:
 							cols[col] = ref_arr[col]
 				for col in _self_cols:
 					cols[col] = arr[col]
-				if trailing_columns:
-					for col, val in trailing_columns.items():
-						cols[col] = val
+				if allc_format:
+					cols["mc_flag"] = 1
 				df = pd.DataFrame(cols)
 
 				# Decode string columns (precomputed lists)

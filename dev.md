@@ -387,7 +387,7 @@ cd /home/x-wding2/Projects/Github/cytozip
 pip uninstall -y cytozip && python3 -m pip install .
 rm -rf cytozip_example_data/output/cz
 czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O cytozip_example_data/output/mm10_with_chrL.allc.cz -j 20
-python tests/benchmark_bam_to_cz.py  -j 20
+python tests/benchmark_bam_to_cz.py  -j 1
 python tests/benchmark_query.py
 # nbexe notebooks/2.dnam.ipynb
 ```
