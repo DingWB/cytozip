@@ -22,6 +22,8 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # Prefer the in-repo cytozip over any pip-installed copy in site-packages.
 sys.path.insert(0, str(REPO_ROOT))
@@ -77,7 +79,13 @@ def main():
     import tabix as pytabix
     import cytozip as czip
 
+    # Open the reference Reader ONCE — passing it as an object avoids
+    # re-opening + re-mmapping the (~1.3 GB mm10) reference per call,
+    # which previously dominated the warm query_numpy timing.
+    ref_reader = czip.Reader(str(REF_CZ))
+
     rows = []
+    correctness_rows = []
     for cz in cz_files:
         cid = cz.stem
         allc = ALLC_DIR / f"{cid}.allc.tsv.gz"
@@ -128,15 +136,77 @@ def main():
 
         # 5) cytozip Reader.query_numpy() (warm — vectorized, returns ndarray)
         # Prime the chunk caches once, then time pure searchsorted hot path.
-        qn_arr = reader.query_numpy(
+        # When reference= is given, query_numpy returns (positions, records);
+        # use len(records) for the hit count.
+        qn_out = reader.query_numpy(
             chunk_key=REGION["chrom"],
             start=REGION["start"], end=REGION["end"],
-            reference=str(REF_CZ))
-        qn_n = 0 if qn_arr is None else len(qn_arr)
+            reference=ref_reader)
+        qn_n = (0 if qn_out is None
+                else (len(qn_out[1]) if isinstance(qn_out, tuple)
+                      else len(qn_out)))
         t_qn = _warm_time(lambda: reader.query_numpy(
             chunk_key=REGION["chrom"],
             start=REGION["start"], end=REGION["end"],
-            reference=str(REF_CZ)))
+            reference=ref_reader))
+
+        # ---- Correctness check (besides count_fmt='B' truncation) ----
+        # The cz files are written with --count_fmt B (uint8), so any
+        # ALLC row with mc or cov >= 256 would be saturated at 255 in
+        # the .cz. Anything else differing between pytabix and cytozip
+        # is a genuine mismatch worth flagging.
+        # NOTE: pytabix.query() uses 0-based half-open [start, end);
+        # cytozip query_numpy uses 1-based inclusive [start, end].
+        # Pass start-1 to pytabix so both span the same positions.
+        tb_rows = list(tb.query(
+            REGION["chrom"], REGION["start"] - 1, REGION["end"]))
+        tb_map = {int(r[1]): (int(r[4]), int(r[5])) for r in tb_rows}
+        cz_pos, cz_recs = qn_out  # (positions, structured ndarray)
+        # Records have unnamed fields (f0=mc, f1=cov per --count_fmt B,B
+        # written by bam_to_cz mode=mc_cov).
+        mc_field, cov_field = cz_recs.dtype.names[:2]
+        cz_map = {int(p): (int(rec[mc_field]), int(rec[cov_field]))
+                  for p, rec in zip(cz_pos, cz_recs)}
+        truncated = mismatched = 0
+        examples = []
+        for p, (mc_a, cov_a) in tb_map.items():
+            cz_v = cz_map.get(p)
+            if cz_v is None:
+                mismatched += 1
+                if len(examples) < 3:
+                    examples.append((p, (mc_a, cov_a), None))
+                continue
+            mc_z, cov_z = cz_v
+            if (mc_z, cov_z) == (min(mc_a, 255), min(cov_a, 255)):
+                if mc_a >= 256 or cov_a >= 256:
+                    truncated += 1
+            else:
+                mismatched += 1
+                if len(examples) < 3:
+                    examples.append((p, (mc_a, cov_a), (mc_z, cov_z)))
+        only_in_cz_covered = sum(1 for p, v in cz_map.items()
+                                 if p not in tb_map and v != (0, 0))
+        only_in_cz_zero = sum(1 for p, v in cz_map.items()
+                              if p not in tb_map and v == (0, 0))
+        msg = (f"[check] {cid}  pytabix={len(tb_map)}  cz={len(cz_map)}  "
+               f"truncated(>=256)={truncated}  mismatched={mismatched}  "
+               f"only_in_cz_zero={only_in_cz_zero}  "
+               f"only_in_cz_covered={only_in_cz_covered}")
+        if examples:
+            msg += f"  examples={examples}"
+        print(msg)
+
+        correctness_rows.append(dict(
+            cell=cid,
+            region=region_str,
+            pytabix_n=len(tb_map),
+            cz_n=len(cz_map),
+            truncated_ge256=truncated,
+            mismatched=mismatched,
+            only_in_cz_zero=only_in_cz_zero,
+            only_in_cz_covered=only_in_cz_covered,
+        ))
+
         reader.close()
         rows.append(dict(cell=cid, tool=f"cytozip Reader.query_numpy() (warm avg/{NQ})",
                          time_s=t_qn, peak_rss_mb=float("nan"), n=qn_n))
@@ -161,6 +231,21 @@ def main():
                         "n": r["n"]})
     print(f"\n[bench] wrote {tsv}\n")
 
+    if correctness_rows:
+        ctsv = BENCH / "query_correctness.tsv"
+        with ctsv.open("w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(correctness_rows[0].keys()),
+                               delimiter="\t")
+            w.writeheader()
+            for r in correctness_rows:
+                w.writerow(r)
+        n_bad = sum(r['mismatched'] for r in correctness_rows)
+        n_only = sum(r['only_in_cz_covered'] for r in correctness_rows)
+        n_trunc = sum(r['truncated_ge256'] for r in correctness_rows)
+        print(f"[check] cells={len(correctness_rows)}  total_truncated(>=256)={n_trunc}  "
+              f"total_mismatched={n_bad}  total_only_in_cz_covered={n_only}")
+        print(f"[check] wrote {ctsv}\n")
+
     from collections import defaultdict
     agg = defaultdict(list)
     for r in rows:
@@ -169,6 +254,84 @@ def main():
     for tool, ts in agg.items():
         mean = sum(ts) / len(ts)
         print(f"{tool:<42} {len(ts):>8} {mean:>12.6f}")
+
+    # --------------------------------------------------------------
+    # Region-size scaling benchmark (single representative cell)
+    # --------------------------------------------------------------
+    # For warm queries the per-record Python overhead in pytabix grows
+    # ~linearly with N hits, while query_numpy is essentially a chunk
+    # decode (cached after first call) + np.searchsorted, so it should
+    # become *relatively* faster as the queried region grows.
+    cell_path = cz_files[len(cz_files) // 2]
+    cid = cell_path.stem
+    allc = ALLC_DIR / f"{cid}.allc.tsv.gz"
+    if allc.exists():
+        # Use chr9 instead of chr1: it sits much further down the
+        # reference .cz on disk, so any cold-cache effect would show up
+        # more clearly. (Warm timings here should still be steady.)
+        chrom = "chr9"
+        center = 50_000_000
+        # Region half-widths (bp); region size = 2 * half + 1.
+        half_widths = [2_500, 25_000, 250_000, 2_500_000, 25_000_000]
+        scale_rows = []
+
+        tb = pytabix.open(str(allc))
+        reader = czip.Reader(str(cell_path))
+
+        # Prime caches once on the largest region so the searchsorted
+        # path is purely warm-CPU for every measurement below.
+        max_w = max(half_widths)
+        reader.query_numpy(chunk_key=chrom,
+                           start=center - max_w, end=center + max_w,
+                           reference=ref_reader)
+
+        print(f"\n[bench-scale] cell={cid}  chrom={chrom}  center={center}  reps=10 (per-row)")
+        N_REPLICATES = 10  # rows per size: each row is its own _warm_time avg
+        for hw in half_widths:
+            s, e = center - hw, center + hw
+            size_bp = e - s
+
+            tb_n = sum(1 for _ in tb.query(chrom, s, e))
+            # Inner repetitions per replicate: larger regions => fewer.
+            n_rep = 100 if hw <= 250_000 else (20 if hw <= 2_500_000 else 5)
+
+            for rep in range(N_REPLICATES):
+                t_tb = _warm_time(
+                    lambda s=s, e=e: list(tb.query(chrom, s, e)), n=n_rep)
+                t_qn = _warm_time(
+                    lambda s=s, e=e: reader.query_numpy(
+                        chunk_key=chrom, start=s, end=e,
+                        reference=ref_reader),
+                    n=n_rep)
+                speedup = (t_tb / t_qn) if t_qn > 0 else float("nan")
+                scale_rows.append(dict(
+                    cell=cid, chrom=chrom, start=s, end=e, size_bp=size_bp,
+                    n_records=tb_n, n_rep=n_rep, replicate=rep,
+                    pytabix_time_s=t_tb, qnumpy_time_s=t_qn,
+                    speedup=speedup,
+                ))
+
+            # Print summary across replicates for this size.
+            tb_arr = np.array([r['pytabix_time_s'] for r in scale_rows
+                               if r['size_bp'] == size_bp])
+            qn_arr = np.array([r['qnumpy_time_s'] for r in scale_rows
+                               if r['size_bp'] == size_bp])
+            print(f"[bench-scale] size={size_bp:>10} bp  N={tb_n:>7}  "
+                  f"pytabix={tb_arr.mean()*1e3:>9.3f}\u00b1{tb_arr.std()*1e3:.3f} ms  "
+                  f"qnumpy={qn_arr.mean()*1e3:>9.3f}\u00b1{qn_arr.std()*1e3:.3f} ms")
+        reader.close()
+
+        tsv2 = BENCH / "query_scale_benchmark.tsv"
+        with tsv2.open("w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(scale_rows[0].keys()),
+                               delimiter="\t")
+            w.writeheader()
+            for r in scale_rows:
+                w.writerow({k: (f"{v:.6f}" if isinstance(v, float) else v)
+                            for k, v in r.items()})
+        print(f"[bench-scale] wrote {tsv2}")
+
+    ref_reader.close()
 
 
 if __name__ == "__main__":

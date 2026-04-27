@@ -1,0 +1,1406 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calling DMRs with cytozip &mdash; cytozip 0.3.0.dev21 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=161b7e8c" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=ca60a7fa"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/js/rtd_search_config.js"></script>
+      <script src="../_static/js/rtd_sphinx_search.min.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Remote Reading with cytozip" href="remote_reading.html" />
+    <link rel="prev" title="cytozip Python API" href="3.python_api.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            cytozip
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="1.quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="1.quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="2.dnam.html">DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="2.dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="2.dnam.html#3.-BAM-→-.cz">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="2.dnam.html#BAM-→-.cz-benchmark-vs-ALLCools">BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> benchmark vs ALLCools</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="2.dnam.html#4.-ALLC-→-.cz">4. ALLC → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="2.dnam.html#5.-view-and-query">5. <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">query</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="2.dnam.html#Warm-query:-query_numpy-vs-pytabix-across-region-sizes">Warm query: <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> across region sizes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="2.dnam.html#Correctness-check:-cytozip-query-vs-pytabix">Correctness check: cytozip query vs pytabix</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="2.dnam.html#6.-View-/-query-a-remote-.cz-(no-download)">6. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="2.dnam.html#7.-catcz-and-merge_cz">7. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="2.dnam.html#8.-Build-a-cell-×-gene-AnnData">8. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="3.python_api.html">cytozip Python API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#view-header">view header</a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#summary-chunks-&amp;-blocks">summary chunks &amp; blocks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#query">query</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="3.python_api.html#Numpy-/-DataFrame-APIs">Numpy / DataFrame APIs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#chunk2numpy(dims)-—-decode-a-whole-chunk"><code class="docutils literal notranslate"><span class="pre">chunk2numpy(dims)</span></code> — decode a whole chunk</a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#chunk2df(dims,-reformat=False)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims,</span> <span class="pre">reformat=False)</span></code> — decode as a DataFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Calling DMRs with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#Pseudobulk-vs-single-cell-input">Pseudobulk vs single-cell input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#1.-CG-DMR-—-call_dmr">1. CG DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#2.-CH-DMR-—-call_dmr_ch">2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Stratified-one-vs-rest-(within-each-class)">Stratified one-vs-rest (within each class)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#CH-batch-one-vs-rest-with-shared-global-rate-pre-scan">CH batch one-vs-rest with shared global-rate pre-scan</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#4.-Merging-results-—-merge_dmr_results">4. Merging results — <code class="docutils literal notranslate"><span class="pre">merge_dmr_results</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#5.-CLI-equivalents">5. CLI equivalents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#6.-Per-cell-methylation-over-DMRs-—-cz_to_anndata">6. Per-cell methylation over DMRs — <code class="docutils literal notranslate"><span class="pre">cz_to_anndata</span></code></a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dev.html">Advanced Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dev.html#Generate-2D-subset-index-for-a-genomic-region">Generate 2D subset index for a genomic region</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev.html#Call-DMR-pipeline">Call DMR pipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dev.html#(1).Merge-cell-types">(1).Merge cell types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dev.html#(2).merge-multiple-.cz-files-into-matrix-(fraction,-2D-or-fisher-exact-test)">(2).merge multiple .cz files into matrix (fraction, 2D or fisher exact test)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dev.html#(3).Call-DMR-using-comb-p">(3).Call DMR using comb-p</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dev.html#id1">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dev.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dev.html#Remote-Reading">Remote Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../benchmark.html">Benchmark</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../benchmark.html#storage">1.Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../format_history.html">cz Format — Change History</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../format_history.html#larger-blocks-256-kib-1">Larger blocks (256 KiB − 1)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../format_history.html#wider-virtual-offsets-44-20">Wider virtual offsets (44 + 20)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../format_history.html#delta-encoded-integer-columns">Delta-encoded integer columns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../format_history.html#tail-chunk-index-czix">Tail chunk index (CZIX)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../format_history.html#ideas-explored-but-not-adopted">Ideas explored but <strong>not</strong> adopted</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../developer_guide.html">Developer Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide.html#architecture-overview">Architecture overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide.html#module-map">Module map</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide.html#performance-memory-patterns">Performance / memory patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_guide.html#building-the-docs-locally">Building the docs locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cytozip.html">cytozip package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cytozip.html#submodules">Submodules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.allc.html">cytozip.allc module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.array.html">cytozip.array module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.array.html#input-shape-conventions">Input shape conventions</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.array.html#output-layout">Output layout</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.array.html#float-quantization">Float quantization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.array.html#cytozip.array.array2cz"><code class="docutils literal notranslate"><span class="pre">array2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.array.html#cytozip.array.dequantize_cz"><code class="docutils literal notranslate"><span class="pre">dequantize_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.array.html#cytozip.array.dequantize_uniform"><code class="docutils literal notranslate"><span class="pre">dequantize_uniform()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.array.html#cytozip.array.quantize_uniform"><code class="docutils literal notranslate"><span class="pre">quantize_uniform()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.bam.html">cytozip.bam module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.bam.html#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.bam.html#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.cz.html">cytozip.cz module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.build_context_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_context_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.build_region_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.build_region_index_worker"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index_worker()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.chunk2numpy"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.iter_chunks_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.iter_chunks_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.query_numpy_chunk_batch"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_chunk_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.query_numpy_multi"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_multi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_compress_blocks_parallel"><code class="docutils literal notranslate"><span class="pre">c_compress_blocks_parallel()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_delta_encode_block"><code class="docutils literal notranslate"><span class="pre">c_delta_encode_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.dmr.html">cytozip.dmr module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.call_dmr"><code class="docutils literal notranslate"><span class="pre">call_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.combp"><code class="docutils literal notranslate"><span class="pre">combp()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr_accel.html#public-entry-point">Public entry point</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr_accel.html#cytozip.dmr_accel.rms_run_sites"><code class="docutils literal notranslate"><span class="pre">rms_run_sites()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.features.html">cytozip.features module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.features.html#design-notes">Design notes</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.features.html#cytozip.features.cz_to_anndata"><code class="docutils literal notranslate"><span class="pre">cz_to_anndata()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.features.html#cytozip.features.load_blacklist"><code class="docutils literal notranslate"><span class="pre">load_blacklist()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.features.html#cytozip.features.make_genome_bins"><code class="docutils literal notranslate"><span class="pre">make_genome_bins()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.features.html#cytozip.features.parse_features"><code class="docutils literal notranslate"><span class="pre">parse_features()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.features.html#cytozip.features.parse_gtf"><code class="docutils literal notranslate"><span class="pre">parse_gtf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.merge.html">cytozip.merge module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.pivot.html">cytozip.pivot module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.pivot.html#cytozip.pivot.pivot_fisher"><code class="docutils literal notranslate"><span class="pre">pivot_fisher()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.pivot.html#cytozip.pivot.pivot_fraction"><code class="docutils literal notranslate"><span class="pre">pivot_fraction()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../cytozip.html#module-cytozip">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../setup.html">setup module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">cytozip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Calling DMRs with cytozip</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/notebooks/4.call_dmr.ipynb" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="Calling-DMRs-with-cytozip">
+<h1>Calling DMRs with cytozip<a class="headerlink" href="#Calling-DMRs-with-cytozip" title="Link to this heading"></a></h1>
+<p>This notebook walks through the DMR-calling APIs in cytozip:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>API</p></th>
+<th class="head"><p>Use case</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">czip.call_dmr</span></code></p></td>
+<td><p><strong>CG</strong> (CpG) DMRs between two groups of <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files (single-cell or pseudobulk)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">czip.call_dmr_ch</span></code></p></td>
+<td><p><strong>non-CG</strong> (CH / CA / CT) DMRs with bin aggregation, global mCH normalization, and a log2-fold-change filter</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">czip.call_dmr_one_vs_rest</span></code></p></td>
+<td><p>Batch one-vs-rest over a folder of pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files; optionally <strong>stratified</strong> within each class given a 2-column TSV</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">czip.merge_dmr_results</span></code></p></td>
+<td><p>Stitch per-sample TSVs into a single long-format table with derived metrics (<code class="docutils literal notranslate"><span class="pre">delta_meth</span></code> / <code class="docutils literal notranslate"><span class="pre">delta_rate</span></code>, <code class="docutils literal notranslate"><span class="pre">direction</span></code>, <code class="docutils literal notranslate"><span class="pre">log2fc</span></code>, <code class="docutils literal notranslate"><span class="pre">length</span></code>, <code class="docutils literal notranslate"><span class="pre">region_id</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+<p>All DMR callers share the same OpenMP-parallel Cython RMS permutation kernel (Schultz et al. 2015 / ALLCools).</p>
+<section id="Pseudobulk-vs-single-cell-input">
+<h2>Pseudobulk vs single-cell input<a class="headerlink" href="#Pseudobulk-vs-single-cell-input" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">group_a</span></code> / <code class="docutils literal notranslate"><span class="pre">group_b</span></code> accept <strong>either</strong> single-cell <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files <strong>or</strong> pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files. <strong>Pseudobulk is strongly recommended</strong> for cell-type-vs-cell-type comparisons:</p>
+<ul class="simple">
+<li><p>Per-cell coverage is sparse (CG cov is mostly 0/1; CH is essentially zero), so per-site permutation tests on single cells have limited power.</p></li>
+<li><p>Pooling cells of the same cluster gives stable per-site coverage and matches ALLCools’ / Methylpy’s “one ALLC = one sample” convention.</p></li>
+<li><p>Runtime scales linearly with the number of input files, so going from N cells to K clusters is a large speed-up.</p></li>
+</ul>
+<p>Recommended workflow: build <strong>multiple replicate pseudobulks per cluster</strong> with <code class="docutils literal notranslate"><span class="pre">czip</span> <span class="pre">merge_cz</span></code> (split by donor / batch, or random splits), then pass those replicate pseudobulks as <code class="docutils literal notranslate"><span class="pre">group_a</span></code> / <code class="docutils literal notranslate"><span class="pre">group_b</span></code>.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~/Projects/Github/cytozip/cytozip_example_data&quot;</span><span class="p">))</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">czip</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="1.-CG-DMR-—-call_dmr">
+<h2>1. CG DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code><a class="headerlink" href="#1.-CG-DMR-—-call_dmr" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">call_dmr</span></code> re-implements ALLCools’ permutation root-mean-square (RMS) test on the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> format. The hot loop lives in the Cython extension <code class="docutils literal notranslate"><span class="pre">cytozip.dmr_accel</span></code> (OpenMP <code class="docutils literal notranslate"><span class="pre">prange</span></code>, dynamic schedule) and the outer chunk loop is split into <code class="docutils literal notranslate"><span class="pre">processes</span> <span class="pre">×</span> <span class="pre">threads</span> <span class="pre">≈</span> <span class="pre">jobs</span></code>.</p>
+<p>Algorithm:</p>
+<ol class="arabic simple">
+<li><p>For each reference chunk, load each cell’s <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code> columns into an <code class="docutils literal notranslate"><span class="pre">(n_cells,</span> <span class="pre">n_sites)</span></code> int32 matrix.</p></li>
+<li><p>Keep sites with at least <code class="docutils literal notranslate"><span class="pre">min_samples_per_group</span></code> cells passing <code class="docutils literal notranslate"><span class="pre">cov</span> <span class="pre">&gt;=</span> <span class="pre">min_cov</span></code> in both groups.</p></li>
+<li><p>Run the RMS permutation test per site (early stop at <code class="docutils literal notranslate"><span class="pre">min_pvalue</span></code>, downsampling caps <code class="docutils literal notranslate"><span class="pre">max_row_count</span></code>/<code class="docutils literal notranslate"><span class="pre">max_total_count</span></code> matching ALLCools defaults).</p></li>
+<li><p>Sites with <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&lt;</span> <span class="pre">p_value_cutoff</span></code> and <code class="docutils literal notranslate"><span class="pre">|mean(frac_A)</span> <span class="pre">-</span> <span class="pre">mean(frac_B)|</span> <span class="pre">&gt;</span> <span class="pre">frac_delta_cutoff</span></code> are DMS.</p></li>
+<li><p>Adjacent same-sign DMS within <code class="docutils literal notranslate"><span class="pre">max_dist</span></code> bp are merged into DMRs (<code class="docutils literal notranslate"><span class="pre">min_dms</span></code> per DMR).</p></li>
+</ol>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cells</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;output/cz/FC_*.cz&quot;</span><span class="p">))</span>
+<span class="n">group_a</span><span class="p">,</span> <span class="n">group_b</span> <span class="o">=</span> <span class="n">cells</span><span class="p">[:</span><span class="mi">5</span><span class="p">],</span> <span class="n">cells</span><span class="p">[</span><span class="mi">5</span><span class="p">:]</span>
+
+<span class="n">czip</span><span class="o">.</span><span class="n">call_dmr</span><span class="p">(</span>
+    <span class="n">group_a</span><span class="o">=</span><span class="n">group_a</span><span class="p">,</span> <span class="n">group_b</span><span class="o">=</span><span class="n">group_b</span><span class="p">,</span>
+    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
+    <span class="n">output</span><span class="o">=</span><span class="s2">&quot;/tmp/cz_dmr_demo.tsv&quot;</span><span class="p">,</span>
+    <span class="n">dms_output</span><span class="o">=</span><span class="s2">&quot;/tmp/cz_dms_demo.tsv&quot;</span><span class="p">,</span>
+    <span class="n">chroms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrM&quot;</span><span class="p">,</span> <span class="s2">&quot;chrL&quot;</span><span class="p">],</span>   <span class="c1"># restrict to small chroms for the demo</span>
+    <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">min_samples_per_group</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">p_value_cutoff</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">frac_delta_cutoff</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">n_permute</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;/tmp/cz_dmr_demo.tsv&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-04-27 14:23:24.709</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 5 cells in A vs 4 cells in B over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:30.300</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">587</span> - <span class="ansi-bold">DMS table (841 sites) written to /tmp/cz_dms_demo.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:30.307</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 841 DMS -&gt; 181 DMRs written to /tmp/cz_dmr_demo.tsv</span>
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>chrom</th>
+      <th>start</th>
+      <th>end</th>
+      <th>n_dms</th>
+      <th>p_min</th>
+      <th>frac_delta_mean</th>
+      <th>state</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>chrL</td>
+      <td>407</td>
+      <td>596</td>
+      <td>8</td>
+      <td>0.009500</td>
+      <td>0.255072</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>chrL</td>
+      <td>972</td>
+      <td>973</td>
+      <td>1</td>
+      <td>0.042084</td>
+      <td>0.346425</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>chrL</td>
+      <td>1282</td>
+      <td>1283</td>
+      <td>1</td>
+      <td>0.026382</td>
+      <td>0.235873</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>chrL</td>
+      <td>1336</td>
+      <td>1475</td>
+      <td>15</td>
+      <td>0.001500</td>
+      <td>-0.325388</td>
+      <td>-1</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>chrL</td>
+      <td>1616</td>
+      <td>1646</td>
+      <td>3</td>
+      <td>0.036585</td>
+      <td>0.361111</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<p>Output columns (BED-style, 0-based half-open):</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>column</p></th>
+<th class="head"><p>meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">chrom</span></code>, <code class="docutils literal notranslate"><span class="pre">start</span></code>, <code class="docutils literal notranslate"><span class="pre">end</span></code></p></td>
+<td><p>DMR coordinates</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">n_dms</span></code></p></td>
+<td><p>number of significant sites in the DMR</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">p_min</span></code></p></td>
+<td><p>smallest per-site p-value in the DMR</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">frac_delta_mean</span></code></p></td>
+<td><p>mean <code class="docutils literal notranslate"><span class="pre">frac_A</span> <span class="pre">−</span> <span class="pre">frac_B</span></code> over constituent DMS</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">state</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+1</span></code> = hyper in A, <code class="docutils literal notranslate"><span class="pre">-1</span></code> = hypo in A, <code class="docutils literal notranslate"><span class="pre">0</span></code> = mixed</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="2.-CH-DMR-—-call_dmr_ch">
+<h2>2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code><a class="headerlink" href="#2.-CH-DMR-—-call_dmr_ch" title="Link to this heading"></a></h2>
+<p>CH methylation has very low fractions (~0.5–5% in neurons, much less elsewhere) and large global-rate differences between cell types, so the CG-tuned <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code> is unsuitable. <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code> adapts the same RMS kernel:</p>
+<ol class="arabic simple">
+<li><p><strong>Bin aggregation</strong> — pool per-cell mc/cov into fixed-size bins (default 5 kb) so the test has signal.</p></li>
+<li><p><strong>Global-rate normalization</strong> (default ON) — pre-compute each cell’s global mCH rate and rescale its mc counts to a common median target. This removes the dominant cell-type-level global shift that would otherwise saturate the test.</p></li>
+<li><p><strong>Triple filter</strong> — DMS bins must satisfy <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&lt;</span> <span class="pre">p_value_cutoff</span></code> AND <code class="docutils literal notranslate"><span class="pre">|log2(rate_A</span> <span class="pre">/</span> <span class="pre">rate_B)|</span> <span class="pre">≥</span> <span class="pre">log2fc_cutoff</span></code> AND <code class="docutils literal notranslate"><span class="pre">|rate_A</span> <span class="pre">−</span> <span class="pre">rate_B|</span> <span class="pre">≥</span> <span class="pre">abs_delta_cutoff</span></code>.</p></li>
+<li><p><strong>Sub-context restriction</strong> — pass <code class="docutils literal notranslate"><span class="pre">index=mm10.CAN.cz</span></code> to analyze mCA only (recommended in mammalian neurons).</p></li>
+<li><p>Wider merge distance (<code class="docutils literal notranslate"><span class="pre">max_dist=2000</span></code>) and <code class="docutils literal notranslate"><span class="pre">min_dms=2</span></code> since CH signal is broader.</p></li>
+</ol>
+<p>For CH, <strong>pseudobulk input is even more strongly recommended</strong> than for CG: per-cell per-site CH coverage is essentially zero, so even with binning the signal in single-cell input is dominated by sampling noise.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">czip</span><span class="o">.</span><span class="n">call_dmr_ch</span><span class="p">(</span>
+    <span class="n">group_a</span><span class="o">=</span><span class="n">group_a</span><span class="p">,</span> <span class="n">group_b</span><span class="o">=</span><span class="n">group_b</span><span class="p">,</span>
+    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
+    <span class="n">output</span><span class="o">=</span><span class="s2">&quot;/tmp/cz_dmr_ch_demo.tsv&quot;</span><span class="p">,</span>
+    <span class="n">dms_output</span><span class="o">=</span><span class="s2">&quot;/tmp/cz_dms_ch_demo.tsv&quot;</span><span class="p">,</span>
+    <span class="n">bin_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>                  <span class="c1"># smaller bins for the tiny demo dataset</span>
+    <span class="n">chroms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrM&quot;</span><span class="p">,</span> <span class="s2">&quot;chrL&quot;</span><span class="p">],</span>
+    <span class="n">p_value_cutoff</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">log2fc_cutoff</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+    <span class="n">abs_delta_cutoff</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+    <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">min_samples_per_group</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_permute</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;/tmp/cz_dms_ch_demo.tsv&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-04-27 14:23:30.345</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 5 cells in A vs 4 cells in B over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:30.345</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1000</span> - <span class="ansi-bold">call_dmr_ch: scanning group A for per-cell global rates</span>
+<span class="ansi-green-fg">2026-04-27 14:23:30.580</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1009</span> - <span class="ansi-bold">call_dmr_ch: scanning group B for per-cell global rates</span>
+<span class="ansi-green-fg">2026-04-27 14:23:30.821</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [0.93,1.01], B scale range [1.00,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:31.508</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1118</span> - <span class="ansi-bold">DMS bins (12) written to /tmp/cz_dms_ch_demo.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:31.512</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 12 DMS bins -&gt; 2 DMRs written to /tmp/cz_dmr_ch_demo.tsv</span>
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>chrom</th>
+      <th>pos</th>
+      <th>p</th>
+      <th>delta</th>
+      <th>rate_a</th>
+      <th>rate_b</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>chrM</td>
+      <td>1</td>
+      <td>0.000333</td>
+      <td>0.181566</td>
+      <td>0.727273</td>
+      <td>0.545706</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>chrM</td>
+      <td>1001</td>
+      <td>0.000333</td>
+      <td>0.259249</td>
+      <td>0.782665</td>
+      <td>0.523416</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>chrM</td>
+      <td>2001</td>
+      <td>0.000333</td>
+      <td>0.321738</td>
+      <td>0.689085</td>
+      <td>0.367347</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>chrM</td>
+      <td>3001</td>
+      <td>0.000333</td>
+      <td>0.258977</td>
+      <td>0.777049</td>
+      <td>0.518072</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>chrM</td>
+      <td>4001</td>
+      <td>0.000333</td>
+      <td>0.383304</td>
+      <td>0.889032</td>
+      <td>0.505728</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<p>On real single-cell data, <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code> is typically <strong>5–50× faster than ``call_dmr``</strong> because bin aggregation collapses tens of thousands of per-site tests into a few thousand per-bin tests, even with the optional global-rate pre-scan.</p>
+</section>
+<section id="3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">
+<h2>3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code><a class="headerlink" href="#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest" title="Link to this heading"></a></h2>
+<p>Scans a directory of pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files, runs <strong>each sample vs. all the others</strong> in one go, and (after the last comparison) auto-merges per-sample TSVs into a single long-format table at <code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/merged_dmr.tsv</span></code> with derived metrics.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">class_table=None</span></code> → <strong>global</strong> one-vs-rest (output: <code class="docutils literal notranslate"><span class="pre">outdir/&lt;sname&gt;.dmr.tsv</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">class_table=...</span></code> (TSV path / <code class="docutils literal notranslate"><span class="pre">dict</span></code> / <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code> with two columns <code class="docutils literal notranslate"><span class="pre">sname&lt;TAB&gt;class</span></code>) → <strong>stratified</strong>: each comparison is restricted to other members of the same class (output: <code class="docutils literal notranslate"><span class="pre">outdir/&lt;class&gt;/&lt;sname&gt;.dmr.tsv</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">method='cg'</span> <span class="pre">|</span> <span class="pre">'ch'</span></code> switches between <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code> and <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code>; extra knobs (e.g. <code class="docutils literal notranslate"><span class="pre">bin_size</span></code>, <code class="docutils literal notranslate"><span class="pre">frac_delta_cutoff</span></code>, <code class="docutils literal notranslate"><span class="pre">log2fc_cutoff</span></code>, <code class="docutils literal notranslate"><span class="pre">n_permute</span></code>, …) flow through via <code class="docutils literal notranslate"><span class="pre">**dmr_kwargs</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">overwrite=False</span></code> skips comparisons whose output TSV already exists (resume-friendly).</p></li>
+<li><p>For CH, the per-pseudobulk global mCH rates are pre-scanned <strong>once</strong> at the wrapper level and reused across all comparisons via <code class="docutils literal notranslate"><span class="pre">global_a</span></code> / <code class="docutils literal notranslate"><span class="pre">global_b</span></code>, instead of re-scanning on every call.</p></li>
+</ul>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Treat each cell .cz as a (toy) pseudobulk and stage them in a folder.</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="n">tmpd</span> <span class="o">=</span> <span class="s2">&quot;/tmp/cz_pb_demo&quot;</span>
+<span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">tmpd</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">);</span> <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">tmpd</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">:</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpd</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">p</span><span class="p">)))</span>
+
+<span class="n">outdir</span> <span class="o">=</span> <span class="s2">&quot;/tmp/cz_dmr_ovr_global&quot;</span>
+<span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">czip</span><span class="o">.</span><span class="n">call_dmr_one_vs_rest</span><span class="p">(</span>
+    <span class="n">indir</span><span class="o">=</span><span class="n">tmpd</span><span class="p">,</span>
+    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
+    <span class="n">outdir</span><span class="o">=</span><span class="n">outdir</span><span class="p">,</span>
+    <span class="n">ext</span><span class="o">=</span><span class="s2">&quot;.cz&quot;</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;cg&quot;</span><span class="p">,</span>
+    <span class="n">p_value_cutoff</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">frac_delta_cutoff</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">min_samples_per_group</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_permute</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
+    <span class="n">chroms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrM&quot;</span><span class="p">,</span> <span class="s2">&quot;chrL&quot;</span><span class="p">],</span>
+    <span class="n">jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Per-sample DMR TSVs:</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">outdir</span><span class="p">))[:</span><span class="mi">5</span><span class="p">],</span> <span class="s2">&quot;...&quot;</span><span class="p">)</span>
+<span class="c1"># Auto-merged table with metric columns:</span>
+<span class="n">merged</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;merged_dmr.tsv&quot;</span><span class="p">),</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;merged shape:&quot;</span><span class="p">,</span> <span class="n">merged</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="n">merged</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-04-27 14:23:31.532</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[1/9] global: FC_E17b_3C_5-5-I24-A21 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:31.534</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_E17b_3C_5-5-I24-A21 vs 8 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:31.811</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_global/FC_E17b_3C_5-5-I24-A21.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:31.812</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[2/9] global: FC_M_E15a_3C_1-1-I5-B1 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:31.813</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_E15a_3C_1-1-I5-B1 vs 8 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.056</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_global/FC_M_E15a_3C_1-1-I5-B1.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.056</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[3/9] global: FC_M_P12b_3C_2-5-M17-N10 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.057</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_P12b_3C_2-5-M17-N10 vs 8 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.306</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_global/FC_M_P12b_3C_2-5-M17-N10.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.307</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[4/9] global: FC_M_P3b_3C_6-6-J3-P24 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.308</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_P3b_3C_6-6-J3-P24 vs 8 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.562</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_global/FC_M_P3b_3C_6-6-J3-P24.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.563</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[5/9] global: FC_M_P6a_3C_7-3-K21-P5 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.564</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_P6a_3C_7-3-K21-P5 vs 8 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.808</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_global/FC_M_P6a_3C_7-3-K21-P5.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.809</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[6/9] global: FC_M_P9B_3C_6-2-F6-O4 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:32.810</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_P9B_3C_6-2-F6-O4 vs 8 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.057</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_global/FC_M_P9B_3C_6-2-F6-O4.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.058</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[7/9] global: FC_P0b_3C_5-1-I24-J14 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.059</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_P0b_3C_5-1-I24-J14 vs 8 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.302</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_global/FC_P0b_3C_5-1-I24-J14.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.303</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[8/9] global: FC_P13a_3C_7-1-A11-O1 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.304</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_P13a_3C_7-1-A11-O1 vs 8 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.556</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_global/FC_P13a_3C_7-1-A11-O1.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.557</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[9/9] global: FC_P28a_3C_2-1-E5-N14 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.558</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_P28a_3C_2-1-E5-N14 vs 8 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.799</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_global/FC_P28a_3C_2-1-E5-N14.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.811</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">merge_dmr_results</span>:<span class="ansi-cyan-fg">1641</span> - <span class="ansi-bold">merge_dmr_results: 0 DMRs across 0 samples written to /tmp/cz_dmr_ovr_global/merged_dmr.tsv</span>
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;FC_E17b_3C_5-5-I24-A21.dmr.tsv&#39;, &#39;FC_M_E15a_3C_1-1-I5-B1.dmr.tsv&#39;, &#39;FC_M_P12b_3C_2-5-M17-N10.dmr.tsv&#39;, &#39;FC_M_P3b_3C_6-6-J3-P24.dmr.tsv&#39;, &#39;FC_M_P6a_3C_7-3-K21-P5.dmr.tsv&#39;] ...
+merged shape: (0, 9)
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>chrom</th>
+      <th>start</th>
+      <th>end</th>
+      <th>n_dms</th>
+      <th>p_min</th>
+      <th>frac_delta_mean</th>
+      <th>state</th>
+      <th>sname</th>
+      <th>class</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+</div></div>
+</div>
+<section id="Stratified-one-vs-rest-(within-each-class)">
+<h3>Stratified one-vs-rest (within each class)<a class="headerlink" href="#Stratified-one-vs-rest-(within-each-class)" title="Link to this heading"></a></h3>
+<p>Provide a 2-column TSV (<code class="docutils literal notranslate"><span class="pre">sname&lt;TAB&gt;class</span></code>, no header) — only members of the same class are compared:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build a toy class table: split the 9 cells into two classes</span>
+<span class="n">class_tsv</span> <span class="o">=</span> <span class="s2">&quot;/tmp/cz_class_table.tsv&quot;</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">class_tsv</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cells</span><span class="p">):</span>
+        <span class="n">sname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">p</span><span class="p">)[:</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;.cz&quot;</span><span class="p">)]</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sname</span><span class="si">}</span><span class="se">\t</span><span class="s2">cls</span><span class="si">{</span><span class="mi">1</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="mi">2</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">class_tsv</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sname&quot;</span><span class="p">,</span><span class="s2">&quot;class&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>sname</th>
+      <th>class</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>FC_E17b_3C_5-5-I24-A21</td>
+      <td>cls1</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>FC_M_E15a_3C_1-1-I5-B1</td>
+      <td>cls1</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>FC_M_P12b_3C_2-5-M17-N10</td>
+      <td>cls1</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>FC_M_P3b_3C_6-6-J3-P24</td>
+      <td>cls1</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>FC_M_P6a_3C_7-3-K21-P5</td>
+      <td>cls2</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">outdir2</span> <span class="o">=</span> <span class="s2">&quot;/tmp/cz_dmr_ovr_strat&quot;</span>
+<span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">outdir2</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">czip</span><span class="o">.</span><span class="n">call_dmr_one_vs_rest</span><span class="p">(</span>
+    <span class="n">indir</span><span class="o">=</span><span class="n">tmpd</span><span class="p">,</span>
+    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
+    <span class="n">outdir</span><span class="o">=</span><span class="n">outdir2</span><span class="p">,</span>
+    <span class="n">ext</span><span class="o">=</span><span class="s2">&quot;.cz&quot;</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;cg&quot;</span><span class="p">,</span>
+    <span class="n">class_table</span><span class="o">=</span><span class="n">class_tsv</span><span class="p">,</span>
+    <span class="n">p_value_cutoff</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">frac_delta_cutoff</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">min_samples_per_group</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_permute</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
+    <span class="n">chroms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrM&quot;</span><span class="p">,</span> <span class="s2">&quot;chrL&quot;</span><span class="p">],</span>
+    <span class="n">jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">outdir2</span><span class="p">)):</span>
+    <span class="n">sub</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir2</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">sub</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">sub</span><span class="p">)))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-04-27 14:23:33.831</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[1/9] cls1: FC_E17b_3C_5-5-I24-A21 vs rest (3 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:33.832</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_E17b_3C_5-5-I24-A21 vs 3 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.074</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_strat/cls1/FC_E17b_3C_5-5-I24-A21.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.074</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[2/9] cls1: FC_M_E15a_3C_1-1-I5-B1 vs rest (3 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.075</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_E15a_3C_1-1-I5-B1 vs 3 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.322</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_strat/cls1/FC_M_E15a_3C_1-1-I5-B1.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.323</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[3/9] cls1: FC_M_P12b_3C_2-5-M17-N10 vs rest (3 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.324</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_P12b_3C_2-5-M17-N10 vs 3 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.557</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_strat/cls1/FC_M_P12b_3C_2-5-M17-N10.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.558</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[4/9] cls1: FC_M_P3b_3C_6-6-J3-P24 vs rest (3 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.559</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_P3b_3C_6-6-J3-P24 vs 3 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.788</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_strat/cls1/FC_M_P3b_3C_6-6-J3-P24.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.789</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[5/9] cls2: FC_M_P6a_3C_7-3-K21-P5 vs rest (4 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:34.790</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_P6a_3C_7-3-K21-P5 vs 4 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.038</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_strat/cls2/FC_M_P6a_3C_7-3-K21-P5.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.038</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[6/9] cls2: FC_M_P9B_3C_6-2-F6-O4 vs rest (4 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.039</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_M_P9B_3C_6-2-F6-O4 vs 4 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.273</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_strat/cls2/FC_M_P9B_3C_6-2-F6-O4.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.274</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[7/9] cls2: FC_P0b_3C_5-1-I24-J14 vs rest (4 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.275</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_P0b_3C_5-1-I24-J14 vs 4 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.519</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_strat/cls2/FC_P0b_3C_5-1-I24-J14.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.519</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[8/9] cls2: FC_P13a_3C_7-1-A11-O1 vs rest (4 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.520</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_P13a_3C_7-1-A11-O1 vs 4 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.773</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_strat/cls2/FC_P13a_3C_7-1-A11-O1.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.774</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[9/9] cls2: FC_P28a_3C_2-1-E5-N14 vs rest (4 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:35.775</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">509</span> - <span class="ansi-bold">call_dmr: 1 cells in FC_P28a_3C_2-1-E5-N14 vs 4 cells in rest over 2 chunks (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.004</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr</span>:<span class="ansi-cyan-fg">594</span> - <span class="ansi-bold">call_dmr: 0 DMS -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_strat/cls2/FC_P28a_3C_2-1-E5-N14.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.014</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">merge_dmr_results</span>:<span class="ansi-cyan-fg">1641</span> - <span class="ansi-bold">merge_dmr_results: 0 DMRs across 0 samples written to /tmp/cz_dmr_ovr_strat/merged_dmr.tsv</span>
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+cls1 -&gt; [&#39;FC_E17b_3C_5-5-I24-A21.dmr.tsv&#39;, &#39;FC_M_E15a_3C_1-1-I5-B1.dmr.tsv&#39;, &#39;FC_M_P12b_3C_2-5-M17-N10.dmr.tsv&#39;, &#39;FC_M_P3b_3C_6-6-J3-P24.dmr.tsv&#39;]
+cls2 -&gt; [&#39;FC_M_P6a_3C_7-3-K21-P5.dmr.tsv&#39;, &#39;FC_M_P9B_3C_6-2-F6-O4.dmr.tsv&#39;, &#39;FC_P0b_3C_5-1-I24-J14.dmr.tsv&#39;, &#39;FC_P13a_3C_7-1-A11-O1.dmr.tsv&#39;, &#39;FC_P28a_3C_2-1-E5-N14.dmr.tsv&#39;]
+</pre></div></div>
+</div>
+</section>
+<section id="CH-batch-one-vs-rest-with-shared-global-rate-pre-scan">
+<h3>CH batch one-vs-rest with shared global-rate pre-scan<a class="headerlink" href="#CH-batch-one-vs-rest-with-shared-global-rate-pre-scan" title="Link to this heading"></a></h3>
+<p>Switch to <code class="docutils literal notranslate"><span class="pre">method='ch'</span></code> and pass CH-specific knobs through <code class="docutils literal notranslate"><span class="pre">**dmr_kwargs</span></code>. The wrapper logs <code class="docutils literal notranslate"><span class="pre">pre-scanning</span> <span class="pre">global</span> <span class="pre">mCH</span> <span class="pre">rates</span> <span class="pre">for</span> <span class="pre">N</span> <span class="pre">pseudobulks</span></code> once at the start, then reuses those rates for every comparison.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">outdir3</span> <span class="o">=</span> <span class="s2">&quot;/tmp/cz_dmr_ovr_ch&quot;</span>
+<span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">outdir3</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">czip</span><span class="o">.</span><span class="n">call_dmr_one_vs_rest</span><span class="p">(</span>
+    <span class="n">indir</span><span class="o">=</span><span class="n">tmpd</span><span class="p">,</span>
+    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
+    <span class="n">outdir</span><span class="o">=</span><span class="n">outdir3</span><span class="p">,</span>
+    <span class="n">ext</span><span class="o">=</span><span class="s2">&quot;.cz&quot;</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;ch&quot;</span><span class="p">,</span>
+    <span class="n">bin_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="n">p_value_cutoff</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">log2fc_cutoff</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+    <span class="n">abs_delta_cutoff</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+    <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">min_samples_per_group</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">n_permute</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
+    <span class="n">chroms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrM&quot;</span><span class="p">,</span> <span class="s2">&quot;chrL&quot;</span><span class="p">],</span>
+    <span class="n">jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">outdir3</span><span class="p">))[:</span><span class="mi">5</span><span class="p">],</span> <span class="s2">&quot;...&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-04-27 14:23:36.020</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1385</span> - <span class="ansi-bold">call_dmr_one_vs_rest[CH]: pre-scanning global mCH rates for 9 pseudobulks</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.264</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1391</span> - <span class="ansi-bold">  global rate range [0.5811, 0.6593], median=0.6130</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.264</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[1/9] global: FC_E17b_3C_5-5-I24-A21 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.265</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 1 cells in FC_E17b_3C_5-5-I24-A21 vs 8 cells in rest over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.266</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [0.93,0.93], B scale range [0.99,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.547</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 0 DMS bins -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_ch/FC_E17b_3C_5-5-I24-A21.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.548</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[2/9] global: FC_M_E15a_3C_1-1-I5-B1 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.549</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 1 cells in FC_M_E15a_3C_1-1-I5-B1 vs 8 cells in rest over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.550</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [1.00,1.00], B scale range [0.93,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.805</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 0 DMS bins -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_ch/FC_M_E15a_3C_1-1-I5-B1.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.806</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[3/9] global: FC_M_P12b_3C_2-5-M17-N10 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.808</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 1 cells in FC_M_P12b_3C_2-5-M17-N10 vs 8 cells in rest over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:36.808</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [0.99,0.99], B scale range [0.93,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.056</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 0 DMS bins -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_ch/FC_M_P12b_3C_2-5-M17-N10.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.057</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[4/9] global: FC_M_P3b_3C_6-6-J3-P24 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.058</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 1 cells in FC_M_P3b_3C_6-6-J3-P24 vs 8 cells in rest over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.058</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [1.01,1.01], B scale range [0.93,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.314</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 0 DMS bins -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_ch/FC_M_P3b_3C_6-6-J3-P24.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.315</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[5/9] global: FC_M_P6a_3C_7-3-K21-P5 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.316</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 1 cells in FC_M_P6a_3C_7-3-K21-P5 vs 8 cells in rest over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.317</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [1.00,1.00], B scale range [0.93,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.548</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 0 DMS bins -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_ch/FC_M_P6a_3C_7-3-K21-P5.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.549</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[6/9] global: FC_M_P9B_3C_6-2-F6-O4 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.550</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 1 cells in FC_M_P9B_3C_6-2-F6-O4 vs 8 cells in rest over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.551</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [1.00,1.00], B scale range [0.93,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.794</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 0 DMS bins -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_ch/FC_M_P9B_3C_6-2-F6-O4.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.794</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[7/9] global: FC_P0b_3C_5-1-I24-J14 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.795</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 1 cells in FC_P0b_3C_5-1-I24-J14 vs 8 cells in rest over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:37.796</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [1.03,1.03], B scale range [0.93,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.057</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 0 DMS bins -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_ch/FC_P0b_3C_5-1-I24-J14.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.058</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[8/9] global: FC_P13a_3C_7-1-A11-O1 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.059</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 1 cells in FC_P13a_3C_7-1-A11-O1 vs 8 cells in rest over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.060</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [1.05,1.05], B scale range [0.93,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.319</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 0 DMS bins -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_ch/FC_P13a_3C_7-1-A11-O1.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.320</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_one_vs_rest</span>:<span class="ansi-cyan-fg">1448</span> - <span class="ansi-bold">[9/9] global: FC_P28a_3C_2-1-E5-N14 vs rest (8 samples)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.321</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">990</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 1 cells in FC_P28a_3C_2-1-E5-N14 vs 8 cells in rest over 2 chunks, bin_size=1000 (jobs=4 = 2 proc x 2 threads)</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.321</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1030</span> - <span class="ansi-bold">call_dmr_ch: normalized to global rate target=0.6130; A scale range [1.05,1.05], B scale range [0.93,1.05]</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.567</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">call_dmr_ch</span>:<span class="ansi-cyan-fg">1143</span> - <span class="ansi-bold">call_dmr_ch[CHN]: 0 DMS bins -&gt; 0 DMRs written to /tmp/cz_dmr_ovr_ch/FC_P28a_3C_2-1-E5-N14.dmr.tsv</span>
+<span class="ansi-green-fg">2026-04-27 14:23:38.577</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">merge_dmr_results</span>:<span class="ansi-cyan-fg">1641</span> - <span class="ansi-bold">merge_dmr_results: 0 DMRs across 0 samples written to /tmp/cz_dmr_ovr_ch/merged_dmr.tsv</span>
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;FC_E17b_3C_5-5-I24-A21.dmr.tsv&#39;, &#39;FC_M_E15a_3C_1-1-I5-B1.dmr.tsv&#39;, &#39;FC_M_P12b_3C_2-5-M17-N10.dmr.tsv&#39;, &#39;FC_M_P3b_3C_6-6-J3-P24.dmr.tsv&#39;, &#39;FC_M_P6a_3C_7-3-K21-P5.dmr.tsv&#39;] ...
+</pre></div></div>
+</div>
+</section>
+</section>
+<section id="4.-Merging-results-—-merge_dmr_results">
+<h2>4. Merging results — <code class="docutils literal notranslate"><span class="pre">merge_dmr_results</span></code><a class="headerlink" href="#4.-Merging-results-—-merge_dmr_results" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code> calls this automatically at the end, but you can also re-run it manually (e.g. with a different <code class="docutils literal notranslate"><span class="pre">class_table</span></code> or to refresh metric columns).</p>
+<p>Always-present columns: <code class="docutils literal notranslate"><span class="pre">chrom,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">n_dms,</span> <span class="pre">p_min,</span> <span class="pre">frac_delta_mean,</span> <span class="pre">state,</span> <span class="pre">sname,</span> <span class="pre">class,</span> <span class="pre">length,</span> <span class="pre">region_id</span></code>.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">add_metrics=True</span></code> (default):</p>
+<ul class="simple">
+<li><p>CG → adds <code class="docutils literal notranslate"><span class="pre">delta_meth</span></code> (= <code class="docutils literal notranslate"><span class="pre">frac_delta_mean</span></code>) and <code class="docutils literal notranslate"><span class="pre">direction</span></code> (<code class="docutils literal notranslate"><span class="pre">'hypo'</span></code> / <code class="docutils literal notranslate"><span class="pre">'hyper'</span></code>).</p></li>
+<li><p>CH → adds <code class="docutils literal notranslate"><span class="pre">delta_rate</span></code> and <code class="docutils literal notranslate"><span class="pre">direction</span></code>; if <code class="docutils literal notranslate"><span class="pre">rate_a</span></code> / <code class="docutils literal notranslate"><span class="pre">rate_b</span></code> columns are present (e.g. when merging the per-bin DMS files via <code class="docutils literal notranslate"><span class="pre">dms_output_dir</span></code>) it also computes <code class="docutils literal notranslate"><span class="pre">log2fc</span> <span class="pre">=</span> <span class="pre">log2(rate_a</span> <span class="pre">/</span> <span class="pre">rate_b)</span></code>.</p></li>
+</ul>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Synthetic example to illustrate the metric columns when there are real hits.</span>
+<span class="n">demo</span> <span class="o">=</span> <span class="s2">&quot;/tmp/cz_merge_demo&quot;</span>
+<span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">demo</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">demo</span><span class="p">,</span> <span class="s2">&quot;cls1&quot;</span><span class="p">))</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">demo</span><span class="p">,</span> <span class="s2">&quot;cls2&quot;</span><span class="p">))</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">&quot;chrom&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;chr1&quot;</span><span class="p">,</span> <span class="s2">&quot;chr1&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;start&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">500</span><span class="p">],</span>
+    <span class="s2">&quot;end&quot;</span><span class="p">:</span>   <span class="p">[</span><span class="mi">300</span><span class="p">,</span> <span class="mi">700</span><span class="p">],</span>
+    <span class="s2">&quot;n_dms&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+    <span class="s2">&quot;p_min&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1e-4</span><span class="p">,</span> <span class="mf">2e-3</span><span class="p">],</span>
+    <span class="s2">&quot;frac_delta_mean&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">],</span>
+    <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="p">})</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">demo</span><span class="si">}</span><span class="s2">/cls1/sampA.dmr.tsv&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">&quot;chrom&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;chr2&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;start&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1000</span><span class="p">],</span> <span class="s2">&quot;end&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2000</span><span class="p">],</span>
+    <span class="s2">&quot;n_dms&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;p_min&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">5e-5</span><span class="p">],</span>
+    <span class="s2">&quot;frac_delta_mean&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.55</span><span class="p">],</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+<span class="p">})</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">demo</span><span class="si">}</span><span class="s2">/cls2/sampB.dmr.tsv&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">merged</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">merge_dmr_results</span><span class="p">(</span><span class="n">demo</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;cg&quot;</span><span class="p">,</span>
+                                <span class="n">output</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">demo</span><span class="si">}</span><span class="s2">/merged.tsv&quot;</span><span class="p">)</span>
+<span class="n">merged</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-04-27 14:23:38.594</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.dmr</span>:<span class="ansi-cyan-fg">merge_dmr_results</span>:<span class="ansi-cyan-fg">1641</span> - <span class="ansi-bold">merge_dmr_results: 3 DMRs across 2 samples written to /tmp/cz_merge_demo/merged.tsv</span>
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>chrom</th>
+      <th>start</th>
+      <th>end</th>
+      <th>n_dms</th>
+      <th>p_min</th>
+      <th>frac_delta_mean</th>
+      <th>state</th>
+      <th>sname</th>
+      <th>class</th>
+      <th>length</th>
+      <th>region_id</th>
+      <th>direction</th>
+      <th>delta_meth</th>
+      <th>q_min</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>chr1</td>
+      <td>100</td>
+      <td>300</td>
+      <td>3</td>
+      <td>0.00010</td>
+      <td>-0.40</td>
+      <td>-1</td>
+      <td>sampA</td>
+      <td>cls1</td>
+      <td>200</td>
+      <td>chr1:100-300</td>
+      <td>hypo</td>
+      <td>-0.40</td>
+      <td>0.00020</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>chr1</td>
+      <td>500</td>
+      <td>700</td>
+      <td>5</td>
+      <td>0.00200</td>
+      <td>0.30</td>
+      <td>1</td>
+      <td>sampA</td>
+      <td>cls1</td>
+      <td>200</td>
+      <td>chr1:500-700</td>
+      <td>hyper</td>
+      <td>0.30</td>
+      <td>0.00200</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>chr2</td>
+      <td>1000</td>
+      <td>2000</td>
+      <td>2</td>
+      <td>0.00005</td>
+      <td>0.55</td>
+      <td>1</td>
+      <td>sampB</td>
+      <td>cls2</td>
+      <td>1000</td>
+      <td>chr2:1000-2000</td>
+      <td>hyper</td>
+      <td>0.55</td>
+      <td>0.00005</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+</section>
+<section id="5.-CLI-equivalents">
+<h2>5. CLI equivalents<a class="headerlink" href="#5.-CLI-equivalents" title="Link to this heading"></a></h2>
+<p>All four functions are also available as <code class="docutils literal notranslate"><span class="pre">czip</span></code> subcommands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Two-group CG</span>
+czip<span class="w"> </span>call_dmr<span class="w"> </span>-a<span class="w"> </span>a.txt<span class="w"> </span>-b<span class="w"> </span>b.txt<span class="w"> </span>-r<span class="w"> </span>mm10.allc.cz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-s<span class="w"> </span>mm10.CGN.cz<span class="w"> </span>-O<span class="w"> </span>dmr.tsv<span class="w"> </span>-j<span class="w"> </span><span class="m">16</span>
+
+<span class="c1"># Two-group CH</span>
+czip<span class="w"> </span>call_dmr_ch<span class="w"> </span>-a<span class="w"> </span>a.txt<span class="w"> </span>-b<span class="w"> </span>b.txt<span class="w"> </span>-r<span class="w"> </span>mm10.allc.cz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-s<span class="w"> </span>mm10.CAN.cz<span class="w"> </span>-O<span class="w"> </span>ch_dmr.tsv<span class="w"> </span>--bin_size<span class="w"> </span><span class="m">5000</span><span class="w"> </span>-j<span class="w"> </span><span class="m">16</span>
+
+<span class="c1"># Batch one-vs-rest, optionally stratified, auto-merge:</span>
+czip<span class="w"> </span>call_dmr_one_vs_rest<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-d<span class="w"> </span>pseudobulk/Subclass/cz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-r<span class="w"> </span>mm10.allc.cz<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-O<span class="w"> </span>DMR/Subclass<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--ext<span class="w"> </span>.CGN.cz<span class="w"> </span>--method<span class="w"> </span>cg<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-c<span class="w"> </span>Subclass2CellClass.tsv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-j<span class="w"> </span><span class="m">32</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">-a</span></code> / <code class="docutils literal notranslate"><span class="pre">-b</span></code> accept comma-separated paths or a text file with one path per line.</p>
+</section>
+<section id="6.-Per-cell-methylation-over-DMRs-—-cz_to_anndata">
+<h2>6. Per-cell methylation over DMRs — <code class="docutils literal notranslate"><span class="pre">cz_to_anndata</span></code><a class="headerlink" href="#6.-Per-cell-methylation-over-DMRs-—-cz_to_anndata" title="Link to this heading"></a></h2>
+<p>Once you have a merged DMR table (or any BED) you can directly aggregate <strong>single-cell</strong> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files over those intervals using <code class="docutils literal notranslate"><span class="pre">czip.cz_to_anndata</span></code> — no extra wrapper needed.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">features=</span></code> accepts a BED/BED.gz path, a <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code> whose first 3 columns are <code class="docutils literal notranslate"><span class="pre">chrom/start/end</span></code> (4th column → <code class="docutils literal notranslate"><span class="pre">var_names</span></code>), or an int (genome-wide bin size). The merged DMR table fits the DataFrame form directly.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">score='frac'</span></code> writes raw <code class="docutils literal notranslate"><span class="pre">mc/cov</span></code> per (cell, DMR) into <code class="docutils literal notranslate"><span class="pre">.X</span></code>; <code class="docutils literal notranslate"><span class="pre">.layers['mc']</span></code> / <code class="docutils literal notranslate"><span class="pre">.layers['cov']</span></code> always carry the raw integer counts so downstream Beta-binomial / posterior models can recompute fractions.</p></li>
+<li><p>For mCH DMRs, point <code class="docutils literal notranslate"><span class="pre">reference=</span></code> at the matching CH index (e.g. <code class="docutils literal notranslate"><span class="pre">mm10.CAN.cz</span></code>) — <code class="docutils literal notranslate"><span class="pre">score='frac'</span></code> then yields per-cell mCH rates.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">jobs&gt;1</span></code> runs one cell per worker via <code class="docutils literal notranslate"><span class="pre">ProcessPoolExecutor</span></code>.</p></li>
+</ul>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Use the merged CG DMR table from section 3 as a feature set</span>
+<span class="n">merged</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;merged_dmr.tsv&quot;</span><span class="p">),</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">feats</span> <span class="o">=</span> <span class="p">(</span><span class="n">merged</span><span class="p">[[</span><span class="s2">&quot;chrom&quot;</span><span class="p">,</span> <span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">,</span> <span class="s2">&quot;region_id&quot;</span><span class="p">]]</span>
+         <span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="s2">&quot;region_id&quot;</span><span class="p">)</span>
+         <span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="c1"># parse_features uses positional column 0/1/2/3, so rename for safety</span>
+<span class="n">feats</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+<span class="n">feats</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">KeyError</span>                                  Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In[9], line 3</span>
+<span class="ansi-green-intense-fg ansi-bold">      1</span> <span style="color: rgb(95,135,135)"># Use the merged CG DMR table from section 3 as a feature set</span>
+<span class="ansi-green-intense-fg ansi-bold">      2</span> merged <span style="color: rgb(98,98,98)">=</span> pd<span style="color: rgb(98,98,98)">.</span>read_csv(os<span style="color: rgb(98,98,98)">.</span>path<span style="color: rgb(98,98,98)">.</span>join(outdir, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">merged_dmr.tsv</span><span style="color: rgb(175,0,0)">&#34;</span>), sep<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#34;</span><span class="ansi-bold" style="color: rgb(175,95,0)">\t</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-fg">----&gt; 3</span> feats <span style="color: rgb(98,98,98)">=</span> (<span class="ansi-yellow-bg">merged</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">chrom</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">start</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">end</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">region_id</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">]</span>
+<span class="ansi-green-intense-fg ansi-bold">      4</span>          <span style="color: rgb(98,98,98)">.</span>drop_duplicates(subset<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">region_id</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-intense-fg ansi-bold">      5</span>          <span style="color: rgb(98,98,98)">.</span>reset_index(drop<span style="color: rgb(98,98,98)">=</span><span class="ansi-bold" style="color: rgb(0,135,0)">True</span>))
+<span class="ansi-green-intense-fg ansi-bold">      6</span> <span style="color: rgb(95,135,135)"># parse_features uses positional column 0/1/2/3, so rename for safety</span>
+<span class="ansi-green-intense-fg ansi-bold">      7</span> feats<span style="color: rgb(98,98,98)">.</span>columns <span style="color: rgb(98,98,98)">=</span> [<span style="color: rgb(98,98,98)">0</span>, <span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">3</span>]
+
+File <span class="ansi-green-fg">~/Software/conda/m3c/lib/python3.10/site-packages/pandas/core/frame.py:4119</span>, in <span class="ansi-cyan-fg">DataFrame.__getitem__</span><span class="ansi-blue-fg">(self, key)</span>
+<span class="ansi-green-intense-fg ansi-bold">   4117</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> is_iterator(key):
+<span class="ansi-green-intense-fg ansi-bold">   4118</span>         key <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">list</span>(key)
+<span class="ansi-green-fg">-&gt; 4119</span>     indexer <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">columns</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">_get_indexer_strict</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">key</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">columns</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">)</span>[<span style="color: rgb(98,98,98)">1</span>]
+<span class="ansi-green-intense-fg ansi-bold">   4121</span> <span style="color: rgb(95,135,135)"># take() does not accept boolean indexers</span>
+<span class="ansi-green-intense-fg ansi-bold">   4122</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">getattr</span>(indexer, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">dtype</span><span style="color: rgb(175,0,0)">&#34;</span>, <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>) <span style="color: rgb(98,98,98)">==</span> <span style="color: rgb(0,135,0)">bool</span>:
+
+File <span class="ansi-green-fg">~/Software/conda/m3c/lib/python3.10/site-packages/pandas/core/indexes/base.py:6212</span>, in <span class="ansi-cyan-fg">Index._get_indexer_strict</span><span class="ansi-blue-fg">(self, key, axis_name)</span>
+<span class="ansi-green-intense-fg ansi-bold">   6209</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-intense-fg ansi-bold">   6210</span>     keyarr, indexer, new_indexer <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_reindex_non_unique(keyarr)
+<span class="ansi-green-fg">-&gt; 6212</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">_raise_if_missing</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">keyarr</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">indexer</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">axis_name</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   6214</span> keyarr <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>take(indexer)
+<span class="ansi-green-intense-fg ansi-bold">   6215</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(key, Index):
+<span class="ansi-green-intense-fg ansi-bold">   6216</span>     <span style="color: rgb(95,135,135)"># GH 42790 - Preserve name from an Index</span>
+
+File <span class="ansi-green-fg">~/Software/conda/m3c/lib/python3.10/site-packages/pandas/core/indexes/base.py:6264</span>, in <span class="ansi-cyan-fg">Index._raise_if_missing</span><span class="ansi-blue-fg">(self, key, indexer, axis_name)</span>
+<span class="ansi-green-intense-fg ansi-bold">   6261</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">KeyError</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">None of [</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>key<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">] are in the [</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>axis_name<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">]</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-intense-fg ansi-bold">   6263</span> not_found <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">list</span>(ensure_index(key)[missing_mask<span style="color: rgb(98,98,98)">.</span>nonzero()[<span style="color: rgb(98,98,98)">0</span>]]<span style="color: rgb(98,98,98)">.</span>unique())
+<span class="ansi-green-fg">-&gt; 6264</span> <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">KeyError</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>not_found<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)"> not in index</span><span style="color: rgb(175,0,0)">&#34;</span>)
+
+<span class="ansi-red-fg">KeyError</span>: &#34;[&#39;region_id&#39;] not in index&#34;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">adata</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">cz_to_anndata</span><span class="p">(</span>
+    <span class="n">cz_inputs</span><span class="o">=</span><span class="n">cells</span><span class="p">,</span>                       <span class="c1"># list / dir / merged catcz all OK</span>
+    <span class="n">features</span><span class="o">=</span><span class="n">feats</span><span class="p">,</span>
+    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
+    <span class="n">score</span><span class="o">=</span><span class="s2">&quot;frac&quot;</span><span class="p">,</span>                          <span class="c1"># &#39;hypo-score&#39; / &#39;hyper-score&#39; / &#39;mc&#39; / &#39;cov&#39; / &#39;umc&#39;</span>
+    <span class="n">exclude_chroms</span><span class="o">=</span><span class="p">(),</span>                     <span class="c1"># keep chrL/chrM for the demo</span>
+    <span class="n">output</span><span class="o">=</span><span class="s2">&quot;/tmp/cz_dmr_per_cell.h5ad&quot;</span><span class="p">,</span>
+    <span class="n">jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;X dtype:&quot;</span><span class="p">,</span> <span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">&quot;layers:&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+<span class="n">adata</span><span class="o">.</span><span class="n">to_df</span><span class="p">()</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In[10], line 3</span>
+<span class="ansi-green-intense-fg ansi-bold">      1</span> adata <span style="color: rgb(98,98,98)">=</span> czip<span style="color: rgb(98,98,98)">.</span>cz_to_anndata(
+<span class="ansi-green-intense-fg ansi-bold">      2</span>     cz_inputs<span style="color: rgb(98,98,98)">=</span>cells,                       <span style="color: rgb(95,135,135)"># list / dir / merged catcz all OK</span>
+<span class="ansi-green-fg">----&gt; 3</span>     features<span style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">feats</span>,
+<span class="ansi-green-intense-fg ansi-bold">      4</span>     reference<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">output/mm10_with_chrL.allc.cz</span><span style="color: rgb(175,0,0)">&#34;</span>,
+<span class="ansi-green-intense-fg ansi-bold">      5</span>     score<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">frac</span><span style="color: rgb(175,0,0)">&#34;</span>,                          <span style="color: rgb(95,135,135)"># &#39;hypo-score&#39; / &#39;hyper-score&#39; / &#39;mc&#39; / &#39;cov&#39; / &#39;umc&#39;</span>
+<span class="ansi-green-intense-fg ansi-bold">      6</span>     exclude_chroms<span style="color: rgb(98,98,98)">=</span>(),                     <span style="color: rgb(95,135,135)"># keep chrL/chrM for the demo</span>
+<span class="ansi-green-intense-fg ansi-bold">      7</span>     output<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">/tmp/cz_dmr_per_cell.h5ad</span><span style="color: rgb(175,0,0)">&#34;</span>,
+<span class="ansi-green-intense-fg ansi-bold">      8</span>     jobs<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">4</span>,
+<span class="ansi-green-intense-fg ansi-bold">      9</span> )
+<span class="ansi-green-intense-fg ansi-bold">     10</span> <span style="color: rgb(0,135,0)">print</span>(adata)
+<span class="ansi-green-intense-fg ansi-bold">     11</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">X dtype:</span><span style="color: rgb(175,0,0)">&#34;</span>, adata<span style="color: rgb(98,98,98)">.</span>X<span style="color: rgb(98,98,98)">.</span>dtype, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">layers:</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(0,135,0)">list</span>(adata<span style="color: rgb(98,98,98)">.</span>layers<span style="color: rgb(98,98,98)">.</span>keys()))
+
+<span class="ansi-red-fg">NameError</span>: name &#39;feats&#39; is not defined
+</pre></div></div>
+</div>
+<p>Tips:</p>
+<ul>
+<li><p>The same call works for CH DMRs — substitute <code class="docutils literal notranslate"><span class="pre">reference=&quot;mm10.CAN.cz&quot;</span></code> (or whichever sub-context index matches your CH <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files) and <code class="docutils literal notranslate"><span class="pre">score='frac'</span></code> returns per-cell mCH rates over each DMR.</p></li>
+<li><p>For binarized hypo/hyper masks, use <code class="docutils literal notranslate"><span class="pre">score='hypo-score'</span></code> (or <code class="docutils literal notranslate"><span class="pre">'hyper-score'</span></code>) with <code class="docutils literal notranslate"><span class="pre">score_cutoff=0.9</span></code>.</p></li>
+<li><p>CLI equivalent: convert the merged DMR table to a 4-column BED first, then</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>czip<span class="w"> </span>cz_to_anndata<span class="w"> </span>-i<span class="w"> </span>single_cell/cz<span class="w"> </span>-f<span class="w"> </span>dmrs.bed<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-r<span class="w"> </span>mm10.allc.cz<span class="w"> </span>-O<span class="w"> </span>DMR_per_cell.h5ad<span class="w"> </span>-j<span class="w"> </span><span class="m">32</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="3.python_api.html" class="btn btn-neutral float-left" title="cytozip Python API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="remote_reading.html" class="btn btn-neutral float-right" title="Remote Reading with cytozip" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Wubin Ding.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-F0T1MBS19V', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

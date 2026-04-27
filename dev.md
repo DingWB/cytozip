@@ -392,6 +392,28 @@ python tests/benchmark_query.py
 # nbexe notebooks/2.dnam.ipynb
 ```
 
+## upload to conda
+```shell
+# Fork https://github.com/bioconda/bioconda-recipes，then：
+git clone --depth 1 https://github.com/DingWB/bioconda-recipes
+cd bioconda-recipes
+git checkout -b add-cytozip
+mkdir recipes/cytozip
+cp /home/x-wding2/Projects/Github/cytozip/conda-recipe/meta.yaml recipes/cytozip/
+
+# Calculate real sha256（release the first version to PyPI）：
+VERSION=0.3.0
+curl -L -o /tmp/cytozip.tar.gz \
+  https://pypi.io/packages/source/c/cytozip/cytozip-${VERSION}.tar.gz
+sha256sum /tmp/cytozip.tar.gz
+# fill in sha256 to recipes/cytozip/meta.yaml
+
+git add recipes/cytozip/meta.yaml
+git commit -m "Add cytozip"
+git push origin add-cytozip
+# GitHub  PR to: bioconda/bioconda-recipes:master
+```
+
 ## Package Rename Candidates
 
 The name "cytozip" is too narrow — the package is not just a compression tool but a full single-cell DNA methylation analysis framework (DMR, clustering, motif analysis, etc.). Candidate names for publication:
@@ -429,7 +451,7 @@ Strategic to-do list for scaling cytozip into a publication-ready framework supp
 
 ### 3. Analysis Features
 
-- [ ] `call_dmr`: port DSS / DMRfind to run natively on `.cz` streams (zero decompress to numpy) — target ≥10× speedup vs. methylpy/ALLCools.
+- [x] `call_dmr`: port DSS / DMRfind to run natively on `.cz` streams (zero decompress to numpy) — target ≥10× speedup vs. methylpy/ALLCools. *(Done as RMS-permutation caller; see `cytozip/dmr.py` section below.)*
 - [ ] `call_peak`: sliding-window + Poisson enrichment for 5hmC / mCH, input `.cz`.
 - [ ] Clustering: do NOT rewrite; export `AnnData` / `MuData` compatible objects for scanpy / ALLCools. Sell the I/O + feature extraction speed.
 - [ ] Unified API:
@@ -528,3 +550,62 @@ is ~50-100x faster than the previous ``Reader.query`` Python loop.
 `cz_to_anndata` also gained a ``reference=`` parameter that provides
 positions for ``mc_cov``-only cells. The chrom axis of the dim tuple is
 auto-detected (robust to catcz ordering).
+
+## `cytozip/dmr.py` — native DMR caller
+
+Permutation-RMS DMR caller (ALLCools / methylpy style) that operates
+directly on `.cz` streams. CG and non-CG (CH/CA/CT) entry points share a
+chunked, multiprocessing + OpenMP pipeline:
+
+* `call_dmr` — CG, per-site test on raw mc/cov.
+* `call_dmr_ch` — non-CG, pools mc/cov into ``bin_size`` bins and applies
+  per-cell global mCH rescaling pre-pass, plus log2fc + |Δrate| filters.
+* `call_dmr_one_vs_rest` — batch one-vs-rest over a folder of pseudobulk
+  `.cz`, optionally stratified by a sample-class TSV; auto-merges all
+  per-sample TSVs into a single long-format `merged_dmr.tsv`/`.parquet`
+  with derived metrics (`delta_meth` / `delta_rate`, `direction`,
+  `log2fc`, `length`, `region_id`) and per-(sname, class) BH-FDR
+  (`q_min`).
+* `merge_dmr_results` — standalone merge (called by the wrapper).
+* `consensus_dmr` — collapse overlapping DMRs across samples into a
+  consensus interval table.
+
+Performance / correctness knobs:
+
+* Cython kernel `dmr_accel.rms_run_sites` (OpenMP `prange dynamic, 16`,
+  GIL released; expects `int64` C-contiguous mc/cov + `intp` site index).
+* `delta_prefilter` (default on): drops sites whose group-mean |Δfrac|
+  falls below `frac_delta_cutoff`/`abs_delta_cutoff` before permutation.
+* `use_fisher_1v1` (CG, default on): exact Fisher fallback for 1-vs-1
+  comparisons (no permutation noise).
+* Per-worker `_READER_CACHE` / `_close_cached_readers` keeps `.cz`
+  readers warm across chunks; the CH one-vs-rest global-rate pre-pass
+  closes parent-side readers before the per-comparison fan-out.
+* `_reader_np_dtype(reader)` caches the structured numpy dtype on the
+  reader so it isn't rebuilt per chunk.
+* Adaptive permutation early-stop (`min_pvalue`, ALLCools-compatible).
+* Auto-bumps CH `max_dist` to `bin_size` (with warning) when the
+  user-supplied gap would never bridge two adjacent bins.
+
+Validation: `tests/test_dmr_vs_allcools.py` cross-checks against
+ALLCools' RMS implementation on the same sites — currently sign
+agreement = 1.0, |Δfrac| max diff ≈ 5.6e-17, Pearson r(-log10 p) ≈ 0.77.
+
+CLI:
+
+```
+czip call_dmr -a A.txt -b B.txt -r ref.cz -O out.dmr.tsv -s CGN.cz \
+  [--no-delta_prefilter] [--no-fisher_1v1] [-j N]
+
+czip call_dmr_ch -a A.txt -b B.txt -r ref.cz -O out.dmr.tsv -s CHN.cz \
+  --bin_size 5000 [--no-delta_prefilter] [-j N]
+
+czip call_dmr_one_vs_rest -d pseudobulk_dir -r ref.cz -O outdir \
+  --method {cg,ch} [-c class_table.tsv] \
+  [--no-delta_prefilter] [--no-fisher_1v1] \
+  [--no-merge] [--no-fdr] [--output_format {tsv,parquet}] [-j N]
+```
+
+Python API extras on `call_dmr_one_vs_rest`: `auto_merge=True` and
+`merge_kwargs={'add_fdr': ..., 'output_format': ...}` to control the
+final merge step.

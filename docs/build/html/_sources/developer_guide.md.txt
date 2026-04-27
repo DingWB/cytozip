@@ -17,7 +17,7 @@ data (e.g. `allc` methylation tables). The on-disk layout is:
   strings (`struct`-compatible), column names, chunk-key names.
 * **Chunk** — one logical group of records that share the same chunk-key
   values (e.g. a single chromosome). Internally split into independently
-  compressed *blocks* of at most 65535 raw bytes (raw DEFLATE).
+  compressed *blocks* of at most 256 KiB raw bytes (raw DEFLATE).
 * **Chunk tail** — appended after the last block of a chunk; contains
   the per-block virtual offsets and chunk-key values.
 * **Chunk index** — appended at end-of-file before the EOF marker so HTTP
@@ -25,8 +25,9 @@ data (e.g. `allc` methylation tables). The on-disk layout is:
   whole file.
 * **EOF marker** — 28-byte sentinel borrowed from BGZF.
 
-A *virtual offset* packs `(block_start << 16) | within_block_offset` into
-a single 64-bit integer, providing O(1) random access to any record.
+A *virtual offset* packs `(block_start << 20) | within_block_offset` into
+a single 64-bit integer (44 bits file offset, 20 bits within-block),
+providing O(1) random access to any record.
 
 Strictly-monotonic integer columns (typically genomic positions) can be
 stored with **delta encoding** (`_ENC_DELTA`): within each block we store
@@ -50,7 +51,7 @@ delta column per block.
 ### `cz.py` — core format
 
 * **`Writer`** — open, accumulate records into the active block, flush
-  full blocks (`_BLOCK_MAX_LEN = 65535` raw bytes), close out the chunk
+  full blocks (`_BLOCK_MAX_LEN = (1 << 18) - 1`, i.e. 256 KiB − 1), close out the chunk
   with its tail when the chunk-key values change, write the chunk index
   + EOF marker on `close()`.
 * **`Reader`** — `mmap`s the file, parses the header + chunk index,

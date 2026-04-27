@@ -38,7 +38,6 @@ import struct
 import zlib
 import bisect
 import collections
-import contextlib
 import mmap
 from builtins import open as _open
 import gzip
@@ -675,25 +674,6 @@ def _resolve_ref_path(reference):
 	if isinstance(reference, str) and reference.startswith(('http://', 'https://')):
 		return reference
 	return os.path.abspath(os.path.expanduser(reference))
-
-
-# Module-level helper so concurrent.futures.ProcessPoolExecutor can
-# pickle it. Each worker opens its own Reader on the given path; mmap
-# means the page cache is shared with the parent process.
-def _chunk2numpy_worker(args):
-	path, dims, reformat = args
-	# Open in this child process; first call also does the small CZIX
-	# read which is cheap (a few KB).
-	r = Reader(path)
-	try:
-		return r.chunk2numpy(dims, reformat=reformat)
-	finally:
-		# Be explicit: the mmap goes out of scope but on some systems
-		# the file descriptor lingers. Don't leak per-call.
-		try:
-			r._handle.close()
-		except Exception:
-			pass
 
 
 def _read_remote_range(reader, start, length):
@@ -1346,52 +1326,6 @@ class Reader:
 			return out
 		return arr
 
-	def chunks2numpy(self, dims_list, n_workers=None, reformat=False):
-		"""Read multiple chunks in parallel as a list of structured ndarrays.
-
-		Spawns a process pool (libdeflate's GIL constraint makes thread
-		pools useless for raw-bytes decompression) where each worker
-		opens its own :class:`Reader` on the same file path. mmap is
-		shared by the OS so memory cost is fixed.
-
-		Parameters
-		----------
-		dims_list : list of tuple
-			Chunk keys to read (e.g. ``[('chr1',), ('chr2',), ...]``).
-		n_workers : int or None
-			Number of worker processes. If None or 1, runs sequentially
-			in the current process. Recommended: number of physical cores.
-		reformat : bool
-			Forwarded to :meth:`chunk2numpy`.
-
-		Returns
-		-------
-		list of np.ndarray
-			One structured ndarray per *dims_list* entry, in input order.
-
-		Notes
-		-----
-		Only useful for remote files when there are many chunks
-		(``n >> n_workers``). For local mmap files, sequential reads are
-		usually fast enough that process startup overhead outweighs
-		gains until *n_workers* >= 4 and many chunks.
-		"""
-		if not dims_list:
-			return []
-		if n_workers is None or n_workers <= 1 or len(dims_list) <= 1:
-			return [self.chunk2numpy(d, reformat=reformat) for d in dims_list]
-		# Remote files: pickling a RemoteFile across processes is
-		# unsupported, fall back to sequential.
-		if getattr(self, '_is_remote', False):
-			return [self.chunk2numpy(d, reformat=reformat) for d in dims_list]
-		import concurrent.futures as _cf
-		path = self.input
-		# Use a top-level helper so it can be pickled by ProcessPoolExecutor.
-		fn = _chunk2numpy_worker
-		args = [(path, d, reformat) for d in dims_list]
-		with _cf.ProcessPoolExecutor(max_workers=n_workers) as ex:
-			return list(ex.map(fn, args))
-
 	def _chunk2numpy_cached(self, dims):
 		"""Internal: ``chunk2numpy(dims)`` with a small LRU cache.
 
@@ -1445,12 +1379,31 @@ class Reader:
 		because it bypasses the per-record Python tuple loop and uses
 		``np.searchsorted`` on a cached whole-chunk numpy array.
 
+		Coordinate semantics
+		--------------------
+		``start`` / ``end`` are matched **inclusively** against the
+		values stored in the sort column — i.e. ``[start, end]``,
+		**not** the BED-style 0-based half-open ``[start, end)``.
+		The coordinate base (0-based vs 1-based) is whatever was
+		stored when the ``.cz`` file was built:
+
+		* ``.cz`` produced by ``allc_to_cz`` / ``bam_to_cz`` /
+		  the AllC reference builder uses **1-based** positions
+		  (matching the ALLCools / tabix-on-allc.tsv.gz convention).
+		* ``.cz`` produced from BED-like inputs preserves the source
+		  coordinates as-is (typically 0-based), but bounds are still
+		  applied *inclusively*.
+
+		This differs from ``pytabix.query()``, which is 0-based
+		half-open ``[start, end)`` regardless of the file's native base.
+
 		Parameters
 		----------
 		chunk_key : str or tuple
 			Chunk key, e.g. ``'chr1'`` or ``('chr1',)``.
 		start, end : int
-			Inclusive genomic interval [start, end] on the sort column.
+			Inclusive interval ``[start, end]`` on the sort column
+			(see *Coordinate semantics* above).
 		reference : str, ``Reader``, or None
 			If given, treats this file as ref-aligned (e.g. ``mode='mc_cov'``)
 			where positions live in ``reference``. Returns the same
@@ -1463,7 +1416,25 @@ class Reader:
 		np.ndarray
 			Structured ndarray with one record per hit. When *reference*
 			is supplied, returns ``(positions, records)`` where
-			``positions`` is a 1-D int ndarray.
+			``positions`` is a 1-D int ndarray of coordinates pulled
+			from the reference (same coordinate base as the reference
+			``.cz`` — 1-based for ALLC-derived references).
+
+		Notes
+		-----
+		:meth:`query_numpy` does **not** fully replace :meth:`query`.
+		It is restricted to:
+
+		* a single chunk_key per call (use :meth:`query_numpy_multi`
+		  for many chunks);
+		* point-bisection on a single numeric ``sort_col`` (no 2-column
+		  ``[start_col, end_col]`` interval-overlap queries — for that,
+		  use :meth:`query` with ``query_col=[s, e]``);
+		* numeric columns only (no string columns).
+
+		Its return value is a structured ndarray (or
+		``(positions, records)`` tuple), without the chunk_key dims
+		that :meth:`query` prepends to each record.
 		"""
 		# Single-interval case is just the batch case with N=1.
 		# Delegate so all the searchsorted/ref-alignment logic lives in
@@ -1488,8 +1459,10 @@ class Reader:
 		chunk_key : str or tuple
 			Chunk key (e.g., ``'chr1'``).
 		intervals : array-like, shape (N, 2) or list of (start, end)
-			Inclusive ``[start, end]`` ranges.  ``end`` is treated like
-			``query_numpy``'s right-side inclusive bound.
+			Inclusive ``[start, end]`` ranges (same coordinate semantics
+			as :meth:`query_numpy` — bounds are inclusive on the value
+			stored in the sort column; coordinate base follows the file,
+			1-based for ALLC-derived ``.cz``).
 		reference : str, ``Reader``, or None
 			Same semantics as :meth:`query_numpy`.
 		sort_col : int or None
@@ -1660,117 +1633,37 @@ class Reader:
 					r.close()
 				except Exception:
 					pass
-	def chunk2df(self, dims, reformat=False, batch_size=None):
+	def chunk2df(self, dims, reformat=False):
 		"""Read an entire chunk into a pandas DataFrame.
 
-		Decompresses all blocks for the chunk identified by *dims*,
-		unpacks the binary records, and returns a DataFrame with columns
-		matching the file header.
+		Thin wrapper around :meth:`chunk2numpy`: builds the structured
+		ndarray once via the C/numpy fast path, then materializes a
+		zero-copy DataFrame on top of it.
 
 		Parameters
 		----------
 		dims : tuple
-			chunk_key key identifying the chunk (e.g., ('chr1',)).
+			chunk_key key identifying the chunk (e.g., ``('chr1',)``).
 		reformat : bool
-			If True, decode bytes-type columns (s/c formats) into strings.
-		batch_size : int or None
-			If set, yield DataFrames of at most *batch_size* blocks instead
-			of returning a single DataFrame.
+			If True, decode bytes-type columns (``s``/``c`` formats) into
+			Python strings.
 		"""
-		# Fast path: when no batching is requested, build the DataFrame
-		# from a single structured ndarray (constructed in C via
-		# np.frombuffer). This avoids the Python-level list-of-tuples →
-		# pd.DataFrame path which dominates wall-time for chunks with
-		# tens of millions of rows.
-		if batch_size is None:
-			arr = self.chunk2numpy(dims, reformat=False)
-			if arr.size == 0:
-				df = pd.DataFrame(
-					{c: pd.Series(dtype=object) for c in self.header['columns']},
-					columns=self.header['columns'])
+		arr = self.chunk2numpy(dims, reformat=False)
+		cols = self.header['columns']
+		if arr.size == 0:
+			return pd.DataFrame(
+				{c: pd.Series(dtype=object) for c in cols},
+				columns=cols)
+		fmts = self.header['formats']
+		data = {}
+		for i, (col, fmt) in enumerate(zip(cols, fmts)):
+			field = arr[f'f{i}']
+			if reformat and fmt[-1] in ('s', 'c'):
+				n = struct.calcsize(fmt)
+				data[col] = np.char.decode(field.view(f'|S{n}'), 'utf-8')
 			else:
-				cols = self.header['columns']
-				fmts = self.header['formats']
-				data = {}
-				for i, (col, fmt) in enumerate(zip(cols, fmts)):
-					field = arr[f'f{i}']
-					if reformat and fmt[-1] in ('s', 'c'):
-						n = struct.calcsize(fmt)
-						data[col] = np.char.decode(field.view(f'|S{n}'), 'utf-8')
-					else:
-						data[col] = field
-				df = pd.DataFrame(data, columns=cols, copy=False)
-			return df
-		self._load_chunk(self.chunk_key2offset[dims], jump=False)
-		# Fast path: use Cython chunk fetcher to read all blocks at once.
-		if _c_fetch_chunk is not None and batch_size is None:
-			chunk_bytes = _c_fetch_chunk(self._handle, self._chunk_start_offset + 10,
-								self._chunk_block_1st_record_virtual_offsets,
-								self.fmts, self._unit_size, self._chunk_size - 10,
-								self._delta_np_dtype, self._delta_col_names or None)
-			if chunk_bytes:
-				if _c_unpack_records is not None:
-					rows = _c_unpack_records(chunk_bytes, self.fmts)
-				else:
-					rows = list(self._struct_obj.iter_unpack(chunk_bytes))
-				df = pd.DataFrame(rows, columns=self.header['columns'])
-				if not reformat:
-					return df
-				for col, fmt in zip(df.columns.tolist(), self.header['formats']):
-					if fmt[-1] in ['c', 's']:
-						df[col] = df[col].apply(lambda x: str(x, 'utf-8'))
-				return df
-		# When batch_size is set, delegate to the generator helper.
-		if batch_size is not None:
-			return self._chunk2df_gen(dims, reformat, batch_size)
-		# Fallback (no Cython, batch_size=None): block-by-block in memory
-		self._cached_data = b''
-		self._load_block(start_offset=self._chunk_start_offset + 10)
-		rows = []
-		unpack_fn = _c_unpack_records if _c_unpack_records is not None else None
-		while self._block_raw_length > 0:
-			self._cached_data += self._buffer
-			end_index = len(self._cached_data) - (len(self._cached_data) % self._unit_size)
-			chunk_bytes = self._cached_data[:end_index]
-			if unpack_fn is not None:
-				rows.extend(unpack_fn(chunk_bytes, self.fmts))
-			else:
-				rows.extend(self._struct_obj.iter_unpack(chunk_bytes))
-			self._cached_data = self._cached_data[end_index:]
-			self._load_block()
-		df = pd.DataFrame(rows, columns=self.header['columns'])
-		if not reformat:
-			return df
-		for col, fmt in zip(df.columns.tolist(), self.header['formats']):
-			if fmt[-1] in ['c', 's']:
-				df[col] = df[col].apply(lambda x: str(x, 'utf-8'))
-		return df
-
-	def _chunk2df_gen(self, dims, reformat, batch_size):
-		"""Generator variant of chunk2df when batch_size is set."""
-		self._load_chunk(self.chunk_key2offset[dims], jump=False)
-		self._cached_data = b''
-		self._load_block(start_offset=self._chunk_start_offset + 10)
-		rows = []
-		i = 0
-		unpack_fn = _c_unpack_records if _c_unpack_records is not None else None
-		while self._block_raw_length > 0:
-			self._cached_data += self._buffer
-			end_index = len(self._cached_data) - (len(self._cached_data) % self._unit_size)
-			chunk_bytes = self._cached_data[:end_index]
-			if unpack_fn is not None:
-				rows.extend(unpack_fn(chunk_bytes, self.fmts))
-			else:
-				rows.extend(self._struct_obj.iter_unpack(chunk_bytes))
-			if i >= batch_size:
-				yield pd.DataFrame(rows, columns=self.header['columns'])
-				rows = []
-				i = 0
-			self._cached_data = self._cached_data[end_index:]
-			self._load_block()
-			i += 1
-		if len(rows) > 0:
-			yield pd.DataFrame(rows, columns=self.header['columns'])
+				data[col] = field
+		return pd.DataFrame(data, columns=cols, copy=False)
 
 	def _load_block(self, start_offset=None):
 		"""Load and decompress a single block into ``self._buffer``.
@@ -1912,20 +1805,6 @@ class Reader:
 			dim_header = ''
 
 		# ---- Build numpy structured dtypes for zero-copy decoding -------
-		_NP_MAP = {'B': '<u1', 'b': '<i1', 'H': '<u2', 'h': '<i2',
-				   'I': '<u4', 'i': '<i4', 'Q': '<u8', 'q': '<i8',
-				   'f': '<f4', 'd': '<f8'}
-		def _make_np_dtype(formats, columns):
-			dt = []
-			for fmt, col in zip(formats, columns):
-				np_dt = _NP_MAP.get(fmt[-1])
-				if np_dt is None:
-					n = int(fmt[:-1]) if len(fmt) > 1 else 1
-					dt.append((col, f'S{n}'))
-				else:
-					dt.append((col, np_dt))
-			return np.dtype(dt)
-
 		self_np_dtype = _make_np_dtype(self.header['formats'],
 									   self.header['columns'])
 		_self_cols = self.header['columns']
@@ -2113,22 +1992,6 @@ class Reader:
 			ref_reader = Reader(reference)
 
 		# ---- Build numpy structured dtypes for zero-copy decoding ---------
-		# Maps struct format chars to numpy little-endian dtypes.
-		_NP_MAP = {'B': '<u1', 'b': '<i1', 'H': '<u2', 'h': '<i2',
-				   'I': '<u4', 'i': '<i4', 'Q': '<u8', 'q': '<i8',
-				   'f': '<f4', 'd': '<f8'}
-		def _make_np_dtype(formats, columns):
-			"""Create a numpy structured dtype from .cz format strings."""
-			dt = []
-			for fmt, col in zip(formats, columns):
-				np_dt = _NP_MAP.get(fmt[-1])
-				if np_dt is None:  # string/char format, e.g. '3s' or 'c'
-					n = int(fmt[:-1]) if len(fmt) > 1 else 1
-					dt.append((col, f'S{n}'))
-				else:
-					dt.append((col, np_dt))
-			return np.dtype(dt)
-
 		self_np_dtype = _make_np_dtype(self.header['formats'], self.header['columns'])
 		ref_np_dtype = None
 		if ref_reader is not None:
@@ -2979,6 +2842,24 @@ class Reader:
 		is a list, for example, regions=[[('cell1','chr1'),1,10],
 		[('cell10','chr22'),100,200]],and so on.
 
+		Coordinate semantics
+		--------------------
+		``start`` / ``end`` are matched **inclusively** on the values
+		stored in the column(s) given by ``query_col`` — i.e.
+		``[start, end]``, **not** the BED-style 0-based half-open
+		``[start, end)``. The coordinate base (0-based vs 1-based)
+		is whatever was stored when the ``.cz`` file was built:
+
+		* ALLC-derived ``.cz`` (``allc_to_cz`` / ``bam_to_cz`` /
+		  reference C-position file) is **1-based**.
+		* BED-derived ``.cz`` preserves the source coordinates as-is
+		  (typically 0-based), but cytozip still applies the bounds
+		  *inclusively*.
+
+		This differs from ``pytabix.query()``, which always uses
+		0-based half-open ``[start, end)``. To compare the two on
+		an ALLC + ``.cz`` pair, pass ``start - 1`` to ``pytabix``.
+
 		Parameters
 		----------
 		chunk_key : str
@@ -2986,9 +2867,11 @@ class Reader:
 			header['chunk_dims']), or sample1 (if something like 'sampleID' is
 			included in header['chunk_dims'] and chunk contains such chunk_key)
 		start : int
-			start position, if None, the entire chunk_key would be returned.
+			start of the inclusive query interval; if None, the entire
+			chunk_key would be returned.
 		end : int
-			end position
+			end of the inclusive query interval (the record exactly at
+			``end`` is included).
 		regions : list or file path
 			regions=[
 			[chunk_key,start,end], [chunk_key,start,end]
@@ -3422,13 +3305,7 @@ class Reader:
 		return self._handle.fileno()
 
 	# ------------------------------------------------------------------
-	# High-level convenience APIs (P0 additions).
-	# These are pure-additive wrappers around the existing primitives:
-	#   - fetch / __fetch__              (record iteration)
-	#   - chunk_info / chunk_key2offset  (chunk metadata)
-	#   - query / query_numpy            (region queries)
-	# They lower the learning curve for new users without changing any
-	# existing call site.
+	# Iteration dunders — pure-additive wrappers around fetch().
 	# ------------------------------------------------------------------
 	def __len__(self):
 		"""Total number of records across all chunks (sum of chunk_nrows)."""
@@ -3442,99 +3319,6 @@ class Reader:
 		for ck in self.chunk_key2offset:
 			for record in self.fetch(ck):
 				yield record
-
-	def head(self, n=10):
-		"""Return the first *n* records (across chunks) as a list of decoded tuples.
-
-		Mirrors :meth:`pandas.DataFrame.head`.
-		"""
-		import itertools
-		return list(itertools.islice(self.__iter__(), n))
-
-	def tail(self, n=10):
-		"""Return the last *n* records as a list of decoded tuples.
-
-		Walks chunks in reverse and pulls only what is needed; for a single
-		large chunk this still decodes that chunk in full.
-		"""
-		import collections
-		buf = collections.deque(maxlen=n)
-		for ck in self.chunk_key2offset:
-			for record in self.fetch(ck):
-				buf.append(record)
-		return list(buf)
-
-	def regions(self, chunk_keys=None):
-		"""Yield ``(chunk_key, start, end)`` for each chunk.
-
-		``start`` and ``end`` are the inclusive min/max values of the
-		configured ``sort_col`` within the chunk (typically genomic
-		coordinates). Requires ``sort_col`` to be set; otherwise raises
-		``ValueError``.
-		"""
-		if self.sort_col is None:
-			raise ValueError("regions() requires sort_col to be configured")
-		keys = list(self.chunk_key2offset) if chunk_keys is None else list(chunk_keys)
-		for ck in keys:
-			col = self._cached_sort_column(ck, self.sort_col)
-			if len(col) == 0:
-				continue
-			yield ck, int(col[0]), int(col[-1])
-
-	@contextlib.contextmanager
-	def region(self, chunk_key, start, end, as_numpy=False):
-		"""Context manager yielding records for ``[start, end]`` in *chunk_key*.
-
-		Example::
-
-		    with reader.region('chr1', 1000, 2000) as records:
-		        for rec in records:
-		            ...
-
-		When ``as_numpy=True`` yields a structured ``np.ndarray`` instead.
-		"""
-		if as_numpy:
-			yield self.query_numpy(chunk_key, start, end)
-		else:
-			# query() is a generator; pass through untouched so the user
-			# can iterate inside the with-block.
-			yield self.query(chunk_key=chunk_key, start=start, end=end,
-			                 printout=False)
-
-	def to_pandas(self, chunk_key=None, regions=None, columns=None):
-		"""Return records as a :class:`pandas.DataFrame`.
-
-		Parameters
-		----------
-		chunk_key : str or tuple, optional
-			If given, return only records from this chunk.
-		regions : list of (chunk_key, start, end), optional
-			If given, restrict to these genomic ranges (requires sort_col).
-			Mutually exclusive with *chunk_key*.
-		columns : list of str, optional
-			Override the column names (defaults to the file header).
-		"""
-		cols = columns if columns is not None else list(self.header['columns'])
-		if regions is not None:
-			if chunk_key is not None:
-				raise ValueError("Pass either chunk_key or regions, not both")
-			# query() prepends chunk_dim values to each row, so the
-			# resulting frame has chunk_dims + data columns.
-			full_cols = list(self.header['chunk_dims']) + cols
-			frames = []
-			for ck, s, e in regions:
-				rows = list(self.query(chunk_key=ck, start=s, end=e,
-				                       printout=False))
-				if rows:
-					frames.append(pd.DataFrame(rows, columns=full_cols))
-			if not frames:
-				return pd.DataFrame(columns=full_cols)
-			return pd.concat(frames, ignore_index=True)
-		if chunk_key is None:
-			rows = [self._byte2real(rec) for rec in self.__iter__()]
-		else:
-			rows = list(self.fetch(chunk_key))
-		return pd.DataFrame(rows, columns=cols)
 
 	def __enter__(self):
 		"""Open a file operable with WITH statement."""
@@ -3562,6 +3346,24 @@ _STRUCT_TO_NP_DTYPE = {
 def _fmt_to_np_dtype(fmt):
 	"""Map a single struct format char to numpy dtype, or None if unsupported."""
 	return _STRUCT_TO_NP_DTYPE.get(fmt)
+
+
+def _make_np_dtype(formats, columns):
+	"""Build a numpy structured dtype from .cz struct format strings.
+
+	Each ``(fmt, col)`` pair maps to a field; numeric formats use
+	little-endian numpy dtypes via :data:`_STRUCT_TO_NP_DTYPE`,
+	string/char formats fall back to ``Sn``.
+	"""
+	dt = []
+	for fmt, col in zip(formats, columns):
+		np_dt = _STRUCT_TO_NP_DTYPE.get(fmt[-1])
+		if np_dt is None:  # string/char format, e.g. '3s' or 'c'
+			n = int(fmt[:-1]) if len(fmt) > 1 else 1
+			dt.append((col, f'S{n}'))
+		else:
+			dt.append((col, np_dt))
+	return np.dtype(dt)
 
 
 def _all_numeric_formats(formats):
@@ -4853,69 +4655,6 @@ class Writer:
 		"""Return integer file descriptor."""
 		return self._handle.fileno()
 
-	@classmethod
-	def from_dataframe(cls, df, output, partition_by=None, sort_col=None,
-	                   delta_cols=None, message='', level=6, **kwargs):
-		"""Create a .cz file directly from a :class:`pandas.DataFrame`.
-
-		Convenience constructor that infers the binary ``formats`` from the
-		DataFrame column dtypes, then writes the data in one shot. Equivalent
-		to constructing a :class:`Writer` followed by :meth:`Writer.tocz`.
-
-		Parameters
-		----------
-		df : pandas.DataFrame
-			Source data. All columns are written; partition columns identified
-			by *partition_by* are used as chunk keys (one chunk per unique
-			combination).
-		output : str
-			Path to the output ``.cz`` file.
-		partition_by : str or list of str, optional
-			Column(s) to use as chunk keys (formerly known as ``chunk_dims``).
-			Defaults to ``['chrom']`` if a column named ``'chrom'`` exists,
-			else the first column.
-		sort_col : str or int, optional
-			Column name (or 0-based index) on which records are sorted.
-			Enables fast range queries via :meth:`Reader.query_numpy`.
-		delta_cols : list of str, optional
-			Column names to delta-encode (typically the sort column for
-			monotonic genomic positions — yields better compression).
-		message, level : passed through to :class:`Writer`.
-		kwargs : forwarded to :meth:`Writer.tocz`.
-		"""
-		if partition_by is None:
-			partition_by = ['chrom'] if 'chrom' in df.columns else [df.columns[0]]
-		elif isinstance(partition_by, str):
-			partition_by = [partition_by]
-		data_cols = [c for c in df.columns if c not in partition_by]
-		# Infer struct format chars from numpy dtypes.
-		dtype_to_fmt = {
-			'uint8': 'B', 'int8': 'b', 'uint16': 'H', 'int16': 'h',
-			'uint32': 'I', 'int32': 'i', 'uint64': 'Q', 'int64': 'q',
-			'float32': 'f', 'float64': 'd',
-		}
-		formats = []
-		for c in data_cols:
-			s = str(df[c].dtype)
-			if s in dtype_to_fmt:
-				formats.append(dtype_to_fmt[s])
-			elif s == 'object':
-				# Fixed-width string column: pick the longest entry.
-				maxlen = int(df[c].astype(str).str.len().max())
-				formats.append(f'{max(1, maxlen)}s')
-			else:
-				raise TypeError(
-					f"from_dataframe: unsupported dtype {s!r} for column {c!r}")
-		# Resolve sort_col (accept name or index).
-		if isinstance(sort_col, str):
-			sort_col = data_cols.index(sort_col)
-		# delta_cols accepted as names; tocz already handles names.
-		w = cls(output=output, formats=formats, columns=data_cols,
-		        chunk_dims=partition_by, message=message, level=level,
-		        sort_col=sort_col, delta_cols=delta_cols)
-		w.tocz(df, usecols=data_cols, key_cols=partition_by, **kwargs)
-		return output
-
 	def __enter__(self):
 		"""Open a file operable with WITH statement."""
 		return self
@@ -4931,7 +4670,7 @@ def open(path, mode='r', **kwargs):
 	A unified entry point analogous to :func:`gzip.open`::
 
 	    with cytozip.open('foo.cz') as r:           # read
-	        df = r.to_pandas()
+	        df = r.chunk2df(('chr1',))
 	    with cytozip.open('out.cz', mode='w', ...) as w:  # write
 	        w.write_chunk(...)
 

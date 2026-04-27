@@ -1,0 +1,1210 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cytozip.bam &mdash; cytozip 0.3.0.dev21 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=161b7e8c" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=ca60a7fa"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/js/rtd_search_config.js"></script>
+      <script src="../../_static/js/rtd_sphinx_search.min.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            cytozip
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/1.quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/2.dnam.html">DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#3.-BAM-→-.cz">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#BAM-→-.cz-benchmark-vs-ALLCools">BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> benchmark vs ALLCools</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#4.-ALLC-→-.cz">4. ALLC → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#5.-view-and-query">5. <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">query</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#Warm-query:-query_numpy-vs-pytabix-across-region-sizes">Warm query: <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> across region sizes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#Correctness-check:-cytozip-query-vs-pytabix">Correctness check: cytozip query vs pytabix</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#6.-View-/-query-a-remote-.cz-(no-download)">6. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#7.-catcz-and-merge_cz">7. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#8.-Build-a-cell-×-gene-AnnData">8. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/3.python_api.html">cytozip Python API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#view-header">view header</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#summary-chunks-&amp;-blocks">summary chunks &amp; blocks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query">query</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Numpy-/-DataFrame-APIs">Numpy / DataFrame APIs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2numpy(dims)-—-decode-a-whole-chunk"><code class="docutils literal notranslate"><span class="pre">chunk2numpy(dims)</span></code> — decode a whole chunk</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2df(dims,-reformat=False)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims,</span> <span class="pre">reformat=False)</span></code> — decode as a DataFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/4.call_dmr.html">Calling DMRs with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Pseudobulk-vs-single-cell-input">Pseudobulk vs single-cell input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#1.-CG-DMR-—-call_dmr">1. CG DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#2.-CH-DMR-—-call_dmr_ch">2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Stratified-one-vs-rest-(within-each-class)">Stratified one-vs-rest (within each class)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#CH-batch-one-vs-rest-with-shared-global-rate-pre-scan">CH batch one-vs-rest with shared global-rate pre-scan</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#4.-Merging-results-—-merge_dmr_results">4. Merging results — <code class="docutils literal notranslate"><span class="pre">merge_dmr_results</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#5.-CLI-equivalents">5. CLI equivalents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#6.-Per-cell-methylation-over-DMRs-—-cz_to_anndata">6. Per-cell methylation over DMRs — <code class="docutils literal notranslate"><span class="pre">cz_to_anndata</span></code></a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/dev.html">Advanced Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Generate-2D-subset-index-for-a-genomic-region">Generate 2D subset index for a genomic region</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Call-DMR-pipeline">Call DMR pipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(1).Merge-cell-types">(1).Merge cell types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(2).merge-multiple-.cz-files-into-matrix-(fraction,-2D-or-fisher-exact-test)">(2).merge multiple .cz files into matrix (fraction, 2D or fisher exact test)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(3).Call-DMR-using-comb-p">(3).Call DMR using comb-p</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#id1">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmark.html">Benchmark</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../benchmark.html#storage">1.Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../format_history.html">cz Format — Change History</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#larger-blocks-256-kib-1">Larger blocks (256 KiB − 1)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#wider-virtual-offsets-44-20">Wider virtual offsets (44 + 20)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#delta-encoded-integer-columns">Delta-encoded integer columns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#tail-chunk-index-czix">Tail chunk index (CZIX)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#ideas-explored-but-not-adopted">Ideas explored but <strong>not</strong> adopted</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../developer_guide.html">Developer Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#architecture-overview">Architecture overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#module-map">Module map</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#performance-memory-patterns">Performance / memory patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#building-the-docs-locally">Building the docs locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../cytozip.html">cytozip package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#submodules">Submodules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.allc.html">cytozip.allc module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.array.html">cytozip.array module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#input-shape-conventions">Input shape conventions</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#output-layout">Output layout</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#float-quantization">Float quantization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.array2cz"><code class="docutils literal notranslate"><span class="pre">array2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.dequantize_cz"><code class="docutils literal notranslate"><span class="pre">dequantize_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.dequantize_uniform"><code class="docutils literal notranslate"><span class="pre">dequantize_uniform()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.quantize_uniform"><code class="docutils literal notranslate"><span class="pre">quantize_uniform()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.bam.html">cytozip.bam module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz.html">cytozip.cz module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_context_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_context_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index_worker"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index_worker()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2numpy"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.iter_chunks_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.iter_chunks_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_chunk_batch"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_chunk_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_multi"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_multi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_compress_blocks_parallel"><code class="docutils literal notranslate"><span class="pre">c_compress_blocks_parallel()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_delta_encode_block"><code class="docutils literal notranslate"><span class="pre">c_delta_encode_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr.html">cytozip.dmr module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr"><code class="docutils literal notranslate"><span class="pre">call_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.combp"><code class="docutils literal notranslate"><span class="pre">combp()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr_accel.html#public-entry-point">Public entry point</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr_accel.html#cytozip.dmr_accel.rms_run_sites"><code class="docutils literal notranslate"><span class="pre">rms_run_sites()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.features.html">cytozip.features module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#design-notes">Design notes</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.cz_to_anndata"><code class="docutils literal notranslate"><span class="pre">cz_to_anndata()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.load_blacklist"><code class="docutils literal notranslate"><span class="pre">load_blacklist()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.make_genome_bins"><code class="docutils literal notranslate"><span class="pre">make_genome_bins()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_features"><code class="docutils literal notranslate"><span class="pre">parse_features()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_gtf"><code class="docutils literal notranslate"><span class="pre">parse_gtf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.merge.html">cytozip.merge module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.pivot.html">cytozip.pivot module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.pivot.html#cytozip.pivot.pivot_fisher"><code class="docutils literal notranslate"><span class="pre">pivot_fisher()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.pivot.html#cytozip.pivot.pivot_fraction"><code class="docutils literal notranslate"><span class="pre">pivot_fraction()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#module-cytozip">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../setup.html">setup module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">cytozip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../cytozip.html">cytozip</a></li>
+      <li class="breadcrumb-item active">cytozip.bam</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for cytozip.bam</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">bam.py - Convert BAM files directly to .cz format (skipping ALLC text).</span>
+
+<span class="sd">This module ports the core pileup-based methylation-call extraction from</span>
+<span class="sd">ALLCools (`_bam_to_allc.py`, written by Yupeng He; itself derived from</span>
+<span class="sd">methylpy) and pipes the results straight into a cytozip ``Writer`` instead</span>
+<span class="sd">of writing ALLC tsv.gz + running tabix.</span>
+
+<span class="sd">Storage layout options (``mode`` parameter)</span>
+<span class="sd">-------------------------------------------</span>
+<span class="sd">``mode=&quot;full&quot;`` (default)</span>
+<span class="sd">    Store ``[pos, strand, context, mc, cov]`` - fully self-contained file.</span>
+<span class="sd">    formats = ``[&#39;Q&#39;, &#39;c&#39;, &#39;3s&#39;, &#39;H&#39;, &#39;H&#39;]``.</span>
+<span class="sd">``mode=&quot;pos_mc_cov&quot;``</span>
+<span class="sd">    Store ``[pos, mc, cov]`` - drops strand/context but keeps coordinates.</span>
+<span class="sd">    formats = ``[&#39;Q&#39;, &#39;H&#39;, &#39;H&#39;]``. Downstream pipelines can join contexts</span>
+<span class="sd">    from a reference .cz. Matches the &quot;slim&quot; layout used by ``allc2cz``.</span>
+<span class="sd">``mode=&quot;mc_cov&quot;``</span>
+<span class="sd">    Store ``[mc, cov]`` only. **Requires ``reference``**: output records</span>
+<span class="sd">    are aligned one-to-one with the reference .cz&#39;s positions; missing</span>
+<span class="sd">    sites are filled with (0, 0). Smallest on-disk footprint (~4 B / site)</span>
+<span class="sd">    and matches the reference-driven ``allc2cz`` layout.</span>
+
+<span class="sd">Streaming layout of the produced ``.cz``:</span>
+
+<span class="sd">* ``chunk_dims = [&#39;chrom&#39;]``</span>
+<span class="sd">* ``sort_col = &#39;pos&#39;`` (enables O(log N) region query), only when pos is stored</span>
+<span class="sd">* ``delta_cols = [&#39;pos&#39;]`` (positions are monotonic within each chrom),</span>
+<span class="sd">  only when pos is stored</span>
+
+<span class="sd">@author: DingWB (port), original bam-&gt;pileup logic by Yupeng He (ALLCools).</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shlex</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">struct</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">cz</span> <span class="k">as</span> <span class="n">_cz_mod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.cz</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Writer</span><span class="p">,</span> <span class="n">Reader</span><span class="p">,</span> <span class="n">_fmt_to_np_dtype</span><span class="p">,</span>
+    <span class="n">_ensure_cz_accel</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="c1"># Trigger Cython accel load so ``_cz_mod._load_bcz_block`` is the C</span>
+<span class="c1"># implementation (the symbol imported at module import time would be</span>
+<span class="c1"># pinned to the pure-Python fallback).</span>
+<span class="n">_ensure_cz_accel</span><span class="p">()</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Helpers (ported / adapted from ALLCools._bam_to_allc)</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="n">_COMPLEMENT</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="s2">&quot;T&quot;</span><span class="p">,</span> <span class="s2">&quot;T&quot;</span><span class="p">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="s2">&quot;G&quot;</span><span class="p">,</span> <span class="s2">&quot;G&quot;</span><span class="p">:</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;N&quot;</span><span class="p">:</span> <span class="s2">&quot;N&quot;</span><span class="p">}</span>
+<span class="c1"># C-level translate table for reverse-complement of an ASCII string.</span>
+<span class="c1"># ``seq.translate(_RC_TABLE)[::-1]`` is ~30x faster than the Python</span>
+<span class="c1"># ``&quot;&quot;.join(_COMPLEMENT[b] for b in reversed(seq))`` generator on the</span>
+<span class="c1"># small (3-9 base) context windows used here, because the inner loop</span>
+<span class="c1"># stays entirely in the CPython str fast path.</span>
+<span class="n">_RC_TABLE</span> <span class="o">=</span> <span class="nb">str</span><span class="o">.</span><span class="n">maketrans</span><span class="p">(</span><span class="s2">&quot;ACGTN&quot;</span><span class="p">,</span> <span class="s2">&quot;TGCAN&quot;</span><span class="p">)</span>
+<span class="n">_MC_SITES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;G&quot;</span><span class="p">})</span>
+
+<span class="n">_VALID_MODES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;full&quot;</span><span class="p">,</span> <span class="s2">&quot;pos_mc_cov&quot;</span><span class="p">,</span> <span class="s2">&quot;mc_cov&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_faidx</span><span class="p">(</span><span class="n">faidx_path</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">faidx_path</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;NAME&quot;</span><span class="p">,</span> <span class="s2">&quot;LENGTH&quot;</span><span class="p">,</span> <span class="s2">&quot;OFFSET&quot;</span><span class="p">,</span> <span class="s2">&quot;LINEBASES&quot;</span><span class="p">,</span> <span class="s2">&quot;LINEWIDTH&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_chromosome_sequence_upper</span><span class="p">(</span><span class="n">fasta_path</span><span class="p">,</span> <span class="n">fai_df</span><span class="p">,</span> <span class="n">query_chrom</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load one chromosome&#39;s sequence from a fasta file using its .fai index.&quot;&quot;&quot;</span>
+    <span class="n">chrom_pointer</span> <span class="o">=</span> <span class="n">fai_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">query_chrom</span><span class="p">,</span> <span class="s2">&quot;OFFSET&quot;</span><span class="p">]</span>
+    <span class="n">tail</span> <span class="o">=</span> <span class="n">fai_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">query_chrom</span><span class="p">,</span> <span class="s2">&quot;LINEBASES&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">fai_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">query_chrom</span><span class="p">,</span> <span class="s2">&quot;LINEWIDTH&quot;</span><span class="p">]</span>
+    <span class="n">seq_parts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fasta_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">chrom_pointer</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">seq_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">[:</span><span class="n">tail</span><span class="p">])</span>
+    <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">seq_parts</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_strip_indels</span><span class="p">(</span><span class="n">read_bases</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove insertion/deletion operators from an mpileup bases string.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;+&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">read_bases</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">read_bases</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">read_bases</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">read_bases</span><span class="p">)</span>
+    <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+        <span class="n">ch</span> <span class="o">=</span> <span class="n">read_bases</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span> <span class="ow">or</span> <span class="n">ch</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">num_start</span> <span class="o">=</span> <span class="n">j</span>
+            <span class="k">while</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">read_bases</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+                <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="n">num_start</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">read_bases</span><span class="p">[</span><span class="n">num_start</span><span class="p">:</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">j</span> <span class="o">+</span> <span class="n">size</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_convert_bam_strandness</span><span class="p">(</span><span class="n">in_bam_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">out_bam_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Rewrite a bismark/hisat-3n BAM so `read.is_forward` matches the</span>
+<span class="sd">    conversion type (XG/YZ tag). Required for hisat-3n PE / Biskarp PE.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pysam</span>
+    <span class="k">with</span> <span class="n">pysam</span><span class="o">.</span><span class="n">AlignmentFile</span><span class="p">(</span><span class="n">in_bam_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">in_bam</span><span class="p">,</span> \
+            <span class="n">pysam</span><span class="o">.</span><span class="n">AlignmentFile</span><span class="p">(</span><span class="n">out_bam_path</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">in_bam</span><span class="o">.</span><span class="n">header</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out_bam</span><span class="p">:</span>
+        <span class="n">is_ct_func</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">read</span> <span class="ow">in</span> <span class="n">in_bam</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">is_ct_func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">has_tag</span><span class="p">(</span><span class="s2">&quot;YZ&quot;</span><span class="p">):</span>
+                    <span class="n">is_ct_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">get_tag</span><span class="p">(</span><span class="s2">&quot;YZ&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span>
+                <span class="k">elif</span> <span class="n">read</span><span class="o">.</span><span class="n">has_tag</span><span class="p">(</span><span class="s2">&quot;XG&quot;</span><span class="p">):</span>
+                    <span class="n">is_ct_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">get_tag</span><span class="p">(</span><span class="s2">&quot;XG&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;CT&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;BAM reads lack conversion-type tag (XG/YZ). &quot;</span>
+                        <span class="s2">&quot;Only bismark/hisat-3n BAMs are supported.&quot;</span>
+                    <span class="p">)</span>
+            <span class="n">ct</span> <span class="o">=</span> <span class="n">is_ct_func</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
+            <span class="n">read</span><span class="o">.</span><span class="n">is_forward</span> <span class="o">=</span> <span class="n">ct</span>
+            <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">is_paired</span><span class="p">:</span>
+                <span class="n">read</span><span class="o">.</span><span class="n">mate_is_forward</span> <span class="o">=</span> <span class="n">ct</span>
+            <span class="n">out_bam</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Mode -&gt; Writer layout</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_mode</span><span class="p">(</span><span class="n">mode</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_VALID_MODES</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;mode must be one of </span><span class="si">{</span><span class="n">_VALID_MODES</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">mode</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mode</span>
+
+
+<span class="n">_VALID_COUNT_FMTS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="s2">&quot;I&quot;</span><span class="p">,</span> <span class="s2">&quot;Q&quot;</span><span class="p">)</span>
+<span class="n">_COUNT_FMT_MAX</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="mh">0xFF</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">:</span> <span class="mh">0xFFFF</span><span class="p">,</span> <span class="s2">&quot;I&quot;</span><span class="p">:</span> <span class="mh">0xFFFFFFFF</span><span class="p">,</span>
+                  <span class="s2">&quot;Q&quot;</span><span class="p">:</span> <span class="mh">0xFFFFFFFFFFFFFFFF</span><span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_layout_for_mode</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">count_fmt</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">count_fmt</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_VALID_COUNT_FMTS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;count_fmt must be one of </span><span class="si">{</span><span class="n">_VALID_COUNT_FMTS</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">count_fmt</span><span class="si">!r}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="n">cf</span> <span class="o">=</span> <span class="n">count_fmt</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;full&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">([</span><span class="s2">&quot;Q&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="s2">&quot;3s&quot;</span><span class="p">,</span> <span class="n">cf</span><span class="p">,</span> <span class="n">cf</span><span class="p">],</span>
+                <span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="s2">&quot;strand&quot;</span><span class="p">,</span> <span class="s2">&quot;context&quot;</span><span class="p">,</span> <span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;pos_mc_cov&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">([</span><span class="s2">&quot;Q&quot;</span><span class="p">,</span> <span class="n">cf</span><span class="p">,</span> <span class="n">cf</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">],</span> <span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;mc_cov&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">([</span><span class="n">cf</span><span class="p">,</span> <span class="n">cf</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_LazyRefPositions</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;On-demand loader for per-chrom position arrays from a reference .cz.</span>
+
+<span class="sd">    Avoids preloading the entire genome (mm10 ≈ 1.1e9 C sites ≈ 9 GB as</span>
+<span class="sd">    int64). Positions are decoded as ``uint32`` (fits any vertebrate</span>
+<span class="sd">    chromosome) and cached per chrom; call :meth:`drop` after the chrom</span>
+<span class="sd">    is flushed to release memory.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reference</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
+        <span class="c1"># Tell the kernel to evict pages we&#39;ve already read; without</span>
+        <span class="c1"># this hint the entire ref file (~1.3 GB for mm10) ends up</span>
+        <span class="c1"># counted against our RSS as we walk every chrom.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">advise_sequential</span><span class="p">()</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s2">&quot;columns&quot;</span><span class="p">]</span>
+        <span class="n">fmts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s2">&quot;formats&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;pos&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;reference </span><span class="si">{</span><span class="n">reference</span><span class="si">}</span><span class="s2"> has no &#39;pos&#39; column &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(columns=</span><span class="si">{</span><span class="n">cols</span><span class="si">}</span><span class="s2">); cannot use mode=&#39;mc_cov&#39;.&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pos_i</span> <span class="o">=</span> <span class="n">cols</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;pos&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_record_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([</span>
+            <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;c</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+             <span class="n">_fmt_to_np_dtype</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="n">_fmt_to_np_dtype</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+             <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;S</span><span class="si">{</span><span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fmts</span><span class="p">)</span>
+        <span class="p">])</span>
+        <span class="n">chunk_dims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s2">&quot;chunk_dims&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_chrom_idx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk_dims</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="c1"># Map chrom -&gt; chunk_dim_tuple for fast lookup.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_chrom2dim</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">dim</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_chrom_idx</span><span class="p">]:</span> <span class="n">dim</span>
+            <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chrom</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chrom2dim</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chrom</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return uint32 position array for *chrom* (loads on first call).</span>
+
+<span class="sd">        Streams blocks from the chunk one at a time, extracting only the</span>
+<span class="sd">        ``pos`` column into a pre-allocated uint32 array.  This avoids</span>
+<span class="sd">        materialising the full decompressed chunk (which for mm10 chr1</span>
+<span class="sd">        is ~12 B/record × 1.3e8 = ~1.5 GB of struct bytes that would</span>
+<span class="sd">        only need ~520 MB once narrowed to uint32).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">arr</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chrom2dim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">reader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">reader</span><span class="o">.</span><span class="n">_load_chunk</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">[</span><span class="n">dim</span><span class="p">],</span> <span class="n">jump</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="n">chrom</span><span class="p">]</span> <span class="o">=</span> <span class="n">arr</span>
+            <span class="k">return</span> <span class="n">arr</span>
+        <span class="n">n_records</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_chunk_data_len</span> <span class="o">//</span> <span class="n">reader</span><span class="o">.</span><span class="n">_unit_size</span>
+        <span class="k">if</span> <span class="n">n_records</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="n">chrom</span><span class="p">]</span> <span class="o">=</span> <span class="n">arr</span>
+            <span class="k">return</span> <span class="n">arr</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_records</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="n">pos_field</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;c</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_pos_i</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">delta_pos_field</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;f</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_pos_i</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">record_dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_record_dtype</span>
+        <span class="n">delta_cols</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_delta_cols</span>
+        <span class="n">delta_np_dtype</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_delta_np_dtype</span> <span class="k">if</span> <span class="n">delta_cols</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">unit_size</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_unit_size</span>
+        <span class="n">handle</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_handle</span>
+        <span class="c1"># Skip chunk magic (2B) + chunk_size (8B) — blocks start at +10.</span>
+        <span class="n">handle</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">_chunk_start_offset</span> <span class="o">+</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">write_idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">load_block</span> <span class="o">=</span> <span class="n">_cz_mod</span><span class="o">.</span><span class="n">_load_bcz_block</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">_chunk_nblocks</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">_bsize</span><span class="p">,</span> <span class="n">blk</span> <span class="o">=</span> <span class="n">load_block</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">blk</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">n_rec</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">blk</span><span class="p">)</span> <span class="o">//</span> <span class="n">unit_size</span>
+            <span class="k">if</span> <span class="n">n_rec</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">delta_cols</span><span class="p">:</span>
+                <span class="c1"># See note in iter_blocks(): only copy the pos column</span>
+                <span class="c1"># (uint32) to avoid a per-block full-record copy.</span>
+                <span class="n">arr_blk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">blk</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">delta_np_dtype</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">n_rec</span><span class="p">)</span>
+                <span class="n">delta_pos</span> <span class="o">=</span> <span class="n">arr_blk</span><span class="p">[</span><span class="n">delta_pos_field</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">arr_blk</span>
+                <span class="k">if</span> <span class="n">n_rec</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">delta_pos</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">delta_pos</span><span class="p">)</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">write_idx</span><span class="p">:</span><span class="n">write_idx</span> <span class="o">+</span> <span class="n">n_rec</span><span class="p">]</span> <span class="o">=</span> <span class="n">delta_pos</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">rec_view</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">blk</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">record_dtype</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">n_rec</span><span class="p">)</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">write_idx</span><span class="p">:</span><span class="n">write_idx</span> <span class="o">+</span> <span class="n">n_rec</span><span class="p">]</span> <span class="o">=</span> <span class="n">rec_view</span><span class="p">[</span><span class="n">pos_field</span><span class="p">]</span>
+            <span class="n">write_idx</span> <span class="o">+=</span> <span class="n">n_rec</span>
+        <span class="k">if</span> <span class="n">write_idx</span> <span class="o">&lt;</span> <span class="n">n_records</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="p">[:</span><span class="n">write_idx</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="n">chrom</span><span class="p">]</span> <span class="o">=</span> <span class="n">out</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">drop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chrom</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">chrom</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="c1"># Release the ref pages for this chunk back to the kernel.</span>
+        <span class="c1"># Without this, walking ~1.3 GB of mmap&#39;d ref keeps every</span>
+        <span class="c1"># touched page in our RSS until the process exits.</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chrom2dim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">iter_blocks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chrom</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Yield successive uint32 position arrays, one per stored block.</span>
+
+<span class="sd">        Avoids materialising the full chrom position array (which for</span>
+<span class="sd">        mm10 chr1 is ~316 MB).  The blocks are yielded in genomic order,</span>
+<span class="sd">        each block&#39;s positions are themselves sorted.</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        np.ndarray of uint32</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chrom2dim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">reader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">reader</span><span class="o">.</span><span class="n">_load_chunk</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">[</span><span class="n">dim</span><span class="p">],</span> <span class="n">jump</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="n">n_records</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_chunk_data_len</span> <span class="o">//</span> <span class="n">reader</span><span class="o">.</span><span class="n">_unit_size</span>
+        <span class="k">if</span> <span class="n">n_records</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">delta_pos_field</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;f</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_pos_i</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">pos_field</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;c</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_pos_i</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">record_dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_record_dtype</span>
+        <span class="n">delta_cols</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_delta_cols</span>
+        <span class="n">delta_np_dtype</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_delta_np_dtype</span> <span class="k">if</span> <span class="n">delta_cols</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">unit_size</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_unit_size</span>
+        <span class="n">handle</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_handle</span>
+        <span class="n">handle</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">_chunk_start_offset</span> <span class="o">+</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">load_block</span> <span class="o">=</span> <span class="n">_cz_mod</span><span class="o">.</span><span class="n">_load_bcz_block</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">_chunk_nblocks</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">_bsize</span><span class="p">,</span> <span class="n">blk</span> <span class="o">=</span> <span class="n">load_block</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">blk</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">n_rec</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">blk</span><span class="p">)</span> <span class="o">//</span> <span class="n">unit_size</span>
+            <span class="k">if</span> <span class="n">n_rec</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">delta_cols</span><span class="p">:</span>
+                <span class="c1"># Read-only view over the block bytes; copy ONLY the</span>
+                <span class="c1"># position column as uint32 to avoid a per-block</span>
+                <span class="c1"># full-record copy (record dtype is ~3x larger).</span>
+                <span class="c1"># cumsum runs in-place on the small uint32 array.</span>
+                <span class="n">arr_blk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">blk</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">delta_np_dtype</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">n_rec</span><span class="p">)</span>
+                <span class="n">delta_pos</span> <span class="o">=</span> <span class="n">arr_blk</span><span class="p">[</span><span class="n">delta_pos_field</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">arr_blk</span>
+                <span class="k">if</span> <span class="n">n_rec</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">delta_pos</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">delta_pos</span><span class="p">)</span>
+                <span class="k">yield</span> <span class="n">delta_pos</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">rec_view</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">blk</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">record_dtype</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">n_rec</span><span class="p">)</span>
+                <span class="k">yield</span> <span class="n">rec_view</span><span class="p">[</span><span class="n">pos_field</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">has</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chrom</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chrom2dim</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_reference_positions</span><span class="p">(</span><span class="n">reference</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a lazy per-chrom position loader from a reference .cz.</span>
+
+<span class="sd">    The previous implementation preloaded the entire genome as an</span>
+<span class="sd">    ``{chrom: int64-array}`` dict, which costs ~9 GB on mm10. This</span>
+<span class="sd">    function now returns a :class:`_LazyRefPositions` that loads each</span>
+<span class="sd">    chromosome on first access (uint32) and lets the caller :meth:`drop`</span>
+<span class="sd">    it after flushing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_LazyRefPositions</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Main entry point</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="bam_to_cz">
+<a class="viewcode-back" href="../../cytozip.bam.html#cytozip.bam.bam_to_cz">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bam_to_cz</span><span class="p">(</span>
+    <span class="n">bam_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">genome</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">output</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mc_cov&quot;</span><span class="p">,</span>
+    <span class="n">count_fmt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+    <span class="n">reference</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">num_upstr_bases</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">num_downstr_bases</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">min_mapq</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">min_base_quality</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>
+    <span class="n">convert_bam_strandness</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">save_count_df</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a position-sorted BAM to a ``.cz`` methylation file.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bam_path : str</span>
+<span class="sd">        Position-sorted BAM (requires ``.bai``; we will build it if missing).</span>
+<span class="sd">    genome : str</span>
+<span class="sd">        Indexed reference fasta (``.fai`` required).</span>
+<span class="sd">    output : str, optional</span>
+<span class="sd">        Output ``.cz`` path. Defaults to ``&lt;bam_stem&gt;.cz`` next to the BAM.</span>
+<span class="sd">    mode : {&quot;full&quot;, &quot;pos_mc_cov&quot;, &quot;mc_cov&quot;}</span>
+<span class="sd">        Storage layout. See module docstring.</span>
+<span class="sd">    count_fmt : {&quot;B&quot;, &quot;H&quot;, &quot;I&quot;, &quot;L&quot;, &quot;Q&quot;}</span>
+<span class="sd">        struct code used for the ``mc`` and ``cov`` columns. ``&#39;B&#39;`` (uint8,</span>
+<span class="sd">        1 byte; max 255) is the most compact and is sufficient for typical</span>
+<span class="sd">        single-cell bisulfite data where per-site coverage rarely exceeds</span>
+<span class="sd">        a few tens. Values that exceed the chosen dtype max are clipped</span>
+<span class="sd">        (with a one-time warning). Defaults to ``&#39;H&#39;`` (uint16, 2 bytes;</span>
+<span class="sd">        max 65535) for safety.</span>
+<span class="sd">    reference : str, optional</span>
+<span class="sd">        Reference .cz (containing a ``pos`` column per chrom). **Required</span>
+<span class="sd">        when ``mode=&#39;mc_cov&#39;``** - output records are aligned one-to-one</span>
+<span class="sd">        with this reference&#39;s positions; missing sites are filled with</span>
+<span class="sd">        ``(0, 0)``.</span>
+<span class="sd">    num_upstr_bases / num_downstr_bases : int</span>
+<span class="sd">        Context window around each C. Typical: BS-seq (0, 2), NOMe-seq (1, 2).</span>
+<span class="sd">    min_mapq, min_base_quality : int</span>
+<span class="sd">        Passed straight to ``samtools mpileup``.</span>
+<span class="sd">    batch_size : int</span>
+<span class="sd">        Records per on-disk chunk (same semantics as ``allc2cz``).</span>
+<span class="sd">    convert_bam_strandness : bool</span>
+<span class="sd">        If True, rewrite the BAM so ``read.is_forward`` matches the</span>
+<span class="sd">        conversion type (XG/YZ tag).</span>
+<span class="sd">    save_count_df : bool</span>
+<span class="sd">        If True, write a ``&lt;output&gt;.count.csv`` with total mC / cov per context.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pd.DataFrame or None</span>
+<span class="sd">        Per-context mC / cov summary unless ``save_count_df=True``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="n">_resolve_mode</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
+    <span class="n">count_max</span> <span class="o">=</span> <span class="n">_COUNT_FMT_MAX</span><span class="p">[</span><span class="n">count_fmt</span><span class="p">]</span> <span class="k">if</span> <span class="n">count_fmt</span> <span class="ow">in</span> <span class="n">_COUNT_FMT_MAX</span> <span class="k">else</span> <span class="mh">0xFFFF</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;mc_cov&quot;</span> <span class="ow">and</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;mode=&#39;mc_cov&#39; requires reference (positions are not stored &quot;</span>
+            <span class="s2">&quot;in the output and must be recovered from the reference).&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">genome</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reference fasta not found: </span><span class="si">{</span><span class="n">genome</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">fai_path</span> <span class="o">=</span> <span class="n">genome</span> <span class="o">+</span> <span class="s2">&quot;.fai&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fai_path</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Reference fasta not indexed. Run `samtools faidx </span><span class="si">{</span><span class="n">genome</span><span class="si">}</span><span class="s2">` first.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">fai_df</span> <span class="o">=</span> <span class="n">_read_faidx</span><span class="p">(</span><span class="n">fai_path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">convert_bam_strandness</span><span class="p">:</span>
+        <span class="n">temp_bam</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">bam_path</span><span class="si">}</span><span class="s2">.strand.tmp.bam&quot;</span>
+        <span class="n">_convert_bam_strandness</span><span class="p">(</span><span class="n">bam_path</span><span class="p">,</span> <span class="n">temp_bam</span><span class="p">)</span>
+        <span class="n">bam_path</span> <span class="o">=</span> <span class="n">temp_bam</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bam_path</span> <span class="o">+</span> <span class="s2">&quot;.bai&quot;</span><span class="p">):</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">([</span><span class="s2">&quot;samtools&quot;</span><span class="p">,</span> <span class="s2">&quot;index&quot;</span><span class="p">,</span> <span class="n">bam_path</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stem</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">bam_path</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">bam_path</span><span class="p">)),</span>
+                              <span class="n">stem</span> <span class="o">+</span> <span class="s2">&quot;.cz&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Writer layout</span>
+    <span class="n">formats</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">sort_col</span><span class="p">,</span> <span class="n">delta_cols</span> <span class="o">=</span> <span class="n">_layout_for_mode</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">count_fmt</span><span class="p">)</span>
+    <span class="n">ref_pos_map</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;mc_cov&quot;</span><span class="p">:</span>
+        <span class="n">ref_pos_map</span> <span class="o">=</span> <span class="n">_load_reference_positions</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
+        <span class="n">writer_message</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">writer_message</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">genome</span><span class="p">)</span>
+
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span>
+        <span class="n">output</span><span class="p">,</span>
+        <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span>
+        <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span>
+        <span class="n">chunk_dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">],</span>
+        <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">,</span>
+        <span class="n">delta_cols</span><span class="o">=</span><span class="n">delta_cols</span><span class="p">,</span>
+        <span class="n">message</span><span class="o">=</span><span class="n">writer_message</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">fmt_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span> <span class="o">+</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">formats</span><span class="p">))</span>
+
+    <span class="n">mpileup_cmd</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;samtools mpileup -Q </span><span class="si">{</span><span class="n">min_base_quality</span><span class="si">}</span><span class="s2"> -q </span><span class="si">{</span><span class="n">min_mapq</span><span class="si">}</span><span class="s2"> -B &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;-f </span><span class="si">{</span><span class="n">genome</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">bam_path</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+    <span class="c1"># Backend selection. Two options:</span>
+    <span class="c1">#</span>
+    <span class="c1">#   1. htslib (in-process via cytozip._bam_pileup, ~10-20x faster</span>
+    <span class="c1">#      than mpileup subprocess, byte-equivalent to ALLCools).</span>
+    <span class="c1">#      Default if the optional ``_bam_pileup`` extension was built.</span>
+    <span class="c1">#   2. ``samtools mpileup`` subprocess (the reference: matches</span>
+    <span class="c1">#      ALLCools ``bam_to_allc`` modulo u8 truncation). Fallback when</span>
+    <span class="c1">#      htslib is unavailable, and forced via</span>
+    <span class="c1">#      ``CYTOZIP_BAM_BACKEND_MPILEUP=1``.</span>
+    <span class="n">force_mpileup</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+        <span class="s2">&quot;CYTOZIP_BAM_BACKEND_MPILEUP&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)))</span>
+    <span class="n">_PileupCounter</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">force_mpileup</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">._bam_pileup</span><span class="w"> </span><span class="kn">import</span> <span class="n">PileupCounter</span> <span class="k">as</span> <span class="n">_PileupCounter</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="n">_PileupCounter</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">use_htslib</span> <span class="o">=</span> <span class="p">(</span><span class="n">_PileupCounter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force_mpileup</span>
+    <span class="n">use_mpileup</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">use_htslib</span>
+    <span class="k">if</span> <span class="n">use_htslib</span><span class="p">:</span>
+        <span class="n">pipes</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">pipes</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
+            <span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">mpileup_cmd</span><span class="p">),</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+            <span class="n">universal_newlines</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">cov_dict</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">mc_dict</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">total_line</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># set from nonlocal_state after the consume loop</span>
+    <span class="n">context_len</span> <span class="o">=</span> <span class="n">num_upstr_bases</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">num_downstr_bases</span>
+
+    <span class="c1"># Per-chrom buffers. For full / pos_mc_cov we flush incrementally in</span>
+    <span class="c1"># batch_size chunks; for mc_cov we must buffer the whole chrom (we need</span>
+    <span class="c1"># all observed positions before aligning against reference).</span>
+    <span class="c1">#</span>
+    <span class="c1"># Use ``array.array`` (packed C ints, 4 B / 2 B per element) instead of</span>
+    <span class="c1"># Python lists, which would otherwise hold ~36 B per int object and</span>
+    <span class="c1"># dominate the working-set on a per-cell run (a typical cell has</span>
+    <span class="c1"># ~1.4e7 mC sites → ~1.5 GB just for the three buffers).</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_array</span>
+    <span class="n">buf_records</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">chrom_pos_buf</span> <span class="o">=</span> <span class="n">_array</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="s1">&#39;I&#39;</span><span class="p">)</span>          <span class="c1"># uint32 positions</span>
+    <span class="n">chrom_mc_buf</span> <span class="o">=</span> <span class="n">_array</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="s1">&#39;H&#39;</span><span class="p">)</span>           <span class="c1"># uint16 mc counts (already clipped)</span>
+    <span class="n">chrom_cov_buf</span> <span class="o">=</span> <span class="n">_array</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="s1">&#39;H&#39;</span><span class="p">)</span>          <span class="c1"># uint16 cov counts</span>
+
+    <span class="n">_np_count_dtype</span> <span class="o">=</span> <span class="n">_fmt_to_np_dtype</span><span class="p">(</span><span class="n">count_fmt</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&lt;u2&quot;</span>
+    <span class="n">mc_cov_struct_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([(</span><span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="n">_np_count_dtype</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;cov&quot;</span><span class="p">,</span> <span class="n">_np_count_dtype</span><span class="p">)])</span>
+    <span class="n">_overflow_warned</span> <span class="o">=</span> <span class="p">[</span><span class="kc">False</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_flush_records</span><span class="p">(</span><span class="n">chrom</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">buf_records</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">buf_records</span><span class="p">),</span> <span class="p">[</span><span class="n">chrom</span><span class="p">])</span>
+        <span class="n">buf_records</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_flush_mc_cov</span><span class="p">(</span><span class="n">chrom</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_pos_map</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">chrom</span><span class="p">):</span>
+            <span class="k">del</span> <span class="n">chrom_pos_buf</span><span class="p">[:]</span>
+            <span class="k">del</span> <span class="n">chrom_mc_buf</span><span class="p">[:]</span>
+            <span class="k">del</span> <span class="n">chrom_cov_buf</span><span class="p">[:]</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Stream the reference positions block-by-block and merge them</span>
+        <span class="c1"># against the sorted observed positions. This avoids materialising</span>
+        <span class="c1"># a single full uint32 ref_pos array (~316 MB on mm10 chr1).</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">chrom_pos_buf</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">q_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">chrom_pos_buf</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+            <span class="n">q_mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">chrom_mc_buf</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
+            <span class="n">q_cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">chrom_cov_buf</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
+            <span class="n">n_q</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">q_pos</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">q_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+            <span class="n">q_mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
+            <span class="n">q_cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
+            <span class="n">n_q</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">q_ptr</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">any_block</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">ref_block</span> <span class="ow">in</span> <span class="n">ref_pos_map</span><span class="o">.</span><span class="n">iter_blocks</span><span class="p">(</span><span class="n">chrom</span><span class="p">):</span>
+            <span class="n">any_block</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">n_b</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ref_block</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">n_b</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="c1"># Advance q_ptr to first observed position that could match</span>
+            <span class="c1"># this block (&gt;= ref_block[0]).</span>
+            <span class="k">if</span> <span class="n">q_ptr</span> <span class="o">&lt;</span> <span class="n">n_q</span><span class="p">:</span>
+                <span class="n">q_ptr</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">q_pos</span><span class="p">[</span><span class="n">q_ptr</span><span class="p">:],</span> <span class="n">ref_block</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                              <span class="n">side</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">))</span>
+            <span class="c1"># Find observed positions strictly less than the block end.</span>
+            <span class="n">block_end</span> <span class="o">=</span> <span class="n">ref_block</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">q_end</span> <span class="o">=</span> <span class="n">q_ptr</span>
+            <span class="k">if</span> <span class="n">q_ptr</span> <span class="o">&lt;</span> <span class="n">n_q</span><span class="p">:</span>
+                <span class="n">q_end</span> <span class="o">=</span> <span class="n">q_ptr</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span>
+                    <span class="n">q_pos</span><span class="p">[</span><span class="n">q_ptr</span><span class="p">:],</span> <span class="n">block_end</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s2">&quot;right&quot;</span><span class="p">))</span>
+            <span class="n">out_batch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">mc_cov_struct_dtype</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">q_end</span> <span class="o">&gt;</span> <span class="n">q_ptr</span><span class="p">:</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">ref_block</span><span class="p">,</span> <span class="n">q_pos</span><span class="p">[</span><span class="n">q_ptr</span><span class="p">:</span><span class="n">q_end</span><span class="p">])</span>
+                <span class="c1"># All idx are &lt; n_b because q_pos values are &lt;= block_end</span>
+                <span class="c1"># which equals ref_block[-1].</span>
+                <span class="n">idx_clip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">n_b</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">valid</span> <span class="o">=</span> <span class="n">ref_block</span><span class="p">[</span><span class="n">idx_clip</span><span class="p">]</span> <span class="o">==</span> <span class="n">q_pos</span><span class="p">[</span><span class="n">q_ptr</span><span class="p">:</span><span class="n">q_end</span><span class="p">]</span>
+                <span class="n">matched</span> <span class="o">=</span> <span class="n">idx_clip</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">matched</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+                    <span class="n">out_batch</span><span class="p">[</span><span class="s2">&quot;mc&quot;</span><span class="p">][</span><span class="n">matched</span><span class="p">]</span> <span class="o">=</span> <span class="n">q_mc</span><span class="p">[</span><span class="n">q_ptr</span><span class="p">:</span><span class="n">q_end</span><span class="p">][</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                        <span class="n">_np_count_dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="n">out_batch</span><span class="p">[</span><span class="s2">&quot;cov&quot;</span><span class="p">][</span><span class="n">matched</span><span class="p">]</span> <span class="o">=</span> <span class="n">q_cov</span><span class="p">[</span><span class="n">q_ptr</span><span class="p">:</span><span class="n">q_end</span><span class="p">][</span><span class="n">valid</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                        <span class="n">_np_count_dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">q_ptr</span> <span class="o">=</span> <span class="n">q_end</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">out_batch</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span> <span class="p">[</span><span class="n">chrom</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">any_block</span><span class="p">:</span>
+            <span class="c1"># Chrom exists in chrom2dim but had zero records; nothing to write.</span>
+            <span class="k">pass</span>
+
+        <span class="k">del</span> <span class="n">q_pos</span><span class="p">,</span> <span class="n">q_mc</span><span class="p">,</span> <span class="n">q_cov</span>
+        <span class="k">del</span> <span class="n">chrom_pos_buf</span><span class="p">[:]</span>
+        <span class="k">del</span> <span class="n">chrom_mc_buf</span><span class="p">[:]</span>
+        <span class="k">del</span> <span class="n">chrom_cov_buf</span><span class="p">[:]</span>
+
+    <span class="c1"># Glibc keeps freed allocations in per-thread arenas / free-lists and</span>
+    <span class="c1"># only releases them to the OS at MALLOC_TRIM_THRESHOLD_ (default 128 KB</span>
+    <span class="c1"># for top-of-heap, but large mmap&#39;d blocks may stay reserved).  After</span>
+    <span class="c1"># each chrom flush we drop ref_pos (~hundreds of MB) and the per-chrom</span>
+    <span class="c1"># buffers; calling ``malloc_trim(0)`` lets the OS reclaim those pages.</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">ctypes</span>
+        <span class="n">_libc</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="s2">&quot;libc.so.6&quot;</span><span class="p">)</span>
+        <span class="n">_malloc_trim</span> <span class="o">=</span> <span class="n">_libc</span><span class="o">.</span><span class="n">malloc_trim</span>
+        <span class="n">_malloc_trim</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_size_t</span><span class="p">]</span>
+        <span class="n">_malloc_trim</span><span class="o">.</span><span class="n">restype</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover - non-glibc / Windows</span>
+        <span class="n">_malloc_trim</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_flush</span><span class="p">(</span><span class="n">chrom</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;mc_cov&quot;</span><span class="p">:</span>
+            <span class="n">_flush_mc_cov</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+            <span class="c1"># Tell the kernel we&#39;re done with this chrom&#39;s slice of the</span>
+            <span class="c1"># mmap&#39;d ref file; without this the file pages keep</span>
+            <span class="c1"># accumulating in our RSS as we walk every chrom.</span>
+            <span class="k">if</span> <span class="n">ref_pos_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">ref_pos_map</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_flush_records</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+        <span class="c1"># Force glibc to return free&#39;d pages to the OS (best-effort).</span>
+        <span class="k">if</span> <span class="n">_malloc_trim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_malloc_trim</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># ----- Per-site consumer (shared by both backends) -----</span>
+    <span class="c1"># Captures cur_chrom / seq / total_line in the enclosing scope.</span>
+    <span class="c1"># Returns nothing; mutates the various buffers and counters.</span>
+    <span class="n">nonlocal_state</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;seq&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;total_line&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_handle_site</span><span class="p">(</span><span class="n">chrom</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pos0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ref_base</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                      <span class="n">unconverted</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">converted</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;total_line&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">chrom</span> <span class="o">!=</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]:</span>
+                <span class="c1"># Release the previous chromosome&#39;s sequence string</span>
+                <span class="c1"># (≈100-200 MB for large chroms) BEFORE running its</span>
+                <span class="c1"># flush — otherwise the flush&#39;s transient allocations</span>
+                <span class="c1"># stack on top of it and inflate MaxRSS.</span>
+                <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">_flush</span><span class="p">(</span><span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">])</span>
+            <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chrom</span>
+            <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_get_chromosome_sequence_upper</span><span class="p">(</span>
+                <span class="n">genome</span><span class="p">,</span> <span class="n">fai_df</span><span class="p">,</span> <span class="n">chrom</span><span class="p">)</span>
+        <span class="n">seq_local</span> <span class="o">=</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">ref_base</span> <span class="o">==</span> <span class="s2">&quot;C&quot;</span><span class="p">:</span>
+            <span class="n">lo</span> <span class="o">=</span> <span class="n">pos0</span> <span class="o">-</span> <span class="n">num_upstr_bases</span>
+            <span class="n">hi</span> <span class="o">=</span> <span class="n">pos0</span> <span class="o">+</span> <span class="n">num_downstr_bases</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">lo</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">hi</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_local</span><span class="p">):</span>
+                <span class="k">return</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">seq_local</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]</span>
+            <span class="n">strand</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;+&quot;</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># &#39;G&#39;</span>
+            <span class="n">lo</span> <span class="o">=</span> <span class="n">pos0</span> <span class="o">-</span> <span class="n">num_downstr_bases</span>
+            <span class="n">hi</span> <span class="o">=</span> <span class="n">pos0</span> <span class="o">+</span> <span class="n">num_upstr_bases</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">lo</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">hi</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq_local</span><span class="p">):</span>
+                <span class="k">return</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">seq_local</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">]</span><span class="o">.</span><span class="n">translate</span><span class="p">(</span><span class="n">_RC_TABLE</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">strand</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;-&quot;</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">unconverted</span> <span class="o">+</span> <span class="n">converted</span>
+        <span class="k">if</span> <span class="n">cov</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">context</span><span class="p">)</span> <span class="o">!=</span> <span class="n">context_len</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">cov_dict</span><span class="p">[</span><span class="n">context</span><span class="p">]</span> <span class="o">=</span> <span class="n">cov_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">cov</span>
+        <span class="n">mc_dict</span><span class="p">[</span><span class="n">context</span><span class="p">]</span> <span class="o">=</span> <span class="n">mc_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">unconverted</span>
+        <span class="k">if</span> <span class="n">unconverted</span> <span class="o">&gt;</span> <span class="n">count_max</span> <span class="ow">or</span> <span class="n">cov</span> <span class="o">&gt;</span> <span class="n">count_max</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_overflow_warned</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;mc/cov value exceeds count_fmt=</span><span class="si">{</span><span class="n">count_fmt</span><span class="si">!r}</span><span class="s2"> max &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">count_max</span><span class="si">}</span><span class="s2">); clipping. Consider count_fmt=&#39;H&#39; &quot;</span>
+                    <span class="s2">&quot;for bulk/high-coverage data.&quot;</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">_overflow_warned</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">unconverted</span> <span class="o">&gt;</span> <span class="n">count_max</span><span class="p">:</span>
+                <span class="n">unconverted</span> <span class="o">=</span> <span class="n">count_max</span>
+            <span class="k">if</span> <span class="n">cov</span> <span class="o">&gt;</span> <span class="n">count_max</span><span class="p">:</span>
+                <span class="n">cov</span> <span class="o">=</span> <span class="n">count_max</span>
+        <span class="n">pos1</span> <span class="o">=</span> <span class="n">pos0</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;full&quot;</span><span class="p">:</span>
+            <span class="n">ctx_bytes</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)[:</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">ljust</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="sa">b</span><span class="s2">&quot;N&quot;</span><span class="p">)</span>
+            <span class="n">buf_records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fmt_struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">pos1</span><span class="p">,</span> <span class="n">strand</span><span class="p">,</span> <span class="n">ctx_bytes</span><span class="p">,</span>
+                                                <span class="n">unconverted</span><span class="p">,</span> <span class="n">cov</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">buf_records</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">batch_size</span><span class="p">:</span>
+                <span class="n">_flush_records</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;pos_mc_cov&quot;</span><span class="p">:</span>
+            <span class="n">buf_records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fmt_struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">pos1</span><span class="p">,</span> <span class="n">unconverted</span><span class="p">,</span> <span class="n">cov</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">buf_records</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">batch_size</span><span class="p">:</span>
+                <span class="n">_flush_records</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># mc_cov: buffer whole chrom</span>
+            <span class="n">chrom_pos_buf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pos1</span><span class="p">)</span>
+            <span class="n">chrom_mc_buf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">unconverted</span><span class="p">)</span>
+            <span class="n">chrom_cov_buf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">use_htslib</span><span class="p">:</span>
+            <span class="c1"># In-process htslib mpileup wrapper. Byte-equivalent to</span>
+            <span class="c1"># ``samtools mpileup -Q -q -B -f`` (and therefore to</span>
+            <span class="c1"># ALLCools ``bam_to_allc``), but ~10-20x faster because we</span>
+            <span class="c1"># avoid the subprocess + text parsing roundtrip.</span>
+            <span class="n">pc</span> <span class="o">=</span> <span class="n">_PileupCounter</span><span class="p">(</span>
+                <span class="n">bam_path</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bam_path</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">bam_path</span><span class="p">,</span>
+                <span class="n">genome</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genome</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">genome</span><span class="p">,</span>
+                <span class="n">min_mapq</span><span class="o">=</span><span class="n">min_mapq</span><span class="p">,</span>
+                <span class="n">min_base_quality</span><span class="o">=</span><span class="n">min_base_quality</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">pc</span><span class="o">.</span><span class="n">references</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">chrom</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fai_df</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">chrom</span> <span class="o">!=</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]:</span>
+                        <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="n">_flush</span><span class="p">(</span><span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">])</span>
+                    <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chrom</span>
+                    <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_get_chromosome_sequence_upper</span><span class="p">(</span>
+                        <span class="n">genome</span><span class="p">,</span> <span class="n">fai_df</span><span class="p">,</span> <span class="n">chrom</span><span class="p">)</span>
+                <span class="n">pos_arr</span><span class="p">,</span> <span class="n">ref_arr</span><span class="p">,</span> <span class="n">mc_arr</span><span class="p">,</span> <span class="n">cov_arr</span> <span class="o">=</span> <span class="n">pc</span><span class="o">.</span><span class="n">iter_chrom</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+                <span class="c1"># ref_arr is uint8 (ascii). Vectorize the dispatch:</span>
+                <span class="c1"># ``_handle_site`` expects (chrom, pos0, ref_base,</span>
+                <span class="c1"># unconverted=mc, converted=cov-mc).</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pos_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                    <span class="n">cov_i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cov_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">cov_i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">mc_i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">mc_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                    <span class="n">_handle_site</span><span class="p">(</span>
+                        <span class="n">chrom</span><span class="p">,</span>
+                        <span class="nb">int</span><span class="p">(</span><span class="n">pos_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
+                        <span class="nb">chr</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">ref_arr</span><span class="p">[</span><span class="n">i</span><span class="p">])),</span>
+                        <span class="n">mc_i</span><span class="p">,</span>
+                        <span class="n">cov_i</span> <span class="o">-</span> <span class="n">mc_i</span><span class="p">,</span>
+                    <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">use_mpileup</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">pipes</span><span class="o">.</span><span class="n">stdout</span><span class="p">:</span>
+                <span class="n">fields</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">ref_base</span> <span class="o">=</span> <span class="n">fields</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">ref_base</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_MC_SITES</span><span class="p">:</span>
+                    <span class="c1"># Still need to register chrom change so seq gets</span>
+                    <span class="c1"># reloaded for the next C/G site. Do it cheaply by</span>
+                    <span class="c1"># passing through _handle_site only on relevant sites.</span>
+                    <span class="k">if</span> <span class="n">fields</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]:</span>
+                        <span class="c1"># Lightweight chrom switch (no-op for non-C/G).</span>
+                        <span class="k">if</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]:</span>
+                            <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                            <span class="n">_flush</span><span class="p">(</span><span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">])</span>
+                        <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fields</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_get_chromosome_sequence_upper</span><span class="p">(</span>
+                            <span class="n">genome</span><span class="p">,</span> <span class="n">fai_df</span><span class="p">,</span> <span class="n">fields</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="k">continue</span>
+                <span class="n">read_bases</span> <span class="o">=</span> <span class="n">fields</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+                <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;+&quot;</span> <span class="ow">in</span> <span class="n">read_bases</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="ow">in</span> <span class="n">read_bases</span><span class="p">):</span>
+                    <span class="n">read_bases</span> <span class="o">=</span> <span class="n">_strip_indels</span><span class="p">(</span><span class="n">read_bases</span><span class="p">)</span>
+                <span class="n">pos0</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fields</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">ref_base</span> <span class="o">==</span> <span class="s2">&quot;C&quot;</span><span class="p">:</span>
+                    <span class="n">unconverted</span> <span class="o">=</span> <span class="n">read_bases</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+                    <span class="n">converted</span> <span class="o">=</span> <span class="n">read_bases</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">unconverted</span> <span class="o">=</span> <span class="n">read_bases</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+                    <span class="n">converted</span> <span class="o">=</span> <span class="n">read_bases</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;a&quot;</span><span class="p">)</span>
+                <span class="n">_handle_site</span><span class="p">(</span><span class="n">fields</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pos0</span><span class="p">,</span> <span class="n">ref_base</span><span class="p">,</span> <span class="n">unconverted</span><span class="p">,</span> <span class="n">converted</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]:</span>
+            <span class="n">_flush</span><span class="p">(</span><span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">])</span>
+        <span class="n">total_line</span> <span class="o">=</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;total_line&quot;</span><span class="p">]</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">pipes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pipes</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">ref_pos_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ref_pos_map</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">convert_bam_strandness</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">bam_path</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">bam_path</span> <span class="o">+</span> <span class="s2">&quot;.bai&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="n">count_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;mc&quot;</span><span class="p">:</span> <span class="n">mc_dict</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">:</span> <span class="n">cov_dict</span><span class="p">})</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">count_df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="n">count_df</span><span class="p">[</span><span class="s2">&quot;mc_rate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">count_df</span><span class="p">[</span><span class="s2">&quot;mc&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">count_df</span><span class="p">[</span><span class="s2">&quot;cov&quot;</span><span class="p">]</span>
+        <span class="n">total_genome_length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fai_df</span><span class="p">[</span><span class="s2">&quot;LENGTH&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="n">count_df</span><span class="p">[</span><span class="s2">&quot;genome_cov&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_line</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">total_genome_length</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">save_count_df</span><span class="p">:</span>
+        <span class="n">count_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output</span> <span class="o">+</span> <span class="s2">&quot;.count.csv&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">count_df</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Wubin Ding.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-F0T1MBS19V', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

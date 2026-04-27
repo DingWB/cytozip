@@ -1,0 +1,463 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "db41e190",
+   "metadata": {},
+   "source": [
+    "# Calling DMRs with cytozip\n",
+    "\n",
+    "This notebook walks through the DMR-calling APIs in cytozip:\n",
+    "\n",
+    "| API | Use case |\n",
+    "|---|---|\n",
+    "| `czip.call_dmr` | **CG** (CpG) DMRs between two groups of `.cz` files (single-cell or pseudobulk) |\n",
+    "| `czip.call_dmr_ch` | **non-CG** (CH / CA / CT) DMRs with bin aggregation, global mCH normalization, and a log2-fold-change filter |\n",
+    "| `czip.call_dmr_one_vs_rest` | Batch one-vs-rest over a folder of pseudobulk `.cz` files; optionally **stratified** within each class given a 2-column TSV |\n",
+    "| `czip.merge_dmr_results` | Stitch per-sample TSVs into a single long-format table with derived metrics (`delta_meth` / `delta_rate`, `direction`, `log2fc`, `length`, `region_id`) |\n",
+    "\n",
+    "All DMR callers share the same OpenMP-parallel Cython RMS permutation kernel (Schultz et al. 2015 / ALLCools).\n",
+    "\n",
+    "## Pseudobulk vs single-cell input\n",
+    "\n",
+    "`group_a` / `group_b` accept **either** single-cell `.cz` files **or** pseudobulk `.cz` files. **Pseudobulk is strongly recommended** for cell-type-vs-cell-type comparisons:\n",
+    "\n",
+    "* Per-cell coverage is sparse (CG cov is mostly 0/1; CH is essentially zero), so per-site permutation tests on single cells have limited power.\n",
+    "* Pooling cells of the same cluster gives stable per-site coverage and matches ALLCools' / Methylpy's \"one ALLC = one sample\" convention.\n",
+    "* Runtime scales linearly with the number of input files, so going from N cells to K clusters is a large speed-up.\n",
+    "\n",
+    "Recommended workflow: build **multiple replicate pseudobulks per cluster** with `czip merge_cz` (split by donor / batch, or random splits), then pass those replicate pseudobulks as `group_a` / `group_b`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c13e16d6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "os.chdir(os.path.expanduser(\"~/Projects/Github/cytozip/cytozip_example_data\"))\n",
+    "import glob\n",
+    "import pandas as pd\n",
+    "import cytozip as czip"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a0f44350",
+   "metadata": {},
+   "source": [
+    "## 1. CG DMR — `call_dmr`\n",
+    "\n",
+    "`call_dmr` re-implements ALLCools' permutation root-mean-square (RMS) test on the `.cz` format. The hot loop lives in the Cython extension `cytozip.dmr_accel` (OpenMP `prange`, dynamic schedule) and the outer chunk loop is split into `processes × threads ≈ jobs`.\n",
+    "\n",
+    "Algorithm:\n",
+    "1. For each reference chunk, load each cell's `mc`/`cov` columns into an `(n_cells, n_sites)` int32 matrix.\n",
+    "2. Keep sites with at least `min_samples_per_group` cells passing `cov >= min_cov` in both groups.\n",
+    "3. Run the RMS permutation test per site (early stop at `min_pvalue`, downsampling caps `max_row_count`/`max_total_count` matching ALLCools defaults).\n",
+    "4. Sites with `p < p_value_cutoff` and `|mean(frac_A) - mean(frac_B)| > frac_delta_cutoff` are DMS.\n",
+    "5. Adjacent same-sign DMS within `max_dist` bp are merged into DMRs (`min_dms` per DMR)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "bccc1b3c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "cells = sorted(glob.glob(\"output/cz/FC_*.cz\"))\n",
+    "group_a, group_b = cells[:5], cells[5:]\n",
+    "\n",
+    "czip.call_dmr(\n",
+    "    group_a=group_a, group_b=group_b,\n",
+    "    reference=\"output/mm10_with_chrL.allc.cz\",\n",
+    "    output=\"/tmp/cz_dmr_demo.tsv\",\n",
+    "    dms_output=\"/tmp/cz_dms_demo.tsv\",\n",
+    "    chroms=[\"chrM\", \"chrL\"],   # restrict to small chroms for the demo\n",
+    "    min_cov=1, min_samples_per_group=1,\n",
+    "    p_value_cutoff=0.05, frac_delta_cutoff=0.2,\n",
+    "    n_permute=2000, jobs=4,\n",
+    ")\n",
+    "\n",
+    "pd.read_csv(\"/tmp/cz_dmr_demo.tsv\", sep=\"\\t\").head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a6dbd576",
+   "metadata": {},
+   "source": [
+    "Output columns (BED-style, 0-based half-open):\n",
+    "\n",
+    "| column | meaning |\n",
+    "|---|---|\n",
+    "| `chrom`, `start`, `end` | DMR coordinates |\n",
+    "| `n_dms` | number of significant sites in the DMR |\n",
+    "| `p_min` | smallest per-site p-value in the DMR |\n",
+    "| `frac_delta_mean` | mean `frac_A − frac_B` over constituent DMS |\n",
+    "| `state` | `+1` = hyper in A, `-1` = hypo in A, `0` = mixed |"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "352e7534",
+   "metadata": {},
+   "source": [
+    "## 2. CH DMR — `call_dmr_ch`\n",
+    "\n",
+    "CH methylation has very low fractions (~0.5–5% in neurons, much less elsewhere) and large global-rate differences between cell types, so the CG-tuned `call_dmr` is unsuitable. `call_dmr_ch` adapts the same RMS kernel:\n",
+    "\n",
+    "1. **Bin aggregation** — pool per-cell mc/cov into fixed-size bins (default 5 kb) so the test has signal.\n",
+    "2. **Global-rate normalization** (default ON) — pre-compute each cell's global mCH rate and rescale its mc counts to a common median target. This removes the dominant cell-type-level global shift that would otherwise saturate the test.\n",
+    "3. **Triple filter** — DMS bins must satisfy `p < p_value_cutoff` AND `|log2(rate_A / rate_B)| ≥ log2fc_cutoff` AND `|rate_A − rate_B| ≥ abs_delta_cutoff`.\n",
+    "4. **Sub-context restriction** — pass `index=mm10.CAN.cz` to analyze mCA only (recommended in mammalian neurons).\n",
+    "5. Wider merge distance (`max_dist=2000`) and `min_dms=2` since CH signal is broader.\n",
+    "\n",
+    "For CH, **pseudobulk input is even more strongly recommended** than for CG: per-cell per-site CH coverage is essentially zero, so even with binning the signal in single-cell input is dominated by sampling noise."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "af6ce560",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "czip.call_dmr_ch(\n",
+    "    group_a=group_a, group_b=group_b,\n",
+    "    reference=\"output/mm10_with_chrL.allc.cz\",\n",
+    "    output=\"/tmp/cz_dmr_ch_demo.tsv\",\n",
+    "    dms_output=\"/tmp/cz_dms_ch_demo.tsv\",\n",
+    "    bin_size=1000,                  # smaller bins for the tiny demo dataset\n",
+    "    chroms=[\"chrM\", \"chrL\"],\n",
+    "    p_value_cutoff=0.05,\n",
+    "    log2fc_cutoff=0.3,\n",
+    "    abs_delta_cutoff=0.01,\n",
+    "    min_cov=1, min_samples_per_group=2,\n",
+    "    n_permute=3000, jobs=4,\n",
+    ")\n",
+    "\n",
+    "pd.read_csv(\"/tmp/cz_dms_ch_demo.tsv\", sep=\"\\t\").head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2f5652c3",
+   "metadata": {},
+   "source": [
+    "On real single-cell data, `call_dmr_ch` is typically **5–50× faster than `call_dmr`** because bin aggregation collapses tens of thousands of per-site tests into a few thousand per-bin tests, even with the optional global-rate pre-scan."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "fe330e19",
+   "metadata": {},
+   "source": [
+    "## 3. Batch one-vs-rest — `call_dmr_one_vs_rest`\n",
+    "\n",
+    "Scans a directory of pseudobulk `.cz` files, runs **each sample vs. all the others** in one go, and (after the last comparison) auto-merges per-sample TSVs into a single long-format table at `<outdir>/merged_dmr.tsv` with derived metrics.\n",
+    "\n",
+    "* `class_table=None` → **global** one-vs-rest (output: `outdir/<sname>.dmr.tsv`).\n",
+    "* `class_table=...` (TSV path / `dict` / `DataFrame` with two columns `sname<TAB>class`) → **stratified**: each comparison is restricted to other members of the same class (output: `outdir/<class>/<sname>.dmr.tsv`).\n",
+    "* `method='cg' | 'ch'` switches between `call_dmr` and `call_dmr_ch`; extra knobs (e.g. `bin_size`, `frac_delta_cutoff`, `log2fc_cutoff`, `n_permute`, …) flow through via `**dmr_kwargs`.\n",
+    "* `overwrite=False` skips comparisons whose output TSV already exists (resume-friendly).\n",
+    "* For CH, the per-pseudobulk global mCH rates are pre-scanned **once** at the wrapper level and reused across all comparisons via `global_a` / `global_b`, instead of re-scanning on every call."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ddd7a95f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Treat each cell .cz as a (toy) pseudobulk and stage them in a folder.\n",
+    "import shutil\n",
+    "tmpd = \"/tmp/cz_pb_demo\"\n",
+    "shutil.rmtree(tmpd, ignore_errors=True); os.makedirs(tmpd)\n",
+    "for p in cells:\n",
+    "    os.symlink(os.path.abspath(p), os.path.join(tmpd, os.path.basename(p)))\n",
+    "\n",
+    "outdir = \"/tmp/cz_dmr_ovr_global\"\n",
+    "shutil.rmtree(outdir, ignore_errors=True)\n",
+    "\n",
+    "czip.call_dmr_one_vs_rest(\n",
+    "    indir=tmpd,\n",
+    "    reference=\"output/mm10_with_chrL.allc.cz\",\n",
+    "    outdir=outdir,\n",
+    "    ext=\".cz\",\n",
+    "    method=\"cg\",\n",
+    "    p_value_cutoff=0.05, frac_delta_cutoff=0.2,\n",
+    "    min_cov=1, min_samples_per_group=2,\n",
+    "    n_permute=2000,\n",
+    "    chroms=[\"chrM\", \"chrL\"],\n",
+    "    jobs=4,\n",
+    ")\n",
+    "\n",
+    "# Per-sample DMR TSVs:\n",
+    "print(sorted(os.listdir(outdir))[:5], \"...\")\n",
+    "# Auto-merged table with metric columns:\n",
+    "merged = pd.read_csv(os.path.join(outdir, \"merged_dmr.tsv\"), sep=\"\\t\")\n",
+    "print(\"merged shape:\", merged.shape)\n",
+    "merged.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "aaea645e",
+   "metadata": {},
+   "source": [
+    "### Stratified one-vs-rest (within each class)\n",
+    "\n",
+    "Provide a 2-column TSV (`sname<TAB>class`, no header) — only members of the same class are compared:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "319012c4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Build a toy class table: split the 9 cells into two classes\n",
+    "class_tsv = \"/tmp/cz_class_table.tsv\"\n",
+    "with open(class_tsv, \"w\") as f:\n",
+    "    for i, p in enumerate(cells):\n",
+    "        sname = os.path.basename(p)[:-len(\".cz\")]\n",
+    "        f.write(f\"{sname}\\tcls{1 if i < 4 else 2}\\n\")\n",
+    "pd.read_csv(class_tsv, sep=\"\\t\", header=None, names=[\"sname\",\"class\"]).head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "99f0f7e6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "outdir2 = \"/tmp/cz_dmr_ovr_strat\"\n",
+    "shutil.rmtree(outdir2, ignore_errors=True)\n",
+    "\n",
+    "czip.call_dmr_one_vs_rest(\n",
+    "    indir=tmpd,\n",
+    "    reference=\"output/mm10_with_chrL.allc.cz\",\n",
+    "    outdir=outdir2,\n",
+    "    ext=\".cz\",\n",
+    "    method=\"cg\",\n",
+    "    class_table=class_tsv,\n",
+    "    p_value_cutoff=0.05, frac_delta_cutoff=0.2,\n",
+    "    min_cov=1, min_samples_per_group=2,\n",
+    "    n_permute=2000,\n",
+    "    chroms=[\"chrM\", \"chrL\"],\n",
+    "    jobs=4,\n",
+    ")\n",
+    "\n",
+    "for d in sorted(os.listdir(outdir2)):\n",
+    "    sub = os.path.join(outdir2, d)\n",
+    "    if os.path.isdir(sub):\n",
+    "        print(d, \"->\", sorted(os.listdir(sub)))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "648587ed",
+   "metadata": {},
+   "source": [
+    "### CH batch one-vs-rest with shared global-rate pre-scan\n",
+    "\n",
+    "Switch to `method='ch'` and pass CH-specific knobs through `**dmr_kwargs`. The wrapper logs `pre-scanning global mCH rates for N pseudobulks` once at the start, then reuses those rates for every comparison."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "10747c13",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "outdir3 = \"/tmp/cz_dmr_ovr_ch\"\n",
+    "shutil.rmtree(outdir3, ignore_errors=True)\n",
+    "\n",
+    "czip.call_dmr_one_vs_rest(\n",
+    "    indir=tmpd,\n",
+    "    reference=\"output/mm10_with_chrL.allc.cz\",\n",
+    "    outdir=outdir3,\n",
+    "    ext=\".cz\",\n",
+    "    method=\"ch\",\n",
+    "    bin_size=1000,\n",
+    "    p_value_cutoff=0.05,\n",
+    "    log2fc_cutoff=0.3,\n",
+    "    abs_delta_cutoff=0.01,\n",
+    "    min_cov=1, min_samples_per_group=2,\n",
+    "    n_permute=2000,\n",
+    "    chroms=[\"chrM\", \"chrL\"],\n",
+    "    jobs=4,\n",
+    ")\n",
+    "\n",
+    "print(sorted(os.listdir(outdir3))[:5], \"...\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b8de8585",
+   "metadata": {},
+   "source": [
+    "## 4. Merging results — `merge_dmr_results`\n",
+    "\n",
+    "`call_dmr_one_vs_rest` calls this automatically at the end, but you can also re-run it manually (e.g. with a different `class_table` or to refresh metric columns).\n",
+    "\n",
+    "Always-present columns: `chrom, start, end, n_dms, p_min, frac_delta_mean, state, sname, class, length, region_id`.\n",
+    "\n",
+    "When `add_metrics=True` (default):\n",
+    "\n",
+    "* CG → adds `delta_meth` (= `frac_delta_mean`) and `direction` (`'hypo'` / `'hyper'`).\n",
+    "* CH → adds `delta_rate` and `direction`; if `rate_a` / `rate_b` columns are present (e.g. when merging the per-bin DMS files via `dms_output_dir`) it also computes `log2fc = log2(rate_a / rate_b)`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "66a0abb8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Synthetic example to illustrate the metric columns when there are real hits.\n",
+    "demo = \"/tmp/cz_merge_demo\"\n",
+    "shutil.rmtree(demo, ignore_errors=True)\n",
+    "os.makedirs(os.path.join(demo, \"cls1\"))\n",
+    "os.makedirs(os.path.join(demo, \"cls2\"))\n",
+    "\n",
+    "pd.DataFrame({\n",
+    "    \"chrom\": [\"chr1\", \"chr1\"],\n",
+    "    \"start\": [100, 500],\n",
+    "    \"end\":   [300, 700],\n",
+    "    \"n_dms\": [3, 5],\n",
+    "    \"p_min\": [1e-4, 2e-3],\n",
+    "    \"frac_delta_mean\": [-0.4, 0.3],\n",
+    "    \"state\": [-1, 1],\n",
+    "}).to_csv(f\"{demo}/cls1/sampA.dmr.tsv\", sep=\"\\t\", index=False)\n",
+    "\n",
+    "pd.DataFrame({\n",
+    "    \"chrom\": [\"chr2\"],\n",
+    "    \"start\": [1000], \"end\": [2000],\n",
+    "    \"n_dms\": [2], \"p_min\": [5e-5],\n",
+    "    \"frac_delta_mean\": [0.55], \"state\": [1],\n",
+    "}).to_csv(f\"{demo}/cls2/sampB.dmr.tsv\", sep=\"\\t\", index=False)\n",
+    "\n",
+    "merged = czip.merge_dmr_results(demo, method=\"cg\",\n",
+    "                                output=f\"{demo}/merged.tsv\")\n",
+    "merged"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2f9816fd",
+   "metadata": {},
+   "source": [
+    "## 5. CLI equivalents\n",
+    "\n",
+    "All four functions are also available as `czip` subcommands:\n",
+    "\n",
+    "```bash\n",
+    "# Two-group CG\n",
+    "czip call_dmr -a a.txt -b b.txt -r mm10.allc.cz \\\n",
+    "    -s mm10.CGN.cz -O dmr.tsv -j 16\n",
+    "\n",
+    "# Two-group CH\n",
+    "czip call_dmr_ch -a a.txt -b b.txt -r mm10.allc.cz \\\n",
+    "    -s mm10.CAN.cz -O ch_dmr.tsv --bin_size 5000 -j 16\n",
+    "\n",
+    "# Batch one-vs-rest, optionally stratified, auto-merge:\n",
+    "czip call_dmr_one_vs_rest \\\n",
+    "    -d pseudobulk/Subclass/cz \\\n",
+    "    -r mm10.allc.cz \\\n",
+    "    -O DMR/Subclass \\\n",
+    "    --ext .CGN.cz --method cg \\\n",
+    "    -c Subclass2CellClass.tsv \\\n",
+    "    -j 32\n",
+    "```\n",
+    "\n",
+    "`-a` / `-b` accept comma-separated paths or a text file with one path per line."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "11a9d2c4",
+   "metadata": {},
+   "source": [
+    "## 6. Per-cell methylation over DMRs — `cz_to_anndata`\n",
+    "\n",
+    "Once you have a merged DMR table (or any BED) you can directly aggregate **single-cell** `.cz` files over those intervals using `czip.cz_to_anndata` — no extra wrapper needed.\n",
+    "\n",
+    "* `features=` accepts a BED/BED.gz path, a `DataFrame` whose first 3 columns are `chrom/start/end` (4th column → `var_names`), or an int (genome-wide bin size). The merged DMR table fits the DataFrame form directly.\n",
+    "* `score='frac'` writes raw `mc/cov` per (cell, DMR) into `.X`; `.layers['mc']` / `.layers['cov']` always carry the raw integer counts so downstream Beta-binomial / posterior models can recompute fractions.\n",
+    "* For mCH DMRs, point `reference=` at the matching CH index (e.g. `mm10.CAN.cz`) — `score='frac'` then yields per-cell mCH rates.\n",
+    "* `jobs>1` runs one cell per worker via `ProcessPoolExecutor`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5fa94d03",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Use the merged CG DMR table from section 3 as a feature set\n",
+    "merged = pd.read_csv(os.path.join(outdir, \"merged_dmr.tsv\"), sep=\"\\t\")\n",
+    "feats = (merged[[\"chrom\", \"start\", \"end\", \"region_id\"]]\n",
+    "         .drop_duplicates(subset=\"region_id\")\n",
+    "         .reset_index(drop=True))\n",
+    "# parse_features uses positional column 0/1/2/3, so rename for safety\n",
+    "feats.columns = [0, 1, 2, 3]\n",
+    "feats.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9e527341",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "adata = czip.cz_to_anndata(\n",
+    "    cz_inputs=cells,                       # list / dir / merged catcz all OK\n",
+    "    features=feats,\n",
+    "    reference=\"output/mm10_with_chrL.allc.cz\",\n",
+    "    score=\"frac\",                          # 'hypo-score' / 'hyper-score' / 'mc' / 'cov' / 'umc'\n",
+    "    exclude_chroms=(),                     # keep chrL/chrM for the demo\n",
+    "    output=\"/tmp/cz_dmr_per_cell.h5ad\",\n",
+    "    jobs=4,\n",
+    ")\n",
+    "print(adata)\n",
+    "print(\"X dtype:\", adata.X.dtype, \"layers:\", list(adata.layers.keys()))\n",
+    "adata.to_df().head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f0d11c36",
+   "metadata": {},
+   "source": [
+    "Tips:\n",
+    "\n",
+    "* The same call works for CH DMRs — substitute `reference=\"mm10.CAN.cz\"` (or whichever sub-context index matches your CH `.cz` files) and `score='frac'` returns per-cell mCH rates over each DMR.\n",
+    "* For binarized hypo/hyper masks, use `score='hypo-score'` (or `'hyper-score'`) with `score_cutoff=0.9`.\n",
+    "* CLI equivalent: convert the merged DMR table to a 4-column BED first, then\n",
+    "\n",
+    "  ```bash\n",
+    "  czip cz_to_anndata -i single_cell/cz -f dmrs.bed \\\n",
+    "      -r mm10.allc.cz -O DMR_per_cell.h5ad -j 32\n",
+    "  ```"
+   ]
+  }
+ ],
+ "metadata": {
+  "language_info": {
+   "name": "python"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

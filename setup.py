@@ -104,6 +104,19 @@ setup(
                     os.path.join(os.environ.get('CONDA_PREFIX', ''), 'lib')
                 ] if os.environ.get('CONDA_PREFIX') else [],
             ),
+            Extension(
+                "cytozip.dmr_accel",
+                ["cytozip/dmr_accel.pyx"],
+                extra_compile_args=[
+                    "-Wno-unreachable-code-fallthrough",
+                    "-Wno-unused-result",
+                    "-Wno-sign-compare",
+                    "-O3",
+                    "-fopenmp",
+                ],
+                extra_link_args=["-fopenmp"],
+                include_dirs=[np.get_include()],
+            ),
         ] + ([
             # In-process htslib mpileup wrapper. Optional: only built if
             # htslib headers + libs are available (typically via conda's

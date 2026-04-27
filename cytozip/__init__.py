@@ -35,7 +35,11 @@ _LAZY_EXPORTS = {
     'pivot_fraction': 'pivot', 'pivot_fisher': 'pivot',
     # dmr.py — peak calling / DMR analysis
     'call_peaks': 'dmr', 'to_bedgraph': 'dmr',
-    'combp': 'dmr', 'annot_dmr': 'dmr',
+    'combp': 'dmr', 'annot_dmr': 'dmr', 'call_dmr': 'dmr',
+    'call_dmr_ch': 'dmr',
+    'call_dmr_one_vs_rest': 'dmr',
+    'merge_dmr_results': 'dmr',
+    'consensus_dmr': 'dmr',
 }
 
 # Submodules that can be accessed as cytozip.cz / cytozip.allc
@@ -135,11 +139,31 @@ def _build_parser():
     p.add_argument('-I', '--input', required=True, help='input .cz file')
 
     # ---- query ---------------------------------------------------------------
-    p = sub.add_parser('query', help='Query .cz file by chunk-key and position range', formatter_class=_fmt)
+    p = sub.add_parser('query',
+                       help='Query .cz file by chunk-key and position range '
+                            '(bounds INCLUSIVE: [start, end])',
+                       description=(
+                           'Query a .cz file by chunk-key and position '
+                           'range.\n\n'
+                           'Coordinate semantics: --start/--end are '
+                           'INCLUSIVE on the value stored in the sort '
+                           'column, i.e. [start, end] (NOT BED-style '
+                           '0-based half-open [start, end)). The '
+                           'coordinate base follows the file: ALLC-derived '
+                           '.cz (allc_to_cz / bam_to_cz) is 1-based; '
+                           'BED-derived .cz keeps the source base as-is. '
+                           'This differs from tabix, which is 0-based '
+                           'half-open.'),
+                       formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
     p.add_argument('-K', '--chunk_key', default=None, help='chunk-key value to query (e.g. chr1)')
-    p.add_argument('-s', '--start', type=int, default=None, help='start position')
-    p.add_argument('-e', '--end', type=int, default=None, help='end position')
+    p.add_argument('-s', '--start', type=int, default=None,
+                   help='start of inclusive query interval (1-based for '
+                        'ALLC-derived .cz)')
+    p.add_argument('-e', '--end', type=int, default=None,
+                   help='end of inclusive query interval; the record at '
+                        'exactly --end IS included (1-based for '
+                        'ALLC-derived .cz)')
     p.add_argument('--regions', default=None, help='regions file (tab-separated, no header)')
     p.add_argument('-q', '--query_col', type=_csv_int, default=[0], help='column indices to query on')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
@@ -366,6 +390,163 @@ def _build_parser():
     p.add_argument('--matrix', default='merged_dmr.cell_class.beta.txt', help='beta matrix file')
     p.add_argument('-O', '--output', default='dmr.annotated.txt', help='output file')
     p.add_argument('--delta_cutoff', type=float, default=None, help='min delta-beta cutoff')
+
+    # ---- call_dmr ------------------------------------------------------------
+    p = sub.add_parser('call_dmr',
+                       help='Call DMRs between two groups of single-cell .cz '
+                            'files (permutation RMS test, ALLCools/Methylpy style)',
+                       formatter_class=_fmt)
+    p.add_argument('-a', '--group_a', required=True,
+                   help='comma-separated .cz paths or a text file listing them (one per line)')
+    p.add_argument('-b', '--group_b', required=True,
+                   help='comma-separated .cz paths or a text file listing them (one per line)')
+    p.add_argument('-r', '--reference', required=True,
+                   help='reference .cz file (pos column)')
+    p.add_argument('-O', '--output', required=True,
+                   help='output DMR TSV path')
+    p.add_argument('-s', '--index', default=None,
+                   help='context index .cz (e.g., CGN-only) to restrict sites')
+    p.add_argument('--dms_output', default=None,
+                   help='also write the per-site DMS TSV here')
+    p.add_argument('--group_names', default='A,B',
+                   help='comma-separated group names (header / log only)')
+    p.add_argument('--p_value_cutoff', type=float, default=0.001)
+    p.add_argument('--frac_delta_cutoff', type=float, default=0.2)
+    p.add_argument('--min_cov', type=int, default=1,
+                   help='per-cell min coverage at a site to contribute')
+    p.add_argument('--min_samples_per_group', type=int, default=1)
+    p.add_argument('--max_dist', type=int, default=250,
+                   help='max gap (bp) between adjacent DMS for merging')
+    p.add_argument('--min_dms', type=int, default=1)
+    p.add_argument('--n_permute', type=int, default=3000)
+    p.add_argument('--min_pvalue', type=float, default=0.01,
+                   help='permutation early-stopping threshold (ALLCools default)')
+    p.add_argument('--max_row_count', type=int, default=50)
+    p.add_argument('--max_total_count', type=int, default=3000)
+    p.add_argument('--mc_col', default=None,
+                   help='mc column name or 0-based index (default: first column)')
+    p.add_argument('--cov_col', default=None,
+                   help='cov column name or 0-based index (default: last column)')
+    p.add_argument('--chroms', type=_csv_str, default=None,
+                   help='comma-separated chromosomes to restrict to')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='total CPU cores to use (auto-split into '
+                        'processes across chunks and OpenMP threads)')
+    p.add_argument('--no-delta_prefilter', dest='delta_prefilter',
+                   action='store_false', default=True,
+                   help='disable the |Delta-frac| pre-filter (run RMS on '
+                        'every site)')
+    p.add_argument('--no-fisher_1v1', dest='use_fisher_1v1',
+                   action='store_false', default=True,
+                   help='disable Fisher-exact fallback for 1-vs-1 comparisons')
+
+    # ---- call_dmr_ch ---------------------------------------------------------
+    p = sub.add_parser('call_dmr_ch',
+                       help='Call non-CG (CH/CA/CT) DMRs with bin aggregation '
+                            '+ global mCH normalization + log2fc filter',
+                       formatter_class=_fmt)
+    p.add_argument('-a', '--group_a', required=True,
+                   help='comma-separated .cz paths or a text file listing them (one per line)')
+    p.add_argument('-b', '--group_b', required=True,
+                   help='comma-separated .cz paths or a text file listing them (one per line)')
+    p.add_argument('-r', '--reference', required=True,
+                   help='reference .cz file (pos column)')
+    p.add_argument('-O', '--output', required=True,
+                   help='output DMR TSV path')
+    p.add_argument('-s', '--index', default=None,
+                   help='context index .cz (e.g., CAN-only) to restrict sites')
+    p.add_argument('--dms_output', default=None,
+                   help='also write the per-bin DMS TSV here')
+    p.add_argument('--bin_size', type=int, default=5000,
+                   help='bin width (bp) for pooling per-cell mc/cov counts')
+    p.add_argument('--context', default='CHN',
+                   help='label used in log messages (CHN/CAN/CTN/...)')
+    p.add_argument('--group_names', default='A,B')
+    p.add_argument('--p_value_cutoff', type=float, default=0.001)
+    p.add_argument('--log2fc_cutoff', type=float, default=1.0,
+                   help='min |log2(rate_a/rate_b)| after normalization')
+    p.add_argument('--abs_delta_cutoff', type=float, default=0.005,
+                   help='min |rate_a - rate_b| after normalization')
+    p.add_argument('--no_normalize', action='store_true',
+                   help='disable per-cell global mCH rescaling pre-pass')
+    p.add_argument('--min_cov', type=int, default=3)
+    p.add_argument('--min_samples_per_group', type=int, default=2)
+    p.add_argument('--max_dist', type=int, default=2000)
+    p.add_argument('--min_dms', type=int, default=2)
+    p.add_argument('--n_permute', type=int, default=10000)
+    p.add_argument('--min_pvalue', type=float, default=0.001)
+    p.add_argument('--max_row_count', type=int, default=200)
+    p.add_argument('--max_total_count', type=int, default=10000)
+    p.add_argument('--mc_col', default=None)
+    p.add_argument('--cov_col', default=None)
+    p.add_argument('--chroms', type=_csv_str, default=None)
+    p.add_argument('-j', '--jobs', type=int, default=1)
+    p.add_argument('--no-delta_prefilter', dest='delta_prefilter',
+                   action='store_false', default=True,
+                   help='disable the bin-level pre-filter (run RMS on every bin)')
+
+    # ---- call_dmr_one_vs_rest ------------------------------------------------
+    p = sub.add_parser('call_dmr_one_vs_rest',
+                       help='Batch one-vs-rest DMR over a folder of pseudobulk '
+                            '.cz, optionally stratified by a sample-class TSV',
+                       formatter_class=_fmt)
+    p.add_argument('-d', '--indir', required=True,
+                   help='directory of pseudobulk .cz files')
+    p.add_argument('-r', '--reference', required=True,
+                   help='reference .cz file')
+    p.add_argument('-O', '--outdir', required=True,
+                   help='output directory (per-sample DMR TSVs are written '
+                        'here, or under <outdir>/<class>/ when stratified)')
+    p.add_argument('--ext', default='.cz',
+                   help="suffix used to discover pseudobulks; "
+                        "sname = filename[:-len(ext)]")
+    p.add_argument('--method', default='cg', choices=['cg', 'ch'],
+                   help='cg -> call_dmr; ch -> call_dmr_ch')
+    p.add_argument('-c', '--class_table', default=None,
+                   help='optional 2-col TSV (sname<TAB>class); restricts each '
+                        'one-vs-rest comparison to within the same class')
+    p.add_argument('--min_class_size', type=int, default=2)
+    p.add_argument('-s', '--index', default=None,
+                   help='context index .cz forwarded to the DMR caller')
+    p.add_argument('--dms_output_dir', default=None,
+                   help='if given, also write per-sample DMS TSVs here')
+    p.add_argument('--overwrite', action='store_true',
+                   help='re-run even if the output TSV exists')
+    p.add_argument('-j', '--jobs', type=int, default=1)
+    # forwarded knobs (kept minimal; users wanting full control can use the
+    # Python API and **dmr_kwargs)
+    p.add_argument('--p_value_cutoff', type=float, default=None)
+    p.add_argument('--frac_delta_cutoff', type=float, default=None,
+                   help='CG only')
+    p.add_argument('--log2fc_cutoff', type=float, default=None,
+                   help='CH only')
+    p.add_argument('--abs_delta_cutoff', type=float, default=None,
+                   help='CH only')
+    p.add_argument('--bin_size', type=int, default=None,
+                   help='CH only')
+    p.add_argument('--no_normalize', action='store_true',
+                   help='CH only: disable per-cell global mCH rescaling')
+    p.add_argument('--min_cov', type=int, default=None)
+    p.add_argument('--min_samples_per_group', type=int, default=None)
+    p.add_argument('--max_dist', type=int, default=None)
+    p.add_argument('--min_dms', type=int, default=None)
+    p.add_argument('--n_permute', type=int, default=None)
+    p.add_argument('--chroms', type=_csv_str, default=None)
+    p.add_argument('--no-delta_prefilter', dest='delta_prefilter',
+                   action='store_false', default=True,
+                   help='forwarded to the underlying caller')
+    p.add_argument('--no-fisher_1v1', dest='use_fisher_1v1',
+                   action='store_false', default=True,
+                   help='CG only: disable Fisher-exact fallback for 1-vs-1')
+    p.add_argument('--no-merge', dest='auto_merge', action='store_false',
+                   default=True,
+                   help='skip the auto merge_dmr_results step')
+    p.add_argument('--no-fdr', dest='add_fdr', action='store_false',
+                   default=True,
+                   help='skip BH-FDR q_min computation in the merge step')
+    p.add_argument('--output_format', default=None,
+                   choices=[None, 'tsv', 'parquet'],
+                   help='format of merged_dmr output (default: tsv)')
 
     # ---- call_peaks ----------------------------------------------------------
     p = sub.add_parser('call_peaks', help='Call peaks from methylation .cz using MACS3', formatter_class=_fmt)
@@ -646,6 +827,93 @@ def main():
         from .dmr import annot_dmr
         annot_dmr(input=args.input, matrix=args.matrix,
                   output=args.output, delta_cutoff=args.delta_cutoff)
+
+    elif cmd == 'call_dmr':
+        from .dmr import call_dmr
+        mc_col = args.mc_col
+        cov_col = args.cov_col
+        if mc_col is not None and isinstance(mc_col, str) and mc_col.isdigit():
+            mc_col = int(mc_col)
+        if cov_col is not None and isinstance(cov_col, str) and cov_col.isdigit():
+            cov_col = int(cov_col)
+        gn = args.group_names.split(',') if args.group_names else ('A', 'B')
+        call_dmr(group_a=args.group_a, group_b=args.group_b,
+                 reference=args.reference, output=args.output,
+                 group_names=tuple(gn[:2]),
+                 p_value_cutoff=args.p_value_cutoff,
+                 frac_delta_cutoff=args.frac_delta_cutoff,
+                 min_cov=args.min_cov,
+                 min_samples_per_group=args.min_samples_per_group,
+                 max_dist=args.max_dist, min_dms=args.min_dms,
+                 n_permute=args.n_permute, min_pvalue=args.min_pvalue,
+                 max_row_count=args.max_row_count,
+                 max_total_count=args.max_total_count,
+                 mc_col=mc_col, cov_col=cov_col,
+                 index=args.index, dms_output=args.dms_output,
+                 chroms=args.chroms, jobs=args.jobs,
+                 delta_prefilter=args.delta_prefilter,
+                 use_fisher_1v1=args.use_fisher_1v1)
+
+    elif cmd == 'call_dmr_ch':
+        from .dmr import call_dmr_ch
+        mc_col = args.mc_col
+        cov_col = args.cov_col
+        if mc_col is not None and isinstance(mc_col, str) and mc_col.isdigit():
+            mc_col = int(mc_col)
+        if cov_col is not None and isinstance(cov_col, str) and cov_col.isdigit():
+            cov_col = int(cov_col)
+        gn = args.group_names.split(',') if args.group_names else ('A', 'B')
+        call_dmr_ch(group_a=args.group_a, group_b=args.group_b,
+                    reference=args.reference, output=args.output,
+                    bin_size=args.bin_size, context=args.context,
+                    group_names=tuple(gn[:2]),
+                    p_value_cutoff=args.p_value_cutoff,
+                    log2fc_cutoff=args.log2fc_cutoff,
+                    abs_delta_cutoff=args.abs_delta_cutoff,
+                    normalize=not args.no_normalize,
+                    min_cov=args.min_cov,
+                    min_samples_per_group=args.min_samples_per_group,
+                    max_dist=args.max_dist, min_dms=args.min_dms,
+                    n_permute=args.n_permute, min_pvalue=args.min_pvalue,
+                    max_row_count=args.max_row_count,
+                    max_total_count=args.max_total_count,
+                    mc_col=mc_col, cov_col=cov_col,
+                    index=args.index, dms_output=args.dms_output,
+                    chroms=args.chroms, jobs=args.jobs,
+                    delta_prefilter=args.delta_prefilter)
+
+    elif cmd == 'call_dmr_one_vs_rest':
+        from .dmr import call_dmr_one_vs_rest
+        # Forward only the knobs the user actually set (so the wrapper
+        # falls back to call_dmr / call_dmr_ch defaults otherwise).
+        forward = {}
+        for k in ('p_value_cutoff', 'frac_delta_cutoff', 'log2fc_cutoff',
+                  'abs_delta_cutoff', 'bin_size', 'min_cov',
+                  'min_samples_per_group', 'max_dist', 'min_dms',
+                  'n_permute', 'chroms'):
+            v = getattr(args, k, None)
+            if v is not None:
+                forward[k] = v
+        if args.method == 'ch' and args.no_normalize:
+            forward['normalize'] = False
+        # delta_prefilter / use_fisher_1v1 are honored by the underlying
+        # caller; forward them only when the user opted out (defaults are True).
+        if not args.delta_prefilter:
+            forward['delta_prefilter'] = False
+        if args.method == 'cg' and not args.use_fisher_1v1:
+            forward['use_fisher_1v1'] = False
+        call_dmr_one_vs_rest(
+            indir=args.indir, reference=args.reference, outdir=args.outdir,
+            ext=args.ext, method=args.method,
+            class_table=args.class_table,
+            min_class_size=args.min_class_size,
+            overwrite=args.overwrite,
+            jobs=args.jobs, index=args.index,
+            dms_output_dir=args.dms_output_dir,
+            auto_merge=args.auto_merge,
+            merge_kwargs={'add_fdr': args.add_fdr,
+                          'output_format': args.output_format},
+            **forward)
 
     elif cmd == 'call_peaks':
         from .dmr import call_peaks

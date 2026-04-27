@@ -1,0 +1,1116 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cytozip.merge &mdash; cytozip 0.3.0.dev21 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=161b7e8c" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=ca60a7fa"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/js/rtd_search_config.js"></script>
+      <script src="../../_static/js/rtd_sphinx_search.min.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            cytozip
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/1.quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/2.dnam.html">DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#3.-BAM-→-.cz">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#BAM-→-.cz-benchmark-vs-ALLCools">BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> benchmark vs ALLCools</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#4.-ALLC-→-.cz">4. ALLC → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#5.-view-and-query">5. <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">query</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#Warm-query:-query_numpy-vs-pytabix-across-region-sizes">Warm query: <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> across region sizes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#Correctness-check:-cytozip-query-vs-pytabix">Correctness check: cytozip query vs pytabix</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#6.-View-/-query-a-remote-.cz-(no-download)">6. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#7.-catcz-and-merge_cz">7. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#8.-Build-a-cell-×-gene-AnnData">8. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/3.python_api.html">cytozip Python API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#view-header">view header</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#summary-chunks-&amp;-blocks">summary chunks &amp; blocks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query">query</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Numpy-/-DataFrame-APIs">Numpy / DataFrame APIs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2numpy(dims)-—-decode-a-whole-chunk"><code class="docutils literal notranslate"><span class="pre">chunk2numpy(dims)</span></code> — decode a whole chunk</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2df(dims,-reformat=False)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims,</span> <span class="pre">reformat=False)</span></code> — decode as a DataFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/4.call_dmr.html">Calling DMRs with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Pseudobulk-vs-single-cell-input">Pseudobulk vs single-cell input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#1.-CG-DMR-—-call_dmr">1. CG DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#2.-CH-DMR-—-call_dmr_ch">2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Stratified-one-vs-rest-(within-each-class)">Stratified one-vs-rest (within each class)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#CH-batch-one-vs-rest-with-shared-global-rate-pre-scan">CH batch one-vs-rest with shared global-rate pre-scan</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#4.-Merging-results-—-merge_dmr_results">4. Merging results — <code class="docutils literal notranslate"><span class="pre">merge_dmr_results</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#5.-CLI-equivalents">5. CLI equivalents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#6.-Per-cell-methylation-over-DMRs-—-cz_to_anndata">6. Per-cell methylation over DMRs — <code class="docutils literal notranslate"><span class="pre">cz_to_anndata</span></code></a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/dev.html">Advanced Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Generate-2D-subset-index-for-a-genomic-region">Generate 2D subset index for a genomic region</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Call-DMR-pipeline">Call DMR pipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(1).Merge-cell-types">(1).Merge cell types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(2).merge-multiple-.cz-files-into-matrix-(fraction,-2D-or-fisher-exact-test)">(2).merge multiple .cz files into matrix (fraction, 2D or fisher exact test)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(3).Call-DMR-using-comb-p">(3).Call DMR using comb-p</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#id1">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmark.html">Benchmark</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../benchmark.html#storage">1.Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../format_history.html">cz Format — Change History</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#larger-blocks-256-kib-1">Larger blocks (256 KiB − 1)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#wider-virtual-offsets-44-20">Wider virtual offsets (44 + 20)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#delta-encoded-integer-columns">Delta-encoded integer columns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#tail-chunk-index-czix">Tail chunk index (CZIX)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#ideas-explored-but-not-adopted">Ideas explored but <strong>not</strong> adopted</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../developer_guide.html">Developer Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#architecture-overview">Architecture overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#module-map">Module map</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#performance-memory-patterns">Performance / memory patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#building-the-docs-locally">Building the docs locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../cytozip.html">cytozip package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#submodules">Submodules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.allc.html">cytozip.allc module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.array.html">cytozip.array module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#input-shape-conventions">Input shape conventions</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#output-layout">Output layout</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#float-quantization">Float quantization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.array2cz"><code class="docutils literal notranslate"><span class="pre">array2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.dequantize_cz"><code class="docutils literal notranslate"><span class="pre">dequantize_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.dequantize_uniform"><code class="docutils literal notranslate"><span class="pre">dequantize_uniform()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.quantize_uniform"><code class="docutils literal notranslate"><span class="pre">quantize_uniform()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.bam.html">cytozip.bam module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz.html">cytozip.cz module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_context_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_context_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index_worker"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index_worker()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2numpy"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.iter_chunks_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.iter_chunks_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_chunk_batch"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_chunk_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_multi"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_multi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_compress_blocks_parallel"><code class="docutils literal notranslate"><span class="pre">c_compress_blocks_parallel()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_delta_encode_block"><code class="docutils literal notranslate"><span class="pre">c_delta_encode_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr.html">cytozip.dmr module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr"><code class="docutils literal notranslate"><span class="pre">call_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.combp"><code class="docutils literal notranslate"><span class="pre">combp()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr_accel.html#public-entry-point">Public entry point</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr_accel.html#cytozip.dmr_accel.rms_run_sites"><code class="docutils literal notranslate"><span class="pre">rms_run_sites()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.features.html">cytozip.features module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#design-notes">Design notes</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.cz_to_anndata"><code class="docutils literal notranslate"><span class="pre">cz_to_anndata()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.load_blacklist"><code class="docutils literal notranslate"><span class="pre">load_blacklist()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.make_genome_bins"><code class="docutils literal notranslate"><span class="pre">make_genome_bins()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_features"><code class="docutils literal notranslate"><span class="pre">parse_features()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_gtf"><code class="docutils literal notranslate"><span class="pre">parse_gtf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.merge.html">cytozip.merge module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.pivot.html">cytozip.pivot module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.pivot.html#cytozip.pivot.pivot_fisher"><code class="docutils literal notranslate"><span class="pre">pivot_fisher()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.pivot.html#cytozip.pivot.pivot_fraction"><code class="docutils literal notranslate"><span class="pre">pivot_fraction()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#module-cytozip">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../setup.html">setup module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">cytozip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../cytozip.html">cytozip</a></li>
+      <li class="breadcrumb-item active">cytozip.merge</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for cytozip.merge</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">merge.py — Parallel merging (sum) of multiple per-cell methylation .cz files.</span>
+
+<span class="sd">Pipeline stages provided here:</span>
+<span class="sd">  - :func:`merge_cz`: main entry point. Sums mc/cov across many per-cell</span>
+<span class="sd">    .cz files into a single aggregate .cz.</span>
+<span class="sd">  - :func:`merge_cz_worker`: per-chrom, per-batch worker executed by the</span>
+<span class="sd">    multiprocessing pool.</span>
+<span class="sd">  - :func:`merge_cell_type`: convenience wrapper that calls :func:`merge_cz`</span>
+<span class="sd">    once per cell-type grouping defined by a cell-table TSV.</span>
+
+<span class="sd">For *pivot* outputs (per-cell fraction matrix, per-cell Fisher-test</span>
+<span class="sd">matrix), see :mod:`cytozip.pivot`.</span>
+
+<span class="sd">@author: DingWB</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">struct</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.cz</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">Reader</span><span class="p">,</span> <span class="n">Writer</span><span class="p">,</span>
+                 <span class="n">_BLOCK_MAX_LEN</span><span class="p">,</span> <span class="n">_VO_OFFSET_BITS</span><span class="p">,</span> <span class="n">_VO_OFFSET_MASK</span><span class="p">,</span>
+                 <span class="n">_chunk_magic</span><span class="p">,</span> <span class="n">_NP_FMT_MAP</span><span class="p">,</span> <span class="n">np</span><span class="p">,</span> <span class="n">pd</span><span class="p">)</span>
+
+
+<span class="c1"># Per-format-char numpy max value (used to clip sums before packing).</span>
+<span class="n">_NP_FMT_MAX</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;B&#39;</span><span class="p">:</span> <span class="mh">0xFF</span><span class="p">,</span> <span class="s1">&#39;H&#39;</span><span class="p">:</span> <span class="mh">0xFFFF</span><span class="p">,</span> <span class="s1">&#39;I&#39;</span><span class="p">:</span> <span class="mh">0xFFFFFFFF</span><span class="p">,</span> <span class="s1">&#39;L&#39;</span><span class="p">:</span> <span class="mh">0xFFFFFFFF</span><span class="p">,</span>
+    <span class="s1">&#39;Q&#39;</span><span class="p">:</span> <span class="mh">0xFFFFFFFFFFFFFFFF</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="mh">0x7F</span><span class="p">,</span> <span class="s1">&#39;h&#39;</span><span class="p">:</span> <span class="mh">0x7FFF</span><span class="p">,</span>
+    <span class="s1">&#39;i&#39;</span><span class="p">:</span> <span class="mh">0x7FFFFFFF</span><span class="p">,</span> <span class="s1">&#39;l&#39;</span><span class="p">:</span> <span class="mh">0x7FFFFFFF</span><span class="p">,</span> <span class="s1">&#39;q&#39;</span><span class="p">:</span> <span class="mh">0x7FFFFFFFFFFFFFFF</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_structured_dtype_for</span><span class="p">(</span><span class="n">fmts</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a numpy structured dtype tiling one record (numeric only).&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([(</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">_NP_FMT_MAP</span><span class="p">[</span><span class="n">c</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fmts</span><span class="p">)])</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_merged_cz</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True if ``path`` is a single .cz that is *already* the</span>
+<span class="sd">    output of a multi-cell ``catcz`` (i.e., its ``chunk_dims`` length is</span>
+<span class="sd">    &gt;= 2, e.g. ``[&#39;chrom&#39;, &#39;cell_id&#39;]``).</span>
+
+<span class="sd">    Used by :func:`merge_cz` and :func:`cytozip.features.cz_to_anndata`</span>
+<span class="sd">    to detect whether the user passed a per-cell directory or a single</span>
+<span class="sd">    pre-catcz&#39;d file as input.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">2</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">r</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_cz_input</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">ext</span><span class="o">=</span><span class="s1">&#39;.cz&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve the unified ``input`` argument of :func:`merge_cz` /</span>
+<span class="sd">    :func:`cytozip.features.cz_to_anndata`-style entry points.</span>
+
+<span class="sd">    Accepts:</span>
+<span class="sd">      * a directory path (string) → list all ``*&lt;ext&gt;`` files inside.</span>
+<span class="sd">      * a single ``.cz`` file path (string) → either a per-cell file</span>
+<span class="sd">        or a pre-catcz&#39;d file (auto-detected).</span>
+<span class="sd">      * a list / tuple of ``.cz`` file paths.</span>
+<span class="sd">      * a comma-separated string of ``.cz`` paths (CLI convenience).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    cz_paths_abs : list of str</span>
+<span class="sd">        Absolute paths to the per-cell ``.cz`` files. When the input is</span>
+<span class="sd">        already a pre-catcz&#39;d ``.cz``, this is a single-element list</span>
+<span class="sd">        pointing at it.</span>
+<span class="sd">    merged_path : str or None</span>
+<span class="sd">        Absolute path to the pre-catcz&#39;d ``.cz`` if detected, else</span>
+<span class="sd">        ``None``. When non-None, the caller can skip the ``catcz``</span>
+<span class="sd">        step entirely.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">input</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;merge_cz: &#39;input&#39; is required&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;,&#39;</span> <span class="ow">in</span> <span class="nb">input</span> \
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">)):</span>
+        <span class="nb">input</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">input</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">p</span><span class="p">))</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">input</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+            <span class="n">paths</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                           <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">ext</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+            <span class="n">paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;merge_cz: input </span><span class="si">{</span><span class="nb">input</span><span class="si">!r}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;merge_cz: &#39;input&#39; must be str or list, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">paths</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;merge_cz: no &#39;*</span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s2">&#39; files resolved from input=</span><span class="si">{</span><span class="nb">input</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;merge_cz: input file not found: </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">merged_path</span> <span class="o">=</span> <span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">_is_merged_cz</span><span class="p">(</span><span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">paths</span><span class="p">,</span> <span class="n">merged_path</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_iter_shard_paths</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">batch_nblock</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Yield ordered shard paths produced by the worker pool.</span>
+
+<span class="sd">    Workers write ``{outdir}/{chrom}.{block_idx_start}.cz`` where</span>
+<span class="sd">    ``block_idx_start`` advances by ``batch_nblock``. Yields paths in</span>
+<span class="sd">    ascending order while the next file exists; stops at the first</span>
+<span class="sd">    missing index.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">block_idx_start</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">block_idx_start</span><span class="si">}</span><span class="s2">.cz&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="k">yield</span> <span class="n">p</span>
+        <span class="n">block_idx_start</span> <span class="o">+=</span> <span class="n">batch_nblock</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_bg_rmtree</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recursively delete ``path`` in a detached background process.</span>
+
+<span class="sd">    Removing hundreds of small per-shard files via ``shutil.rmtree`` /</span>
+<span class="sd">    ``rm -rf`` synchronously costs ~10-20 s on networked filesystems</span>
+<span class="sd">    and adds nothing to the produced output. The double-fork pattern</span>
+<span class="sd">    detaches the deleter so the calling Python process returns</span>
+<span class="sd">    immediately; the intermediate child is reaped here so no zombie</span>
+<span class="sd">    is left behind.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing temp dir </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> (in background)&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">fork</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Child: become a session leader so our death does not signal</span>
+        <span class="c1"># the grandchild.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">setsid</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">fork</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Grandchild: do the actual delete and exit.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rm -rf </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">_exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">_exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Parent: reap the (immediately exiting) child so it does not</span>
+        <span class="c1"># become a zombie. The grandchild keeps running detached.</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+
+
+<span class="c1"># ==========================================================</span>
+<div class="viewcode-block" id="merge_cz_worker">
+<a class="viewcode-back" href="../../cytozip.merge.html#cytozip.merge.merge_cz_worker">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">merge_cz_worker</span><span class="p">(</span><span class="n">outfile_cat</span><span class="p">,</span> <span class="n">outdir</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">dims</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span>
+                    <span class="n">block_idx_start</span><span class="p">,</span> <span class="n">batch_nblock</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>
+                    <span class="n">level</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s1">&#39;sum&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Worker function for parallel merge of per-cell .cz data.</span>
+
+<span class="sd">    Reads a batch of blocks (``batch_nblock`` blocks starting at</span>
+<span class="sd">    ``block_idx_start``) for every cell/sample sharing the same chrom</span>
+<span class="sd">    in ``outfile_cat`` and aggregates their values column-wise,</span>
+<span class="sd">    writing the result as a per-chrom .cz shard</span>
+<span class="sd">    ``chrom.{block_idx_start}.cz`` in ``outdir``.</span>
+
+<span class="sd">    Aggregation</span>
+<span class="sd">    -----------</span>
+<span class="sd">    ``agg`` controls how each column is reduced across the N input</span>
+<span class="sd">    cells/samples (each contributes the same row count per batch).</span>
+
+<span class="sd">    * ``&#39;sum&#39;`` (default) — element-wise sum. The fast path for</span>
+<span class="sd">      BS-seq mc/cov style data: when both columns share an integer</span>
+<span class="sd">      format that fits in the chosen accumulator dtype, the worker</span>
+<span class="sd">      uses a 2-column ``np.frombuffer`` view + 1-D ``+=`` and the</span>
+<span class="sd">      output ``formats`` set the per-column overflow clip.</span>
+<span class="sd">    * ``&#39;mean&#39;`` — element-wise arithmetic mean. Suitable for array</span>
+<span class="sd">      beta / M-value style float columns. Output ``formats`` should</span>
+<span class="sd">      be float (``&#39;f&#39;`` / ``&#39;d&#39;``).</span>
+<span class="sd">    * list/tuple of strings — per-column aggregation, e.g.</span>
+<span class="sd">      ``[&#39;sum&#39;, &#39;sum&#39;]`` (explicit BS-seq) or ``[&#39;mean&#39;, &#39;mean&#39;]``.</span>
+
+<span class="sd">    For non-summing pivot outputs (fraction matrix, Fisher matrix), see</span>
+<span class="sd">    :mod:`cytozip.pivot`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">outname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">chrom</span> <span class="o">+</span> <span class="sa">f</span><span class="s1">&#39;.</span><span class="si">{</span><span class="n">block_idx_start</span><span class="si">}</span><span class="s1">.cz&#39;</span><span class="p">)</span>
+    <span class="n">reader1</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">outfile_cat</span><span class="p">)</span>
+    <span class="n">in_fmts</span> <span class="o">=</span> <span class="n">reader1</span><span class="o">.</span><span class="n">fmts</span>
+    <span class="n">in_unit_size</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">in_fmts</span><span class="p">)</span>
+    <span class="n">n_cols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">in_fmts</span><span class="p">)</span>
+    <span class="c1"># Normalise ``agg`` into a per-column list of strings.</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">agg</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">agg_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">agg</span><span class="p">]</span> <span class="o">*</span> <span class="n">n_cols</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">agg_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">agg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">agg_list</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n_cols</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;agg list length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">agg_list</span><span class="p">)</span><span class="si">}</span><span class="s2"> != n_cols </span><span class="si">{</span><span class="n">n_cols</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">agg_list</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">a</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;sum&#39;</span><span class="p">,</span> <span class="s1">&#39;mean&#39;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;unsupported agg=</span><span class="si">{</span><span class="n">a</span><span class="si">!r}</span><span class="s2">; expected &#39;sum&#39; or &#39;mean&#39;&quot;</span><span class="p">)</span>
+    <span class="n">all_sum</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">a</span> <span class="o">==</span> <span class="s1">&#39;sum&#39;</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">agg_list</span><span class="p">)</span>
+    <span class="c1"># ---- Pick decode strategy (chosen once before the per-cell loop):</span>
+    <span class="c1"># ``fast_dtype != None``: both columns share a homogeneous numeric</span>
+    <span class="c1"># dtype (the typical &#39;BB&#39; / &#39;HH&#39; mc/cov layout). View raw block</span>
+    <span class="c1"># bytes as a (n, 2) numpy array and accumulate columns directly</span>
+    <span class="c1"># into 1D sums — eliminates the per-cell (n, 2) int64 allocation</span>
+    <span class="c1"># and the structured-dtype column-split copies. Only used when</span>
+    <span class="c1"># ``agg=&#39;sum&#39;`` for every column; otherwise we take the general</span>
+    <span class="c1"># structured-dtype path.</span>
+    <span class="n">fast_dtype</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">accum_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+    <span class="k">if</span> <span class="n">all_sum</span> <span class="ow">and</span> <span class="n">n_cols</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">in_fmts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">in_fmts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> \
+            <span class="ow">and</span> <span class="n">in_fmts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">_NP_FMT_MAP</span><span class="p">:</span>
+        <span class="n">fast_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">_NP_FMT_MAP</span><span class="p">[</span><span class="n">in_fmts</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+        <span class="c1"># uint32 accumulator is enough for any realistic cell count when</span>
+        <span class="c1"># the per-record input is &lt;= 16 bits (cov rarely exceeds a few</span>
+        <span class="c1"># hundred): max sum = 65535 * 65535 = ~4.3e9, exactly fitting</span>
+        <span class="c1"># uint32. Halves the bandwidth of the inner ``+=`` step versus</span>
+        <span class="c1"># int64.</span>
+        <span class="k">if</span> <span class="n">fast_dtype</span><span class="o">.</span><span class="n">itemsize</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">accum_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span>
+    <span class="n">in_dt_struct</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">fast_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_structured_dtype_for</span><span class="p">(</span><span class="n">in_fmts</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">fast_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data_mc</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">data_cov</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># General path: one float64 accumulator per column. Covers</span>
+        <span class="c1"># &#39;mean&#39; and arbitrary n_cols / heterogeneous dtypes uniformly.</span>
+        <span class="c1"># Float64 is wide enough to hold sums of any reasonable input</span>
+        <span class="c1"># without precision loss.</span>
+        <span class="n">accum_cols</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">n_cols</span>
+    <span class="n">n_cells_used</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>  <span class="c1"># each dim is a per-cell .cz chunk for this chrom</span>
+        <span class="n">reader1</span><span class="o">.</span><span class="n">_load_chunk</span><span class="p">(</span><span class="n">reader1</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">[</span><span class="n">dim</span><span class="p">],</span> <span class="n">jump</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">vos</span> <span class="o">=</span> <span class="n">reader1</span><span class="o">.</span><span class="n">_chunk_block_1st_record_virtual_offsets</span>
+        <span class="c1"># Records may straddle block boundaries because the catcz writer</span>
+        <span class="c1"># uses _block_size = _BLOCK_MAX_LEN (which is *not* a multiple of</span>
+        <span class="c1"># unit_size for typical mc/cov record sizes). The</span>
+        <span class="c1"># ``batch_nblock = nunit_perbatch * unit_nblock`` choice in</span>
+        <span class="c1"># ``merge_cz`` guarantees that batch boundaries (multiples of</span>
+        <span class="c1"># ``unit_nblock``) always land on a record boundary, so the</span>
+        <span class="c1"># decompressed bytes for ``[block_idx_start, block_idx_start +</span>
+        <span class="c1"># batch_nblock)`` start with a complete record</span>
+        <span class="c1"># (``within_block_offset == 0``) and end on a record boundary.</span>
+        <span class="c1"># Validate that invariant defensively so a future change that</span>
+        <span class="c1"># breaks it raises clearly here instead of silently corrupting</span>
+        <span class="c1"># output.</span>
+        <span class="n">leading_skip</span> <span class="o">=</span> <span class="n">vos</span><span class="p">[</span><span class="n">block_idx_start</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">_VO_OFFSET_MASK</span>
+        <span class="k">if</span> <span class="n">leading_skip</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">reader1</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;merge_cz_worker: batch start at block </span><span class="si">{</span><span class="n">block_idx_start</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;is not record-aligned (within_block_offset=</span><span class="si">{</span><span class="n">leading_skip</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;unit_size=</span><span class="si">{</span><span class="n">in_unit_size</span><span class="si">}</span><span class="s2">). Check that batch_nblock is a &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;multiple of unit_nblock.&quot;</span><span class="p">)</span>
+        <span class="c1"># Decompress ``batch_nblock`` blocks and concatenate so records</span>
+        <span class="c1"># straddling internal block boundaries are reassembled before</span>
+        <span class="c1"># decode.</span>
+        <span class="n">block_start_offset</span> <span class="o">=</span> <span class="n">vos</span><span class="p">[</span><span class="n">block_idx_start</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="n">_VO_OFFSET_BITS</span>
+        <span class="n">buf_parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">batch_nblock</span><span class="p">):</span>
+            <span class="n">reader1</span><span class="o">.</span><span class="n">_load_block</span><span class="p">(</span><span class="n">start_offset</span><span class="o">=</span><span class="n">block_start_offset</span><span class="p">)</span>
+            <span class="n">buf_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reader1</span><span class="o">.</span><span class="n">_buffer</span><span class="p">)</span>
+            <span class="n">block_start_offset</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">buffer</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">buf_parts</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span> <span class="o">%</span> <span class="n">in_unit_size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">reader1</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;merge_cz_worker: batch byte length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span><span class="si">}</span><span class="s2"> for chrom &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chrom</span><span class="si">!r}</span><span class="s2"> dim </span><span class="si">{</span><span class="n">dim</span><span class="si">!r}</span><span class="s2"> is not a multiple of unit_size &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">in_unit_size</span><span class="si">}</span><span class="s2">; record alignment broken.&quot;</span><span class="p">)</span>
+        <span class="c1"># Decode this cell&#39;s batch and accumulate. The fast path</span>
+        <span class="c1"># views the raw bytes as a (n, 2) homogeneous array and uses</span>
+        <span class="c1"># 1-D ``+=`` directly. The general path goes through a</span>
+        <span class="c1"># structured dtype and folds each column into a float64</span>
+        <span class="c1"># accumulator.</span>
+        <span class="k">if</span> <span class="n">fast_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">fast_dtype</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">mc_view</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">cov_view</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">data_mc</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">data_mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">mc_view</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">accum_dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">data_cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cov_view</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">accum_dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">data_mc</span> <span class="o">+=</span> <span class="n">mc_view</span>
+                <span class="n">data_cov</span> <span class="o">+=</span> <span class="n">cov_view</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">in_dt_struct</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_cols</span><span class="p">):</span>
+                <span class="n">col_view</span> <span class="o">=</span> <span class="n">rec</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">accum_cols</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">accum_cols</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">col_view</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">accum_cols</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">col_view</span>
+        <span class="n">n_cells_used</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">writer1</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">outname</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span>
+                     <span class="n">columns</span><span class="o">=</span><span class="n">reader1</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">],</span>
+                     <span class="n">chunk_dims</span><span class="o">=</span><span class="n">reader1</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">][:</span><span class="mi">1</span><span class="p">],</span>
+                     <span class="n">message</span><span class="o">=</span><span class="n">outfile_cat</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">)</span>
+    <span class="n">out_fmts</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">writer1</span><span class="o">.</span><span class="n">formats</span><span class="p">)</span>
+    <span class="n">out_dt</span> <span class="o">=</span> <span class="n">_structured_dtype_for</span><span class="p">(</span><span class="n">out_fmts</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fast_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">data_mc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Fused 1-pass clip: replaces ``data.max()`` scan + conditional</span>
+        <span class="c1"># ``np.clip`` (up to 2 passes + an extra allocation when overflow</span>
+        <span class="c1"># happens) with a single in-place ``np.minimum`` per column.</span>
+        <span class="c1"># Skipped entirely when the accumulator dtype&#39;s range already fits</span>
+        <span class="c1"># inside the output dtype&#39;s max (e.g. uint32 accumulator clipped to</span>
+        <span class="c1"># uint32 output).</span>
+        <span class="n">max0</span><span class="p">,</span> <span class="n">max1</span> <span class="o">=</span> <span class="n">_NP_FMT_MAX</span><span class="p">[</span><span class="n">out_fmts</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">_NP_FMT_MAX</span><span class="p">[</span><span class="n">out_fmts</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">accum_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">data_mc</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">max</span>
+        <span class="k">if</span> <span class="n">max0</span> <span class="o">&lt;</span> <span class="n">accum_max</span><span class="p">:</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">data_mc</span><span class="p">,</span> <span class="n">max0</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">data_mc</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max1</span> <span class="o">&lt;</span> <span class="n">accum_max</span><span class="p">:</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">data_cov</span><span class="p">,</span> <span class="n">max1</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">data_cov</span><span class="p">)</span>
+        <span class="c1"># Build the entire output buffer in one shot, then hand it to the</span>
+        <span class="c1"># writer in ``batch_size`` slices. Building once avoids per-batch</span>
+        <span class="c1"># structured-array allocations.</span>
+        <span class="n">out_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">out_dt</span><span class="p">)</span>
+        <span class="n">out_arr</span><span class="p">[</span><span class="s1">&#39;f0&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_mc</span>
+        <span class="n">out_arr</span><span class="p">[</span><span class="s1">&#39;f1&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_cov</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># General path: finalise per-column according to ``agg_list``,</span>
+        <span class="c1"># then clip/cast to output dtype.</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">accum_cols</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">out_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">out_dt</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">ofmt</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">accum_cols</span><span class="p">,</span> <span class="n">agg_list</span><span class="p">,</span> <span class="n">out_fmts</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="s1">&#39;mean&#39;</span> <span class="ow">and</span> <span class="n">n_cells_used</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">col</span> <span class="o">=</span> <span class="n">col</span> <span class="o">/</span> <span class="n">n_cells_used</span>
+            <span class="c1"># Clip integer outputs to format max; float outputs pass through.</span>
+            <span class="k">if</span> <span class="n">ofmt</span> <span class="ow">in</span> <span class="n">_NP_FMT_MAX</span><span class="p">:</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="n">_NP_FMT_MAX</span><span class="p">[</span><span class="n">ofmt</span><span class="p">],</span> <span class="n">out</span><span class="o">=</span><span class="n">col</span><span class="p">)</span>
+            <span class="n">out_arr</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">col</span>
+    <span class="n">out_bytes</span> <span class="o">=</span> <span class="n">out_arr</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span>
+    <span class="n">rec_size</span> <span class="o">=</span> <span class="n">out_dt</span><span class="o">.</span><span class="n">itemsize</span>
+    <span class="n">chunk_step</span> <span class="o">=</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">rec_size</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">out_bytes</span><span class="p">),</span> <span class="n">chunk_step</span><span class="p">):</span>
+        <span class="n">writer1</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">out_bytes</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">s</span> <span class="o">+</span> <span class="n">chunk_step</span><span class="p">],</span> <span class="p">[</span><span class="n">chrom</span><span class="p">])</span>
+    <span class="n">writer1</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">reader1</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="merge_cz">
+<a class="viewcode-back" href="../../cytozip.merge.html#cytozip.merge.merge_cz">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">merge_cz</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">class_table</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+             <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="s1">&#39;H&#39;</span><span class="p">],</span>
+             <span class="n">chrom_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+             <span class="n">keep_cat</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">blocks_per_batch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">temp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">bgzip</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+             <span class="n">batch_size</span><span class="o">=</span><span class="mi">50000</span><span class="p">,</span> <span class="n">ext</span><span class="o">=</span><span class="s1">&#39;.cz&#39;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s1">&#39;sum&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Merge multiple per-cell .cz files into one summed .cz. Example:</span>
+
+<span class="sd">    cytozip merge_cz -i ./ -O major_type.cz -j 96 \</span>
+<span class="sd">                          -P ~/Ref/mm10/mm10_ucsc_with_chrL.main.chrom.sizes.txt</span>
+
+<span class="sd">    The single ``input`` argument accepts any of:</span>
+
+<span class="sd">    1. A directory of per-cell .cz files</span>
+<span class="sd">       (e.g. ``input=&#39;/path/to/dir&#39;``). All ``*&lt;ext&gt;`` files inside are</span>
+<span class="sd">       picked up, then concatenated via ``catcz`` (a ``cell_id``</span>
+<span class="sd">       chunk_key is added) before parallel summing.</span>
+<span class="sd">    2. A list of per-cell .cz file paths</span>
+<span class="sd">       (e.g. ``input=[&#39;a.cz&#39;, &#39;b.cz&#39;, ...]``). Same as (1) but with an</span>
+<span class="sd">       explicit selection. Also accepts a comma-separated string from</span>
+<span class="sd">       the CLI.</span>
+<span class="sd">    3. A single pre-catcz&#39;d .cz file</span>
+<span class="sd">       (e.g. ``input=&#39;all_cells.cz&#39;``). The file must already be the</span>
+<span class="sd">       output of a ``catcz`` (header ``chunk_dims`` length &gt;= 2, e.g.</span>
+<span class="sd">       ``[&#39;chrom&#39;, &#39;cell_id&#39;]``). The catcz step is skipped, and the</span>
+<span class="sd">       user-supplied file is reused as-is and never deleted by</span>
+<span class="sd">       ``keep_cat``.</span>
+
+<span class="sd">    For per-cell pivot outputs (fraction matrix, Fisher one-vs-rest</span>
+<span class="sd">    matrix), use ``czip pivot_fraction`` / ``czip pivot_fisher`` — see</span>
+<span class="sd">    :mod:`cytozip.pivot`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input : str or list of str</span>
+<span class="sd">        Directory of per-cell ``.cz`` files, single ``.cz`` path</span>
+<span class="sd">        (per-cell or pre-catcz&#39;d), or list of ``.cz`` paths. See above.</span>
+<span class="sd">    class_table : path</span>
+<span class="sd">        If given, multiple outputs will be generated based on the</span>
+<span class="sd">        snames and class from this class_table; each output has a</span>
+<span class="sd">        suffix of class name in this table. ``input`` must then be a</span>
+<span class="sd">        directory.</span>
+<span class="sd">    output : path</span>
+<span class="sd">        Output ``.cz`` (or ``.txt`` legacy) path. Defaults to</span>
+<span class="sd">        ``&#39;merged.cz&#39;`` (or ``f&#39;{prefix}.cz&#39;``).</span>
+<span class="sd">    prefix : str</span>
+<span class="sd">        Output filename prefix when ``output`` is None.</span>
+<span class="sd">    jobs : int</span>
+<span class="sd">        Number of parallel worker processes.</span>
+<span class="sd">    formats : list of str</span>
+<span class="sd">        Per-column struct formats for the *output* .cz (e.g.</span>
+<span class="sd">        ``[&#39;H&#39;, &#39;H&#39;]`` for uint16 mc/cov). The legacy ``&#39;fraction&#39;`` /</span>
+<span class="sd">        ``&#39;fisher&#39;`` / ``&#39;2D&#39;`` modes were moved to</span>
+<span class="sd">        :mod:`cytozip.pivot` and now raise.</span>
+<span class="sd">    chrom_order : path</span>
+<span class="sd">        Chrom-size file. If provided, output chunks are written in</span>
+<span class="sd">        the order of this file&#39;s first column (rather than sorted).</span>
+<span class="sd">    reference : path</span>
+<span class="sd">        Unused for sum mode (kept for API compatibility).</span>
+<span class="sd">    keep_cat : bool</span>
+<span class="sd">        Keep the intermediate ``output + &#39;.cat.cz&#39;`` file. Has no</span>
+<span class="sd">        effect when ``input`` is a pre-catcz&#39;d file (which is always</span>
+<span class="sd">        kept).</span>
+<span class="sd">    blocks_per_batch : int</span>
+<span class="sd">        Number of batches the LARGEST chrom is split into. ``None``</span>
+<span class="sd">        (default) = ``jobs``. Smaller chroms get 1 batch each via the</span>
+<span class="sd">        single-shard rename fast-path. Multi-shard chroms are merged</span>
+<span class="sd">        via raw compressed-block splice (no decompress + re-deflate),</span>
+<span class="sd">        so oversharding has near-zero overhead.</span>
+<span class="sd">    temp : bool</span>
+<span class="sd">        If True, keep the per-shard tmp directory.</span>
+<span class="sd">    bgzip : bool</span>
+<span class="sd">        If True (default) and the output filename does not end with</span>
+<span class="sd">        ``ext``, bgzip + tabix the output.</span>
+<span class="sd">    batch_size : int</span>
+<span class="sd">        Worker batch row count when packing the merged record buffer</span>
+<span class="sd">        into the output writer. Has no effect on the result, only on</span>
+<span class="sd">        peak memory of the worker.</span>
+<span class="sd">    ext : str</span>
+<span class="sd">        Input file extension (default ``&#39;.cz&#39;``).</span>
+<span class="sd">    level : int</span>
+<span class="sd">        DEFLATE compression level for output blocks (default 6).</span>
+<span class="sd">        Drop to 1 for ~2x faster writes at ~12% larger output.</span>
+<span class="sd">    agg : str or list of str</span>
+<span class="sd">        How to aggregate each column across input cells/samples.</span>
+<span class="sd">        ``&#39;sum&#39;`` (default) — element-wise sum, suitable for BS-seq</span>
+<span class="sd">        mc/cov. ``&#39;mean&#39;`` — element-wise mean across cells, suitable</span>
+<span class="sd">        for methylation-array beta. May also be a per-column list,</span>
+<span class="sd">        e.g. ``[&#39;mean&#39;, &#39;mean&#39;]``. With non-default ``agg`` the</span>
+<span class="sd">        output ``formats`` should match: typically ``[&#39;f&#39;,&#39;f&#39;]``</span>
+<span class="sd">        (float32) for ``&#39;mean&#39;``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">        Writes ``output`` (and optionally ``output + &#39;.gz&#39;`` if</span>
+<span class="sd">        ``bgzip=True``).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">formats</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">formats</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;fraction&#39;</span><span class="p">,</span> <span class="s1">&#39;fisher&#39;</span><span class="p">,</span> <span class="s1">&#39;2D&#39;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;merge_cz formats=</span><span class="si">{</span><span class="n">formats</span><span class="si">!r}</span><span class="s2"> was moved to cytozip.pivot.&quot;</span>
+                <span class="s2">&quot; Use cytozip.pivot.pivot_fraction() / pivot_fisher() or&quot;</span>
+                <span class="s2">&quot; the `czip pivot_fraction` / `czip pivot_fisher` CLI&quot;</span>
+                <span class="s2">&quot; subcommands instead.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;merge_cz expects a list of struct formats, got </span><span class="si">{</span><span class="n">formats</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">class_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># ``class_table`` mode requires a directory of per-cell .cz files</span>
+        <span class="c1"># so that snames can be matched against the directory listing.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;merge_cz: class_table mode requires &#39;input&#39; to be a &quot;</span>
+                <span class="s2">&quot;directory of per-cell .cz files.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">indir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
+        <span class="n">df_class</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">class_table</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                               <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;sname&#39;</span><span class="p">,</span> <span class="s1">&#39;cell_class&#39;</span><span class="p">])</span>
+        <span class="n">snames</span> <span class="o">=</span> <span class="p">[</span><span class="n">file</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">ext</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">indir</span><span class="p">)]</span>
+        <span class="n">df_class</span> <span class="o">=</span> <span class="n">df_class</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df_class</span><span class="o">.</span><span class="n">sname</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">snames</span><span class="p">)]</span>
+        <span class="n">class_groups</span> <span class="o">=</span> <span class="n">df_class</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;cell_class&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">sname</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">class_groups</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">cz_paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">indir</span><span class="p">,</span> <span class="n">sname</span> <span class="o">+</span> <span class="n">ext</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">sname</span> <span class="ow">in</span> <span class="n">class_groups</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span>
+            <span class="n">merge_cz</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="n">cz_paths</span><span class="p">,</span> <span class="n">class_table</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                     <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="n">jobs</span><span class="p">,</span>
+                     <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span> <span class="n">chrom_order</span><span class="o">=</span><span class="n">chrom_order</span><span class="p">,</span>
+                     <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">,</span> <span class="n">keep_cat</span><span class="o">=</span><span class="n">keep_cat</span><span class="p">,</span>
+                     <span class="n">blocks_per_batch</span><span class="o">=</span><span class="n">blocks_per_batch</span><span class="p">,</span> <span class="n">temp</span><span class="o">=</span><span class="n">temp</span><span class="p">,</span> <span class="n">bgzip</span><span class="o">=</span><span class="n">bgzip</span><span class="p">,</span>
+                     <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">ext</span><span class="o">=</span><span class="n">ext</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="s1">&#39;merged.cz&#39;</span> <span class="k">if</span> <span class="n">prefix</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s1">.cz&#39;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s2"> existed, skip.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+    <span class="c1"># Resolve the unified ``input`` argument into an absolute path list</span>
+    <span class="c1"># plus an optional pre-catcz&#39;d path.</span>
+    <span class="n">cz_paths_abs</span><span class="p">,</span> <span class="n">merged_path</span> <span class="o">=</span> <span class="n">_resolve_cz_input</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">ext</span><span class="o">=</span><span class="n">ext</span><span class="p">)</span>
+    <span class="n">user_supplied_cat</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">merged_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># User passed an already-catcz&#39;d file; reuse it directly.</span>
+        <span class="n">outfile_cat</span> <span class="o">=</span> <span class="n">merged_path</span>
+        <span class="n">user_supplied_cat</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">outfile_cat</span><span class="p">)</span>
+        <span class="c1"># Synthesize the per-cell-shape header used by downstream</span>
+        <span class="c1"># writers: keep formats/columns/etc., but trim ``chunk_dims``</span>
+        <span class="c1"># back to just the chrom axis (first dim) so per-chrom shards</span>
+        <span class="c1"># and the final output are written as single-key chunks.</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">)</span>
+        <span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">])[:</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Detected pre-catcz&#39;d input </span><span class="si">{</span><span class="n">outfile_cat</span><span class="si">}</span><span class="s2">; &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;skipping catcz step.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">cz_paths_abs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">header</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">outfile_cat</span> <span class="o">=</span> <span class="n">output</span> <span class="o">+</span> <span class="s1">&#39;.cat.cz&#39;</span>
+        <span class="c1"># cat all .cz files into one .cz file, add a chunk_key to chunk (filename)</span>
+        <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="n">outfile_cat</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">],</span>
+                        <span class="n">columns</span><span class="o">=</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">],</span>
+                        <span class="n">chunk_dims</span><span class="o">=</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">],</span>
+                        <span class="n">message</span><span class="o">=</span><span class="s2">&quot;catcz&quot;</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">catcz</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="n">cz_paths_abs</span><span class="p">)</span>
+
+    <span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">outfile_cat</span><span class="p">)</span>
+    <span class="n">chrom_col</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">chunk_info</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_info</span>
+    <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="c1"># get chromosomes order</span>
+    <span class="n">input_chroms</span> <span class="o">=</span> <span class="n">chunk_info</span><span class="p">[</span><span class="n">chrom_col</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">chrom_order</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">chrom_order</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">chrom_order</span><span class="p">))</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">chrom_order</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">chroms</span> <span class="o">=</span> <span class="p">[</span><span class="n">chrom</span> <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">if</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">input_chroms</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">chroms</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">input_chroms</span><span class="p">)</span>
+    <span class="n">chrom_nblocks</span> <span class="o">=</span> <span class="n">chunk_info</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="n">chrom_col</span><span class="p">,</span> <span class="s1">&#39;chunk_nblocks&#39;</span><span class="p">]</span>
+                    <span class="p">]</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">()</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="n">chrom_col</span><span class="p">)</span><span class="o">.</span><span class="n">chunk_nblocks</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="c1"># how many blocks can be multiplied by self.unit_size</span>
+    <span class="n">in_unit_size</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])</span>
+    <span class="n">unit_nblock</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">in_unit_size</span> <span class="o">/</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">gcd</span><span class="p">(</span><span class="n">in_unit_size</span><span class="p">,</span> <span class="n">_BLOCK_MAX_LEN</span><span class="p">)))</span>
+    <span class="c1"># Auto-pick ``blocks_per_batch``. Now that the per-chrom shard merge</span>
+    <span class="c1"># is a raw byte-copy splice (no decompress + re-deflate), oversharding</span>
+    <span class="c1"># has near-zero overhead, so we aim to give the *largest* chrom enough</span>
+    <span class="c1"># shards to keep all workers busy. Small chroms get 1 shard each via</span>
+    <span class="c1"># the rename fast-path.  ``blocks_per_batch`` here is the number of</span>
+    <span class="c1"># batches the LARGEST chrom is split into.</span>
+    <span class="k">if</span> <span class="n">blocks_per_batch</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">blocks_per_batch</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">jobs</span><span class="p">)</span>
+    <span class="n">nunit_perbatch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="n">chunk_info</span><span class="o">.</span><span class="n">chunk_nblocks</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">/</span> <span class="n">blocks_per_batch</span>
+                                  <span class="p">)</span> <span class="o">/</span> <span class="n">unit_nblock</span><span class="p">))</span>
+    <span class="n">batch_nblock</span> <span class="o">=</span> <span class="n">nunit_perbatch</span> <span class="o">*</span> <span class="n">unit_nblock</span>  <span class="c1"># how many block for each batch</span>
+    <span class="n">pool</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span>
+    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">outdir</span> <span class="o">=</span> <span class="n">output</span> <span class="o">+</span> <span class="s1">&#39;.tmp&#39;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outdir</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">chroms</span><span class="p">:</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">chunk_info</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">chunk_info</span><span class="p">[</span><span class="n">chrom_col</span><span class="p">]</span> <span class="o">==</span> <span class="n">chrom</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">block_idx_start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">block_idx_start</span> <span class="o">&lt;</span> <span class="n">chrom_nblocks</span><span class="p">[</span><span class="n">chrom</span><span class="p">]:</span>
+            <span class="n">task</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="n">merge_cz_worker</span><span class="p">,</span>
+                                   <span class="p">(</span><span class="n">outfile_cat</span><span class="p">,</span> <span class="n">outdir</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">dims</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span>
+                                    <span class="n">block_idx_start</span><span class="p">,</span> <span class="n">batch_nblock</span><span class="p">,</span> <span class="mi">5000</span><span class="p">,</span> <span class="n">level</span><span class="p">,</span>
+                                    <span class="n">agg</span><span class="p">))</span>
+            <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+            <span class="n">block_idx_start</span> <span class="o">+=</span> <span class="n">batch_nblock</span>
+    <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
+        <span class="n">task</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+    <span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+
+    <span class="c1"># First, merge per-batch shards into one .cz per chrom.</span>
+    <span class="c1"># When &gt;1 shard exists for a chrom we splice their compressed blocks</span>
+    <span class="c1"># raw — no decompress / re-deflate. This relies on three properties of</span>
+    <span class="c1"># the shards produced by ``merge_cz_worker``:</span>
+    <span class="c1">#   1. Each shard is a single (chrom,) chunk with sort_col=None.</span>
+    <span class="c1">#   2. Each shard&#39;s chunk_data_len is record-aligned (we feed</span>
+    <span class="c1">#      ``write_chunk`` with record-aligned slices), so the</span>
+    <span class="c1">#      ``within_block_offset`` bits stored in each block&#39;s virtual</span>
+    <span class="c1">#      offset remain valid when shard payloads are concatenated.</span>
+    <span class="c1">#   3. Blocks are independently DEFLATE-compressed (no cross-block</span>
+    <span class="c1">#      dictionary), so raw byte-copy is sound.</span>
+    <span class="n">_COPY_BUF</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>
+    <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">chroms</span><span class="p">:</span>
+        <span class="n">outname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.cz&quot;</span><span class="p">)</span>
+        <span class="c1"># Fast path: if only a single batch shard exists for this chrom</span>
+        <span class="c1"># (the typical case when blocks_per_batch covers the whole</span>
+        <span class="c1"># chrom), the shard is already a complete .cz file with the</span>
+        <span class="c1"># exact (chrom,) chunk we want — just rename it.</span>
+        <span class="n">single</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.0.cz&quot;</span><span class="p">)</span>
+        <span class="n">second</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">batch_nblock</span><span class="si">}</span><span class="s2">.cz&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">single</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">second</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">single</span><span class="p">,</span> <span class="n">outname</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">shard_paths</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_iter_shard_paths</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">batch_nblock</span><span class="p">))</span>
+
+        <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="n">outname</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span>
+                        <span class="n">columns</span><span class="o">=</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">],</span>
+                        <span class="n">chunk_dims</span><span class="o">=</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">],</span>
+                        <span class="n">message</span><span class="o">=</span><span class="n">outfile_cat</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">)</span>
+        <span class="c1"># Open the chunk manually so we can splice raw block bytes.</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">_chunk_start_offset</span> <span class="o">=</span> <span class="n">writer</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">tell</span><span class="p">()</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">_chunk_magic</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;Q&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>  <span class="c1"># chunk_size placeholder</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">_chunk_data_len</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">_block_1st_record_virtual_offsets</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">_block_first_coords</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">_chunk_dims</span> <span class="o">=</span> <span class="p">[</span><span class="n">chrom</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">shard_path</span> <span class="ow">in</span> <span class="n">shard_paths</span><span class="p">:</span>
+            <span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">shard_path</span><span class="p">)</span>
+            <span class="n">reader</span><span class="o">.</span><span class="n">_load_chunk</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;header_size&#39;</span><span class="p">],</span> <span class="n">jump</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">shard_payload_start</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_chunk_start_offset</span> <span class="o">+</span> <span class="mi">10</span>
+            <span class="c1"># chunk_size = 10 (magic+size field) + payload (blocks);</span>
+            <span class="c1"># the chunk tail lives AFTER the chunk_size bytes, so payload</span>
+            <span class="c1"># size is just chunk_size - 10.</span>
+            <span class="n">payload_size</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_chunk_size</span> <span class="o">-</span> <span class="mi">10</span>
+            <span class="c1"># Translate per-block virtual offsets to the merged file.</span>
+            <span class="n">cur_phys</span> <span class="o">=</span> <span class="n">writer</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">tell</span><span class="p">()</span>
+            <span class="n">delta_phys</span> <span class="o">=</span> <span class="n">cur_phys</span> <span class="o">-</span> <span class="n">shard_payload_start</span>
+            <span class="n">vos_app</span> <span class="o">=</span> <span class="n">writer</span><span class="o">.</span><span class="n">_block_1st_record_virtual_offsets</span><span class="o">.</span><span class="n">append</span>
+            <span class="k">for</span> <span class="n">vo</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">_chunk_block_1st_record_virtual_offsets</span><span class="p">:</span>
+                <span class="n">vos_app</span><span class="p">(((((</span><span class="n">vo</span> <span class="o">&gt;&gt;</span> <span class="n">_VO_OFFSET_BITS</span><span class="p">)</span> <span class="o">+</span> <span class="n">delta_phys</span><span class="p">))</span> <span class="o">&lt;&lt;</span> <span class="n">_VO_OFFSET_BITS</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">vo</span> <span class="o">&amp;</span> <span class="n">_VO_OFFSET_MASK</span><span class="p">))</span>
+            <span class="c1"># Raw copy of the compressed-block payload region.</span>
+            <span class="n">reader</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">shard_payload_start</span><span class="p">)</span>
+            <span class="n">remaining</span> <span class="o">=</span> <span class="n">payload_size</span>
+            <span class="k">while</span> <span class="n">remaining</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">buf</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">remaining</span><span class="p">,</span> <span class="n">_COPY_BUF</span><span class="p">))</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">buf</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="n">writer</span><span class="o">.</span><span class="n">_handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span>
+                <span class="n">remaining</span> <span class="o">-=</span> <span class="nb">len</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">_chunk_data_len</span> <span class="o">+=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_chunk_data_len</span>
+            <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="c1"># write chunk tail</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="c1"># Second, concatenate per-chrom .cz into the final output.</span>
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span>
+                    <span class="n">columns</span><span class="o">=</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">],</span> <span class="n">chunk_dims</span><span class="o">=</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">],</span>
+                    <span class="n">message</span><span class="o">=</span><span class="s2">&quot;merged&quot;</span><span class="p">)</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">catcz</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.cz&quot;</span> <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">chroms</span><span class="p">],</span>
+                 <span class="n">key_added</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_cat</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">user_supplied_cat</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">outfile_cat</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">temp</span><span class="p">:</span>
+        <span class="c1"># Detached cleanup: deleting hundreds of small per-shard .cz</span>
+        <span class="c1"># files (~17s for 9-cell × 67-chrom on a network FS) adds</span>
+        <span class="c1"># nothing to the output, so we fork-and-forget it.</span>
+        <span class="n">_bg_rmtree</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bgzip</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">output</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">ext</span><span class="p">):</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;bgzip </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s2"> &amp;&amp; tabix -S 1 -s 1 -b 2 -e 3 -f </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s2">.gz&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Run bgzip, CMD: </span><span class="si">{</span><span class="n">cmd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="merge_cell_type">
+<a class="viewcode-back" href="../../cytozip.merge.html#cytozip.merge.merge_cell_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">merge_cell_type</span><span class="p">(</span><span class="n">indir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_table</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">outdir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">jobs</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">chrom_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ext</span><span class="o">=</span><span class="s1">&#39;.CGN.merged.cz&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge per-cell .cz files into per-cell-type aggregates.</span>
+
+<span class="sd">    Reads a TSV ``cell_table`` with columns (cell, cell_type), groups</span>
+<span class="sd">    cells by type, and calls :func:`merge_cz` once per group.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">indir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">indir</span><span class="p">))</span>
+    <span class="n">outdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">outdir</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outdir</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
+    <span class="n">chrom_order</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">chrom_order</span><span class="p">))</span>
+    <span class="n">df_ct</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">cell_table</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;cell&#39;</span><span class="p">,</span> <span class="s1">&#39;ct&#39;</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">ct</span> <span class="ow">in</span> <span class="n">df_ct</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">ct</span> <span class="o">+</span> <span class="s1">&#39;.cz&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s2"> existed.&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">ct</span><span class="p">)</span>
+        <span class="n">snames</span> <span class="o">=</span> <span class="n">df_ct</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df_ct</span><span class="o">.</span><span class="n">ct</span> <span class="o">==</span> <span class="n">ct</span><span class="p">,</span> <span class="s1">&#39;cell&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">cz_paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">indir</span><span class="p">,</span> <span class="n">sname</span> <span class="o">+</span> <span class="n">ext</span><span class="p">)</span> <span class="k">for</span> <span class="n">sname</span> <span class="ow">in</span> <span class="n">snames</span><span class="p">]</span>
+        <span class="n">merge_cz</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="n">cz_paths</span><span class="p">,</span> <span class="n">bgzip</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="n">jobs</span><span class="p">,</span> <span class="n">chrom_order</span><span class="o">=</span><span class="n">chrom_order</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="kn">import</span> <span class="n">main</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Wubin Ding.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-F0T1MBS19V', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

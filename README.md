@@ -33,7 +33,7 @@ conda install -c local cytozip
 #   brew install htslib libdeflate                       # macOS
 pip install cytozip
 # or
-pip uninstall -y cytozip & pip install git+http://github.com/DingWB/cytozip
+pip uninstall -y cytozip && pip install git+http://github.com/DingWB/cytozip
 ```
 
 If `htslib` headers are not found at build time, the `_bam_pileup`
