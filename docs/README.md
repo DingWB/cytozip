@@ -67,11 +67,11 @@ cytozip merge_cz -i cz -n 96 -f fraction -o matrix/major_type.beta.bed -P ~/Ref/
 cytozip merge_cz -i cz -n 96 -f fisher -o matrix/major_type.fisher.bed -P ~/Ref/mm10/mm10_ucsc.main.chrom.sizes -r ~/Ref/mm10/annotations/mm10_with_chrL.allCG.forward.cz
 ```
 
-### comb-p call DMR (MajorType)
+### Call DMRs (MajorType)
 
-```shell
-cytozip combp -i matrix/major_type.fisher.bed.gz -o DMR_cpv -n 96
-```
+For BS-seq DMRs use `czip call_dmr` (or `call_dmr_ch` for CH context); for
+methylation-array `.cz` use `czip call_dmr_array`. See `4.call_dmr.ipynb`
+and `dev.ipynb` for end-to-end examples.
 
 ### convert  MajorType .cz to allc.tsv.gz
 
@@ -104,20 +104,13 @@ cytozip merge_cz -i ~/Projects/mouse_pfc/pseudo_cell/MajorType/cz -n 128 -f fish
 cytozip merge_cz -i ~/Projects/mouse_pfc/pseudo_cell/MajorType/cz -n 128 -f fraction -p matrix/cell_class.beta -P ~/Ref/mm10/mm10_ucsc.main.chrom.sizes -r ~/Ref/mm10/annotations/mm10_with_chrL.allCG.forward.cz --class_table cell_table.tsv
 ```
 
-### comb-p call DMR
+### Call DMRs (Cell Class)
+
+For BS-seq DMRs use `czip call_dmr` / `call_dmr_ch`; for array data use
+`czip call_dmr_array`. After calling, annotate with `czip annot_dmr`:
 
 ```shell
-# between CellClass
-cytozip combp -i matrix/cell_class.fisher.bed.gz -o between_groups_dmr/cpv -n 72
-cytozip combp -i matrix/cell_class.fisher.Exc.txt.gz -o within_groups_dmr/Exc -n 72
-cytozip combp -i matrix/cell_class.fisher.Inh.txt.gz -o within_groups_dmr/Inh -n 72
-cytozip combp -i matrix/cell_class.fisher.NonN.txt.gz -o within_groups_dmr/NonN -n 72
-cytozip combp -i matrix/cell_class.fisher.RG.txt.gz -o within_groups_dmr/RG -n 72
-
-# agg dmr beta
-cytozip intersect -Q merged_dmr.txt -M ../matrix/cell_class.beta.bed.gz -O merged_dmr.cell_class.beta.txt -m False
-cytozip intersect -Q merged_dmr.txt -M /anvil/scratch/x-wding2/Projects/mouse_pfc/pseudo_cell/MajorType/matrix/major_type.beta.bed.gz -O merged_dmr.major_type.beta.txt -m False
-# annot cpv dmr
+# annot dmr
 cytozip annot_dmr -i merged_dmr.txt -m merged_dmr.cell_class.beta.txt -o dmr.annotated.txt
 ```
 

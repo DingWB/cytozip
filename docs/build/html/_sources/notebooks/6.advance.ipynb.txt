@@ -1,0 +1,344 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "fe1094a7-1747-4b65-9084-afc4ca10d593",
+   "metadata": {},
+   "source": [
+    "# Advanced Features\n",
+    "github link: [cytozip](https://github.com/DingWB/cytozip)\n",
+    "\n",
+    "This page collects advanced and lower-level workflows that go\n",
+    "beyond the core tutorials: 2-D region indices and on-disk\n",
+    "region aggregation. For DMR calling see [Calling DMRs](4.call_dmr.ipynb).\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "81885327-866a-41e2-a5d2-9acbf8acd4ff",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "~/Software/conda/m3c/bin/czip\n"
+     ]
+    }
+   ],
+   "source": [
+    "import os, sys\n",
+    "# Make sure cytozip is installed: pip install ChunkZIP\n",
+    "!which czip"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4534bf44-0bc6-429b-81b9-756e1729cfb6",
+   "metadata": {},
+   "source": [
+    "## Build a region-based subset index (BED \u2192 `.cz` index)\n",
+    "\n",
+    "In addition to the **context** indices (CGN / CHN, see\n",
+    "[2.dnam.ipynb](2.dnam.ipynb)), cytozip can build a **region** index from\n",
+    "any BED file. The result is a 2-D index storing, for every region in the\n",
+    "BED, the `(start_id, end_id)` range of reference rows that fall inside\n",
+    "it. This is what `czip aggregate` uses to sum mc/cov per region (e.g.\n",
+    "genes \u00b1 2 kb).\n",
+    "\n",
+    "Use `czip index regions` (CLI) or `cytozip.index_regions` (Python).\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "08a7dd1e-150a-4af3-810d-a50aafec6175",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "!czip index regions --help"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a4dbb0da-e32d-4724-aa13-999cdef36a36",
+   "metadata": {},
+   "source": [
+    "```shell\n",
+    "czip index regions -I ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz \\\n",
+    "        -O mm10_with_chrL.allc.genes_flank2k.cz \\\n",
+    "        -b genes_flank2k.bed.gz -j 4\n",
+    "```"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4cd23b7e-8bb7-4481-b4e1-20903d01fa60",
+   "metadata": {},
+   "source": [
+    "## Aggregate genomic regions"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "1a91a2f9-4e17-4679-aa16-edd7e3684fdf",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "usage: czip aggregate [-h] -I INPUT -O OUTFILE -s SSI [--intersect INTERSECT]\n",
+      "                      [--exclude EXCLUDE] [-c CHUNKSIZE] [-F FORMATS]\n",
+      "\n",
+      "options:\n",
+      "  -h, --help            show this help message and exit\n",
+      "  -I INPUT, --input INPUT\n",
+      "                        input .cz file (default: None)\n",
+      "  -O OUTFILE, --outfile OUTFILE\n",
+      "                        output .cz file (default: None)\n",
+      "  -s SSI, --ssi SSI     region subset index file (default: None)\n",
+      "  --intersect INTERSECT\n",
+      "                        intersect filter (default: None)\n",
+      "  --exclude EXCLUDE     exclude filter (default: None)\n",
+      "  -c CHUNKSIZE, --chunksize CHUNKSIZE\n",
+      "                        rows per chunk (default: 5000)\n",
+      "  -F FORMATS, --formats FORMATS\n",
+      "                        output formats (default: ['H', 'H'])\n"
+     ]
+    }
+   ],
+   "source": [
+    "!czip aggregate --help"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "80aef50c-4ef9-4b37-aad2-22802c828452",
+   "metadata": {},
+   "source": [
+    "```shell\n",
+    "czip aggregate -I test.cz -O test_gene.cz \\\n",
+    "        --index mm10_with_chrL.allc.genes_flank2k.cz\n",
+    "```"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "39001ac7-d3cd-4dd0-8816-fd16d7fef0f3",
+   "metadata": {},
+   "source": [
+    "In the resulting test_gene.cz, each row is a region corresponding to one gene, mc and cov are summed up for all CG/CH located at this gene."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## DMR calling\n",
+    "\n",
+    "For DMR calling cytozip exposes three callers, all consuming `.cz`\n",
+    "files directly:\n",
+    "\n",
+    "| caller | data type | test | spatial merge |\n",
+    "|---|---|---|---|\n",
+    "| `call_dmr`        | BS-seq mc/cov, CG context | permutation RMS (ALLCools / Methylpy style) | `max_dist` + `min_dms` chaining |\n",
+    "| `call_dmr_ch`     | BS-seq mc/cov, CH context | permutation RMS on bin-aggregated counts + global mCH normalisation + log2fc filter | as above |\n",
+    "| `call_dmr_array`  | methylation array \u03b2 / M (450K / EPIC / MSA) | per-probe Welch t (or Mann-Whitney) | comb-p (Stouffer-Liptak ACF + \u0160id\u00e1k) |\n",
+    "\n",
+    "For BS-seq workflows see [4.call_dmr.ipynb](4.call_dmr.ipynb).\n",
+    "The **array** workflow is demonstrated below.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Calling DMRs on methylation-array `.cz`\n",
+    "\n",
+    "`call_dmr_array` expects per-sample `.cz` files aligned to a probe\n",
+    "**reference** `.cz` (one row per probe, with a `pos` column). Each\n",
+    "sample `.cz` carries a single `beta` column in [0, 1] (NaN allowed).\n",
+    "\n",
+    "Per-probe a two-sample test (default Welch t on M-values) gives a\n",
+    "p-value and \u0394\u03b2; comb-p then merges adjacent significant\n",
+    "probes into regions and applies \u0160id\u00e1k correction.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "execution_count": null,
+   "outputs": [],
+   "source": [
+    "!czip call_dmr_array --help"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "```shell\n",
+    "# CLI \u2014 EPIC two-group example\n",
+    "czip call_dmr_array \\\n",
+    "    -a \"ctrl/*.cz\" -b \"case/*.cz\" \\\n",
+    "    -r epic_manifest.cz \\\n",
+    "    -O DMR_array.tsv \\\n",
+    "    --test t --max_dist 1000 --jobs 16\n",
+    "\n",
+    "# also dump the per-probe stats for QC / external callers\n",
+    "czip call_dmr_array ... --probe_pvalues_output DMR_array.probes.tsv\n",
+    "```\n",
+    "\n",
+    "```python\n",
+    "# Python API\n",
+    "import cytozip as czip, glob\n",
+    "\n",
+    "czip.call_dmr_array(\n",
+    "    group_a=sorted(glob.glob('ctrl/*.cz')),\n",
+    "    group_b=sorted(glob.glob('case/*.cz')),\n",
+    "    reference='epic_manifest.cz',\n",
+    "    output='DMR_array.tsv',\n",
+    "    test='t',\n",
+    "    sidak_p_cutoff=0.05,\n",
+    "    delta_beta_cutoff=0.05,\n",
+    "    max_dist=1000,\n",
+    "    jobs=16,\n",
+    ")\n",
+    "```\n",
+    "\n",
+    "Output columns:\n",
+    "\n",
+    "| column            | meaning |\n",
+    "|---|---|\n",
+    "| `chrom, start, end` | DMR coordinates (BED-style 0-based half-open) |\n",
+    "| `n_probes`         | number of probes in the region |\n",
+    "| `sidak_p`          | comb-p \u0160id\u00e1k-corrected region p-value |\n",
+    "| `mean_delta_beta`  | mean \u03b2 difference (group A \u2212 group B) over probes in the region |\n",
+    "| `direction`        | `'hyper'` if `mean_delta_beta > 0`, else `'hypo'` |\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "eb6bdb0c",
+   "metadata": {},
+   "source": [
+    "## Advanced Features\n",
+    "\n",
+    "### Chunk Index\n",
+    ".cz files include a chunk index at the end of the file (magic: `CZIX`), enabling:\n",
+    "- **O(1) chunk lookup** by dimension name (no sequential scanning)\n",
+    "- **Remote reading** \u2014 only 2-3 HTTP requests needed to open and query a remote .cz file\n",
+    "\n",
+    "### Remote Reading\n",
+    ".cz files can be read directly from HTTP/HTTPS URLs using `Reader.from_url(url)` or by passing a URL to `Reader(url)`. This uses:\n",
+    "- `RemoteFile` \u2014 file-like object backed by HTTP Range requests with 2MB read-ahead cache\n",
+    "- Chunk index \u2014 avoids scanning the entire file to find chunk boundaries\n",
+    "- All Reader methods (fetch, query, summary_chunks, etc.) work identically on remote files"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "620d25e2",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\u001b[32m2026-04-05 23:43:14.600\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.cz\u001b[0m:\u001b[36m<module>\u001b[0m:\u001b[36m84\u001b[0m - \u001b[34m\u001b[1mCython accelerated functions loaded successfully\u001b[0m\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Magic: b'CZIP'\n",
+      "\n",
+      "Chunk index entries: [('chr1',), ('chr2',)]\n",
+      "\n",
+      "--- chr1 records ---\n",
+      "[100, 1, 10]\n",
+      "[200, 2, 15]\n",
+      "[350, 3, 20]\n",
+      "[100, 1, 10]\n",
+      "[200, 2, 15]\n",
+      "[350, 3, 20]\n",
+      "\n",
+      "--- chr2 records ---\n",
+      "[50, 0, 5]\n",
+      "[150, 1, 8]\n",
+      "[300, 2, 12]\n",
+      "[50, 0, 5]\n",
+      "[150, 1, 8]\n",
+      "[300, 2, 12]\n"
+     ]
+    }
+   ],
+   "source": [
+    "import struct, tempfile, os\n",
+    "import cytozip\n",
+    "\n",
+    "# Example: Write .cz file with chunk index\n",
+    "tmpfile = tempfile.mktemp(suffix=\".cz\")\n",
+    "w = cytozip.Writer(\n",
+    "    output=tmpfile,\n",
+    "    formats=[\"Q\", \"H\", \"H\"],\n",
+    "    columns=[\"pos\", \"mc\", \"cov\"],\n",
+    "    dimensions=[\"chrom\"],\n",
+    ")\n",
+    "\n",
+    "# Write two chunks\n",
+    "records_chr1 = [(100, 1, 10), (200, 2, 15), (350, 3, 20)]\n",
+    "records_chr2 = [(50, 0, 5), (150, 1, 8), (300, 2, 12)]\n",
+    "w.write_chunk(b\"\".join(struct.pack(\"<QHH\", *r) for r in records_chr1), [\"chr1\"])\n",
+    "w.write_chunk(b\"\".join(struct.pack(\"<QHH\", *r) for r in records_chr2), [\"chr2\"])\n",
+    "w.close()\n",
+    "\n",
+    "# Read and verify\n",
+    "r = cytozip.Reader(tmpfile)\n",
+    "print(f\"Magic: {r.header['magic']}\")\n",
+    "\n",
+    "# Read chunk index\n",
+    "idx = r.read_chunk_index()\n",
+    "if idx:\n",
+    "    print(f\"\\nChunk index entries: {list(idx.keys())}\")\n",
+    "\n",
+    "print(\"\\n--- chr1 records ---\")\n",
+    "for record in r.fetch((\"chr1\",)):\n",
+    "    print(record)\n",
+    "\n",
+    "print(\"\\n--- chr2 records ---\")\n",
+    "for record in r.fetch((\"chr2\",)):\n",
+    "    print(record)\n",
+    "\n",
+    "r.close()\n",
+    "os.unlink(tmpfile)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "m3c",
+   "language": "python",
+   "name": "m3c"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.18"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

@@ -12,12 +12,12 @@ Functions:
   - :func:`call_peaks`: call peaks from a methylation .cz file using MACS3
     by turning unmethylated (cov - mc) or methylated counts into pseudo-reads.
   - :func:`to_bedgraph`: dump a per-site methylation signal as a bedGraph.
-  - :func:`combp`: run combined-pvalues (comb-p) on a Fisher-test matrix
-    produced by ``merge_cz -f fisher`` to call DMRs.
+  - :func:`call_dmr_array`: call DMRs on **methylation array** ``.cz`` files
+    (450K / EPIC / MSA) using a per-probe two-sample test (Welch t on
+    M-values, or Mann-Whitney on \u03b2) followed by comb-p
+    (Stouffer-Liptak ACF + \u0160id\u00e1k) spatial merging.
   - :func:`annot_dmr`: annotate a merged DMR table with hypo/hyper sample
     assignments and delta-beta values.
-  - :func:`__split_mat`: internal helper used by :func:`combp` to split a
-    Fisher-test matrix into per-sample, per-chrom bed files.
 
 These pipelines are methylation-specific downstream analyses (MACS3 /
 comb-p integration) and therefore live in their own module rather than in
@@ -203,7 +203,10 @@ def _process_chunk_for_dmr(args):
         if dim in ix.chunk_key2offset:
             ids = ix.get_ids_from_index(dim)
             if ids.ndim == 1:
-                sel_ids = ids
+                # IDs in the index file are 1-based (built as
+                # ``np.flatnonzero(mask) + 1``); convert to 0-based
+                # row indices for fancy-indexing the per-chunk arrays.
+                sel_ids = ids.astype(np.int64, copy=False) - 1
 
     n_sites = ref_arr.shape[0]
     a_readers = [_get_cached_reader(p) for p in group_a_paths]
@@ -246,19 +249,28 @@ def _process_chunk_for_dmr(args):
         if keep.size == 0:
             return dim, np.empty(0, dtype=np.int64), np.empty(0), np.empty(0)
 
-    # Single allocation + cast in one step (avoids the temporary
-    # int32 vstack array followed by astype copy).
-    mc_all = np.concatenate([mc_a, mc_b], axis=0,
-                            dtype=np.int64, casting='unsafe')
-    cov_all = np.concatenate([cov_a, cov_b], axis=0,
-                             dtype=np.int64, casting='unsafe')
-    # ``keep`` already comes from ``np.where`` -> int64; reuse directly.
+    # Build the final ``(n_total, n_keep)`` int64 C-contiguous matrices
+    # in a single pre-allocated allocation, casting on assignment.  This
+    # avoids the previous concat-then-ascontiguousarray two-copy pattern
+    # (advanced indexing earlier left ``mc_a`` / ``mc_b`` F-contiguous,
+    # which then propagated through ``np.concatenate``).
+    n_a = mc_a.shape[0]
+    n_total = n_a + mc_b.shape[0]
+    mc_all = np.empty((n_total, keep.size), dtype=np.int64)
+    cov_all = np.empty((n_total, keep.size), dtype=np.int64)
+    mc_all[:n_a] = mc_a[:, keep]
+    mc_all[n_a:] = mc_b[:, keep]
+    cov_all[:n_a] = cov_a[:, keep]
+    cov_all[n_a:] = cov_b[:, keep]
+    # ``keep`` indices are already the columns of ``mc_all`` we want to
+    # test, so the kernel scans rows ``[0, n_keep)`` of ``mc_all``.
+    kernel_idx = np.arange(keep.size, dtype=np.int64)
     if (use_fisher_1v1
             and mc_a.shape[0] == 1 and mc_b.shape[0] == 1):
-        p_arr, da_arr = _fisher_1v1_sites(mc_all, cov_all, keep)
+        p_arr, da_arr = _fisher_1v1_sites(mc_all, cov_all, kernel_idx)
     else:
         p_arr, da_arr = _rms_run_sites(
-            mc_all, cov_all, keep,
+            mc_all, cov_all, kernel_idx,
             group_a_n=mc_a.shape[0],
             n_permute=int(n_permute), min_pvalue=float(min_pvalue),
             max_row_count=int(max_row_count),
@@ -442,6 +454,19 @@ def call_dmr(group_a, group_b, reference, output,
         Total CPU cores to use.  Automatically split into worker
         processes (across chunks) and OpenMP threads (per-site inside
         each chunk) so that ``processes * threads ≈ jobs``.
+    delta_prefilter : bool, default True
+        If True, before running the (expensive) permutation test, drop
+        sites whose unpermuted ``|mean(frac_A) - mean(frac_B)|`` is
+        already below ``frac_delta_cutoff``.  This is an exact, no-loss
+        optimization (the dropped sites would never reach the post-test
+        delta cutoff) and typically reduces runtime by 2-10x on
+        single-cell input, where most sites have near-zero delta.
+    use_fisher_1v1 : bool, default True
+        If True, when both groups contain exactly one ``.cz`` file
+        (the "1 vs 1" pseudobulk case where the permutation test has
+        almost no distinct permutations), fall back to a per-site
+        two-sided Fisher's exact test.  Set to False to force the
+        permutation kernel even in this degenerate layout.
 
     Returns
     -------
@@ -474,6 +499,13 @@ def call_dmr(group_a, group_b, reference, output,
     ref_path = os.path.abspath(os.path.expanduser(reference))
     index_path = (os.path.abspath(os.path.expanduser(index))
                   if index else None)
+    if index_path is None:
+        logger.warning(
+            "call_dmr: no `index` provided -- DMR calling will pool ALL "
+            "cytosines (CG + CHG + CHH) from the reference together "
+            "without any context filtering. This is almost never what "
+            "you want for CG DMR calling. Pass `index=<reference>.CGN.index` "
+            "(built via `czip index context -p CGN`) to restrict to CpG sites.")
 
     # Resolve mc / cov column names from the first cell's header
     probe = Reader(a_paths[0])
@@ -669,7 +701,8 @@ def _scan_global_ch(args):
         if dim in ix.chunk_key2offset:
             ids = ix.get_ids_from_index(dim)
             if ids.ndim == 1:
-                sel_ids = ids
+                # IDs in the index file are 1-based; convert to 0-based.
+                sel_ids = ids.astype(np.int64, copy=False) - 1
     readers = [_get_cached_reader(p) for p in paths]
     mc, cov = _load_chunk_matrix(readers, dim, mc_col, cov_col, n_sites)
     ref.release_chunk(dim)
@@ -752,7 +785,8 @@ def _process_chunk_for_dmr_ch(args):
         if dim in ix.chunk_key2offset:
             ids = ix.get_ids_from_index(dim)
             if ids.ndim == 1:
-                sel_ids = ids
+                # IDs in the index file are 1-based; convert to 0-based.
+                sel_ids = ids.astype(np.int64, copy=False) - 1
 
     n_sites = ref_arr.shape[0]
     a_readers = [_get_cached_reader(p) for p in group_a_paths]
@@ -821,13 +855,22 @@ def _process_chunk_for_dmr_ch(args):
         if keep.size == 0:
             return empty
 
-    mc_all = np.concatenate([mc_a_bin, mc_b_bin], axis=0,
-                            dtype=np.int64, casting='unsafe')
-    cov_all = np.concatenate([cov_a_bin, cov_b_bin], axis=0,
-                             dtype=np.int64, casting='unsafe')
+    # Build the final ``(n_total, n_keep)`` int64 C-contiguous count
+    # matrices in a single pre-allocated allocation, casting and
+    # gathering in one assignment per group (saves a concat +
+    # ascontiguousarray copy).
+    n_a = mc_a_bin.shape[0]
+    n_total = n_a + mc_b_bin.shape[0]
+    mc_all = np.empty((n_total, keep.size), dtype=np.int64)
+    cov_all = np.empty((n_total, keep.size), dtype=np.int64)
+    mc_all[:n_a] = mc_a_bin[:, keep]
+    mc_all[n_a:] = mc_b_bin[:, keep]
+    cov_all[:n_a] = cov_a_bin[:, keep]
+    cov_all[n_a:] = cov_b_bin[:, keep]
+    kernel_idx = np.arange(keep.size, dtype=np.int64)
     p_arr, da_arr = _rms_run_sites(
-        mc_all, cov_all, keep,
-        group_a_n=mc_a_bin.shape[0],
+        mc_all, cov_all, kernel_idx,
+        group_a_n=n_a,
         n_permute=int(n_permute), min_pvalue=float(min_pvalue),
         max_row_count=int(max_row_count),
         max_total_count=int(max_total_count),
@@ -837,8 +880,183 @@ def _process_chunk_for_dmr_ch(args):
             rate_a[keep], rate_b[keep])
 
 
+# ----------------------------------------------------------------------
+# Global-rate normalization methods (used by ``call_dmr_ch``)
+# ----------------------------------------------------------------------
+#
+# All in-pipeline methods reduce to a per-cell scalar ``s_i`` that
+# rescales the cell's binned mc counts.  See ``_compute_normalization_scale``
+# below for the formulas and references.  Methods that require a
+# different test backend (DSS beta-binomial GLM, scMET hierarchical
+# Bayes, BSmooth local kernel smoothing) are NOT implemented here -- they
+# need a different data flow than the RMS-permutation kernel and are
+# better consumed via their reference implementations on pre-aggregated
+# pseudobulk counts.
+NORMALIZE_METHODS = (
+    'none', 'median', 'mean', 'trimmed_mean', 'gmean', 'posterior')
+
+
+def _resolve_normalize_method(normalize):
+    """Coerce the ``normalize`` argument to a canonical method name.
+
+    Accepted values:
+      * ``False`` / ``None`` / ``'none'``   -> ``'none'``
+      * ``True``                            -> ``'median'`` (recommended default)
+      * any string in :data:`NORMALIZE_METHODS`
+    """
+    if normalize is False or normalize is None:
+        return 'none'
+    if normalize is True:
+        return 'median'
+    s = str(normalize).lower()
+    if s not in NORMALIZE_METHODS:
+        raise ValueError(
+            f"normalize={normalize!r} not recognized; "
+            f"choose from {NORMALIZE_METHODS} or True/False.")
+    return s
+
+
+def _compute_normalization_scale(ga, gb,
+                                 mc_a_tot, cov_a_tot,
+                                 mc_b_tot, cov_b_tot,
+                                 method):
+    """Return per-cell scale factors ``(scale_a, scale_b, target)`` for the
+    requested normalization method.
+
+    All implemented methods ultimately produce a per-cell scalar
+    ``s_i`` such that the binned mc counts are rescaled in-place by
+    ``mc_bin_i <- min(round(mc_bin_i * s_i), cov_bin_i)`` inside the
+    worker.  The methods differ only in:
+
+    * how the shared **target rate** ``t`` is summarized across cells, and
+    * (for ``'posterior'``) whether ``g_i`` is shrunk toward ``t`` before
+      computing ``s_i``.
+
+    Methods
+    -------
+    ``'median'`` (default; recommended)
+        ``t = median({g_i : g_i > 0})``;  ``s_i = t / g_i``.
+        Robust to outliers; matches the convention used in Lister et al.
+        2013 (*Science*), Mo et al. 2015 (*Neuron*), Luo et al. 2017
+        (*Science*) and the snmC-seq / ALLCools pipeline (Liu et al.
+        2021, *Nature*).
+
+    ``'mean'``
+        ``t = mean({g_i : g_i > 0})``;  ``s_i = t / g_i``.
+        Lower variance than the median when the per-cell rate
+        distribution is roughly symmetric, but sensitive to outlier
+        cells with extreme global mCH (rare neurons / contamination).
+
+    ``'trimmed_mean'``
+        ``t = mean of the central 80% of {g_i : g_i > 0}``
+        (drops the lowest 10% and highest 10%, like the TMM
+        normalization in edgeR; Robinson & Oshlack 2010, *Genome
+        Biology*).  ``s_i = t / g_i``.  A compromise between
+        ``'median'`` (very robust, slightly noisy) and ``'mean'``
+        (precise but fragile).
+
+    ``'gmean'``
+        ``t = exp(mean(log g_i)) = (prod g_i)^{1/n}``;  ``s_i = t / g_i``.
+        Geometric mean.  Matches DESeq2-style size-factor normalization
+        (Anders & Huber 2010, *Genome Biology*) — works in log-rate
+        space, so multiplicative scale errors cancel.  Often slightly
+        preferred when global rates span more than ~1 order of magnitude.
+
+    ``'posterior'`` (Bayesian shrinkage)
+        Same target ``t = median({g_i})`` but with empirical-Bayes
+        shrinkage of ``g_i`` toward ``t`` before computing ``s_i``::
+
+            kappa = max( median(C_i) * 0.01, 1.0 )       # prior strength
+            g_i' = (M_i + t * kappa) / (C_i + kappa)
+            s_i  = t / g_i'
+
+        where ``M_i = sum(mc_i)`` and ``C_i = sum(cov_i)`` are the
+        per-cell totals.  Cells with low total coverage (small ``C_i``)
+        are shrunk strongly toward ``t`` (so ``s_i -> 1``), avoiding
+        wild scale factors driven by undersampled cells; high-coverage
+        cells are barely shrunk.  Conceptually matches the
+        posterior-mean prior used in scMET (Kapourani et al. 2021,
+        *Genome Biology*) and ALLCools' ``add_mc_rate(...)`` shrinkage
+        (Liu et al. 2021).
+
+    ``'none'`` / ``False``
+        No normalization: returns ``(None, None, NaN)``.  Use when both
+        groups already share a global mCH rate (e.g., replicate
+        pseudobulks of the same cluster).
+
+    See Also
+    --------
+    External tools that require a different backend (not implemented
+    here): **DSS** beta-binomial GLM (Park & Wu 2016, *Bioinformatics*),
+    **methylKit** logistic-regression DMR (Akalin et al. 2012, *Genome
+    Biology*), **BSmooth** local-kernel smoothing (Hansen et al. 2012,
+    *Genome Biology*), **scMET** hierarchical Bayes (Kapourani et al.
+    2021).  Run those on pre-aggregated pseudobulk counts.
+
+    Returns
+    -------
+    scale_a, scale_b : ndarray of float64 or None
+        Per-cell scale factors for groups A and B.  ``None`` if all
+        per-cell rates are zero.
+    target : float
+        The shared target rate ``t``.  ``NaN`` if all rates are zero.
+    """
+    ga = np.asarray(ga, dtype=np.float64)
+    gb = np.asarray(gb, dtype=np.float64)
+    all_rates = np.concatenate([ga, gb])
+    valid = all_rates[all_rates > 0]
+    if valid.size == 0:
+        return None, None, float('nan')
+
+    if method == 'median':
+        target = float(np.median(valid))
+    elif method == 'mean':
+        target = float(np.mean(valid))
+    elif method == 'trimmed_mean':
+        # 10% trimming on each tail (matches edgeR TMM default tail).
+        if valid.size >= 5:
+            from scipy.stats import trim_mean
+            target = float(trim_mean(valid, proportiontocut=0.1))
+        else:
+            target = float(np.mean(valid))
+    elif method == 'gmean':
+        target = float(np.exp(np.mean(np.log(valid))))
+    elif method == 'posterior':
+        target = float(np.median(valid))
+        # Empirical-Bayes shrinkage of per-cell g_i toward target,
+        # weighted by per-cell total coverage.  Requires the per-cell
+        # totals; fall back to plain median scaling if absent.
+        if (mc_a_tot is None or cov_a_tot is None
+                or mc_b_tot is None or cov_b_tot is None):
+            ga_eff, gb_eff = ga, gb
+        else:
+            mc_a_tot = np.asarray(mc_a_tot, dtype=np.float64)
+            cov_a_tot = np.asarray(cov_a_tot, dtype=np.float64)
+            mc_b_tot = np.asarray(mc_b_tot, dtype=np.float64)
+            cov_b_tot = np.asarray(cov_b_tot, dtype=np.float64)
+            cov_all = np.concatenate([cov_a_tot, cov_b_tot])
+            kappa = max(float(np.median(cov_all[cov_all > 0])) * 0.01, 1.0)
+            ga_eff = (mc_a_tot + target * kappa) / (cov_a_tot + kappa)
+            gb_eff = (mc_b_tot + target * kappa) / (cov_b_tot + kappa)
+        ga_safe = np.where(ga_eff > 0, ga_eff, target)
+        gb_safe = np.where(gb_eff > 0, gb_eff, target)
+        scale_a = target / ga_safe
+        scale_b = target / gb_safe
+        return scale_a, scale_b, target
+    else:
+        raise ValueError(f"Unknown normalization method: {method!r}")
+
+    # Multiplicative methods: avoid divide-by-zero / huge blow-up for
+    # zero-coverage cells by falling back to scale=1.
+    ga_safe = np.where(ga > 0, ga, target)
+    gb_safe = np.where(gb > 0, gb, target)
+    scale_a = target / ga_safe
+    scale_b = target / gb_safe
+    return scale_a, scale_b, target
+
+
 def call_dmr_ch(group_a, group_b, reference, output,
-                bin_size=5000,
+                bin_size=500,
                 context='CHN',
                 group_names=('A', 'B'),
                 p_value_cutoff=0.001,
@@ -869,7 +1087,46 @@ def call_dmr_ch(group_a, group_b, reference, output,
         each cell's mc counts so all cells share a common reference
         global mCH rate.  This removes the dominant "cell type with
         higher global mCH" effect that would otherwise saturate the
-        test.
+        test.  Algorithm:
+
+        a. **Per-cell global rate.**  For every cell ``i`` in either
+           group, sum ``mc`` and ``cov`` across **all sites in all
+           target chunks** of the requested ``context`` (full pre-pass
+           via :func:`_compute_global_ch_rates`, or supplied directly
+           through ``global_a`` / ``global_b``):
+
+               g_i = sum(mc_i) / max(sum(cov_i), 1)
+
+        b. **Common target rate.**  Concatenate ``g_i`` from both
+           groups, drop zero-coverage cells, and take the **median**
+           of the remaining rates as the shared target ``t``.  The
+           median (not mean) is used so that a few outlier cells with
+           extreme global mCH cannot drag the target.
+
+        c. **Per-cell scale factor.**
+
+               s_i = t / g_i        (g_i > 0)
+               s_i = 1              (g_i == 0, fallback)
+
+           Cells above the target are scaled **down** (s_i < 1),
+           cells below are scaled **up** (s_i > 1), so that every
+           cell's effective global mCH equals ``t``.
+
+        d. **Apply at the bin level.**  After per-cell mc/cov are
+           pooled into ``bin_size`` bins, mc counts are rescaled
+           in-place:
+
+               mc_bin_i  <-  min( round(mc_bin_i * s_i),  cov_bin_i )
+
+           ``cov`` is left unchanged, and the ``min(..., cov)`` clamp
+           guarantees ``mc <= cov`` is preserved (required by the
+           Fisher / RMS kernels).  All downstream per-bin rates,
+           p-values, log2FC and ``abs_delta`` are computed on these
+           rescaled counts.
+
+        Set ``normalize=False`` (or pass pre-computed ``global_a`` /
+        ``global_b`` to skip the pre-pass) when groups are already
+        matched in global mCH (e.g., replicates of the same cluster).
     3.  **log2-fold-change filter** — DMS ("differentially methylated
         bins") must satisfy ``p < p_value_cutoff`` AND
         ``|log2(rate_A / rate_B)| >= log2fc_cutoff`` AND
@@ -902,8 +1159,10 @@ def call_dmr_ch(group_a, group_b, reference, output,
         Group A / B paths.  Same parsing as :func:`call_dmr`.
     reference, output : str
         Reference ``.cz`` and output DMR TSV path.
+    group_names : tuple of str
+        Labels for groups A and B used in log messages only.
     bin_size : int
-        Bin width in bp for pooling per-cell counts (default 5000).
+        Bin width in bp for pooling per-cell counts (default 500).
     context : str
         Tag used in log messages only (e.g. ``'CHN'``, ``'CAN'``).
     p_value_cutoff : float
@@ -914,9 +1173,34 @@ def call_dmr_ch(group_a, group_b, reference, output,
         Minimum ``|rate_a - rate_b|`` after normalization.  Acts as
         a low-rate floor so tiny ratios with both rates ~0 are
         rejected.
-    normalize : bool
-        If True, pre-compute per-cell global mCH rates and rescale mc
-        counts so all cells share a common reference rate.
+    normalize : bool or str, default ``True``
+        Method for per-cell global mCH rate normalization.  See
+        :func:`_compute_normalization_scale` for full formulas and
+        references.  Accepted values:
+
+        =================  =============================================
+        ``False`` / ``'none'``  No normalization.
+        ``True`` / ``'median'`` ``t = median(g_i)``;  ``s_i = t/g_i``
+                            (default; robust, matches Lister 2013 / Mo
+                            2015 / Luo 2017 / ALLCools convention).
+        ``'mean'``          ``t = mean(g_i)``; lower variance but
+                            sensitive to outlier cells.
+        ``'trimmed_mean'``  ``t`` = central 80% trimmed mean (TMM-style;
+                            Robinson & Oshlack 2010).
+        ``'gmean'``         ``t`` = geometric mean (DESeq2-style;
+                            Anders & Huber 2010).  Better when global
+                            rates span >1 order of magnitude.
+        ``'posterior'``     Empirical-Bayes shrinkage of ``g_i`` toward
+                            median target with strength
+                            ``kappa = 1% * median(cov_total)`` (scMET /
+                            ALLCools-style; Kapourani et al. 2021).
+                            Most robust when many cells have low total
+                            coverage.
+        =================  =============================================
+
+        Default ``'median'`` is recommended; switch to ``'posterior'``
+        if you have many cells with very low total CHN coverage, or to
+        ``'gmean'`` if your global mCH rates span a wide range.
     global_a, global_b : array-like or None
         Pre-computed per-cell global mCH rates (one entry per cell in
         the corresponding group).  If provided, the global pre-pass
@@ -933,6 +1217,13 @@ def call_dmr_ch(group_a, group_b, reference, output,
         permutations, 0.001 stop) because CH signals tend to have
         smaller effect sizes.
     mc_col, cov_col, index, dms_output, chroms, jobs : see :func:`call_dmr`.
+    delta_prefilter : bool, default True
+        If True, before running the (expensive) per-bin permutation
+        test, drop bins whose unpermuted ``|rate_a - rate_b|`` is below
+        ``abs_delta_cutoff`` (and, when ``log2fc_cutoff > 0``, whose
+        unpermuted ``|log2(rate_a / rate_b)|`` is below
+        ``log2fc_cutoff``).  Exact, no-loss optimization that mirrors
+        the ``call_dmr`` ``delta_prefilter``.
 
     Returns
     -------
@@ -960,6 +1251,15 @@ def call_dmr_ch(group_a, group_b, reference, output,
     ref_path = os.path.abspath(os.path.expanduser(reference))
     index_path = (os.path.abspath(os.path.expanduser(index))
                   if index else None)
+    if index_path is None:
+        logger.warning(
+            "call_dmr_ch: no `index` provided -- DMR calling will pool ALL "
+            "cytosines (CG + CHG + CHH) from the reference together "
+            "without any context filtering. For mCH analyses you almost "
+            "always want a context-restricted index, e.g. "
+            "`index=<reference>.CHN.index` for all non-CpG, or "
+            "`index=<reference>.CAN.index` / `.CAC.index` etc. for "
+            "sub-context analyses (built via `czip index context -p CHN|CAN|CAC|...`).")
 
     probe = Reader(a_paths[0])
     cols = probe.header['columns']
@@ -994,11 +1294,13 @@ def call_dmr_ch(group_a, group_b, reference, output,
         f"(jobs={total} = {n_proc} proc x {n_thr} threads)")
 
     # ----- Optional global mCH rate pre-pass -------------------------
+    method = _resolve_normalize_method(normalize)
     scale_a = scale_b = None
-    if normalize:
+    mc_a_tot = cov_a_tot = mc_b_tot = cov_b_tot = None
+    if method != 'none':
         if global_a is None:
             logger.info("call_dmr_ch: scanning group A for per-cell global rates")
-            ga, _, _ = _compute_global_ch_rates(
+            ga, mc_a_tot, cov_a_tot = _compute_global_ch_rates(
                 a_paths, ref_path, index_path, chunk_keys,
                 mc_col, cov_col, n_proc)
         else:
@@ -1007,7 +1309,7 @@ def call_dmr_ch(group_a, group_b, reference, output,
                 raise ValueError("len(global_a) must match len(group_a)")
         if global_b is None:
             logger.info("call_dmr_ch: scanning group B for per-cell global rates")
-            gb, _, _ = _compute_global_ch_rates(
+            gb, mc_b_tot, cov_b_tot = _compute_global_ch_rates(
                 b_paths, ref_path, index_path, chunk_keys,
                 mc_col, cov_col, n_proc)
         else:
@@ -1015,23 +1317,18 @@ def call_dmr_ch(group_a, group_b, reference, output,
             if gb.shape[0] != len(b_paths):
                 raise ValueError("len(global_b) must match len(group_b)")
 
-        all_rates = np.concatenate([ga, gb])
-        valid = all_rates[all_rates > 0]
-        if valid.size == 0:
+        scale_a, scale_b, target = _compute_normalization_scale(
+            ga, gb, mc_a_tot, cov_a_tot, mc_b_tot, cov_b_tot, method)
+        if scale_a is None:
             logger.warning("call_dmr_ch: all per-cell global rates are zero; "
                            "skipping normalization")
         else:
-            target = float(np.median(valid))
-            # avoid divide-by-zero / huge blow-up for empty cells
-            ga_safe = np.where(ga > 0, ga, target)
-            gb_safe = np.where(gb > 0, gb, target)
-            scale_a = target / ga_safe
-            scale_b = target / gb_safe
             logger.info(f"call_dmr_ch: normalized to global rate "
                         f"target={target:.4f}; A scale range "
                         f"[{scale_a.min():.2f},{scale_a.max():.2f}], "
                         f"B scale range "
-                        f"[{scale_b.min():.2f},{scale_b.max():.2f}]")
+                        f"[{scale_b.min():.2f},{scale_b.max():.2f}] "
+                        f"(method='{method}')")
 
     tasks = [
         (a_paths, b_paths, ref_path, index_path, dim, mc_col, cov_col,
@@ -1252,6 +1549,16 @@ def call_dmr_one_vs_rest(indir, reference, outdir,
     dms_output_dir : str or None
         If given, also write per-sample DMS TSVs here, with the same
         ``<class>/<sname>.dms.tsv`` layout.
+    auto_merge : bool, default True
+        If True, after the last comparison call :func:`merge_dmr_results`
+        on ``outdir`` to produce a long-format ``merged_dmr.tsv`` with
+        derived metric columns.  Set to False to skip merging (e.g.
+        when running a partial batch you'll merge later).
+    merge_kwargs : dict or None
+        Extra keyword arguments forwarded to :func:`merge_dmr_results`
+        when ``auto_merge=True`` (e.g. ``add_fdr=True``,
+        ``add_metrics=True``).  ``indir`` / ``output`` are managed by
+        this wrapper.
     **dmr_kwargs : dict
         Forwarded to :func:`call_dmr` or :func:`call_dmr_ch` (e.g.
         ``frac_delta_cutoff``, ``log2fc_cutoff``, ``n_permute``,
@@ -1540,6 +1847,13 @@ def merge_dmr_results(outdir, method='cg',
     add_metrics : bool
         If False, only stitch the rows together without computing
         derived metric columns.
+    add_fdr : bool, default True
+        If True, compute Benjamini-Hochberg FDR ``q_min`` per
+        ``sname`` (and per ``class`` when stratified) from ``p_min``.
+    output_format : {'tsv', 'parquet'} or None
+        Output file format when ``output`` is given.  ``None``
+        auto-detects from the ``output`` extension (``.parquet`` /
+        ``.pq`` -> parquet, anything else -> tsv).
 
     Returns
     -------
@@ -1748,38 +2062,6 @@ def consensus_dmr(merged, slop=0, min_samples=1, by_direction=True,
                     f"written to {output}")
     return cons
 
-
-def __split_mat(infile, chrom, snames, outdir, n_ref):
-    import pysam
-    tbi = pysam.TabixFile(infile)
-    records = tbi.fetch(reference=chrom)
-    N = n_ref + len(snames) * 2
-    fout_dict = {}
-    for sname in snames:
-        fout_dict[sname] = open(os.path.join(outdir, f"{sname}.{chrom}.bed"), 'w')
-        fout_dict[sname].write("chrom\tstart\tend\tstrand\tpval\todd_ratio\n")
-    for line in records:
-        values = line.replace('\n', '').split('\t')
-        if len(values) < N:
-            logger.debug(f"{infile} {chrom}")
-            raise ValueError("Number of fields is wrong.")
-        ch, beg, end, strand = values[:4]
-        beg = int(beg)
-        end = int(end)
-        for i, sname in enumerate(snames):
-            or_value = values[n_ref + i * 2]
-            try:
-                OR = float(or_value)
-            except (ValueError, TypeError):
-                OR = 1
-            if OR >= 1:  # hyper methylation
-                pval = 1
-            else:
-                pval = values[n_ref + i * 2 + 1]
-            fout_dict[sname].write(f"{chrom}\t{beg}\t{end}\t{strand}\t{pval}\t{or_value}\n")
-    for sname in snames:
-        fout_dict[sname].close()
-    tbi.close()
 
 
 # ==========================================================================
@@ -2151,118 +2433,396 @@ def to_bedgraph(input=None, reference=None, output=None,
     return output
 
 
-def combp(input, outdir="cpv", jobs=24, dist=300, temp=True, bed=False):
+def _load_array_chunk(paths, dim, beta_col, n_probes):
+    """Load a (n_samples, n_probes) float32 \u03b2 matrix for one chunk.
+
+    Each per-sample .cz must be aligned to the reference (same number of
+    rows per chunk_dim). Missing chunks / values become NaN.
     """
-    Run comb-p on a fisher result matrix (generated by `merge_cz -f fisher`),
-    /usr/bin/time -f "%e\t%M\t%P" cytozip combp -i major_type.fisher.txt.gz -n 64
-    Run one samples (all chromosomes), 8308.18(2.3h) 65053112(62G)        321%
+    M = np.full((len(paths), n_probes), np.nan, dtype=np.float32)
+    for i, p in enumerate(paths):
+        r = _get_reader(p)
+        if dim not in r.chunk_key2offset:
+            continue
+        arr = r.chunk2numpy(dim)
+        if arr.shape[0] != n_probes:
+            raise ValueError(
+                f"{p}: chunk {dim} has {arr.shape[0]} rows but reference "
+                f"chunk has {n_probes}; per-sample .cz must be aligned to "
+                f"the reference (build with allc2cz / a custom array writer "
+                f"using the same reference)."
+            )
+        M[i, :] = arr[beta_col].astype(np.float32, copy=False)
+        r.release_chunk(dim)
+    return M
+
+
+def _welch_t_two_sample(A, B, eps=1e-6, on_m=True):
+    """Per-column Welch's t-test on two (n_samples, n_probes) matrices.
+
+    If ``on_m`` is True, \u03b2 values are first transformed to M-values
+    (``log2(\u03b2/(1-\u03b2))``), which stabilises the variance near 0/1.
+    Returns ``(p, n_a_used, n_b_used, delta_beta)``.
+    """
+    if on_m:
+        Ac = np.clip(A, eps, 1.0 - eps)
+        Bc = np.clip(B, eps, 1.0 - eps)
+        Am = np.log2(Ac / (1.0 - Ac))
+        Bm = np.log2(Bc / (1.0 - Bc))
+    else:
+        Am, Bm = A, B
+    a_n = (~np.isnan(Am)).sum(axis=0).astype(np.float64)
+    b_n = (~np.isnan(Bm)).sum(axis=0).astype(np.float64)
+    with np.errstate(invalid='ignore', divide='ignore'):
+        a_mean = np.nanmean(Am, axis=0)
+        b_mean = np.nanmean(Bm, axis=0)
+        a_var = np.nanvar(Am, axis=0, ddof=1)
+        b_var = np.nanvar(Bm, axis=0, ddof=1)
+        se2 = a_var / a_n + b_var / b_n
+        se = np.sqrt(se2)
+        t = (a_mean - b_mean) / se
+        num = se2 ** 2
+        den = (a_var / a_n) ** 2 / np.maximum(a_n - 1, 1) \
+            + (b_var / b_n) ** 2 / np.maximum(b_n - 1, 1)
+        df = num / den
+    from scipy.stats import t as t_dist
+    p = 2.0 * t_dist.sf(np.abs(t), df)
+    p = np.where(np.isfinite(p), p, 1.0)
+    # delta on the original \u03b2 scale (more interpretable for users)
+    delta = np.nanmean(A, axis=0) - np.nanmean(B, axis=0)
+    return p, a_n, b_n, delta
+
+
+def _mannwhitney_two_sample(A, B):
+    """Per-column Mann-Whitney U on \u03b2 values; vectorised via scipy.
+
+    Slower than ``_welch_t_two_sample`` but non-parametric. Returns
+    ``(p, n_a_used, n_b_used, delta_beta)``.
+    """
+    from scipy.stats import mannwhitneyu
+    n_probes = A.shape[1]
+    p = np.ones(n_probes, dtype=np.float64)
+    for j in range(n_probes):
+        a = A[:, j]; a = a[~np.isnan(a)]
+        b = B[:, j]; b = b[~np.isnan(b)]
+        if a.size < 2 or b.size < 2:
+            continue
+        try:
+            p[j] = mannwhitneyu(a, b, alternative='two-sided').pvalue
+        except ValueError:
+            p[j] = 1.0
+    a_n = (~np.isnan(A)).sum(axis=0)
+    b_n = (~np.isnan(B)).sum(axis=0)
+    delta = np.nanmean(A, axis=0) - np.nanmean(B, axis=0)
+    return p, a_n, b_n, delta
+
+
+def call_dmr_array(group_a, group_b, reference, output,
+                   beta_col='beta',
+                   index=None,
+                   test='t',
+                   group_names=('A', 'B'),
+                   sidak_p_cutoff=0.05,
+                   delta_beta_cutoff=0.05,
+                   min_samples_per_group=2,
+                   max_dist=1000,
+                   acf_dist=None,
+                   keep_temp=False,
+                   chroms=None,
+                   probe_pvalues_output=None,
+                   jobs=1):
+    """Call DMRs on **methylation array** ``.cz`` files (450K / EPIC / MSA).
+
+    Pipeline:
+
+    1. For every probe in the reference, gather \u03b2 values from each
+       per-sample ``.cz`` in ``group_a`` / ``group_b``.
+    2. Per-probe two-sample test (default: Welch's t-test on M-values
+       ``log2(\u03b2/(1-\u03b2))``; alternative: Mann-Whitney U on \u03b2)
+       \u2192 a p-value and \u0394\u03b2 = mean(A) - mean(B).
+    3. Stouffer-Liptak ACF + \u0160id\u00e1k spatial merge via comb-p
+       (``cpv.pipeline``), one BED per chromosome.
+    4. Filter regions by ``sidak_p_cutoff`` and ``|\u0394\u03b2|`` cutoff.
+
+    This replaces the previous ``combp`` function (which consumed a
+    pre-computed Fisher matrix). For BS-seq / single-cell BS-seq DMRs
+    use :func:`call_dmr` (CG) or :func:`call_dmr_ch` (CH); the
+    permutation RMS test is more appropriate when the data are mc/cov
+    integer counts instead of continuous \u03b2-values.
 
     Parameters
     ----------
-    input : path
-        path to result from merge_cz -f fisher.
-    outdir : path
+    group_a, group_b : str | list of str
+        Per-sample array .cz paths (comma-separated string, list, or a
+        text file with one path per line). Each .cz must be aligned to
+        ``reference`` (same chunks, same ordering).
+    reference : str
+        Reference .cz holding probe coordinates. Must contain a ``pos``
+        column. Per-sample .cz files inherit this primary-id ordering.
+    output : str
+        Output DMR TSV path.
+    beta_col : str
+        Name of the \u03b2-value column in each per-sample .cz (default
+        ``'beta'``). Values must be in [0, 1] (NaN allowed for
+        unmeasured probes).
+    index : str or None
+        Optional context / probe-subset index .cz to restrict probes
+        considered (e.g. an EPIC manifest filter, or only probes
+        passing detection p threshold). Currently unused; kept for API
+        symmetry with :func:`call_dmr`.
+    test : {'t', 'mw'}
+        Per-probe test. ``'t'`` (default) = Welch t-test on M-values;
+        ``'mw'`` = Mann-Whitney U on \u03b2 (slower, non-parametric).
+    group_names : (str, str)
+        Labels stored in the log line; not in the output table.
+    sidak_p_cutoff : float
+        Region-level \u0160id\u00e1k-corrected p cutoff (default 0.05).
+    delta_beta_cutoff : float
+        Minimum ``|mean \u0394\u03b2|`` over the region (default 0.05,
+        i.e. 5 %).
+    min_samples_per_group : int
+        Skip probes with fewer than this many non-NaN measurements per
+        group (default 2). Welch / MW are degenerate below this.
+    max_dist : int
+        ``--dist`` for comb-p: maximum gap (bp) between adjacent
+        significant probes within a region. Array probes are sparse, so
+        this defaults to 1000 (vs. 250 for BS-seq).
+    acf_dist : int or None
+        Distance used for autocorrelation estimation. Defaults to
+        ``round(max_dist / 3, -1)`` (matching the comb-p convention).
+    keep_temp : bool
+        Keep the per-chrom BED + cpv tmp directories under
+        ``<output>.tmp/``.
+    chroms : list of str or None
+        Restrict to these chromosomes (default: every chunk in
+        ``reference``).
+    probe_pvalues_output : str or None
+        If given, also dump the per-probe ``(chrom, pos, p, delta_beta)``
+        TSV here \u2014 useful for QQ plots, custom thresholds, or
+        external DMR callers (DMRcate / bumphunter).
     jobs : int
-        number of parallel processes (CPUs).
-    dist: int
-        max distance between two site to be included in one DMR.
-    temp : bool
-        whether to keep temp dir
-    bed : bool
-        whether to keep bed directory
+        Parallel processes used for the per-chrom comb-p step.
 
     Returns
     -------
+    str
+        Path to the output DMR TSV with columns
+        ``chrom, start, end, n_probes, sidak_p, mean_delta_beta, direction``.
 
+    Examples
+    --------
+    ::
+
+        # CLI
+        czip call_dmr_array \\
+            -a "ctrl_*.cz" -b "case_*.cz" \\
+            -r epic_manifest.cz \\
+            -O DMR_array.tsv \\
+            --max_dist 1000 --jobs 16
+
+        # Python
+        import cytozip as czip
+        czip.call_dmr_array(
+            group_a=sorted(glob.glob('ctrl/*.cz')),
+            group_b=sorted(glob.glob('case/*.cz')),
+            reference='epic_manifest.cz',
+            output='DMR_array.tsv',
+            test='t', max_dist=1000, jobs=16,
+        )
     """
     try:
         from cpv.pipeline import pipeline as cpv_pipeline
-    except ImportError:
-        logger.info("Please install cpv using: pip install git+https://github.com/DingWB/combined-pvalues")
+    except ImportError as e:
+        raise ImportError(
+            "cpv (combined-pvalues) is required for call_dmr_array. "
+            "Install via: pip install "
+            "git+https://github.com/DingWB/combined-pvalues"
+        ) from e
 
-    infile = os.path.abspath(os.path.expanduser(input))
-    outdir = os.path.abspath(os.path.expanduser(outdir))
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
-    columns = pd.read_csv(infile, sep='\t', nrows=1).columns.tolist()
-    snames = [col[:-5] for col in columns[4:] if col.endswith('.pval')]
-    import pysam
-    tbi = pysam.TabixFile(infile)
-    chroms = sorted(tbi.contigs)
-    tbi.close()
+    if test not in ('t', 'mw'):
+        raise ValueError(f"test must be 't' or 'mw', got {test!r}")
 
-    bed_dir = os.path.join(outdir, 'bed')
-    if not os.path.exists(bed_dir):
-        os.mkdir(bed_dir)
-        pool = multiprocessing.Pool(jobs)
-        tasks = []
-        logger.info("Splitting matrix into different samples and chroms.")
-        for chrom in chroms:
-            task = pool.apply_async(__split_mat,
-                                   (infile, chrom, snames, bed_dir, 5))
-            tasks.append(task)
-        for task in tasks:
-            task.get()
-        pool.close()
-        pool.join()
-    else:
-        logger.info("bed directory existed, skip split matrix into bed files.")
+    a_paths = _resolve_paths(group_a)
+    b_paths = _resolve_paths(group_b)
+    if len(a_paths) < min_samples_per_group or len(b_paths) < min_samples_per_group:
+        raise ValueError(
+            f"Need at least {min_samples_per_group} sample(s) per group; "
+            f"got A={len(a_paths)}, B={len(b_paths)}"
+        )
+    ref_path = os.path.abspath(os.path.expanduser(reference))
+    output = os.path.abspath(os.path.expanduser(output))
+    tmpdir = output + '.tmp'
+    bed_dir = os.path.join(tmpdir, 'bed')
+    cpv_dir = os.path.join(tmpdir, 'cpv')
+    os.makedirs(bed_dir, exist_ok=True)
+    os.makedirs(cpv_dir, exist_ok=True)
 
-    tmpdir = os.path.join(outdir, "tmp")
-    if not os.path.exists(tmpdir):
-        os.mkdir(tmpdir)
-    pool = multiprocessing.Pool(jobs)
+    # ---- 1. Discover chunk layout from the reference -----------------
+    ref_reader = Reader(ref_path)
+    if 'pos' not in ref_reader.header['columns']:
+        ref_reader.close()
+        raise ValueError(
+            f"reference {ref_path} must have a 'pos' column "
+            f"(got {ref_reader.header['columns']})"
+        )
+    chunk_keys = list(ref_reader.chunk_key2offset)
+    if chroms is not None:
+        wanted = set(chroms)
+        chunk_keys = [k for k in chunk_keys if k[0] in wanted]
+    if not chunk_keys:
+        ref_reader.close()
+        raise ValueError("No matching chunks found in reference for "
+                         f"chroms={chroms}")
+    logger.info(
+        f"call_dmr_array[{test}]: A={len(a_paths)} samples, "
+        f"B={len(b_paths)} samples ({group_names[0]} vs {group_names[1]}), "
+        f"{len(chunk_keys)} chunks"
+    )
+
+    # ---- 2. Per-probe test, write BED4 (chrom, start, end, p) --------
+    test_func = _welch_t_two_sample if test == 't' else _mannwhitney_two_sample
+    pp_chrom, pp_pos, pp_p, pp_delta = [], [], [], []
+    for dim in chunk_keys:
+        chrom = dim[0]
+        ref_arr = ref_reader.chunk2numpy(dim)
+        if ref_arr.shape[0] == 0:
+            continue
+        n_probes = int(ref_arr.shape[0])
+        pos = ref_arr['pos'].astype(np.int64)
+        A = _load_array_chunk(a_paths, dim, beta_col, n_probes)
+        B = _load_array_chunk(b_paths, dim, beta_col, n_probes)
+        p, a_n, b_n, delta = test_func(A, B)
+        keep = (a_n >= min_samples_per_group) & (b_n >= min_samples_per_group) \
+             & np.isfinite(p) & np.isfinite(delta)
+        if not keep.any():
+            ref_reader.release_chunk(dim)
+            continue
+        pos_k = pos[keep]
+        p_k = p[keep]
+        d_k = delta[keep]
+        # Write chrom-level BED4 for cpv (chrom\tstart\tend\tp)
+        bed_path = os.path.join(bed_dir, f"{chrom}.bed")
+        df = pd.DataFrame({
+            'chrom': chrom,
+            'start': pos_k - 1,  # 0-based half-open
+            'end': pos_k,
+            'p': p_k,
+        })
+        df.to_csv(bed_path, sep='\t', index=False, header=False)
+        pp_chrom.append(np.full(pos_k.size, chrom, dtype=object))
+        pp_pos.append(pos_k); pp_p.append(p_k); pp_delta.append(d_k)
+        ref_reader.release_chunk(dim)
+    ref_reader.close()
+    _close_cached_readers()
+
+    if not pp_chrom:
+        logger.warning("call_dmr_array: no probes passed min-samples filter; "
+                       "writing empty output.")
+        pd.DataFrame(columns=['chrom', 'start', 'end', 'n_probes',
+                              'sidak_p', 'mean_delta_beta',
+                              'direction']).to_csv(output, sep='\t',
+                                                   index=False)
+        if not keep_temp:
+            os.system(f"rm -rf {tmpdir}")
+        return output
+
+    pp = pd.DataFrame({
+        'chrom': np.concatenate(pp_chrom),
+        'pos':   np.concatenate(pp_pos),
+        'p':     np.concatenate(pp_p),
+        'delta_beta': np.concatenate(pp_delta),
+    })
+    if probe_pvalues_output is not None:
+        pp_out = os.path.abspath(os.path.expanduser(probe_pvalues_output))
+        pp.to_csv(pp_out, sep='\t', index=False)
+        logger.info(f"  per-probe table \u2192 {pp_out}")
+
+    # ---- 3. Run comb-p per chrom -------------------------------------
+    if acf_dist is None:
+        acf_dist = max(10, int(round(max_dist / 3, -1)))
+    chroms_done = sorted({d[0] for d in chunk_keys})
+    pool = multiprocessing.Pool(max(1, int(jobs)))
     tasks = []
-    logger.info("Running cpv..")
-    acf_dist = int(round(dist / 3, -1))
-    for chrom in chroms:
-        for sname in snames:
-            bed_file = os.path.join(bed_dir, f"{sname}.{chrom}.bed")
-            prefix = os.path.join(tmpdir, f"{sname}.{chrom}")
-            output = os.path.join(tmpdir, f"{sname}.{chrom}.regions-p.bed.gz")
-            if os.path.exists(output):
-                continue
-            task = pool.apply_async(cpv_pipeline,
-                                   (4, None, dist, acf_dist, prefix,
-                                    0.05, 0.05, "refGene", [bed_file], True, 1, None, False,
-                                    None, True))
-            tasks.append(task)
-    for task in tasks:
-        task.get()
-    pool.close()
-    pool.join()
+    for chrom in chroms_done:
+        bed_file = os.path.join(bed_dir, f"{chrom}.bed")
+        if not os.path.exists(bed_file):
+            continue
+        prefix = os.path.join(cpv_dir, chrom)
+        out_bed = prefix + ".regions-p.bed.gz"
+        if os.path.exists(out_bed):
+            continue
+        tasks.append(pool.apply_async(
+            cpv_pipeline,
+            (4, None, int(max_dist), int(acf_dist), prefix,
+             0.05, 0.05, "refGene", [bed_file], True, 1, None, False,
+             None, True)
+        ))
+    for t in tasks:
+        t.get()
+    pool.close(); pool.join()
 
-    logger.info("Merging cpv results..")
-    for sname in snames:
-        output = os.path.join(outdir, f"{sname}.bed")
-        for chrom in chroms:
-            infile = os.path.join(tmpdir, f"{sname}.{chrom}.regions-p.bed.gz")
-            if not os.path.exists(infile):
-                continue
-            df = pd.read_csv(infile, sep='\t')
-            df = df.loc[df.z_sidak_p <= 0.05]
-            if df.shape[0] == 0:
-                continue
-            if not os.path.exists(output):
-                df.to_csv(output, sep='\t', index=False, header=True)
+    # ---- 4. Aggregate region table, attach \u0394\u03b2 / direction --
+    region_rows = []
+    for chrom in chroms_done:
+        rp = os.path.join(cpv_dir, f"{chrom}.regions-p.bed.gz")
+        if not os.path.exists(rp):
+            continue
+        try:
+            df = pd.read_csv(rp, sep='\t')
+        except (pd.errors.EmptyDataError, FileNotFoundError):
+            continue
+        if df.shape[0] == 0:
+            continue
+        # comb-p output columns (typical): chrom start end min_p n_probes z_p z_sidak_p
+        df = df.loc[df['z_sidak_p'] <= float(sidak_p_cutoff)].copy()
+        if df.shape[0] == 0:
+            continue
+        # Attach mean \u0394\u03b2 by averaging probe-level \u0394\u03b2 in [start,end]
+        sub = pp.loc[pp['chrom'] == chrom, ['pos', 'delta_beta']]
+        sub_pos = sub['pos'].to_numpy()
+        sub_d = sub['delta_beta'].to_numpy()
+        starts = df['start'].to_numpy()
+        ends = df['end'].to_numpy()
+        order = np.argsort(sub_pos)
+        sp = sub_pos[order]; sd = sub_d[order]
+        l = np.searchsorted(sp, starts + 1, side='left')
+        r = np.searchsorted(sp, ends, side='right')
+        means = np.array([sd[l[i]:r[i]].mean() if r[i] > l[i] else np.nan
+                          for i in range(len(starts))], dtype=np.float64)
+        df['mean_delta_beta'] = means
+        df['direction'] = np.where(df['mean_delta_beta'] < 0, 'hypo', 'hyper')
+        df['sidak_p'] = df['z_sidak_p']
+        cols_keep = ['chrom', 'start', 'end', 'n_probes',
+                     'sidak_p', 'mean_delta_beta', 'direction']
+        # cpv may name n_probes differently; normalise:
+        if 'n_probes' not in df.columns:
+            for cand in ('n_sig', 'n_sig_probes', 'n'):
+                if cand in df.columns:
+                    df['n_probes'] = df[cand]; break
             else:
-                df.to_csv(output, sep='\t', index=False, header=False, mode='a')
-    merged_dmr_path = os.path.join(outdir, 'merged_dmr.txt')
-    data = None
-    for sname in snames:
-        infile = os.path.join(outdir, f"{sname}.bed")
-        df = pd.read_csv(infile, sep='\t')
-        df.drop(['min_p', 'z_p', 'z_sidak_p'], inplace=True, axis=1)
-        df['sname'] = sname
-        if data is None:
-            data = df.copy()
-        else:
-            data = pd.concat([data, df], ignore_index=True)
-    data.to_csv(merged_dmr_path, sep='\t', index=False)
-    if not bed:
-        os.system(f"rm -rf {bed_dir}")
-    if not temp:
+                df['n_probes'] = -1
+        region_rows.append(df[cols_keep])
+
+    if region_rows:
+        regions = pd.concat(region_rows, ignore_index=True)
+        if delta_beta_cutoff is not None and delta_beta_cutoff > 0:
+            regions = regions.loc[
+                regions['mean_delta_beta'].abs() >= float(delta_beta_cutoff)
+            ]
+    else:
+        regions = pd.DataFrame(columns=['chrom', 'start', 'end',
+                                        'n_probes', 'sidak_p',
+                                        'mean_delta_beta', 'direction'])
+
+    regions.to_csv(output, sep='\t', index=False)
+    logger.info(
+        f"call_dmr_array: {pp.shape[0]:,} probes \u2192 "
+        f"{regions.shape[0]:,} DMRs (sidak_p\u2264{sidak_p_cutoff}, "
+        f"|\u0394\u03b2|\u2265{delta_beta_cutoff}) written to {output}"
+    )
+    if not keep_temp:
         os.system(f"rm -rf {tmpdir}")
+    return output
 
 
 def annot_dmr(input="merged_dmr.txt", matrix="merged_dmr.cell_class.beta.txt",
@@ -2273,11 +2833,14 @@ def annot_dmr(input="merged_dmr.txt", matrix="merged_dmr.cell_class.beta.txt",
     Parameters
     ----------
     input : path
-        Merged dmr from cytozip combp.
+        Merged DMR file (e.g. produced by ``call_dmr`` / ``call_dmr_array``).
     matrix : path
         result of agg_beta using dmr and output of merge_cz (fraction) as input.
     output : path
         annotated dmr, containing hypomethylated sname, delta
+    delta_cutoff : float, optional
+        If given, only keep rows whose ``delta_beta`` (= max-min
+        beta across cell classes) is at least this value.
     Returns
     -------
 

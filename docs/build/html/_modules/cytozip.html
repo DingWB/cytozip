@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip &mdash; cytozip 0.3.0.dev21 documentation</title>
+  <title>cytozip &mdash; cytozip 0.3.0.dev23 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
@@ -14,7 +14,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=ca60a7fa"></script>
+      <script src="../_static/documentation_options.js?v=59e0a989"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/js/rtd_search_config.js"></script>
@@ -58,6 +58,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/2.dnam.html">DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../notebooks/2.dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/2.dnam.html#2.-Build-CG-/-CH-context-index-from-the-reference">2. Build CG / CH context index from the reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../notebooks/2.dnam.html#3.-BAM-→-.cz">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../notebooks/2.dnam.html#BAM-→-.cz-benchmark-vs-ALLCools">BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> benchmark vs ALLCools</a></li>
 </ul>
@@ -81,7 +82,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../notebooks/3.python_api.html#chunk2numpy(dims)-—-decode-a-whole-chunk"><code class="docutils literal notranslate"><span class="pre">chunk2numpy(dims)</span></code> — decode a whole chunk</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/3.python_api.html#chunk2df(dims,-reformat=False)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims,</span> <span class="pre">reformat=False)</span></code> — decode as a DataFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/3.python_api.html#chunk2df(dims)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims)</span></code> — decode as a DataFrame</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
@@ -96,7 +97,10 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/4.call_dmr.html">Calling DMRs with cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../notebooks/4.call_dmr.html#Pseudobulk-vs-single-cell-input">Pseudobulk vs single-cell input</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/4.call_dmr.html#1.-CG-DMR-—-call_dmr">1. CG DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/4.call_dmr.html#1.-DMR-—-call_dmr">1. DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/4.call_dmr.html#Call-CG-DMR">Call CG DMR</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="../notebooks/4.call_dmr.html#2.-CH-DMR-—-call_dmr_ch">2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../notebooks/4.call_dmr.html#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../notebooks/4.call_dmr.html#Stratified-one-vs-rest-(within-each-class)">Stratified one-vs-rest (within each class)</a></li>
@@ -111,31 +115,29 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../notebooks/remote_reading.html">Remote Reading with cytozip</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/remote_reading.html#1.-Installation">1. Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../notebooks/remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../notebooks/5.remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/5.remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/5.remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/5.remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/5.remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/5.remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/5.remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/5.remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/5.remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../notebooks/dev.html">Advanced Features</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/dev.html#Generate-2D-subset-index-for-a-genomic-region">Generate 2D subset index for a genomic region</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/dev.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/dev.html#Call-DMR-pipeline">Call DMR pipeline</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../notebooks/dev.html#(1).Merge-cell-types">(1).Merge cell types</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../notebooks/dev.html#(2).merge-multiple-.cz-files-into-matrix-(fraction,-2D-or-fisher-exact-test)">(2).merge multiple .cz files into matrix (fraction, 2D or fisher exact test)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../notebooks/dev.html#(3).Call-DMR-using-comb-p">(3).Call DMR using comb-p</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../notebooks/6.advance.html">Advanced Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/6.advance.html#Build-a-region-based-subset-index-(BED-→-.cz-index)">Build a region-based subset index (BED → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> index)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/6.advance.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/6.advance.html#DMR-calling">DMR calling</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/6.advance.html#Calling-DMRs-on-methylation-array-.cz">Calling DMRs on methylation-array <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../notebooks/dev.html#id1">Advanced Features</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../notebooks/6.advance.html#id1">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/6.advance.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/6.advance.html#Remote-Reading">Remote Reading</a></li>
 </ul>
 </li>
 </ul>
@@ -185,7 +187,6 @@
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../cytozip.array.html">cytozip.array module</a><ul>
@@ -207,9 +208,6 @@
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.build_context_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_context_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.build_region_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.build_region_index_worker"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index_worker()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.chunk2numpy"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2numpy()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
@@ -264,7 +262,6 @@
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
@@ -302,10 +299,10 @@
 <li class="toctree-l4"><a class="reference internal" href="../cytozip.dmr.html">cytozip.dmr module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.call_dmr"><code class="docutils literal notranslate"><span class="pre">call_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.combp"><code class="docutils literal notranslate"><span class="pre">combp()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
@@ -323,6 +320,11 @@
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.features.html#cytozip.features.make_genome_bins"><code class="docutils literal notranslate"><span class="pre">make_genome_bins()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.features.html#cytozip.features.parse_features"><code class="docutils literal notranslate"><span class="pre">parse_features()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.features.html#cytozip.features.parse_gtf"><code class="docutils literal notranslate"><span class="pre">parse_gtf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.index.html">cytozip.index module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.index.html#cytozip.index.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.index.html#cytozip.index.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../cytozip.merge.html">cytozip.merge module</a><ul>
@@ -383,7 +385,9 @@
 <span class="sd">  - allc2cz:  Convert tabix-indexed allc.tsv.gz to .cz format.</span>
 <span class="sd">  - merge_cz: Merge multiple per-cell .cz files.</span>
 <span class="sd">  - extract / extractCG / aggregate:  Subset and aggregate .cz data.</span>
-<span class="sd">  - combp / annot_dmr:  Differential methylation analysis.</span>
+<span class="sd">  - call_dmr / call_dmr_ch:  BS-seq / single-cell DMR calling.</span>
+<span class="sd">  - call_dmr_array:  methylation-array (450K/EPIC) DMR calling via comb-p.</span>
+<span class="sd">  - annot_dmr:  Annotate DMR tables with hypo/hyper sample assignments.</span>
 
 <span class="sd">CLI entry point: ``czip &lt;command&gt; [options]``</span>
 <span class="sd">&quot;&quot;&quot;</span>
@@ -396,9 +400,11 @@
 <span class="n">_LAZY_EXPORTS</span> <span class="o">=</span> <span class="p">{</span>
     <span class="c1"># cz.py — generic .cz format layer</span>
     <span class="s1">&#39;Reader&#39;</span><span class="p">:</span> <span class="s1">&#39;cz&#39;</span><span class="p">,</span> <span class="s1">&#39;Writer&#39;</span><span class="p">:</span> <span class="s1">&#39;cz&#39;</span><span class="p">,</span> <span class="s1">&#39;RemoteFile&#39;</span><span class="p">:</span> <span class="s1">&#39;cz&#39;</span><span class="p">,</span> <span class="s1">&#39;extract&#39;</span><span class="p">:</span> <span class="s1">&#39;cz&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;index_regions&#39;</span><span class="p">:</span> <span class="s1">&#39;cz&#39;</span><span class="p">,</span> <span class="s1">&#39;aggregate&#39;</span><span class="p">:</span> <span class="s1">&#39;cz&#39;</span><span class="p">,</span> <span class="s1">&#39;open&#39;</span><span class="p">:</span> <span class="s1">&#39;cz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;aggregate&#39;</span><span class="p">:</span> <span class="s1">&#39;cz&#39;</span><span class="p">,</span> <span class="s1">&#39;open&#39;</span><span class="p">:</span> <span class="s1">&#39;cz&#39;</span><span class="p">,</span>
+    <span class="c1"># index.py — context / region coordinate index builders</span>
+    <span class="s1">&#39;index_context&#39;</span><span class="p">:</span> <span class="s1">&#39;index&#39;</span><span class="p">,</span> <span class="s1">&#39;index_regions&#39;</span><span class="p">:</span> <span class="s1">&#39;index&#39;</span><span class="p">,</span>
     <span class="c1"># allc.py — methylation allc-file I/O</span>
-    <span class="s1">&#39;AllC&#39;</span><span class="p">:</span> <span class="s1">&#39;allc&#39;</span><span class="p">,</span> <span class="s1">&#39;allc2cz&#39;</span><span class="p">:</span> <span class="s1">&#39;allc&#39;</span><span class="p">,</span> <span class="s1">&#39;index_context&#39;</span><span class="p">:</span> <span class="s1">&#39;allc&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;AllC&#39;</span><span class="p">:</span> <span class="s1">&#39;allc&#39;</span><span class="p">,</span> <span class="s1">&#39;allc2cz&#39;</span><span class="p">:</span> <span class="s1">&#39;allc&#39;</span><span class="p">,</span>
     <span class="s1">&#39;extractCG&#39;</span><span class="p">:</span> <span class="s1">&#39;allc&#39;</span><span class="p">,</span>
     <span class="c1"># bam.py — BAM → .cz</span>
     <span class="s1">&#39;bam_to_cz&#39;</span><span class="p">:</span> <span class="s1">&#39;bam&#39;</span><span class="p">,</span>
@@ -411,7 +417,7 @@
     <span class="s1">&#39;pivot_fraction&#39;</span><span class="p">:</span> <span class="s1">&#39;pivot&#39;</span><span class="p">,</span> <span class="s1">&#39;pivot_fisher&#39;</span><span class="p">:</span> <span class="s1">&#39;pivot&#39;</span><span class="p">,</span>
     <span class="c1"># dmr.py — peak calling / DMR analysis</span>
     <span class="s1">&#39;call_peaks&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span> <span class="s1">&#39;to_bedgraph&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;combp&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span> <span class="s1">&#39;annot_dmr&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span> <span class="s1">&#39;call_dmr&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;call_dmr_array&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span> <span class="s1">&#39;annot_dmr&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span> <span class="s1">&#39;call_dmr&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span>
     <span class="s1">&#39;call_dmr_ch&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span>
     <span class="s1">&#39;call_dmr_one_vs_rest&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span>
     <span class="s1">&#39;merge_dmr_results&#39;</span><span class="p">:</span> <span class="s1">&#39;dmr&#39;</span><span class="p">,</span>
@@ -616,8 +622,7 @@
 
     <span class="c1"># ---- index ---------------------------------------------------------------</span>
     <span class="c1"># Nested subcommand: `czip index &lt;kind&gt; ...` — produces a subset</span>
-    <span class="c1"># coordinate index (.cz file) over a reference allc .cz. Replaces the</span>
-    <span class="c1"># old `index_context` / `index_regions` names.</span>
+    <span class="c1"># coordinate index (.cz file) over a reference allc .cz.</span>
     <span class="n">p</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s1">&#39;index&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Build a coordinate index (context / regions / probes)&#39;</span><span class="p">,</span>
                        <span class="n">formatter_class</span><span class="o">=</span><span class="n">_fmt</span><span class="p">)</span>
     <span class="n">idx_sub</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">(</span><span class="n">dest</span><span class="o">=</span><span class="s1">&#39;index_kind&#39;</span><span class="p">,</span>
@@ -630,7 +635,15 @@
     <span class="n">sp</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-I&#39;</span><span class="p">,</span> <span class="s1">&#39;--input&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;input reference .cz file&#39;</span><span class="p">)</span>
     <span class="n">sp</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-O&#39;</span><span class="p">,</span> <span class="s1">&#39;--output&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;output index .cz file&#39;</span><span class="p">)</span>
     <span class="n">sp</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-p&#39;</span><span class="p">,</span> <span class="s1">&#39;--pattern&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;CGN&#39;</span><span class="p">,</span>
-                    <span class="n">help</span><span class="o">=</span><span class="s1">&#39;context pattern: CGN / CHN / +CGN (strand-specific)&#39;</span><span class="p">)</span>
+                    <span class="n">help</span><span class="o">=</span><span class="s1">&#39;IUPAC context pattern, optional +/- strand prefix &#39;</span>
+                         <span class="s1">&#39;(e.g. CGN, CHN, +CGN, CAC, CAG, CHG, CWG)&#39;</span><span class="p">)</span>
+    <span class="n">sp</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-j&#39;</span><span class="p">,</span> <span class="s1">&#39;--jobs&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+                    <span class="n">help</span><span class="o">=</span><span class="s1">&#39;number of parallel processes (one shard per chunk key)&#39;</span><span class="p">)</span>
+    <span class="n">sp</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-k&#39;</span><span class="p">,</span> <span class="s1">&#39;--chunk-keys&#39;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;chunk_keys&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">help</span><span class="o">=</span><span class="s1">&#39;restrict to chunk keys (typically chromosomes): &#39;</span>
+                         <span class="s1">&#39;comma-separated list (chr1,chr2,...) or path to a &#39;</span>
+                         <span class="s1">&#39;chrom-sizes-like file (uses the first &#39;</span>
+                         <span class="s1">&#39;whitespace-separated column)&#39;</span><span class="p">)</span>
 
     <span class="c1"># --- index regions (BED-based region subset) ------------------------------</span>
     <span class="n">sp</span> <span class="o">=</span> <span class="n">idx_sub</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s1">&#39;regions&#39;</span><span class="p">,</span>
@@ -640,6 +653,11 @@
     <span class="n">sp</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-O&#39;</span><span class="p">,</span> <span class="s1">&#39;--output&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;output index .cz file&#39;</span><span class="p">)</span>
     <span class="n">sp</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-b&#39;</span><span class="p">,</span> <span class="s1">&#39;--bed&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;BED file with regions&#39;</span><span class="p">)</span>
     <span class="n">sp</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-j&#39;</span><span class="p">,</span> <span class="s1">&#39;--jobs&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;number of parallel processes (CPUs)&#39;</span><span class="p">)</span>
+    <span class="n">sp</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-k&#39;</span><span class="p">,</span> <span class="s1">&#39;--chunk-keys&#39;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;chunk_keys&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">help</span><span class="o">=</span><span class="s1">&#39;restrict to chunk keys (typically chromosomes): &#39;</span>
+                         <span class="s1">&#39;comma-separated list (chr1,chr2,...) or path to a &#39;</span>
+                         <span class="s1">&#39;chrom-sizes-like file (uses the first &#39;</span>
+                         <span class="s1">&#39;whitespace-separated column)&#39;</span><span class="p">)</span>
 
     <span class="c1"># --- index probes (methylation array probe manifest) ----------------------</span>
     <span class="c1"># Planned: maps illumina EPIC / 450K probe IDs to ref primary_id + pos.</span>
@@ -751,14 +769,42 @@
     <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-c&#39;</span><span class="p">,</span> <span class="s1">&#39;--batch_size&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;rows per chunk&#39;</span><span class="p">)</span>
     <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-F&#39;</span><span class="p">,</span> <span class="s1">&#39;--formats&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">_csv_str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="s1">&#39;H&#39;</span><span class="p">],</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;output formats&#39;</span><span class="p">)</span>
 
-    <span class="c1"># ---- combp ---------------------------------------------------------------</span>
-    <span class="n">p</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s1">&#39;combp&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Run comb-p on Fisher results&#39;</span><span class="p">,</span> <span class="n">formatter_class</span><span class="o">=</span><span class="n">_fmt</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-I&#39;</span><span class="p">,</span> <span class="s1">&#39;--input&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;input Fisher result&#39;</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-O&#39;</span><span class="p">,</span> <span class="s1">&#39;--outdir&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;cpv&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;output directory&#39;</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-j&#39;</span><span class="p">,</span> <span class="s1">&#39;--jobs&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;number of parallel processes (CPUs)&#39;</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--dist&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;max distance between sites&#39;</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--temp&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;keep temp directory&#39;</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--bed&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;keep bed directory&#39;</span><span class="p">)</span>
+    <span class="c1"># ---- call_dmr_array ------------------------------------------------------</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s1">&#39;call_dmr_array&#39;</span><span class="p">,</span>
+                       <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Call DMRs on methylation array .cz files (450K / &#39;</span>
+                            <span class="s1">&#39;EPIC / MSA) via per-probe Welch t (or MW) on &#39;</span>
+                            <span class="s1">&#39;</span><span class="se">\u03b2</span><span class="s1"> + comb-p spatial merge&#39;</span><span class="p">,</span>
+                       <span class="n">formatter_class</span><span class="o">=</span><span class="n">_fmt</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-a&#39;</span><span class="p">,</span> <span class="s1">&#39;--group_a&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;comma-separated array .cz paths or a text file listing them&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-b&#39;</span><span class="p">,</span> <span class="s1">&#39;--group_b&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;comma-separated array .cz paths or a text file listing them&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-r&#39;</span><span class="p">,</span> <span class="s1">&#39;--reference&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;reference .cz with probe coordinates (must have a &quot;pos&quot; column)&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-O&#39;</span><span class="p">,</span> <span class="s1">&#39;--output&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;output DMR TSV path&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--beta_col&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;beta&#39;</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\u03b2</span><span class="s1">-value column name in each per-sample .cz&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--test&#39;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="s1">&#39;mw&#39;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;t&#39;</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;per-probe test (t = Welch t on M-values, &#39;</span>
+                        <span class="s1">&#39;mw = Mann-Whitney U on </span><span class="se">\u03b2</span><span class="s1">)&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--group_names&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">_csv_str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">],</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;comma-separated group labels (header / log only)&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--sidak_p_cutoff&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--delta_beta_cutoff&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--min_samples_per_group&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--max_dist&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;comb-p region max gap (bp); array probes are sparse, &#39;</span>
+                        <span class="s1">&#39;default 1000&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--acf_dist&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;ACF distance (default: round(max_dist/3, -1))&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--keep_temp&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;keep &lt;output&gt;.tmp/ with per-chrom BED + cpv outputs&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--chroms&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">_csv_str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;restrict to these chromosomes (comma-separated)&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--probe_pvalues_output&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;also dump the per-probe (chrom, pos, p, delta_beta) TSV here&#39;</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-j&#39;</span><span class="p">,</span> <span class="s1">&#39;--jobs&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                   <span class="n">help</span><span class="o">=</span><span class="s1">&#39;parallel processes used for the per-chrom comb-p step&#39;</span><span class="p">)</span>
 
     <span class="c1"># ---- annot_dmr -----------------------------------------------------------</span>
     <span class="n">p</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s1">&#39;annot_dmr&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Annotate DMRs&#39;</span><span class="p">,</span> <span class="n">formatter_class</span><span class="o">=</span><span class="n">_fmt</span><span class="p">)</span>
@@ -833,7 +879,7 @@
                    <span class="n">help</span><span class="o">=</span><span class="s1">&#39;context index .cz (e.g., CAN-only) to restrict sites&#39;</span><span class="p">)</span>
     <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--dms_output&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                    <span class="n">help</span><span class="o">=</span><span class="s1">&#39;also write the per-bin DMS TSV here&#39;</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--bin_size&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--bin_size&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
                    <span class="n">help</span><span class="o">=</span><span class="s1">&#39;bin width (bp) for pooling per-cell mc/cov counts&#39;</span><span class="p">)</span>
     <span class="n">p</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--context&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;CHN&#39;</span><span class="p">,</span>
                    <span class="n">help</span><span class="o">=</span><span class="s1">&#39;label used in log messages (CHN/CAN/CTN/...)&#39;</span><span class="p">)</span>
@@ -1122,19 +1168,21 @@
             <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s1">&#39;index&#39;</span><span class="p">,</span> <span class="s1">&#39;--help&#39;</span><span class="p">])</span>
             <span class="k">return</span>
         <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s1">&#39;context&#39;</span><span class="p">:</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">.allc</span><span class="w"> </span><span class="kn">import</span> <span class="n">index_context</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">.index</span><span class="w"> </span><span class="kn">import</span> <span class="n">index_context</span>
             <span class="n">index_context</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">output</span><span class="p">,</span>
-                          <span class="n">pattern</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">pattern</span><span class="p">)</span>
+                          <span class="n">pattern</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">pattern</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">jobs</span><span class="p">,</span>
+                          <span class="n">chunk_keys</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">chunk_keys</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s1">&#39;regions&#39;</span><span class="p">:</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">.cz</span><span class="w"> </span><span class="kn">import</span> <span class="n">index_regions</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">.index</span><span class="w"> </span><span class="kn">import</span> <span class="n">index_regions</span>
             <span class="n">index_regions</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">output</span><span class="p">,</span>
-                          <span class="n">bed</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">bed</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">jobs</span><span class="p">)</span>
+                          <span class="n">bed</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">bed</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">jobs</span><span class="p">,</span>
+                          <span class="n">chunk_keys</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">chunk_keys</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s1">&#39;probes&#39;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
                 <span class="s2">&quot;`czip index probes` is not implemented yet. &quot;</span>
                 <span class="s2">&quot;Planned: build a probe_id </span><span class="se">\u2192</span><span class="s2"> (chrom, primary_id, pos) index &quot;</span>
-                <span class="s2">&quot;from an illumina EPIC / 450K manifest, using the current &quot;</span>
-                <span class="s2">&quot;`build_region_index` / `build_context_index` infrastructure as the base.&quot;</span>
+                <span class="s2">&quot;from an illumina EPIC / 450K manifest, reusing the same &quot;</span>
+                <span class="s2">&quot;vectorised worker / catcz pattern as `index_context` and `index_regions`.&quot;</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown index kind: </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -1195,11 +1243,22 @@
                   <span class="n">exclude</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">exclude</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
                   <span class="n">formats</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">formats</span><span class="p">)</span>
 
-    <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s1">&#39;combp&#39;</span><span class="p">:</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">.dmr</span><span class="w"> </span><span class="kn">import</span> <span class="n">combp</span>
-        <span class="n">combp</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">outdir</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">outdir</span><span class="p">,</span>
-              <span class="n">jobs</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">jobs</span><span class="p">,</span> <span class="n">dist</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">dist</span><span class="p">,</span>
-              <span class="n">temp</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">temp</span><span class="p">,</span> <span class="n">bed</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">bed</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s1">&#39;call_dmr_array&#39;</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.dmr</span><span class="w"> </span><span class="kn">import</span> <span class="n">call_dmr_array</span>
+        <span class="n">gn</span> <span class="o">=</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">group_names</span><span class="p">)</span> <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">group_names</span> <span class="k">else</span> <span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">))</span>
+        <span class="n">call_dmr_array</span><span class="p">(</span>
+            <span class="n">group_a</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">group_a</span><span class="p">,</span> <span class="n">group_b</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">group_b</span><span class="p">,</span>
+            <span class="n">reference</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">output</span><span class="p">,</span>
+            <span class="n">beta_col</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">beta_col</span><span class="p">,</span> <span class="n">test</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">test</span><span class="p">,</span>
+            <span class="n">group_names</span><span class="o">=</span><span class="n">gn</span><span class="p">,</span>
+            <span class="n">sidak_p_cutoff</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">sidak_p_cutoff</span><span class="p">,</span>
+            <span class="n">delta_beta_cutoff</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">delta_beta_cutoff</span><span class="p">,</span>
+            <span class="n">min_samples_per_group</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">min_samples_per_group</span><span class="p">,</span>
+            <span class="n">max_dist</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">max_dist</span><span class="p">,</span> <span class="n">acf_dist</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">acf_dist</span><span class="p">,</span>
+            <span class="n">keep_temp</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">keep_temp</span><span class="p">,</span> <span class="n">chroms</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">chroms</span><span class="p">,</span>
+            <span class="n">probe_pvalues_output</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">probe_pvalues_output</span><span class="p">,</span>
+            <span class="n">jobs</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">jobs</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s1">&#39;annot_dmr&#39;</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">.dmr</span><span class="w"> </span><span class="kn">import</span> <span class="n">annot_dmr</span>

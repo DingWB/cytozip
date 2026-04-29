@@ -390,6 +390,8 @@ czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O cytozip_example_data/outp
 python tests/benchmark_bam_to_cz.py  -j 1
 python tests/benchmark_query.py
 # nbexe notebooks/2.dnam.ipynb
+# upload to figshare
+figshare upload -i cz/ --title cytozip_example_data -d "cytzip example datasets" --target_folder cz -W 4 --overwrite
 ```
 
 ## upload to conda

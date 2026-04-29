@@ -64,7 +64,7 @@ setup(
     url="https://github.com/DingWB/cytozip",
     packages=find_packages(exclude=('docs',)),
     install_requires=['pandas', 'numpy', 'loguru', 'pysam',
-                      'fast-fisher', 'fsspec', 's3fs', 'gcsfs',
+                      'fast-fisher', 'fsspec',
                       'requests', 'anndata', 'scipy'],
     include_package_data=True,
     package_data={

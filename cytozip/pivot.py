@@ -10,8 +10,8 @@ This module hosts the *non-summing* outputs that previously lived in
   - :func:`pivot_fraction`: write a TSV where each column is one cell's
     per-site methylation fraction (``mc / cov``).
   - :func:`pivot_fisher`: write a TSV with one-vs-rest Fisher exact-test
-    odd-ratio + p-value per cell per site. Output is consumed by
-    :func:`cytozip.dmr.combp` for DMR calling.
+    odd-ratio + p-value per cell per site. Useful as a pre-computed
+    site-level statistics matrix for downstream filtering / browsing.
 
 These operations are *pivots* (N cells × M sites → wide matrix), not
 *merges* (N cells × M sites → 1 aggregate). Splitting them out lets
@@ -75,8 +75,8 @@ def _fisher_worker_fast(df):
       work per row).
 
     Output is a ``pd.DataFrame`` with columns
-    ``[sname.odd_ratio, sname.pval]`` for each cell, exactly matching
-    the legacy contract consumed by :func:`cytozip.dmr.combp`.
+    ``[sname.odd_ratio, sname.pval]`` for each cell, with site-level
+    odd-ratio / p-value pairs ready for downstream filtering.
     """
     import warnings
     warnings.filterwarnings("ignore")
@@ -385,7 +385,7 @@ def pivot_fisher(indir=None, cz_paths=None, output=None, prefix=None,
                  keep_cat=False, blocks_per_batch=None, temp=False,
                  bgzip=True, batch_size=50000, ext='.cz'):
     """Pivot per-cell .cz files into a one-vs-rest Fisher exact-test
-    TSV. Output is consumed by :func:`cytozip.dmr.combp`.
+    TSV.
 
     Output columns: optional ``[chrom, start, pos, ...]`` from
     ``reference``, followed by ``[cell.odd_ratio, cell.pval]`` per

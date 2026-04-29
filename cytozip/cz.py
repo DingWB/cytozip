@@ -482,26 +482,6 @@ def _input_parser(infile, formats, sep='\t', usecols=[1, 4, 5], key_cols=[0],
 
 
 # ==========================================================
-# ---------------------------------------------------------------------------
-# Filter predicates used by build_context_index to build context-based indexes.
-# Each function inspects a raw record tuple and returns True/False.
-# ---------------------------------------------------------------------------
-def _isCG(record):
-	"""Return True if the 3-byte context starts with 'CG' (CpG site)."""
-	return record[2][:2] == b'CG'
-
-
-def _isForwardCG(record):
-	"""Return True if the site is a forward-strand (+) CpG."""
-	return record[2][:2] == b'CG' and record[1] == b'+'
-
-# ==========================================================
-def _isCH(record):
-	"""Return True if the site is NOT CpG (i.e., CH context)."""
-	return not _isCG(record)
-
-
-# ==========================================================
 class RemoteFile:
 	"""File-like object backed by HTTP Range requests with read-ahead caching.
 
@@ -1633,7 +1613,7 @@ class Reader:
 					r.close()
 				except Exception:
 					pass
-	def chunk2df(self, dims, reformat=False):
+	def chunk2df(self, dims, reformat=True):
 		"""Read an entire chunk into a pandas DataFrame.
 
 		Thin wrapper around :meth:`chunk2numpy`: builds the structured
@@ -1644,9 +1624,14 @@ class Reader:
 		----------
 		dims : tuple
 			chunk_key key identifying the chunk (e.g., ``('chr1',)``).
-		reformat : bool
-			If True, decode bytes-type columns (``s``/``c`` formats) into
-			Python strings.
+		reformat : bool, default True
+			If True (default), decode bytes-typed columns (``s`` / ``c``
+			formats — e.g. ``strand`` / ``context``) into NumPy unicode
+			arrays so the returned DataFrame is directly printable and
+			comparable with Python strings. If False, those columns are
+			kept as opaque ``|V{n}`` bytes views (zero-copy, but pandas
+			cannot print or compare them — only useful when piping the
+			DataFrame straight back into another binary path).
 		"""
 		arr = self.chunk2numpy(dims, reformat=False)
 		cols = self.header['columns']
@@ -1795,9 +1780,17 @@ class Reader:
 				raise ValueError("input of chunk_order is not corrected !")
 
 		ref_reader = None
+		id_join = False  # True if `self` is a context-index (single 'ID' column)
 		if not reference is None:
 			reference = _resolve_ref_path(reference)
 			ref_reader = Reader(reference)
+			# Auto-detect a 1-D context index produced by `index_context`:
+			# a single uint32 'ID' column. In that case `self` does NOT
+			# row-align with `ref` -- it stores 1-based row pointers into
+			# `ref`. Switch to gather-by-ID mode.
+			if (self.header['columns'] == ['ID']
+					and self.header['formats'] == ['I']):
+				id_join = True
 		if not show_dims is None:
 			header_columns = [self.header['chunk_dims'][t] for t in show_dims]
 			dim_header = "\t".join(header_columns) + '\t'
@@ -1851,7 +1844,19 @@ class Reader:
 						raise ValueError(
 							f"reference {reference} not matched.")
 					ref_arr = np.frombuffer(ref_raw, dtype=ref_np_dtype)
-					if len(ref_arr) != len(arr):
+					if id_join:
+						# `arr` holds 1-based row pointers into ref_arr;
+						# gather to align with index rows.
+						ids = arr['ID'].astype(np.int64) - 1
+						if ids.size and (ids.min() < 0
+						                 or ids.max() >= ref_arr.size):
+							raise ValueError(
+								f"index ID out of range for chunk {d}: "
+								f"ref has {ref_arr.size} rows, "
+								f"min/max ID = {int(ids.min()) + 1}/"
+								f"{int(ids.max()) + 1}")
+						ref_arr = ref_arr[ids]
+					elif len(ref_arr) != len(arr):
 						raise ValueError(
 							f"reference {reference} not matched.")
 
@@ -2068,99 +2073,6 @@ class Reader:
 		if tabix:
 			pysam.tabix_index(output, force=True, seq_col=0, start_col=1,
 							  end_col=1, zerobased=False)
-
-	@staticmethod
-	def build_region_index_worker(input, output, dim, df1, formats, columns, chunk_dims,
-						   batch_size):
-		logger.debug(dim)
-		reader = Reader(input)
-		positions = df1.loc[:, ['start', 'end']].values.tolist()
-		records = reader.pos2id(dim, positions, col_to_query=0)
-
-		writer = Writer(output, formats=formats,
-						columns=columns, chunk_dims=chunk_dims,
-						message=os.path.basename(input))
-		data_parts, i = [], 0
-		dtfuncs = get_dtfuncs(writer.formats)
-
-		for record, name in zip(records, df1.Name.tolist()):
-			if record is None:
-				continue
-			id_start, id_end = record
-			# print(id_start,id_end,name)
-			data_parts.append(struct.pack(f"<{writer.fmts}",
-							*[func(v) for v, func in zip([id_start, id_end, name],
-														 dtfuncs)]))
-			i += 1
-			if (i % batch_size) == 0:
-				writer.write_chunk(b''.join(data_parts), dim)
-				data_parts = []
-				i = 0
-		if len(data_parts) > 0:
-			writer.write_chunk(b''.join(data_parts), dim)
-		writer.close()
-		reader.close()
-
-	def build_region_index(self, output, formats=['I', 'I'],
-					columns=['ID_start', 'ID_end'],
-					chunk_dims=['chrom'], bed=None,
-					batch_size=2000, jobs=4):
-		n_chunk_dims = len(chunk_dims)
-		df = pd.read_csv(bed, sep='\t', header=None, usecols=list(range(n_chunk_dims + 3)),
-						 names=['chrom', 'start', 'end', 'Name'])
-		max_name_len = df.Name.apply(lambda x: len(x)).max()
-		formats = formats + [f'{max_name_len}s']
-		columns = columns + ['Name']
-		chunk_dims = chunk_dims
-		pool = __import__('multiprocessing').Pool(jobs)
-		tasks = []
-		outdir = output + '.tmp'
-		if not os.path.exists(outdir):
-			os.mkdir(outdir)
-		for chrom, df1 in df.groupby('chrom'):
-			dim = tuple([chrom])
-			if dim not in self.chunk_key2offset:
-				continue
-			output = os.path.join(outdir, chrom + '.cz')
-			task = pool.apply_async(self.build_region_index_worker,
-								   (self.input, output, dim, df1, formats, columns,
-									chunk_dims, batch_size))
-			tasks.append(task)
-		for task in tasks:
-			task.get()
-		pool.close()
-		pool.join()
-		# merge
-		writer = Writer(output=output, formats=formats,
-						columns=columns, chunk_dims=chunk_dims,
-						message=os.path.basename(bed))
-		writer.catcz(input=f"{outdir}/*.cz", key_added=None)
-		os.system(f"rm -rf {outdir}")
-
-	def build_context_index(self, output=None, formats=['I'], columns=['ID'],
-					 chunk_dims=['chrom'], match_func=_isForwardCG,
-					 batch_size=2000):
-		if output is None:
-			output = self.input + '.' + match_func.__name__ + '.index'
-		else:
-			output = os.path.abspath(os.path.expanduser(output))
-		writer = Writer(output, formats=formats, columns=columns,
-						chunk_dims=chunk_dims, fileobj=None,
-						message=os.path.basename(self.input))
-		data_parts = []
-		_ssi_pack = struct.Struct(f"<{writer.fmts}").pack
-		for dim in self.chunk_key2offset:
-			logger.debug(dim)
-			for i, record in enumerate(self.__fetch__(dim)):
-				if match_func(record):
-					data_parts.append(_ssi_pack(i + 1))
-				if (i % batch_size) == 0 and len(data_parts) > 0:
-					writer.write_chunk(b''.join(data_parts), dim)
-					data_parts = []
-			if len(data_parts) > 0:
-				writer.write_chunk(b''.join(data_parts), dim)
-				data_parts = []
-		writer.close()
 
 	def get_ids_from_index(self, dim):
 		if len(self.header['columns']) == 1:
@@ -2886,6 +2798,15 @@ class Reader:
 			query, so query_col should be [0], but if
 			header['columns']=['start','end','peak'], then start and end are what
 			we would like to query, query_col should be [0,1]
+		reference : str, optional
+			Path to a reference ``.cz`` file. Required for files that
+			store only ID columns (e.g. ``mc_cov`` / index files): the
+			matching record from ``reference`` is joined onto each row
+			by 1-based ID so coordinates and contexts can be returned.
+		printout : bool, default True
+			If True, write each matching record (tab-separated) to
+			stdout as it is fetched. Set to False to suppress printing
+			and only collect matches via the returned generator.
 
 		Returns
 		-------
@@ -3481,38 +3402,6 @@ def extract(input=None, output=None, index=None, batch_size=5000):
 
 
 # ==========================================================
-def index_regions(input, output=None, bed=None,
-				  jobs=4):  # 2D index
-	"""
-	Build a region-based coordinate index from a BED file. For example::
-
-		cytozip index_regions -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz \
-		-o mm10_with_chrL.allc.genes_flank2k.index -b genes_flank2k.bed.gz -n 4
-
-	Parameters
-	----------
-	input :
-	output :
-	bed :
-	jobs :
-		number of parallel processes (CPUs).
-
-	Returns
-	-------
-
-	"""
-	bed = os.path.abspath(os.path.expanduser(bed))
-	input = os.path.abspath(os.path.expanduser(input))
-	if output is None:
-		output = input + '.' + os.path.basename(bed) + '.index'
-	else:
-		output = os.path.abspath(os.path.expanduser(output))
-	reader = Reader(input)
-	reader.build_region_index(output=output, bed=bed, jobs=jobs)
-	reader.close()
-
-
-# ==========================================================
 def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 			  batch_size=5000, formats=['H', 'H']):
 	"""
@@ -3582,8 +3471,8 @@ def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 
 
 # ==========================================================
-# Methylation-specific operations (index_context, merge_cz, merge_cell_type,
-# call_peaks, to_bedgraph, combp, annot_dmr, WriteC, AllC, allc2cz, extractCG)
+# Methylation-specific operations (merge_cz, merge_cell_type,
+# call_peaks, to_bedgraph, call_dmr_array, annot_dmr, WriteC, AllC, allc2cz, extractCG)
 # live in companion modules: allc.py, merge.py, dmr.py. This file is reserved
 # for the generic .cz format layer.
 # ==========================================================
@@ -3639,6 +3528,26 @@ class Writer:
 			  for files without genomic coordinates (e.g. a reference-less
 			  allc storing only ``mc, cov``), where region queries require
 			  a separate reference file anyway.
+		delta_cols : None, int, str, or list, optional
+			Columns stored with in-block difference coding. Encoding strictly-
+			monotonic integer columns (typically ``pos`` in an allc file, or
+			``ID`` / ``ID_start`` / ``ID_end`` in a coordinate index) as
+			deltas lets DEFLATE compress the small residuals far more tightly
+			than absolute integers. Each entry can be either a column index
+			(int) or a column name (str). The selected columns must use an
+			integer struct format (``B/H/I/Q`` or signed counterparts).
+			Decoding requires one ``np.cumsum`` per delta column per block at
+			read time (~25–30 µs per 65 KB block) and is transparent to
+			callers — :meth:`Reader.chunk2numpy` and ``view`` see the
+			reconstructed absolute values.
+
+			- ``None`` (default): no delta encoding.
+			- ``int`` / ``str`` / list of those: use those columns.
+
+			Files written with non-empty ``delta_cols`` carry the column
+			indices in the header and are still concatenable with
+			:meth:`Writer.catcz` provided every input file uses the same
+			``delta_cols`` set.
 		"""
 		if output and fileobj:
 			raise ValueError("Supply either output or fileobj, not both")

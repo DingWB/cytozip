@@ -8,9 +8,10 @@ This module provides:
            genome and store them as a .cz coordinate file.
   - :func:`allc2cz`: Convert allc.tsv.gz (tabix-indexed) to .cz format,
              optionally using a reference .cz for coordinate alignment.
-  - :func:`index_context`: Build a context-based coordinate index
-             (CGN / CHN / +CGN) for a reference .cz by pattern matching.
   - :func:`extractCG`: Extract CG-context records from a full .cz file.
+
+See :func:`cytozip.index.index_context` for building CGN / CHN / +CGN
+coordinate indexes from a reference .cz.
 
 Sibling modules:
   - :mod:`cytozip.cz`:     generic .cz format (Reader / Writer / extract
@@ -18,7 +19,8 @@ Sibling modules:
   - :mod:`cytozip.merge`:  per-cell .cz merging (``merge_cz``,
                            ``merge_cell_type``, Fisher-test mode).
   - :mod:`cytozip.dmr`:    peak calling (``call_peaks``, ``to_bedgraph``)
-                           and DMR analysis (``combp``, ``annot_dmr``).
+                           and DMR analysis (``call_dmr``, ``call_dmr_ch``,
+                           ``call_dmr_array``, ``annot_dmr``).
 
 @author: DingWB
 """
@@ -30,7 +32,6 @@ from .cz import (Reader, Writer, get_dtfuncs,
                  _fmt_to_np_dtype,
                  _all_numeric_formats, _pack_chunk_data,
                  _write_np_chunks, _parse_tabix_lines,
-                 _isCG, _isForwardCG, _isCH,
                  np, pd)
 # Lazily access Cython accelerators via the cz module namespace so that
 # ``import cytozip.allc`` does not force cz_accel to load (~65 ms).
@@ -51,6 +52,11 @@ def WriteC(record, outdir, batch_size=5000, delta_cols=None):
         output directory path
     batch_size : int
         Number of records per chunk (default: 5000)
+    delta_cols : None, int, str, or list, optional
+        Columns to store with in-block delta encoding (typically ``'pos'``
+        for tighter compression of monotonic positions). Forwarded to
+        :class:`cytozip.cz.Writer`. ``None`` (default) disables delta
+        encoding.
     """
     chrom = record.id
     output = os.path.join(outdir, chrom + ".cz")
@@ -236,6 +242,26 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     chrom_order : path
         path to chrom_size path or similar file containing chromosomes order,
         the first columns should be chromosomes, tab separated and no header.
+    missing_value : list, optional
+        Values to fill (mc, cov) at reference positions absent from the
+        input allc. Default ``[0, 0]``. Only used when ``reference`` is
+        provided.
+    sep : str, optional
+        Column separator for the input allc file (default ``'\t'``).
+    sort_col : None / int / str / False, optional
+        Forwarded to :class:`cytozip.cz.Writer`. Selects the column whose
+        per-block first values are recorded for O(log N) coordinate
+        binary search. ``None`` auto-detects (the integer ``pos`` column
+        when present); pass ``False`` to disable.
+    delta_cols : None / int / str / list, optional
+        Forwarded to :class:`cytozip.cz.Writer`. Columns to store with
+        in-block delta encoding (typically ``'pos'`` for tighter
+        compression of monotonic positions). ``None`` (default) disables
+        delta encoding.
+    _ref_pos_dict : dict, optional
+        Internal: pre-decoded ``{chrom: pos_array}`` dict shared from the
+        parent process in batch mode so reference decoding is paid once.
+        Not intended to be set by end users.
 
     Returns
     -------
@@ -579,42 +605,6 @@ def _allc2cz_batch(input_dir, output_dir, reference=None, jobs=1,
     finally:
         # Drop reference from parent so subsequent calls start fresh.
         _BATCH_REF_POS_DICT = None
-
-
-# ==========================================================
-def index_context(input, output=None, pattern="CGN"):
-    """
-    Build a context-based coordinate index (1D) for a given input reference
-    .cz file. The output file lists, per chromosome, the ``primary_id`` of
-    every site whose context matches ``pattern`` (e.g. CGN / CHN / +CGN).
-
-    Parameters
-    ----------
-    input : .cz
-    output : .index
-    pattern : CGN, CHN, +CGN, -CGN
-
-    Returns
-    -------
-
-    """
-    if pattern == 'CGN':
-        judge_func = _isCG
-    elif pattern == 'CHN':  # CH
-        judge_func = _isCH
-    elif pattern == '+CGN':
-        judge_func = _isForwardCG
-    else:
-        raise ValueError("Currently, only CGN, CHN, +CGN supported")
-    if output is None:
-        output = input + '.' + pattern + '.index'
-    else:
-        output = os.path.abspath(os.path.expanduser(output))
-    reader = Reader(input)
-    reader.build_context_index(output=output, formats=['I'], columns=['ID'],
-                        chunk_dims=['chrom'], match_func=judge_func,
-                        batch_size=2000)
-    reader.close()
 
 
 # ==========================================================

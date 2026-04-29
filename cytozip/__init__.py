@@ -7,7 +7,9 @@ Public API:
   - allc2cz:  Convert tabix-indexed allc.tsv.gz to .cz format.
   - merge_cz: Merge multiple per-cell .cz files.
   - extract / extractCG / aggregate:  Subset and aggregate .cz data.
-  - combp / annot_dmr:  Differential methylation analysis.
+  - call_dmr / call_dmr_ch:  BS-seq / single-cell DMR calling.
+  - call_dmr_array:  methylation-array (450K/EPIC) DMR calling via comb-p.
+  - annot_dmr:  Annotate DMR tables with hypo/hyper sample assignments.
 
 CLI entry point: ``czip <command> [options]``
 """
@@ -20,9 +22,11 @@ from ._version import version as __version__
 _LAZY_EXPORTS = {
     # cz.py — generic .cz format layer
     'Reader': 'cz', 'Writer': 'cz', 'RemoteFile': 'cz', 'extract': 'cz',
-    'index_regions': 'cz', 'aggregate': 'cz', 'open': 'cz',
+    'aggregate': 'cz', 'open': 'cz',
+    # index.py — context / region coordinate index builders
+    'index_context': 'index', 'index_regions': 'index',
     # allc.py — methylation allc-file I/O
-    'AllC': 'allc', 'allc2cz': 'allc', 'index_context': 'allc',
+    'AllC': 'allc', 'allc2cz': 'allc',
     'extractCG': 'allc',
     # bam.py — BAM → .cz
     'bam_to_cz': 'bam',
@@ -35,7 +39,7 @@ _LAZY_EXPORTS = {
     'pivot_fraction': 'pivot', 'pivot_fisher': 'pivot',
     # dmr.py — peak calling / DMR analysis
     'call_peaks': 'dmr', 'to_bedgraph': 'dmr',
-    'combp': 'dmr', 'annot_dmr': 'dmr', 'call_dmr': 'dmr',
+    'call_dmr_array': 'dmr', 'annot_dmr': 'dmr', 'call_dmr': 'dmr',
     'call_dmr_ch': 'dmr',
     'call_dmr_one_vs_rest': 'dmr',
     'merge_dmr_results': 'dmr',
@@ -240,8 +244,7 @@ def _build_parser():
 
     # ---- index ---------------------------------------------------------------
     # Nested subcommand: `czip index <kind> ...` — produces a subset
-    # coordinate index (.cz file) over a reference allc .cz. Replaces the
-    # old `index_context` / `index_regions` names.
+    # coordinate index (.cz file) over a reference allc .cz.
     p = sub.add_parser('index', help='Build a coordinate index (context / regions / probes)',
                        formatter_class=_fmt)
     idx_sub = p.add_subparsers(dest='index_kind',
@@ -254,7 +257,15 @@ def _build_parser():
     sp.add_argument('-I', '--input', required=True, help='input reference .cz file')
     sp.add_argument('-O', '--output', default=None, help='output index .cz file')
     sp.add_argument('-p', '--pattern', default='CGN',
-                    help='context pattern: CGN / CHN / +CGN (strand-specific)')
+                    help='IUPAC context pattern, optional +/- strand prefix '
+                         '(e.g. CGN, CHN, +CGN, CAC, CAG, CHG, CWG)')
+    sp.add_argument('-j', '--jobs', type=int, default=4,
+                    help='number of parallel processes (one shard per chunk key)')
+    sp.add_argument('-k', '--chunk-keys', dest='chunk_keys', default=None,
+                    help='restrict to chunk keys (typically chromosomes): '
+                         'comma-separated list (chr1,chr2,...) or path to a '
+                         'chrom-sizes-like file (uses the first '
+                         'whitespace-separated column)')
 
     # --- index regions (BED-based region subset) ------------------------------
     sp = idx_sub.add_parser('regions',
@@ -264,6 +275,11 @@ def _build_parser():
     sp.add_argument('-O', '--output', default=None, help='output index .cz file')
     sp.add_argument('-b', '--bed', required=True, help='BED file with regions')
     sp.add_argument('-j', '--jobs', type=int, default=4, help='number of parallel processes (CPUs)')
+    sp.add_argument('-k', '--chunk-keys', dest='chunk_keys', default=None,
+                    help='restrict to chunk keys (typically chromosomes): '
+                         'comma-separated list (chr1,chr2,...) or path to a '
+                         'chrom-sizes-like file (uses the first '
+                         'whitespace-separated column)')
 
     # --- index probes (methylation array probe manifest) ----------------------
     # Planned: maps illumina EPIC / 450K probe IDs to ref primary_id + pos.
@@ -375,14 +391,42 @@ def _build_parser():
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'], help='output formats')
 
-    # ---- combp ---------------------------------------------------------------
-    p = sub.add_parser('combp', help='Run comb-p on Fisher results', formatter_class=_fmt)
-    p.add_argument('-I', '--input', required=True, help='input Fisher result')
-    p.add_argument('-O', '--outdir', default='cpv', help='output directory')
-    p.add_argument('-j', '--jobs', type=int, default=24, help='number of parallel processes (CPUs)')
-    p.add_argument('--dist', type=int, default=300, help='max distance between sites')
-    p.add_argument('--temp', action='store_true', help='keep temp directory')
-    p.add_argument('--bed', action='store_true', help='keep bed directory')
+    # ---- call_dmr_array ------------------------------------------------------
+    p = sub.add_parser('call_dmr_array',
+                       help='Call DMRs on methylation array .cz files (450K / '
+                            'EPIC / MSA) via per-probe Welch t (or MW) on '
+                            '\u03b2 + comb-p spatial merge',
+                       formatter_class=_fmt)
+    p.add_argument('-a', '--group_a', required=True,
+                   help='comma-separated array .cz paths or a text file listing them')
+    p.add_argument('-b', '--group_b', required=True,
+                   help='comma-separated array .cz paths or a text file listing them')
+    p.add_argument('-r', '--reference', required=True,
+                   help='reference .cz with probe coordinates (must have a "pos" column)')
+    p.add_argument('-O', '--output', required=True, help='output DMR TSV path')
+    p.add_argument('--beta_col', default='beta',
+                   help='\u03b2-value column name in each per-sample .cz')
+    p.add_argument('--test', choices=['t', 'mw'], default='t',
+                   help='per-probe test (t = Welch t on M-values, '
+                        'mw = Mann-Whitney U on \u03b2)')
+    p.add_argument('--group_names', type=_csv_str, default=['A', 'B'],
+                   help='comma-separated group labels (header / log only)')
+    p.add_argument('--sidak_p_cutoff', type=float, default=0.05)
+    p.add_argument('--delta_beta_cutoff', type=float, default=0.05)
+    p.add_argument('--min_samples_per_group', type=int, default=2)
+    p.add_argument('--max_dist', type=int, default=1000,
+                   help='comb-p region max gap (bp); array probes are sparse, '
+                        'default 1000')
+    p.add_argument('--acf_dist', type=int, default=None,
+                   help='ACF distance (default: round(max_dist/3, -1))')
+    p.add_argument('--keep_temp', action='store_true',
+                   help='keep <output>.tmp/ with per-chrom BED + cpv outputs')
+    p.add_argument('--chroms', type=_csv_str, default=None,
+                   help='restrict to these chromosomes (comma-separated)')
+    p.add_argument('--probe_pvalues_output', default=None,
+                   help='also dump the per-probe (chrom, pos, p, delta_beta) TSV here')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='parallel processes used for the per-chrom comb-p step')
 
     # ---- annot_dmr -----------------------------------------------------------
     p = sub.add_parser('annot_dmr', help='Annotate DMRs', formatter_class=_fmt)
@@ -457,7 +501,7 @@ def _build_parser():
                    help='context index .cz (e.g., CAN-only) to restrict sites')
     p.add_argument('--dms_output', default=None,
                    help='also write the per-bin DMS TSV here')
-    p.add_argument('--bin_size', type=int, default=5000,
+    p.add_argument('--bin_size', type=int, default=500,
                    help='bin width (bp) for pooling per-cell mc/cov counts')
     p.add_argument('--context', default='CHN',
                    help='label used in log messages (CHN/CAN/CTN/...)')
@@ -744,19 +788,21 @@ def main():
             parser.parse_args(['index', '--help'])
             return
         if kind == 'context':
-            from .allc import index_context
+            from .index import index_context
             index_context(input=args.input, output=args.output,
-                          pattern=args.pattern)
+                          pattern=args.pattern, jobs=args.jobs,
+                          chunk_keys=args.chunk_keys)
         elif kind == 'regions':
-            from .cz import index_regions
+            from .index import index_regions
             index_regions(input=args.input, output=args.output,
-                          bed=args.bed, jobs=args.jobs)
+                          bed=args.bed, jobs=args.jobs,
+                          chunk_keys=args.chunk_keys)
         elif kind == 'probes':
             raise NotImplementedError(
                 "`czip index probes` is not implemented yet. "
                 "Planned: build a probe_id \u2192 (chrom, primary_id, pos) index "
-                "from an illumina EPIC / 450K manifest, using the current "
-                "`build_region_index` / `build_context_index` infrastructure as the base."
+                "from an illumina EPIC / 450K manifest, reusing the same "
+                "vectorised worker / catcz pattern as `index_context` and `index_regions`."
             )
         else:
             raise ValueError(f"unknown index kind: {kind!r}")
@@ -817,11 +863,22 @@ def main():
                   exclude=args.exclude, batch_size=args.batch_size,
                   formats=args.formats)
 
-    elif cmd == 'combp':
-        from .dmr import combp
-        combp(input=args.input, outdir=args.outdir,
-              jobs=args.jobs, dist=args.dist,
-              temp=args.temp, bed=args.bed)
+    elif cmd == 'call_dmr_array':
+        from .dmr import call_dmr_array
+        gn = (tuple(args.group_names) if args.group_names else ('A', 'B'))
+        call_dmr_array(
+            group_a=args.group_a, group_b=args.group_b,
+            reference=args.reference, output=args.output,
+            beta_col=args.beta_col, test=args.test,
+            group_names=gn,
+            sidak_p_cutoff=args.sidak_p_cutoff,
+            delta_beta_cutoff=args.delta_beta_cutoff,
+            min_samples_per_group=args.min_samples_per_group,
+            max_dist=args.max_dist, acf_dist=args.acf_dist,
+            keep_temp=args.keep_temp, chroms=args.chroms,
+            probe_pvalues_output=args.probe_pvalues_output,
+            jobs=args.jobs,
+        )
 
     elif cmd == 'annot_dmr':
         from .dmr import annot_dmr

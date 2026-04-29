@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.cz &mdash; cytozip 0.3.0.dev21 documentation</title>
+  <title>cytozip.cz &mdash; cytozip 0.3.0.dev23 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
@@ -14,7 +14,7 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=ca60a7fa"></script>
+      <script src="../../_static/documentation_options.js?v=59e0a989"></script>
       <script src="../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/js/rtd_search_config.js"></script>
@@ -58,6 +58,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/2.dnam.html">DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#2.-Build-CG-/-CH-context-index-from-the-reference">2. Build CG / CH context index from the reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#3.-BAM-→-.cz">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#BAM-→-.cz-benchmark-vs-ALLCools">BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> benchmark vs ALLCools</a></li>
 </ul>
@@ -81,7 +82,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2numpy(dims)-—-decode-a-whole-chunk"><code class="docutils literal notranslate"><span class="pre">chunk2numpy(dims)</span></code> — decode a whole chunk</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2df(dims,-reformat=False)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims,</span> <span class="pre">reformat=False)</span></code> — decode as a DataFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2df(dims)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims)</span></code> — decode as a DataFrame</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
@@ -96,7 +97,10 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/4.call_dmr.html">Calling DMRs with cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Pseudobulk-vs-single-cell-input">Pseudobulk vs single-cell input</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#1.-CG-DMR-—-call_dmr">1. CG DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#1.-DMR-—-call_dmr">1. DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Call-CG-DMR">Call CG DMR</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#2.-CH-DMR-—-call_dmr_ch">2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Stratified-one-vs-rest-(within-each-class)">Stratified one-vs-rest (within each class)</a></li>
@@ -111,31 +115,29 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../notebooks/remote_reading.html">Remote Reading with cytozip</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#1.-Installation">1. Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/5.remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/5.remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../notebooks/dev.html">Advanced Features</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Generate-2D-subset-index-for-a-genomic-region">Generate 2D subset index for a genomic region</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Call-DMR-pipeline">Call DMR pipeline</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(1).Merge-cell-types">(1).Merge cell types</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(2).merge-multiple-.cz-files-into-matrix-(fraction,-2D-or-fisher-exact-test)">(2).merge multiple .cz files into matrix (fraction, 2D or fisher exact test)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(3).Call-DMR-using-comb-p">(3).Call DMR using comb-p</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/6.advance.html">Advanced Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#Build-a-region-based-subset-index-(BED-→-.cz-index)">Build a region-based subset index (BED → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> index)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#DMR-calling">DMR calling</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/6.advance.html#Calling-DMRs-on-methylation-array-.cz">Calling DMRs on methylation-array <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#id1">Advanced Features</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#id1">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/6.advance.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/6.advance.html#Remote-Reading">Remote Reading</a></li>
 </ul>
 </li>
 </ul>
@@ -185,7 +187,6 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.array.html">cytozip.array module</a><ul>
@@ -207,9 +208,6 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_context_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_context_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index_worker"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index_worker()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2numpy"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2numpy()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
@@ -264,7 +262,6 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
@@ -302,10 +299,10 @@
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr.html">cytozip.dmr module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr"><code class="docutils literal notranslate"><span class="pre">call_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.combp"><code class="docutils literal notranslate"><span class="pre">combp()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
@@ -323,6 +320,11 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.make_genome_bins"><code class="docutils literal notranslate"><span class="pre">make_genome_bins()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_features"><code class="docutils literal notranslate"><span class="pre">parse_features()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_gtf"><code class="docutils literal notranslate"><span class="pre">parse_gtf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.index.html">cytozip.index module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.index.html#cytozip.index.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.index.html#cytozip.index.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.merge.html">cytozip.merge module</a><ul>
@@ -874,26 +876,6 @@
 		<span class="k">yield from</span> <span class="n">_gz_input_parser</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">usecols</span><span class="p">,</span> <span class="n">key_cols</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>
 	<span class="k">else</span><span class="p">:</span>
 		<span class="k">yield from</span> <span class="n">_text_input_parser</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">usecols</span><span class="p">,</span> <span class="n">key_cols</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>
-
-
-<span class="c1"># ==========================================================</span>
-<span class="c1"># ---------------------------------------------------------------------------</span>
-<span class="c1"># Filter predicates used by build_context_index to build context-based indexes.</span>
-<span class="c1"># Each function inspects a raw record tuple and returns True/False.</span>
-<span class="c1"># ---------------------------------------------------------------------------</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_isCG</span><span class="p">(</span><span class="n">record</span><span class="p">):</span>
-<span class="w">	</span><span class="sd">&quot;&quot;&quot;Return True if the 3-byte context starts with &#39;CG&#39; (CpG site).&quot;&quot;&quot;</span>
-	<span class="k">return</span> <span class="n">record</span><span class="p">[</span><span class="mi">2</span><span class="p">][:</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s1">&#39;CG&#39;</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_isForwardCG</span><span class="p">(</span><span class="n">record</span><span class="p">):</span>
-<span class="w">	</span><span class="sd">&quot;&quot;&quot;Return True if the site is a forward-strand (+) CpG.&quot;&quot;&quot;</span>
-	<span class="k">return</span> <span class="n">record</span><span class="p">[</span><span class="mi">2</span><span class="p">][:</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s1">&#39;CG&#39;</span> <span class="ow">and</span> <span class="n">record</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s1">&#39;+&#39;</span>
-
-<span class="c1"># ==========================================================</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_isCH</span><span class="p">(</span><span class="n">record</span><span class="p">):</span>
-<span class="w">	</span><span class="sd">&quot;&quot;&quot;Return True if the site is NOT CpG (i.e., CH context).&quot;&quot;&quot;</span>
-	<span class="k">return</span> <span class="ow">not</span> <span class="n">_isCG</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
 
 
 <span class="c1"># ==========================================================</span>
@@ -2077,7 +2059,7 @@
 
 <div class="viewcode-block" id="Reader.chunk2df">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2df">[docs]</a>
-	<span class="k">def</span><span class="w"> </span><span class="nf">chunk2df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">,</span> <span class="n">reformat</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+	<span class="k">def</span><span class="w"> </span><span class="nf">chunk2df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">,</span> <span class="n">reformat</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;Read an entire chunk into a pandas DataFrame.</span>
 
 <span class="sd">		Thin wrapper around :meth:`chunk2numpy`: builds the structured</span>
@@ -2088,9 +2070,14 @@
 <span class="sd">		----------</span>
 <span class="sd">		dims : tuple</span>
 <span class="sd">			chunk_key key identifying the chunk (e.g., ``(&#39;chr1&#39;,)``).</span>
-<span class="sd">		reformat : bool</span>
-<span class="sd">			If True, decode bytes-type columns (``s``/``c`` formats) into</span>
-<span class="sd">			Python strings.</span>
+<span class="sd">		reformat : bool, default True</span>
+<span class="sd">			If True (default), decode bytes-typed columns (``s`` / ``c``</span>
+<span class="sd">			formats — e.g. ``strand`` / ``context``) into NumPy unicode</span>
+<span class="sd">			arrays so the returned DataFrame is directly printable and</span>
+<span class="sd">			comparable with Python strings. If False, those columns are</span>
+<span class="sd">			kept as opaque ``|V{n}`` bytes views (zero-copy, but pandas</span>
+<span class="sd">			cannot print or compare them — only useful when piping the</span>
+<span class="sd">			DataFrame straight back into another binary path).</span>
 <span class="sd">		&quot;&quot;&quot;</span>
 		<span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">reformat</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 		<span class="n">cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">]</span>
@@ -2242,9 +2229,17 @@
 				<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;input of chunk_order is not corrected !&quot;</span><span class="p">)</span>
 
 		<span class="n">ref_reader</span> <span class="o">=</span> <span class="kc">None</span>
+		<span class="n">id_join</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># True if `self` is a context-index (single &#39;ID&#39; column)</span>
 		<span class="k">if</span> <span class="ow">not</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 			<span class="n">reference</span> <span class="o">=</span> <span class="n">_resolve_ref_path</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
 			<span class="n">ref_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
+			<span class="c1"># Auto-detect a 1-D context index produced by `index_context`:</span>
+			<span class="c1"># a single uint32 &#39;ID&#39; column. In that case `self` does NOT</span>
+			<span class="c1"># row-align with `ref` -- it stores 1-based row pointers into</span>
+			<span class="c1"># `ref`. Switch to gather-by-ID mode.</span>
+			<span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;ID&#39;</span><span class="p">]</span>
+					<span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;I&#39;</span><span class="p">]):</span>
+				<span class="n">id_join</span> <span class="o">=</span> <span class="kc">True</span>
 		<span class="k">if</span> <span class="ow">not</span> <span class="n">show_dims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 			<span class="n">header_columns</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">][</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">show_dims</span><span class="p">]</span>
 			<span class="n">dim_header</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">header_columns</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span>
@@ -2298,7 +2293,19 @@
 						<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
 							<span class="sa">f</span><span class="s2">&quot;reference </span><span class="si">{</span><span class="n">reference</span><span class="si">}</span><span class="s2"> not matched.&quot;</span><span class="p">)</span>
 					<span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_np_dtype</span><span class="p">)</span>
-					<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_arr</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+					<span class="k">if</span> <span class="n">id_join</span><span class="p">:</span>
+						<span class="c1"># `arr` holds 1-based row pointers into ref_arr;</span>
+						<span class="c1"># gather to align with index rows.</span>
+						<span class="n">ids</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="s1">&#39;ID&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+						<span class="k">if</span> <span class="n">ids</span><span class="o">.</span><span class="n">size</span> <span class="ow">and</span> <span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">0</span>
+						                 <span class="ow">or</span> <span class="n">ids</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="n">ref_arr</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+							<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+								<span class="sa">f</span><span class="s2">&quot;index ID out of range for chunk </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="s2">: &quot;</span>
+								<span class="sa">f</span><span class="s2">&quot;ref has </span><span class="si">{</span><span class="n">ref_arr</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> rows, &quot;</span>
+								<span class="sa">f</span><span class="s2">&quot;min/max ID = </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">min</span><span class="p">())</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/&quot;</span>
+								<span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+						<span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+					<span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_arr</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
 						<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
 							<span class="sa">f</span><span class="s2">&quot;reference </span><span class="si">{</span><span class="n">reference</span><span class="si">}</span><span class="s2"> not matched.&quot;</span><span class="p">)</span>
 
@@ -2518,108 +2525,6 @@
 		<span class="k">if</span> <span class="n">tabix</span><span class="p">:</span>
 			<span class="n">pysam</span><span class="o">.</span><span class="n">tabix_index</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seq_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">start_col</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
 							  <span class="n">end_col</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">zerobased</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="Reader.build_region_index_worker">
-<a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index_worker">[docs]</a>
-	<span class="nd">@staticmethod</span>
-	<span class="k">def</span><span class="w"> </span><span class="nf">build_region_index_worker</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">df1</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">chunk_dims</span><span class="p">,</span>
-						   <span class="n">batch_size</span><span class="p">):</span>
-		<span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-		<span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
-		<span class="n">positions</span> <span class="o">=</span> <span class="n">df1</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-		<span class="n">records</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">pos2id</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">col_to_query</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-
-		<span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span>
-						<span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span> <span class="n">chunk_dims</span><span class="o">=</span><span class="n">chunk_dims</span><span class="p">,</span>
-						<span class="n">message</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
-		<span class="n">data_parts</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
-		<span class="n">dtfuncs</span> <span class="o">=</span> <span class="n">get_dtfuncs</span><span class="p">(</span><span class="n">writer</span><span class="o">.</span><span class="n">formats</span><span class="p">)</span>
-
-		<span class="k">for</span> <span class="n">record</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">df1</span><span class="o">.</span><span class="n">Name</span><span class="o">.</span><span class="n">tolist</span><span class="p">()):</span>
-			<span class="k">if</span> <span class="n">record</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-				<span class="k">continue</span>
-			<span class="n">id_start</span><span class="p">,</span> <span class="n">id_end</span> <span class="o">=</span> <span class="n">record</span>
-			<span class="c1"># print(id_start,id_end,name)</span>
-			<span class="n">data_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">writer</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-							<span class="o">*</span><span class="p">[</span><span class="n">func</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">func</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">([</span><span class="n">id_start</span><span class="p">,</span> <span class="n">id_end</span><span class="p">,</span> <span class="n">name</span><span class="p">],</span>
-														 <span class="n">dtfuncs</span><span class="p">)]))</span>
-			<span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
-			<span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">%</span> <span class="n">batch_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-				<span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_parts</span><span class="p">),</span> <span class="n">dim</span><span class="p">)</span>
-				<span class="n">data_parts</span> <span class="o">=</span> <span class="p">[]</span>
-				<span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
-		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-			<span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_parts</span><span class="p">),</span> <span class="n">dim</span><span class="p">)</span>
-		<span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-		<span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
-
-
-<div class="viewcode-block" id="Reader.build_region_index">
-<a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index">[docs]</a>
-	<span class="k">def</span><span class="w"> </span><span class="nf">build_region_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;I&#39;</span><span class="p">,</span> <span class="s1">&#39;I&#39;</span><span class="p">],</span>
-					<span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;ID_start&#39;</span><span class="p">,</span> <span class="s1">&#39;ID_end&#39;</span><span class="p">],</span>
-					<span class="n">chunk_dims</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">bed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-					<span class="n">batch_size</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
-		<span class="n">n_chunk_dims</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk_dims</span><span class="p">)</span>
-		<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">bed</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">n_chunk_dims</span> <span class="o">+</span> <span class="mi">3</span><span class="p">)),</span>
-						 <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">,</span> <span class="s1">&#39;Name&#39;</span><span class="p">])</span>
-		<span class="n">max_name_len</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">Name</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
-		<span class="n">formats</span> <span class="o">=</span> <span class="n">formats</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">max_name_len</span><span class="si">}</span><span class="s1">s&#39;</span><span class="p">]</span>
-		<span class="n">columns</span> <span class="o">=</span> <span class="n">columns</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">]</span>
-		<span class="n">chunk_dims</span> <span class="o">=</span> <span class="n">chunk_dims</span>
-		<span class="n">pool</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="s1">&#39;multiprocessing&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span>
-		<span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>
-		<span class="n">outdir</span> <span class="o">=</span> <span class="n">output</span> <span class="o">+</span> <span class="s1">&#39;.tmp&#39;</span>
-		<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outdir</span><span class="p">):</span>
-			<span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
-		<span class="k">for</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">df1</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;chrom&#39;</span><span class="p">):</span>
-			<span class="n">dim</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">chrom</span><span class="p">])</span>
-			<span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-				<span class="k">continue</span>
-			<span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">chrom</span> <span class="o">+</span> <span class="s1">&#39;.cz&#39;</span><span class="p">)</span>
-			<span class="n">task</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">build_region_index_worker</span><span class="p">,</span>
-								   <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">df1</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span>
-									<span class="n">chunk_dims</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">))</span>
-			<span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-		<span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
-			<span class="n">task</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
-		<span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-		<span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
-		<span class="c1"># merge</span>
-		<span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span>
-						<span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span> <span class="n">chunk_dims</span><span class="o">=</span><span class="n">chunk_dims</span><span class="p">,</span>
-						<span class="n">message</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">bed</span><span class="p">))</span>
-		<span class="n">writer</span><span class="o">.</span><span class="n">catcz</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outdir</span><span class="si">}</span><span class="s2">/*.cz&quot;</span><span class="p">,</span> <span class="n">key_added</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-		<span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rm -rf </span><span class="si">{</span><span class="n">outdir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="Reader.build_context_index">
-<a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.build_context_index">[docs]</a>
-	<span class="k">def</span><span class="w"> </span><span class="nf">build_context_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;I&#39;</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;ID&#39;</span><span class="p">],</span>
-					 <span class="n">chunk_dims</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">match_func</span><span class="o">=</span><span class="n">_isForwardCG</span><span class="p">,</span>
-					 <span class="n">batch_size</span><span class="o">=</span><span class="mi">2000</span><span class="p">):</span>
-		<span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-			<span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">match_func</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s1">&#39;.index&#39;</span>
-		<span class="k">else</span><span class="p">:</span>
-			<span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
-		<span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span>
-						<span class="n">chunk_dims</span><span class="o">=</span><span class="n">chunk_dims</span><span class="p">,</span> <span class="n">fileobj</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-						<span class="n">message</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input</span><span class="p">))</span>
-		<span class="n">data_parts</span> <span class="o">=</span> <span class="p">[]</span>
-		<span class="n">_ssi_pack</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">writer</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">pack</span>
-		<span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-			<span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-			<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__fetch__</span><span class="p">(</span><span class="n">dim</span><span class="p">)):</span>
-				<span class="k">if</span> <span class="n">match_func</span><span class="p">(</span><span class="n">record</span><span class="p">):</span>
-					<span class="n">data_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_ssi_pack</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
-				<span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">%</span> <span class="n">batch_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-					<span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_parts</span><span class="p">),</span> <span class="n">dim</span><span class="p">)</span>
-					<span class="n">data_parts</span> <span class="o">=</span> <span class="p">[]</span>
-			<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-				<span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_parts</span><span class="p">),</span> <span class="n">dim</span><span class="p">)</span>
-				<span class="n">data_parts</span> <span class="o">=</span> <span class="p">[]</span>
-		<span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="Reader.get_ids_from_index">
@@ -3369,6 +3274,15 @@
 <span class="sd">			query, so query_col should be [0], but if</span>
 <span class="sd">			header[&#39;columns&#39;]=[&#39;start&#39;,&#39;end&#39;,&#39;peak&#39;], then start and end are what</span>
 <span class="sd">			we would like to query, query_col should be [0,1]</span>
+<span class="sd">		reference : str, optional</span>
+<span class="sd">			Path to a reference ``.cz`` file. Required for files that</span>
+<span class="sd">			store only ID columns (e.g. ``mc_cov`` / index files): the</span>
+<span class="sd">			matching record from ``reference`` is joined onto each row</span>
+<span class="sd">			by 1-based ID so coordinates and contexts can be returned.</span>
+<span class="sd">		printout : bool, default True</span>
+<span class="sd">			If True, write each matching record (tab-separated) to</span>
+<span class="sd">			stdout as it is fetched. Set to False to suppress printing</span>
+<span class="sd">			and only collect matches via the returned generator.</span>
 
 <span class="sd">		Returns</span>
 <span class="sd">		-------</span>
@@ -3990,41 +3904,6 @@
 
 
 <span class="c1"># ==========================================================</span>
-<div class="viewcode-block" id="index_regions">
-<a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.index_regions">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">index_regions</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-				  <span class="n">jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>  <span class="c1"># 2D index</span>
-<span class="w">	</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">	Build a region-based coordinate index from a BED file. For example::</span>
-
-<span class="sd">		cytozip index_regions -i ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz \</span>
-<span class="sd">		-o mm10_with_chrL.allc.genes_flank2k.index -b genes_flank2k.bed.gz -n 4</span>
-
-<span class="sd">	Parameters</span>
-<span class="sd">	----------</span>
-<span class="sd">	input :</span>
-<span class="sd">	output :</span>
-<span class="sd">	bed :</span>
-<span class="sd">	jobs :</span>
-<span class="sd">		number of parallel processes (CPUs).</span>
-
-<span class="sd">	Returns</span>
-<span class="sd">	-------</span>
-
-<span class="sd">	&quot;&quot;&quot;</span>
-	<span class="n">bed</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">bed</span><span class="p">))</span>
-	<span class="nb">input</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
-	<span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-		<span class="n">output</span> <span class="o">=</span> <span class="nb">input</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">bed</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;.index&#39;</span>
-	<span class="k">else</span><span class="p">:</span>
-		<span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
-	<span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
-	<span class="n">reader</span><span class="o">.</span><span class="n">build_region_index</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span> <span class="n">bed</span><span class="o">=</span><span class="n">bed</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="n">jobs</span><span class="p">)</span>
-	<span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
-
-
-
-<span class="c1"># ==========================================================</span>
 <div class="viewcode-block" id="aggregate">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.aggregate">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">aggregate</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">intersect</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -4097,8 +3976,8 @@
 
 
 <span class="c1"># ==========================================================</span>
-<span class="c1"># Methylation-specific operations (index_context, merge_cz, merge_cell_type,</span>
-<span class="c1"># call_peaks, to_bedgraph, combp, annot_dmr, WriteC, AllC, allc2cz, extractCG)</span>
+<span class="c1"># Methylation-specific operations (merge_cz, merge_cell_type,</span>
+<span class="c1"># call_peaks, to_bedgraph, call_dmr_array, annot_dmr, WriteC, AllC, allc2cz, extractCG)</span>
 <span class="c1"># live in companion modules: allc.py, merge.py, dmr.py. This file is reserved</span>
 <span class="c1"># for the generic .cz format layer.</span>
 <span class="c1"># ==========================================================</span>
@@ -4156,6 +4035,26 @@
 <span class="sd">			  for files without genomic coordinates (e.g. a reference-less</span>
 <span class="sd">			  allc storing only ``mc, cov``), where region queries require</span>
 <span class="sd">			  a separate reference file anyway.</span>
+<span class="sd">		delta_cols : None, int, str, or list, optional</span>
+<span class="sd">			Columns stored with in-block difference coding. Encoding strictly-</span>
+<span class="sd">			monotonic integer columns (typically ``pos`` in an allc file, or</span>
+<span class="sd">			``ID`` / ``ID_start`` / ``ID_end`` in a coordinate index) as</span>
+<span class="sd">			deltas lets DEFLATE compress the small residuals far more tightly</span>
+<span class="sd">			than absolute integers. Each entry can be either a column index</span>
+<span class="sd">			(int) or a column name (str). The selected columns must use an</span>
+<span class="sd">			integer struct format (``B/H/I/Q`` or signed counterparts).</span>
+<span class="sd">			Decoding requires one ``np.cumsum`` per delta column per block at</span>
+<span class="sd">			read time (~25–30 µs per 65 KB block) and is transparent to</span>
+<span class="sd">			callers — :meth:`Reader.chunk2numpy` and ``view`` see the</span>
+<span class="sd">			reconstructed absolute values.</span>
+
+<span class="sd">			- ``None`` (default): no delta encoding.</span>
+<span class="sd">			- ``int`` / ``str`` / list of those: use those columns.</span>
+
+<span class="sd">			Files written with non-empty ``delta_cols`` carry the column</span>
+<span class="sd">			indices in the header and are still concatenable with</span>
+<span class="sd">			:meth:`Writer.catcz` provided every input file uses the same</span>
+<span class="sd">			``delta_cols`` set.</span>
 <span class="sd">		&quot;&quot;&quot;</span>
 		<span class="k">if</span> <span class="n">output</span> <span class="ow">and</span> <span class="n">fileobj</span><span class="p">:</span>
 			<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Supply either output or fileobj, not both&quot;</span><span class="p">)</span>

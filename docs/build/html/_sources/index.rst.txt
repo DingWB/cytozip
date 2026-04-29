@@ -20,8 +20,8 @@ Chunk ZIP
    :maxdepth: 2
    :caption: Advanced Topics
 
-   notebooks/remote_reading
-   notebooks/dev
+   notebooks/5.remote_reading
+   notebooks/6.advance.ipynb
 
 .. toctree::
    :maxdepth: 2

@@ -15,6 +15,7 @@ Submodules
    cytozip.dmr
    cytozip.dmr_accel
    cytozip.features
+   cytozip.index
    cytozip.merge
    cytozip.pivot
 

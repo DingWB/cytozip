@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.dmr &mdash; cytozip 0.3.0.dev21 documentation</title>
+  <title>cytozip.dmr &mdash; cytozip 0.3.0.dev23 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
@@ -14,7 +14,7 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=ca60a7fa"></script>
+      <script src="../../_static/documentation_options.js?v=59e0a989"></script>
       <script src="../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/js/rtd_search_config.js"></script>
@@ -58,6 +58,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/2.dnam.html">DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#2.-Build-CG-/-CH-context-index-from-the-reference">2. Build CG / CH context index from the reference</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#3.-BAM-→-.cz">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#BAM-→-.cz-benchmark-vs-ALLCools">BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> benchmark vs ALLCools</a></li>
 </ul>
@@ -81,7 +82,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2numpy(dims)-—-decode-a-whole-chunk"><code class="docutils literal notranslate"><span class="pre">chunk2numpy(dims)</span></code> — decode a whole chunk</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2df(dims,-reformat=False)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims,</span> <span class="pre">reformat=False)</span></code> — decode as a DataFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2df(dims)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims)</span></code> — decode as a DataFrame</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
@@ -96,7 +97,10 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/4.call_dmr.html">Calling DMRs with cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Pseudobulk-vs-single-cell-input">Pseudobulk vs single-cell input</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#1.-CG-DMR-—-call_dmr">1. CG DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#1.-DMR-—-call_dmr">1. DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Call-CG-DMR">Call CG DMR</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#2.-CH-DMR-—-call_dmr_ch">2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Stratified-one-vs-rest-(within-each-class)">Stratified one-vs-rest (within each class)</a></li>
@@ -111,31 +115,29 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../notebooks/remote_reading.html">Remote Reading with cytozip</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#1.-Installation">1. Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/5.remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/5.remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../notebooks/dev.html">Advanced Features</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Generate-2D-subset-index-for-a-genomic-region">Generate 2D subset index for a genomic region</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#Call-DMR-pipeline">Call DMR pipeline</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(1).Merge-cell-types">(1).Merge cell types</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(2).merge-multiple-.cz-files-into-matrix-(fraction,-2D-or-fisher-exact-test)">(2).merge multiple .cz files into matrix (fraction, 2D or fisher exact test)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#(3).Call-DMR-using-comb-p">(3).Call DMR using comb-p</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/6.advance.html">Advanced Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#Build-a-region-based-subset-index-(BED-→-.cz-index)">Build a region-based subset index (BED → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> index)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#DMR-calling">DMR calling</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/6.advance.html#Calling-DMRs-on-methylation-array-.cz">Calling DMRs on methylation-array <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dev.html#id1">Advanced Features</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Chunk-Index">Chunk Index</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dev.html#Remote-Reading">Remote Reading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#id1">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/6.advance.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/6.advance.html#Remote-Reading">Remote Reading</a></li>
 </ul>
 </li>
 </ul>
@@ -185,7 +187,6 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.array.html">cytozip.array module</a><ul>
@@ -207,9 +208,6 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_context_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_context_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.build_region_index_worker"><code class="docutils literal notranslate"><span class="pre">Reader.build_region_index_worker()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2numpy"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2numpy()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
@@ -264,7 +262,6 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
@@ -302,10 +299,10 @@
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr.html">cytozip.dmr module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr"><code class="docutils literal notranslate"><span class="pre">call_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.combp"><code class="docutils literal notranslate"><span class="pre">combp()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
@@ -323,6 +320,11 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.make_genome_bins"><code class="docutils literal notranslate"><span class="pre">make_genome_bins()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_features"><code class="docutils literal notranslate"><span class="pre">parse_features()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_gtf"><code class="docutils literal notranslate"><span class="pre">parse_gtf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.index.html">cytozip.index module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.index.html#cytozip.index.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.index.html#cytozip.index.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.merge.html">cytozip.merge module</a><ul>
@@ -389,12 +391,12 @@
 <span class="sd">  - :func:`call_peaks`: call peaks from a methylation .cz file using MACS3</span>
 <span class="sd">    by turning unmethylated (cov - mc) or methylated counts into pseudo-reads.</span>
 <span class="sd">  - :func:`to_bedgraph`: dump a per-site methylation signal as a bedGraph.</span>
-<span class="sd">  - :func:`combp`: run combined-pvalues (comb-p) on a Fisher-test matrix</span>
-<span class="sd">    produced by ``merge_cz -f fisher`` to call DMRs.</span>
+<span class="sd">  - :func:`call_dmr_array`: call DMRs on **methylation array** ``.cz`` files</span>
+<span class="sd">    (450K / EPIC / MSA) using a per-probe two-sample test (Welch t on</span>
+<span class="sd">    M-values, or Mann-Whitney on \u03b2) followed by comb-p</span>
+<span class="sd">    (Stouffer-Liptak ACF + \u0160id\u00e1k) spatial merging.</span>
 <span class="sd">  - :func:`annot_dmr`: annotate a merged DMR table with hypo/hyper sample</span>
 <span class="sd">    assignments and delta-beta values.</span>
-<span class="sd">  - :func:`__split_mat`: internal helper used by :func:`combp` to split a</span>
-<span class="sd">    Fisher-test matrix into per-sample, per-chrom bed files.</span>
 
 <span class="sd">These pipelines are methylation-specific downstream analyses (MACS3 /</span>
 <span class="sd">comb-p integration) and therefore live in their own module rather than in</span>
@@ -580,7 +582,10 @@
         <span class="k">if</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">ix</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
             <span class="n">ids</span> <span class="o">=</span> <span class="n">ix</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">ids</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">sel_ids</span> <span class="o">=</span> <span class="n">ids</span>
+                <span class="c1"># IDs in the index file are 1-based (built as</span>
+                <span class="c1"># ``np.flatnonzero(mask) + 1``); convert to 0-based</span>
+                <span class="c1"># row indices for fancy-indexing the per-chunk arrays.</span>
+                <span class="n">sel_ids</span> <span class="o">=</span> <span class="n">ids</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
 
     <span class="n">n_sites</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">a_readers</span> <span class="o">=</span> <span class="p">[</span><span class="n">_get_cached_reader</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">group_a_paths</span><span class="p">]</span>
@@ -623,19 +628,28 @@
         <span class="k">if</span> <span class="n">keep</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">dim</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-    <span class="c1"># Single allocation + cast in one step (avoids the temporary</span>
-    <span class="c1"># int32 vstack array followed by astype copy).</span>
-    <span class="n">mc_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">mc_a</span><span class="p">,</span> <span class="n">mc_b</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-                            <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">casting</span><span class="o">=</span><span class="s1">&#39;unsafe&#39;</span><span class="p">)</span>
-    <span class="n">cov_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">cov_a</span><span class="p">,</span> <span class="n">cov_b</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-                             <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">casting</span><span class="o">=</span><span class="s1">&#39;unsafe&#39;</span><span class="p">)</span>
-    <span class="c1"># ``keep`` already comes from ``np.where`` -&gt; int64; reuse directly.</span>
+    <span class="c1"># Build the final ``(n_total, n_keep)`` int64 C-contiguous matrices</span>
+    <span class="c1"># in a single pre-allocated allocation, casting on assignment.  This</span>
+    <span class="c1"># avoids the previous concat-then-ascontiguousarray two-copy pattern</span>
+    <span class="c1"># (advanced indexing earlier left ``mc_a`` / ``mc_b`` F-contiguous,</span>
+    <span class="c1"># which then propagated through ``np.concatenate``).</span>
+    <span class="n">n_a</span> <span class="o">=</span> <span class="n">mc_a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">n_total</span> <span class="o">=</span> <span class="n">n_a</span> <span class="o">+</span> <span class="n">mc_b</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">mc_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n_total</span><span class="p">,</span> <span class="n">keep</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">cov_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n_total</span><span class="p">,</span> <span class="n">keep</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">mc_all</span><span class="p">[:</span><span class="n">n_a</span><span class="p">]</span> <span class="o">=</span> <span class="n">mc_a</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+    <span class="n">mc_all</span><span class="p">[</span><span class="n">n_a</span><span class="p">:]</span> <span class="o">=</span> <span class="n">mc_b</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+    <span class="n">cov_all</span><span class="p">[:</span><span class="n">n_a</span><span class="p">]</span> <span class="o">=</span> <span class="n">cov_a</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+    <span class="n">cov_all</span><span class="p">[</span><span class="n">n_a</span><span class="p">:]</span> <span class="o">=</span> <span class="n">cov_b</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+    <span class="c1"># ``keep`` indices are already the columns of ``mc_all`` we want to</span>
+    <span class="c1"># test, so the kernel scans rows ``[0, n_keep)`` of ``mc_all``.</span>
+    <span class="n">kernel_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">keep</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">use_fisher_1v1</span>
             <span class="ow">and</span> <span class="n">mc_a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">mc_b</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
-        <span class="n">p_arr</span><span class="p">,</span> <span class="n">da_arr</span> <span class="o">=</span> <span class="n">_fisher_1v1_sites</span><span class="p">(</span><span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span><span class="p">,</span> <span class="n">keep</span><span class="p">)</span>
+        <span class="n">p_arr</span><span class="p">,</span> <span class="n">da_arr</span> <span class="o">=</span> <span class="n">_fisher_1v1_sites</span><span class="p">(</span><span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span><span class="p">,</span> <span class="n">kernel_idx</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">p_arr</span><span class="p">,</span> <span class="n">da_arr</span> <span class="o">=</span> <span class="n">_rms_run_sites</span><span class="p">(</span>
-            <span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span><span class="p">,</span> <span class="n">keep</span><span class="p">,</span>
+            <span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span><span class="p">,</span> <span class="n">kernel_idx</span><span class="p">,</span>
             <span class="n">group_a_n</span><span class="o">=</span><span class="n">mc_a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
             <span class="n">n_permute</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">n_permute</span><span class="p">),</span> <span class="n">min_pvalue</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">min_pvalue</span><span class="p">),</span>
             <span class="n">max_row_count</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">max_row_count</span><span class="p">),</span>
@@ -821,6 +835,19 @@
 <span class="sd">        Total CPU cores to use.  Automatically split into worker</span>
 <span class="sd">        processes (across chunks) and OpenMP threads (per-site inside</span>
 <span class="sd">        each chunk) so that ``processes * threads ≈ jobs``.</span>
+<span class="sd">    delta_prefilter : bool, default True</span>
+<span class="sd">        If True, before running the (expensive) permutation test, drop</span>
+<span class="sd">        sites whose unpermuted ``|mean(frac_A) - mean(frac_B)|`` is</span>
+<span class="sd">        already below ``frac_delta_cutoff``.  This is an exact, no-loss</span>
+<span class="sd">        optimization (the dropped sites would never reach the post-test</span>
+<span class="sd">        delta cutoff) and typically reduces runtime by 2-10x on</span>
+<span class="sd">        single-cell input, where most sites have near-zero delta.</span>
+<span class="sd">    use_fisher_1v1 : bool, default True</span>
+<span class="sd">        If True, when both groups contain exactly one ``.cz`` file</span>
+<span class="sd">        (the &quot;1 vs 1&quot; pseudobulk case where the permutation test has</span>
+<span class="sd">        almost no distinct permutations), fall back to a per-site</span>
+<span class="sd">        two-sided Fisher&#39;s exact test.  Set to False to force the</span>
+<span class="sd">        permutation kernel even in this degenerate layout.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -853,6 +880,13 @@
     <span class="n">ref_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">reference</span><span class="p">))</span>
     <span class="n">index_path</span> <span class="o">=</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
                   <span class="k">if</span> <span class="n">index</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">index_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;call_dmr: no `index` provided -- DMR calling will pool ALL &quot;</span>
+            <span class="s2">&quot;cytosines (CG + CHG + CHH) from the reference together &quot;</span>
+            <span class="s2">&quot;without any context filtering. This is almost never what &quot;</span>
+            <span class="s2">&quot;you want for CG DMR calling. Pass `index=&lt;reference&gt;.CGN.index` &quot;</span>
+            <span class="s2">&quot;(built via `czip index context -p CGN`) to restrict to CpG sites.&quot;</span><span class="p">)</span>
 
     <span class="c1"># Resolve mc / cov column names from the first cell&#39;s header</span>
     <span class="n">probe</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">a_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
@@ -1049,7 +1083,8 @@
         <span class="k">if</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">ix</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
             <span class="n">ids</span> <span class="o">=</span> <span class="n">ix</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">ids</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">sel_ids</span> <span class="o">=</span> <span class="n">ids</span>
+                <span class="c1"># IDs in the index file are 1-based; convert to 0-based.</span>
+                <span class="n">sel_ids</span> <span class="o">=</span> <span class="n">ids</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
     <span class="n">readers</span> <span class="o">=</span> <span class="p">[</span><span class="n">_get_cached_reader</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">]</span>
     <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">_load_chunk_matrix</span><span class="p">(</span><span class="n">readers</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="p">,</span> <span class="n">n_sites</span><span class="p">)</span>
     <span class="n">ref</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
@@ -1132,7 +1167,8 @@
         <span class="k">if</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">ix</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
             <span class="n">ids</span> <span class="o">=</span> <span class="n">ix</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">ids</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">sel_ids</span> <span class="o">=</span> <span class="n">ids</span>
+                <span class="c1"># IDs in the index file are 1-based; convert to 0-based.</span>
+                <span class="n">sel_ids</span> <span class="o">=</span> <span class="n">ids</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
 
     <span class="n">n_sites</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">a_readers</span> <span class="o">=</span> <span class="p">[</span><span class="n">_get_cached_reader</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">group_a_paths</span><span class="p">]</span>
@@ -1201,13 +1237,22 @@
         <span class="k">if</span> <span class="n">keep</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">empty</span>
 
-    <span class="n">mc_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">mc_a_bin</span><span class="p">,</span> <span class="n">mc_b_bin</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-                            <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">casting</span><span class="o">=</span><span class="s1">&#39;unsafe&#39;</span><span class="p">)</span>
-    <span class="n">cov_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">cov_a_bin</span><span class="p">,</span> <span class="n">cov_b_bin</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-                             <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">casting</span><span class="o">=</span><span class="s1">&#39;unsafe&#39;</span><span class="p">)</span>
+    <span class="c1"># Build the final ``(n_total, n_keep)`` int64 C-contiguous count</span>
+    <span class="c1"># matrices in a single pre-allocated allocation, casting and</span>
+    <span class="c1"># gathering in one assignment per group (saves a concat +</span>
+    <span class="c1"># ascontiguousarray copy).</span>
+    <span class="n">n_a</span> <span class="o">=</span> <span class="n">mc_a_bin</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">n_total</span> <span class="o">=</span> <span class="n">n_a</span> <span class="o">+</span> <span class="n">mc_b_bin</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">mc_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n_total</span><span class="p">,</span> <span class="n">keep</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">cov_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n_total</span><span class="p">,</span> <span class="n">keep</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">mc_all</span><span class="p">[:</span><span class="n">n_a</span><span class="p">]</span> <span class="o">=</span> <span class="n">mc_a_bin</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+    <span class="n">mc_all</span><span class="p">[</span><span class="n">n_a</span><span class="p">:]</span> <span class="o">=</span> <span class="n">mc_b_bin</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+    <span class="n">cov_all</span><span class="p">[:</span><span class="n">n_a</span><span class="p">]</span> <span class="o">=</span> <span class="n">cov_a_bin</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+    <span class="n">cov_all</span><span class="p">[</span><span class="n">n_a</span><span class="p">:]</span> <span class="o">=</span> <span class="n">cov_b_bin</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+    <span class="n">kernel_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">keep</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
     <span class="n">p_arr</span><span class="p">,</span> <span class="n">da_arr</span> <span class="o">=</span> <span class="n">_rms_run_sites</span><span class="p">(</span>
-        <span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span><span class="p">,</span> <span class="n">keep</span><span class="p">,</span>
-        <span class="n">group_a_n</span><span class="o">=</span><span class="n">mc_a_bin</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span><span class="p">,</span> <span class="n">kernel_idx</span><span class="p">,</span>
+        <span class="n">group_a_n</span><span class="o">=</span><span class="n">n_a</span><span class="p">,</span>
         <span class="n">n_permute</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">n_permute</span><span class="p">),</span> <span class="n">min_pvalue</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">min_pvalue</span><span class="p">),</span>
         <span class="n">max_row_count</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">max_row_count</span><span class="p">),</span>
         <span class="n">max_total_count</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">max_total_count</span><span class="p">),</span>
@@ -1217,10 +1262,185 @@
             <span class="n">rate_a</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">rate_b</span><span class="p">[</span><span class="n">keep</span><span class="p">])</span>
 
 
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># Global-rate normalization methods (used by ``call_dmr_ch``)</span>
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1">#</span>
+<span class="c1"># All in-pipeline methods reduce to a per-cell scalar ``s_i`` that</span>
+<span class="c1"># rescales the cell&#39;s binned mc counts.  See ``_compute_normalization_scale``</span>
+<span class="c1"># below for the formulas and references.  Methods that require a</span>
+<span class="c1"># different test backend (DSS beta-binomial GLM, scMET hierarchical</span>
+<span class="c1"># Bayes, BSmooth local kernel smoothing) are NOT implemented here -- they</span>
+<span class="c1"># need a different data flow than the RMS-permutation kernel and are</span>
+<span class="c1"># better consumed via their reference implementations on pre-aggregated</span>
+<span class="c1"># pseudobulk counts.</span>
+<span class="n">NORMALIZE_METHODS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s1">&#39;none&#39;</span><span class="p">,</span> <span class="s1">&#39;median&#39;</span><span class="p">,</span> <span class="s1">&#39;mean&#39;</span><span class="p">,</span> <span class="s1">&#39;trimmed_mean&#39;</span><span class="p">,</span> <span class="s1">&#39;gmean&#39;</span><span class="p">,</span> <span class="s1">&#39;posterior&#39;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_normalize_method</span><span class="p">(</span><span class="n">normalize</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Coerce the ``normalize`` argument to a canonical method name.</span>
+
+<span class="sd">    Accepted values:</span>
+<span class="sd">      * ``False`` / ``None`` / ``&#39;none&#39;``   -&gt; ``&#39;none&#39;``</span>
+<span class="sd">      * ``True``                            -&gt; ``&#39;median&#39;`` (recommended default)</span>
+<span class="sd">      * any string in :data:`NORMALIZE_METHODS`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">normalize</span> <span class="ow">is</span> <span class="kc">False</span> <span class="ow">or</span> <span class="n">normalize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;none&#39;</span>
+    <span class="k">if</span> <span class="n">normalize</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;median&#39;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">normalize</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">s</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">NORMALIZE_METHODS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;normalize=</span><span class="si">{</span><span class="n">normalize</span><span class="si">!r}</span><span class="s2"> not recognized; &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;choose from </span><span class="si">{</span><span class="n">NORMALIZE_METHODS</span><span class="si">}</span><span class="s2"> or True/False.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">s</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_normalization_scale</span><span class="p">(</span><span class="n">ga</span><span class="p">,</span> <span class="n">gb</span><span class="p">,</span>
+                                 <span class="n">mc_a_tot</span><span class="p">,</span> <span class="n">cov_a_tot</span><span class="p">,</span>
+                                 <span class="n">mc_b_tot</span><span class="p">,</span> <span class="n">cov_b_tot</span><span class="p">,</span>
+                                 <span class="n">method</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return per-cell scale factors ``(scale_a, scale_b, target)`` for the</span>
+<span class="sd">    requested normalization method.</span>
+
+<span class="sd">    All implemented methods ultimately produce a per-cell scalar</span>
+<span class="sd">    ``s_i`` such that the binned mc counts are rescaled in-place by</span>
+<span class="sd">    ``mc_bin_i &lt;- min(round(mc_bin_i * s_i), cov_bin_i)`` inside the</span>
+<span class="sd">    worker.  The methods differ only in:</span>
+
+<span class="sd">    * how the shared **target rate** ``t`` is summarized across cells, and</span>
+<span class="sd">    * (for ``&#39;posterior&#39;``) whether ``g_i`` is shrunk toward ``t`` before</span>
+<span class="sd">      computing ``s_i``.</span>
+
+<span class="sd">    Methods</span>
+<span class="sd">    -------</span>
+<span class="sd">    ``&#39;median&#39;`` (default; recommended)</span>
+<span class="sd">        ``t = median({g_i : g_i &gt; 0})``;  ``s_i = t / g_i``.</span>
+<span class="sd">        Robust to outliers; matches the convention used in Lister et al.</span>
+<span class="sd">        2013 (*Science*), Mo et al. 2015 (*Neuron*), Luo et al. 2017</span>
+<span class="sd">        (*Science*) and the snmC-seq / ALLCools pipeline (Liu et al.</span>
+<span class="sd">        2021, *Nature*).</span>
+
+<span class="sd">    ``&#39;mean&#39;``</span>
+<span class="sd">        ``t = mean({g_i : g_i &gt; 0})``;  ``s_i = t / g_i``.</span>
+<span class="sd">        Lower variance than the median when the per-cell rate</span>
+<span class="sd">        distribution is roughly symmetric, but sensitive to outlier</span>
+<span class="sd">        cells with extreme global mCH (rare neurons / contamination).</span>
+
+<span class="sd">    ``&#39;trimmed_mean&#39;``</span>
+<span class="sd">        ``t = mean of the central 80% of {g_i : g_i &gt; 0}``</span>
+<span class="sd">        (drops the lowest 10% and highest 10%, like the TMM</span>
+<span class="sd">        normalization in edgeR; Robinson &amp; Oshlack 2010, *Genome</span>
+<span class="sd">        Biology*).  ``s_i = t / g_i``.  A compromise between</span>
+<span class="sd">        ``&#39;median&#39;`` (very robust, slightly noisy) and ``&#39;mean&#39;``</span>
+<span class="sd">        (precise but fragile).</span>
+
+<span class="sd">    ``&#39;gmean&#39;``</span>
+<span class="sd">        ``t = exp(mean(log g_i)) = (prod g_i)^{1/n}``;  ``s_i = t / g_i``.</span>
+<span class="sd">        Geometric mean.  Matches DESeq2-style size-factor normalization</span>
+<span class="sd">        (Anders &amp; Huber 2010, *Genome Biology*) — works in log-rate</span>
+<span class="sd">        space, so multiplicative scale errors cancel.  Often slightly</span>
+<span class="sd">        preferred when global rates span more than ~1 order of magnitude.</span>
+
+<span class="sd">    ``&#39;posterior&#39;`` (Bayesian shrinkage)</span>
+<span class="sd">        Same target ``t = median({g_i})`` but with empirical-Bayes</span>
+<span class="sd">        shrinkage of ``g_i`` toward ``t`` before computing ``s_i``::</span>
+
+<span class="sd">            kappa = max( median(C_i) * 0.01, 1.0 )       # prior strength</span>
+<span class="sd">            g_i&#39; = (M_i + t * kappa) / (C_i + kappa)</span>
+<span class="sd">            s_i  = t / g_i&#39;</span>
+
+<span class="sd">        where ``M_i = sum(mc_i)`` and ``C_i = sum(cov_i)`` are the</span>
+<span class="sd">        per-cell totals.  Cells with low total coverage (small ``C_i``)</span>
+<span class="sd">        are shrunk strongly toward ``t`` (so ``s_i -&gt; 1``), avoiding</span>
+<span class="sd">        wild scale factors driven by undersampled cells; high-coverage</span>
+<span class="sd">        cells are barely shrunk.  Conceptually matches the</span>
+<span class="sd">        posterior-mean prior used in scMET (Kapourani et al. 2021,</span>
+<span class="sd">        *Genome Biology*) and ALLCools&#39; ``add_mc_rate(...)`` shrinkage</span>
+<span class="sd">        (Liu et al. 2021).</span>
+
+<span class="sd">    ``&#39;none&#39;`` / ``False``</span>
+<span class="sd">        No normalization: returns ``(None, None, NaN)``.  Use when both</span>
+<span class="sd">        groups already share a global mCH rate (e.g., replicate</span>
+<span class="sd">        pseudobulks of the same cluster).</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    External tools that require a different backend (not implemented</span>
+<span class="sd">    here): **DSS** beta-binomial GLM (Park &amp; Wu 2016, *Bioinformatics*),</span>
+<span class="sd">    **methylKit** logistic-regression DMR (Akalin et al. 2012, *Genome</span>
+<span class="sd">    Biology*), **BSmooth** local-kernel smoothing (Hansen et al. 2012,</span>
+<span class="sd">    *Genome Biology*), **scMET** hierarchical Bayes (Kapourani et al.</span>
+<span class="sd">    2021).  Run those on pre-aggregated pseudobulk counts.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    scale_a, scale_b : ndarray of float64 or None</span>
+<span class="sd">        Per-cell scale factors for groups A and B.  ``None`` if all</span>
+<span class="sd">        per-cell rates are zero.</span>
+<span class="sd">    target : float</span>
+<span class="sd">        The shared target rate ``t``.  ``NaN`` if all rates are zero.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ga</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ga</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">gb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">gb</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">all_rates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">ga</span><span class="p">,</span> <span class="n">gb</span><span class="p">])</span>
+    <span class="n">valid</span> <span class="o">=</span> <span class="n">all_rates</span><span class="p">[</span><span class="n">all_rates</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;median&#39;</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">valid</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;mean&#39;</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">valid</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;trimmed_mean&#39;</span><span class="p">:</span>
+        <span class="c1"># 10% trimming on each tail (matches edgeR TMM default tail).</span>
+        <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">trim_mean</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">trim_mean</span><span class="p">(</span><span class="n">valid</span><span class="p">,</span> <span class="n">proportiontocut</span><span class="o">=</span><span class="mf">0.1</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">valid</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;gmean&#39;</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">valid</span><span class="p">))))</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;posterior&#39;</span><span class="p">:</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">valid</span><span class="p">))</span>
+        <span class="c1"># Empirical-Bayes shrinkage of per-cell g_i toward target,</span>
+        <span class="c1"># weighted by per-cell total coverage.  Requires the per-cell</span>
+        <span class="c1"># totals; fall back to plain median scaling if absent.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">mc_a_tot</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">cov_a_tot</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="n">mc_b_tot</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">cov_b_tot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">ga_eff</span><span class="p">,</span> <span class="n">gb_eff</span> <span class="o">=</span> <span class="n">ga</span><span class="p">,</span> <span class="n">gb</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mc_a_tot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mc_a_tot</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">cov_a_tot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cov_a_tot</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">mc_b_tot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mc_b_tot</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">cov_b_tot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cov_b_tot</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">cov_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">cov_a_tot</span><span class="p">,</span> <span class="n">cov_b_tot</span><span class="p">])</span>
+            <span class="n">kappa</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">cov_all</span><span class="p">[</span><span class="n">cov_all</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]))</span> <span class="o">*</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="n">ga_eff</span> <span class="o">=</span> <span class="p">(</span><span class="n">mc_a_tot</span> <span class="o">+</span> <span class="n">target</span> <span class="o">*</span> <span class="n">kappa</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">cov_a_tot</span> <span class="o">+</span> <span class="n">kappa</span><span class="p">)</span>
+            <span class="n">gb_eff</span> <span class="o">=</span> <span class="p">(</span><span class="n">mc_b_tot</span> <span class="o">+</span> <span class="n">target</span> <span class="o">*</span> <span class="n">kappa</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">cov_b_tot</span> <span class="o">+</span> <span class="n">kappa</span><span class="p">)</span>
+        <span class="n">ga_safe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ga_eff</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ga_eff</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+        <span class="n">gb_safe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">gb_eff</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">gb_eff</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+        <span class="n">scale_a</span> <span class="o">=</span> <span class="n">target</span> <span class="o">/</span> <span class="n">ga_safe</span>
+        <span class="n">scale_b</span> <span class="o">=</span> <span class="n">target</span> <span class="o">/</span> <span class="n">gb_safe</span>
+        <span class="k">return</span> <span class="n">scale_a</span><span class="p">,</span> <span class="n">scale_b</span><span class="p">,</span> <span class="n">target</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown normalization method: </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Multiplicative methods: avoid divide-by-zero / huge blow-up for</span>
+    <span class="c1"># zero-coverage cells by falling back to scale=1.</span>
+    <span class="n">ga_safe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ga</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ga</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+    <span class="n">gb_safe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">gb</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">gb</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+    <span class="n">scale_a</span> <span class="o">=</span> <span class="n">target</span> <span class="o">/</span> <span class="n">ga_safe</span>
+    <span class="n">scale_b</span> <span class="o">=</span> <span class="n">target</span> <span class="o">/</span> <span class="n">gb_safe</span>
+    <span class="k">return</span> <span class="n">scale_a</span><span class="p">,</span> <span class="n">scale_b</span><span class="p">,</span> <span class="n">target</span>
+
+
 <div class="viewcode-block" id="call_dmr_ch">
 <a class="viewcode-back" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_ch">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">call_dmr_ch</span><span class="p">(</span><span class="n">group_a</span><span class="p">,</span> <span class="n">group_b</span><span class="p">,</span> <span class="n">reference</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span>
-                <span class="n">bin_size</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>
+                <span class="n">bin_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
                 <span class="n">context</span><span class="o">=</span><span class="s1">&#39;CHN&#39;</span><span class="p">,</span>
                 <span class="n">group_names</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">),</span>
                 <span class="n">p_value_cutoff</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
@@ -1251,7 +1471,46 @@
 <span class="sd">        each cell&#39;s mc counts so all cells share a common reference</span>
 <span class="sd">        global mCH rate.  This removes the dominant &quot;cell type with</span>
 <span class="sd">        higher global mCH&quot; effect that would otherwise saturate the</span>
-<span class="sd">        test.</span>
+<span class="sd">        test.  Algorithm:</span>
+
+<span class="sd">        a. **Per-cell global rate.**  For every cell ``i`` in either</span>
+<span class="sd">           group, sum ``mc`` and ``cov`` across **all sites in all</span>
+<span class="sd">           target chunks** of the requested ``context`` (full pre-pass</span>
+<span class="sd">           via :func:`_compute_global_ch_rates`, or supplied directly</span>
+<span class="sd">           through ``global_a`` / ``global_b``):</span>
+
+<span class="sd">               g_i = sum(mc_i) / max(sum(cov_i), 1)</span>
+
+<span class="sd">        b. **Common target rate.**  Concatenate ``g_i`` from both</span>
+<span class="sd">           groups, drop zero-coverage cells, and take the **median**</span>
+<span class="sd">           of the remaining rates as the shared target ``t``.  The</span>
+<span class="sd">           median (not mean) is used so that a few outlier cells with</span>
+<span class="sd">           extreme global mCH cannot drag the target.</span>
+
+<span class="sd">        c. **Per-cell scale factor.**</span>
+
+<span class="sd">               s_i = t / g_i        (g_i &gt; 0)</span>
+<span class="sd">               s_i = 1              (g_i == 0, fallback)</span>
+
+<span class="sd">           Cells above the target are scaled **down** (s_i &lt; 1),</span>
+<span class="sd">           cells below are scaled **up** (s_i &gt; 1), so that every</span>
+<span class="sd">           cell&#39;s effective global mCH equals ``t``.</span>
+
+<span class="sd">        d. **Apply at the bin level.**  After per-cell mc/cov are</span>
+<span class="sd">           pooled into ``bin_size`` bins, mc counts are rescaled</span>
+<span class="sd">           in-place:</span>
+
+<span class="sd">               mc_bin_i  &lt;-  min( round(mc_bin_i * s_i),  cov_bin_i )</span>
+
+<span class="sd">           ``cov`` is left unchanged, and the ``min(..., cov)`` clamp</span>
+<span class="sd">           guarantees ``mc &lt;= cov`` is preserved (required by the</span>
+<span class="sd">           Fisher / RMS kernels).  All downstream per-bin rates,</span>
+<span class="sd">           p-values, log2FC and ``abs_delta`` are computed on these</span>
+<span class="sd">           rescaled counts.</span>
+
+<span class="sd">        Set ``normalize=False`` (or pass pre-computed ``global_a`` /</span>
+<span class="sd">        ``global_b`` to skip the pre-pass) when groups are already</span>
+<span class="sd">        matched in global mCH (e.g., replicates of the same cluster).</span>
 <span class="sd">    3.  **log2-fold-change filter** — DMS (&quot;differentially methylated</span>
 <span class="sd">        bins&quot;) must satisfy ``p &lt; p_value_cutoff`` AND</span>
 <span class="sd">        ``|log2(rate_A / rate_B)| &gt;= log2fc_cutoff`` AND</span>
@@ -1284,8 +1543,10 @@
 <span class="sd">        Group A / B paths.  Same parsing as :func:`call_dmr`.</span>
 <span class="sd">    reference, output : str</span>
 <span class="sd">        Reference ``.cz`` and output DMR TSV path.</span>
+<span class="sd">    group_names : tuple of str</span>
+<span class="sd">        Labels for groups A and B used in log messages only.</span>
 <span class="sd">    bin_size : int</span>
-<span class="sd">        Bin width in bp for pooling per-cell counts (default 5000).</span>
+<span class="sd">        Bin width in bp for pooling per-cell counts (default 500).</span>
 <span class="sd">    context : str</span>
 <span class="sd">        Tag used in log messages only (e.g. ``&#39;CHN&#39;``, ``&#39;CAN&#39;``).</span>
 <span class="sd">    p_value_cutoff : float</span>
@@ -1296,9 +1557,34 @@
 <span class="sd">        Minimum ``|rate_a - rate_b|`` after normalization.  Acts as</span>
 <span class="sd">        a low-rate floor so tiny ratios with both rates ~0 are</span>
 <span class="sd">        rejected.</span>
-<span class="sd">    normalize : bool</span>
-<span class="sd">        If True, pre-compute per-cell global mCH rates and rescale mc</span>
-<span class="sd">        counts so all cells share a common reference rate.</span>
+<span class="sd">    normalize : bool or str, default ``True``</span>
+<span class="sd">        Method for per-cell global mCH rate normalization.  See</span>
+<span class="sd">        :func:`_compute_normalization_scale` for full formulas and</span>
+<span class="sd">        references.  Accepted values:</span>
+
+<span class="sd">        =================  =============================================</span>
+<span class="sd">        ``False`` / ``&#39;none&#39;``  No normalization.</span>
+<span class="sd">        ``True`` / ``&#39;median&#39;`` ``t = median(g_i)``;  ``s_i = t/g_i``</span>
+<span class="sd">                            (default; robust, matches Lister 2013 / Mo</span>
+<span class="sd">                            2015 / Luo 2017 / ALLCools convention).</span>
+<span class="sd">        ``&#39;mean&#39;``          ``t = mean(g_i)``; lower variance but</span>
+<span class="sd">                            sensitive to outlier cells.</span>
+<span class="sd">        ``&#39;trimmed_mean&#39;``  ``t`` = central 80% trimmed mean (TMM-style;</span>
+<span class="sd">                            Robinson &amp; Oshlack 2010).</span>
+<span class="sd">        ``&#39;gmean&#39;``         ``t`` = geometric mean (DESeq2-style;</span>
+<span class="sd">                            Anders &amp; Huber 2010).  Better when global</span>
+<span class="sd">                            rates span &gt;1 order of magnitude.</span>
+<span class="sd">        ``&#39;posterior&#39;``     Empirical-Bayes shrinkage of ``g_i`` toward</span>
+<span class="sd">                            median target with strength</span>
+<span class="sd">                            ``kappa = 1% * median(cov_total)`` (scMET /</span>
+<span class="sd">                            ALLCools-style; Kapourani et al. 2021).</span>
+<span class="sd">                            Most robust when many cells have low total</span>
+<span class="sd">                            coverage.</span>
+<span class="sd">        =================  =============================================</span>
+
+<span class="sd">        Default ``&#39;median&#39;`` is recommended; switch to ``&#39;posterior&#39;``</span>
+<span class="sd">        if you have many cells with very low total CHN coverage, or to</span>
+<span class="sd">        ``&#39;gmean&#39;`` if your global mCH rates span a wide range.</span>
 <span class="sd">    global_a, global_b : array-like or None</span>
 <span class="sd">        Pre-computed per-cell global mCH rates (one entry per cell in</span>
 <span class="sd">        the corresponding group).  If provided, the global pre-pass</span>
@@ -1315,6 +1601,13 @@
 <span class="sd">        permutations, 0.001 stop) because CH signals tend to have</span>
 <span class="sd">        smaller effect sizes.</span>
 <span class="sd">    mc_col, cov_col, index, dms_output, chroms, jobs : see :func:`call_dmr`.</span>
+<span class="sd">    delta_prefilter : bool, default True</span>
+<span class="sd">        If True, before running the (expensive) per-bin permutation</span>
+<span class="sd">        test, drop bins whose unpermuted ``|rate_a - rate_b|`` is below</span>
+<span class="sd">        ``abs_delta_cutoff`` (and, when ``log2fc_cutoff &gt; 0``, whose</span>
+<span class="sd">        unpermuted ``|log2(rate_a / rate_b)|`` is below</span>
+<span class="sd">        ``log2fc_cutoff``).  Exact, no-loss optimization that mirrors</span>
+<span class="sd">        the ``call_dmr`` ``delta_prefilter``.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1342,6 +1635,15 @@
     <span class="n">ref_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">reference</span><span class="p">))</span>
     <span class="n">index_path</span> <span class="o">=</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
                   <span class="k">if</span> <span class="n">index</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">index_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;call_dmr_ch: no `index` provided -- DMR calling will pool ALL &quot;</span>
+            <span class="s2">&quot;cytosines (CG + CHG + CHH) from the reference together &quot;</span>
+            <span class="s2">&quot;without any context filtering. For mCH analyses you almost &quot;</span>
+            <span class="s2">&quot;always want a context-restricted index, e.g. &quot;</span>
+            <span class="s2">&quot;`index=&lt;reference&gt;.CHN.index` for all non-CpG, or &quot;</span>
+            <span class="s2">&quot;`index=&lt;reference&gt;.CAN.index` / `.CAC.index` etc. for &quot;</span>
+            <span class="s2">&quot;sub-context analyses (built via `czip index context -p CHN|CAN|CAC|...`).&quot;</span><span class="p">)</span>
 
     <span class="n">probe</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">a_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">cols</span> <span class="o">=</span> <span class="n">probe</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">]</span>
@@ -1376,11 +1678,13 @@
         <span class="sa">f</span><span class="s2">&quot;(jobs=</span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">n_proc</span><span class="si">}</span><span class="s2"> proc x </span><span class="si">{</span><span class="n">n_thr</span><span class="si">}</span><span class="s2"> threads)&quot;</span><span class="p">)</span>
 
     <span class="c1"># ----- Optional global mCH rate pre-pass -------------------------</span>
+    <span class="n">method</span> <span class="o">=</span> <span class="n">_resolve_normalize_method</span><span class="p">(</span><span class="n">normalize</span><span class="p">)</span>
     <span class="n">scale_a</span> <span class="o">=</span> <span class="n">scale_b</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">normalize</span><span class="p">:</span>
+    <span class="n">mc_a_tot</span> <span class="o">=</span> <span class="n">cov_a_tot</span> <span class="o">=</span> <span class="n">mc_b_tot</span> <span class="o">=</span> <span class="n">cov_b_tot</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">!=</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">global_a</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;call_dmr_ch: scanning group A for per-cell global rates&quot;</span><span class="p">)</span>
-            <span class="n">ga</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_compute_global_ch_rates</span><span class="p">(</span>
+            <span class="n">ga</span><span class="p">,</span> <span class="n">mc_a_tot</span><span class="p">,</span> <span class="n">cov_a_tot</span> <span class="o">=</span> <span class="n">_compute_global_ch_rates</span><span class="p">(</span>
                 <span class="n">a_paths</span><span class="p">,</span> <span class="n">ref_path</span><span class="p">,</span> <span class="n">index_path</span><span class="p">,</span> <span class="n">chunk_keys</span><span class="p">,</span>
                 <span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="p">,</span> <span class="n">n_proc</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1389,7 +1693,7 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;len(global_a) must match len(group_a)&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">global_b</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;call_dmr_ch: scanning group B for per-cell global rates&quot;</span><span class="p">)</span>
-            <span class="n">gb</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_compute_global_ch_rates</span><span class="p">(</span>
+            <span class="n">gb</span><span class="p">,</span> <span class="n">mc_b_tot</span><span class="p">,</span> <span class="n">cov_b_tot</span> <span class="o">=</span> <span class="n">_compute_global_ch_rates</span><span class="p">(</span>
                 <span class="n">b_paths</span><span class="p">,</span> <span class="n">ref_path</span><span class="p">,</span> <span class="n">index_path</span><span class="p">,</span> <span class="n">chunk_keys</span><span class="p">,</span>
                 <span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="p">,</span> <span class="n">n_proc</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1397,23 +1701,18 @@
             <span class="k">if</span> <span class="n">gb</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">b_paths</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;len(global_b) must match len(group_b)&quot;</span><span class="p">)</span>
 
-        <span class="n">all_rates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">ga</span><span class="p">,</span> <span class="n">gb</span><span class="p">])</span>
-        <span class="n">valid</span> <span class="o">=</span> <span class="n">all_rates</span><span class="p">[</span><span class="n">all_rates</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">scale_a</span><span class="p">,</span> <span class="n">scale_b</span><span class="p">,</span> <span class="n">target</span> <span class="o">=</span> <span class="n">_compute_normalization_scale</span><span class="p">(</span>
+            <span class="n">ga</span><span class="p">,</span> <span class="n">gb</span><span class="p">,</span> <span class="n">mc_a_tot</span><span class="p">,</span> <span class="n">cov_a_tot</span><span class="p">,</span> <span class="n">mc_b_tot</span><span class="p">,</span> <span class="n">cov_b_tot</span><span class="p">,</span> <span class="n">method</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scale_a</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;call_dmr_ch: all per-cell global rates are zero; &quot;</span>
                            <span class="s2">&quot;skipping normalization&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">target</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">valid</span><span class="p">))</span>
-            <span class="c1"># avoid divide-by-zero / huge blow-up for empty cells</span>
-            <span class="n">ga_safe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ga</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ga</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-            <span class="n">gb_safe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">gb</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">gb</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-            <span class="n">scale_a</span> <span class="o">=</span> <span class="n">target</span> <span class="o">/</span> <span class="n">ga_safe</span>
-            <span class="n">scale_b</span> <span class="o">=</span> <span class="n">target</span> <span class="o">/</span> <span class="n">gb_safe</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;call_dmr_ch: normalized to global rate &quot;</span>
                         <span class="sa">f</span><span class="s2">&quot;target=</span><span class="si">{</span><span class="n">target</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">; A scale range &quot;</span>
                         <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">scale_a</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">scale_a</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">], &quot;</span>
                         <span class="sa">f</span><span class="s2">&quot;B scale range &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">scale_b</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">scale_b</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+                        <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">scale_b</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">scale_b</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">] &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;(method=&#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;)&quot;</span><span class="p">)</span>
 
     <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">(</span><span class="n">a_paths</span><span class="p">,</span> <span class="n">b_paths</span><span class="p">,</span> <span class="n">ref_path</span><span class="p">,</span> <span class="n">index_path</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="p">,</span>
@@ -1637,6 +1936,16 @@
 <span class="sd">    dms_output_dir : str or None</span>
 <span class="sd">        If given, also write per-sample DMS TSVs here, with the same</span>
 <span class="sd">        ``&lt;class&gt;/&lt;sname&gt;.dms.tsv`` layout.</span>
+<span class="sd">    auto_merge : bool, default True</span>
+<span class="sd">        If True, after the last comparison call :func:`merge_dmr_results`</span>
+<span class="sd">        on ``outdir`` to produce a long-format ``merged_dmr.tsv`` with</span>
+<span class="sd">        derived metric columns.  Set to False to skip merging (e.g.</span>
+<span class="sd">        when running a partial batch you&#39;ll merge later).</span>
+<span class="sd">    merge_kwargs : dict or None</span>
+<span class="sd">        Extra keyword arguments forwarded to :func:`merge_dmr_results`</span>
+<span class="sd">        when ``auto_merge=True`` (e.g. ``add_fdr=True``,</span>
+<span class="sd">        ``add_metrics=True``).  ``indir`` / ``output`` are managed by</span>
+<span class="sd">        this wrapper.</span>
 <span class="sd">    **dmr_kwargs : dict</span>
 <span class="sd">        Forwarded to :func:`call_dmr` or :func:`call_dmr_ch` (e.g.</span>
 <span class="sd">        ``frac_delta_cutoff``, ``log2fc_cutoff``, ``n_permute``,</span>
@@ -1928,6 +2237,13 @@
 <span class="sd">    add_metrics : bool</span>
 <span class="sd">        If False, only stitch the rows together without computing</span>
 <span class="sd">        derived metric columns.</span>
+<span class="sd">    add_fdr : bool, default True</span>
+<span class="sd">        If True, compute Benjamini-Hochberg FDR ``q_min`` per</span>
+<span class="sd">        ``sname`` (and per ``class`` when stratified) from ``p_min``.</span>
+<span class="sd">    output_format : {&#39;tsv&#39;, &#39;parquet&#39;} or None</span>
+<span class="sd">        Output file format when ``output`` is given.  ``None``</span>
+<span class="sd">        auto-detects from the ``output`` extension (``.parquet`` /</span>
+<span class="sd">        ``.pq`` -&gt; parquet, anything else -&gt; tsv).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -2140,38 +2456,6 @@
     <span class="k">return</span> <span class="n">cons</span></div>
 
 
-
-<span class="k">def</span><span class="w"> </span><span class="nf">__split_mat</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">snames</span><span class="p">,</span> <span class="n">outdir</span><span class="p">,</span> <span class="n">n_ref</span><span class="p">):</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">pysam</span>
-    <span class="n">tbi</span> <span class="o">=</span> <span class="n">pysam</span><span class="o">.</span><span class="n">TabixFile</span><span class="p">(</span><span class="n">infile</span><span class="p">)</span>
-    <span class="n">records</span> <span class="o">=</span> <span class="n">tbi</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">reference</span><span class="o">=</span><span class="n">chrom</span><span class="p">)</span>
-    <span class="n">N</span> <span class="o">=</span> <span class="n">n_ref</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">snames</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
-    <span class="n">fout_dict</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">sname</span> <span class="ow">in</span> <span class="n">snames</span><span class="p">:</span>
-        <span class="n">fout_dict</span><span class="p">[</span><span class="n">sname</span><span class="p">]</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sname</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.bed&quot;</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span>
-        <span class="n">fout_dict</span><span class="p">[</span><span class="n">sname</span><span class="p">]</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;chrom</span><span class="se">\t</span><span class="s2">start</span><span class="se">\t</span><span class="s2">end</span><span class="se">\t</span><span class="s2">strand</span><span class="se">\t</span><span class="s2">pval</span><span class="se">\t</span><span class="s2">odd_ratio</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
-        <span class="n">values</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">N</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">infile</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Number of fields is wrong.&quot;</span><span class="p">)</span>
-        <span class="n">ch</span><span class="p">,</span> <span class="n">beg</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">strand</span> <span class="o">=</span> <span class="n">values</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span>
-        <span class="n">beg</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">beg</span><span class="p">)</span>
-        <span class="n">end</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">sname</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">snames</span><span class="p">):</span>
-            <span class="n">or_value</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">n_ref</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">2</span><span class="p">]</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">OR</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">or_value</span><span class="p">)</span>
-            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
-                <span class="n">OR</span> <span class="o">=</span> <span class="mi">1</span>
-            <span class="k">if</span> <span class="n">OR</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># hyper methylation</span>
-                <span class="n">pval</span> <span class="o">=</span> <span class="mi">1</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">pval</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">n_ref</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-            <span class="n">fout_dict</span><span class="p">[</span><span class="n">sname</span><span class="p">]</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="se">\t</span><span class="si">{</span><span class="n">beg</span><span class="si">}</span><span class="se">\t</span><span class="si">{</span><span class="n">end</span><span class="si">}</span><span class="se">\t</span><span class="si">{</span><span class="n">strand</span><span class="si">}</span><span class="se">\t</span><span class="si">{</span><span class="n">pval</span><span class="si">}</span><span class="se">\t</span><span class="si">{</span><span class="n">or_value</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">sname</span> <span class="ow">in</span> <span class="n">snames</span><span class="p">:</span>
-        <span class="n">fout_dict</span><span class="p">[</span><span class="n">sname</span><span class="p">]</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="n">tbi</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
 
 <span class="c1"># ==========================================================================</span>
@@ -2549,120 +2833,398 @@
 
 
 
-<div class="viewcode-block" id="combp">
-<a class="viewcode-back" href="../../cytozip.dmr.html#cytozip.dmr.combp">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">combp</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">outdir</span><span class="o">=</span><span class="s2">&quot;cpv&quot;</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">dist</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">temp</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bed</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Run comb-p on a fisher result matrix (generated by `merge_cz -f fisher`),</span>
-<span class="sd">    /usr/bin/time -f &quot;%e\t%M\t%P&quot; cytozip combp -i major_type.fisher.txt.gz -n 64</span>
-<span class="sd">    Run one samples (all chromosomes), 8308.18(2.3h) 65053112(62G)        321%</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_array_chunk</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">beta_col</span><span class="p">,</span> <span class="n">n_probes</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a (n_samples, n_probes) float32 \u03b2 matrix for one chunk.</span>
+
+<span class="sd">    Each per-sample .cz must be aligned to the reference (same number of</span>
+<span class="sd">    rows per chunk_dim). Missing chunks / values become NaN.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">paths</span><span class="p">),</span> <span class="n">n_probes</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">paths</span><span class="p">):</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">_get_reader</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">n_probes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">: chunk </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2"> has </span><span class="si">{</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> rows but reference &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;chunk has </span><span class="si">{</span><span class="n">n_probes</span><span class="si">}</span><span class="s2">; per-sample .cz must be aligned to &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;the reference (build with allc2cz / a custom array writer &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;using the same reference).&quot;</span>
+            <span class="p">)</span>
+        <span class="n">M</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">beta_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">r</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">M</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_welch_t_two_sample</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">on_m</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-column Welch&#39;s t-test on two (n_samples, n_probes) matrices.</span>
+
+<span class="sd">    If ``on_m`` is True, \u03b2 values are first transformed to M-values</span>
+<span class="sd">    (``log2(\u03b2/(1-\u03b2))``), which stabilises the variance near 0/1.</span>
+<span class="sd">    Returns ``(p, n_a_used, n_b_used, delta_beta)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">on_m</span><span class="p">:</span>
+        <span class="n">Ac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">eps</span><span class="p">)</span>
+        <span class="n">Bc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">eps</span><span class="p">)</span>
+        <span class="n">Am</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">Ac</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">Ac</span><span class="p">))</span>
+        <span class="n">Bm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">Bc</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">Bc</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">Am</span><span class="p">,</span> <span class="n">Bm</span> <span class="o">=</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span>
+    <span class="n">a_n</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">Am</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">b_n</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">Bm</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="n">divide</span><span class="o">=</span><span class="s1">&#39;ignore&#39;</span><span class="p">):</span>
+        <span class="n">a_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">Am</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">b_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">Bm</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">a_var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanvar</span><span class="p">(</span><span class="n">Am</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">b_var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanvar</span><span class="p">(</span><span class="n">Bm</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">se2</span> <span class="o">=</span> <span class="n">a_var</span> <span class="o">/</span> <span class="n">a_n</span> <span class="o">+</span> <span class="n">b_var</span> <span class="o">/</span> <span class="n">b_n</span>
+        <span class="n">se</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">se2</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="p">(</span><span class="n">a_mean</span> <span class="o">-</span> <span class="n">b_mean</span><span class="p">)</span> <span class="o">/</span> <span class="n">se</span>
+        <span class="n">num</span> <span class="o">=</span> <span class="n">se2</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="n">den</span> <span class="o">=</span> <span class="p">(</span><span class="n">a_var</span> <span class="o">/</span> <span class="n">a_n</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">a_n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> \
+            <span class="o">+</span> <span class="p">(</span><span class="n">b_var</span> <span class="o">/</span> <span class="n">b_n</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">b_n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">t</span> <span class="k">as</span> <span class="n">t_dist</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">t_dist</span><span class="o">.</span><span class="n">sf</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="n">df</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">p</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="c1"># delta on the original \u03b2 scale (more interpretable for users)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">p</span><span class="p">,</span> <span class="n">a_n</span><span class="p">,</span> <span class="n">b_n</span><span class="p">,</span> <span class="n">delta</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_mannwhitney_two_sample</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-column Mann-Whitney U on \u03b2 values; vectorised via scipy.</span>
+
+<span class="sd">    Slower than ``_welch_t_two_sample`` but non-parametric. Returns</span>
+<span class="sd">    ``(p, n_a_used, n_b_used, delta_beta)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">mannwhitneyu</span>
+    <span class="n">n_probes</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_probes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_probes</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">A</span><span class="p">[:,</span> <span class="n">j</span><span class="p">];</span> <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">a</span><span class="p">)]</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">B</span><span class="p">[:,</span> <span class="n">j</span><span class="p">];</span> <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">b</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">b</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">p</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">mannwhitneyu</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">alternative</span><span class="o">=</span><span class="s1">&#39;two-sided&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">pvalue</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">p</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">a_n</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">A</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">b_n</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">B</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">p</span><span class="p">,</span> <span class="n">a_n</span><span class="p">,</span> <span class="n">b_n</span><span class="p">,</span> <span class="n">delta</span>
+
+
+<div class="viewcode-block" id="call_dmr_array">
+<a class="viewcode-back" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_array">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">call_dmr_array</span><span class="p">(</span><span class="n">group_a</span><span class="p">,</span> <span class="n">group_b</span><span class="p">,</span> <span class="n">reference</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span>
+                   <span class="n">beta_col</span><span class="o">=</span><span class="s1">&#39;beta&#39;</span><span class="p">,</span>
+                   <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">test</span><span class="o">=</span><span class="s1">&#39;t&#39;</span><span class="p">,</span>
+                   <span class="n">group_names</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">),</span>
+                   <span class="n">sidak_p_cutoff</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+                   <span class="n">delta_beta_cutoff</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+                   <span class="n">min_samples_per_group</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                   <span class="n">max_dist</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+                   <span class="n">acf_dist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">keep_temp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                   <span class="n">chroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">probe_pvalues_output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Call DMRs on **methylation array** ``.cz`` files (450K / EPIC / MSA).</span>
+
+<span class="sd">    Pipeline:</span>
+
+<span class="sd">    1. For every probe in the reference, gather \u03b2 values from each</span>
+<span class="sd">       per-sample ``.cz`` in ``group_a`` / ``group_b``.</span>
+<span class="sd">    2. Per-probe two-sample test (default: Welch&#39;s t-test on M-values</span>
+<span class="sd">       ``log2(\u03b2/(1-\u03b2))``; alternative: Mann-Whitney U on \u03b2)</span>
+<span class="sd">       \u2192 a p-value and \u0394\u03b2 = mean(A) - mean(B).</span>
+<span class="sd">    3. Stouffer-Liptak ACF + \u0160id\u00e1k spatial merge via comb-p</span>
+<span class="sd">       (``cpv.pipeline``), one BED per chromosome.</span>
+<span class="sd">    4. Filter regions by ``sidak_p_cutoff`` and ``|\u0394\u03b2|`` cutoff.</span>
+
+<span class="sd">    This replaces the previous ``combp`` function (which consumed a</span>
+<span class="sd">    pre-computed Fisher matrix). For BS-seq / single-cell BS-seq DMRs</span>
+<span class="sd">    use :func:`call_dmr` (CG) or :func:`call_dmr_ch` (CH); the</span>
+<span class="sd">    permutation RMS test is more appropriate when the data are mc/cov</span>
+<span class="sd">    integer counts instead of continuous \u03b2-values.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    input : path</span>
-<span class="sd">        path to result from merge_cz -f fisher.</span>
-<span class="sd">    outdir : path</span>
+<span class="sd">    group_a, group_b : str | list of str</span>
+<span class="sd">        Per-sample array .cz paths (comma-separated string, list, or a</span>
+<span class="sd">        text file with one path per line). Each .cz must be aligned to</span>
+<span class="sd">        ``reference`` (same chunks, same ordering).</span>
+<span class="sd">    reference : str</span>
+<span class="sd">        Reference .cz holding probe coordinates. Must contain a ``pos``</span>
+<span class="sd">        column. Per-sample .cz files inherit this primary-id ordering.</span>
+<span class="sd">    output : str</span>
+<span class="sd">        Output DMR TSV path.</span>
+<span class="sd">    beta_col : str</span>
+<span class="sd">        Name of the \u03b2-value column in each per-sample .cz (default</span>
+<span class="sd">        ``&#39;beta&#39;``). Values must be in [0, 1] (NaN allowed for</span>
+<span class="sd">        unmeasured probes).</span>
+<span class="sd">    index : str or None</span>
+<span class="sd">        Optional context / probe-subset index .cz to restrict probes</span>
+<span class="sd">        considered (e.g. an EPIC manifest filter, or only probes</span>
+<span class="sd">        passing detection p threshold). Currently unused; kept for API</span>
+<span class="sd">        symmetry with :func:`call_dmr`.</span>
+<span class="sd">    test : {&#39;t&#39;, &#39;mw&#39;}</span>
+<span class="sd">        Per-probe test. ``&#39;t&#39;`` (default) = Welch t-test on M-values;</span>
+<span class="sd">        ``&#39;mw&#39;`` = Mann-Whitney U on \u03b2 (slower, non-parametric).</span>
+<span class="sd">    group_names : (str, str)</span>
+<span class="sd">        Labels stored in the log line; not in the output table.</span>
+<span class="sd">    sidak_p_cutoff : float</span>
+<span class="sd">        Region-level \u0160id\u00e1k-corrected p cutoff (default 0.05).</span>
+<span class="sd">    delta_beta_cutoff : float</span>
+<span class="sd">        Minimum ``|mean \u0394\u03b2|`` over the region (default 0.05,</span>
+<span class="sd">        i.e. 5 %).</span>
+<span class="sd">    min_samples_per_group : int</span>
+<span class="sd">        Skip probes with fewer than this many non-NaN measurements per</span>
+<span class="sd">        group (default 2). Welch / MW are degenerate below this.</span>
+<span class="sd">    max_dist : int</span>
+<span class="sd">        ``--dist`` for comb-p: maximum gap (bp) between adjacent</span>
+<span class="sd">        significant probes within a region. Array probes are sparse, so</span>
+<span class="sd">        this defaults to 1000 (vs. 250 for BS-seq).</span>
+<span class="sd">    acf_dist : int or None</span>
+<span class="sd">        Distance used for autocorrelation estimation. Defaults to</span>
+<span class="sd">        ``round(max_dist / 3, -1)`` (matching the comb-p convention).</span>
+<span class="sd">    keep_temp : bool</span>
+<span class="sd">        Keep the per-chrom BED + cpv tmp directories under</span>
+<span class="sd">        ``&lt;output&gt;.tmp/``.</span>
+<span class="sd">    chroms : list of str or None</span>
+<span class="sd">        Restrict to these chromosomes (default: every chunk in</span>
+<span class="sd">        ``reference``).</span>
+<span class="sd">    probe_pvalues_output : str or None</span>
+<span class="sd">        If given, also dump the per-probe ``(chrom, pos, p, delta_beta)``</span>
+<span class="sd">        TSV here \u2014 useful for QQ plots, custom thresholds, or</span>
+<span class="sd">        external DMR callers (DMRcate / bumphunter).</span>
 <span class="sd">    jobs : int</span>
-<span class="sd">        number of parallel processes (CPUs).</span>
-<span class="sd">    dist: int</span>
-<span class="sd">        max distance between two site to be included in one DMR.</span>
-<span class="sd">    temp : bool</span>
-<span class="sd">        whether to keep temp dir</span>
-<span class="sd">    bed : bool</span>
-<span class="sd">        whether to keep bed directory</span>
+<span class="sd">        Parallel processes used for the per-chrom comb-p step.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Path to the output DMR TSV with columns</span>
+<span class="sd">        ``chrom, start, end, n_probes, sidak_p, mean_delta_beta, direction``.</span>
 
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        # CLI</span>
+<span class="sd">        czip call_dmr_array \\</span>
+<span class="sd">            -a &quot;ctrl_*.cz&quot; -b &quot;case_*.cz&quot; \\</span>
+<span class="sd">            -r epic_manifest.cz \\</span>
+<span class="sd">            -O DMR_array.tsv \\</span>
+<span class="sd">            --max_dist 1000 --jobs 16</span>
+
+<span class="sd">        # Python</span>
+<span class="sd">        import cytozip as czip</span>
+<span class="sd">        czip.call_dmr_array(</span>
+<span class="sd">            group_a=sorted(glob.glob(&#39;ctrl/*.cz&#39;)),</span>
+<span class="sd">            group_b=sorted(glob.glob(&#39;case/*.cz&#39;)),</span>
+<span class="sd">            reference=&#39;epic_manifest.cz&#39;,</span>
+<span class="sd">            output=&#39;DMR_array.tsv&#39;,</span>
+<span class="sd">            test=&#39;t&#39;, max_dist=1000, jobs=16,</span>
+<span class="sd">        )</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">cpv.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span> <span class="k">as</span> <span class="n">cpv_pipeline</span>
-    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Please install cpv using: pip install git+https://github.com/DingWB/combined-pvalues&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;cpv (combined-pvalues) is required for call_dmr_array. &quot;</span>
+            <span class="s2">&quot;Install via: pip install &quot;</span>
+            <span class="s2">&quot;git+https://github.com/DingWB/combined-pvalues&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
 
-    <span class="n">infile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
-    <span class="n">outdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">outdir</span><span class="p">))</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outdir</span><span class="p">):</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">outdir</span><span class="p">)</span>
-    <span class="n">columns</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">nrows</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-    <span class="n">snames</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span><span class="p">[:</span><span class="o">-</span><span class="mi">5</span><span class="p">]</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">[</span><span class="mi">4</span><span class="p">:]</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.pval&#39;</span><span class="p">)]</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">pysam</span>
-    <span class="n">tbi</span> <span class="o">=</span> <span class="n">pysam</span><span class="o">.</span><span class="n">TabixFile</span><span class="p">(</span><span class="n">infile</span><span class="p">)</span>
-    <span class="n">chroms</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">tbi</span><span class="o">.</span><span class="n">contigs</span><span class="p">)</span>
-    <span class="n">tbi</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">test</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="s1">&#39;mw&#39;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;test must be &#39;t&#39; or &#39;mw&#39;, got </span><span class="si">{</span><span class="n">test</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="n">bed_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s1">&#39;bed&#39;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bed_dir</span><span class="p">):</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">bed_dir</span><span class="p">)</span>
-        <span class="n">pool</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span>
-        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Splitting matrix into different samples and chroms.&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">chroms</span><span class="p">:</span>
-            <span class="n">task</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="n">__split_mat</span><span class="p">,</span>
-                                   <span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">snames</span><span class="p">,</span> <span class="n">bed_dir</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
-            <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
-            <span class="n">task</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
-        <span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;bed directory existed, skip split matrix into bed files.&quot;</span><span class="p">)</span>
+    <span class="n">a_paths</span> <span class="o">=</span> <span class="n">_resolve_paths</span><span class="p">(</span><span class="n">group_a</span><span class="p">)</span>
+    <span class="n">b_paths</span> <span class="o">=</span> <span class="n">_resolve_paths</span><span class="p">(</span><span class="n">group_b</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a_paths</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_samples_per_group</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">b_paths</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_samples_per_group</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Need at least </span><span class="si">{</span><span class="n">min_samples_per_group</span><span class="si">}</span><span class="s2"> sample(s) per group; &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;got A=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">a_paths</span><span class="p">)</span><span class="si">}</span><span class="s2">, B=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">b_paths</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="n">ref_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">reference</span><span class="p">))</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+    <span class="n">tmpdir</span> <span class="o">=</span> <span class="n">output</span> <span class="o">+</span> <span class="s1">&#39;.tmp&#39;</span>
+    <span class="n">bed_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="s1">&#39;bed&#39;</span><span class="p">)</span>
+    <span class="n">cpv_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="s1">&#39;cpv&#39;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">bed_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">cpv_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">tmpdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s2">&quot;tmp&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">):</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">)</span>
-    <span class="n">pool</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span>
+    <span class="c1"># ---- 1. Discover chunk layout from the reference -----------------</span>
+    <span class="n">ref_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">ref_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s1">&#39;pos&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">]:</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;reference </span><span class="si">{</span><span class="n">ref_path</span><span class="si">}</span><span class="s2"> must have a &#39;pos&#39; column &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;(got </span><span class="si">{</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+    <span class="n">chunk_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">chroms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">wanted</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">chroms</span><span class="p">)</span>
+        <span class="n">chunk_keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">chunk_keys</span> <span class="k">if</span> <span class="n">k</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">wanted</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">chunk_keys</span><span class="p">:</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No matching chunks found in reference for &quot;</span>
+                         <span class="sa">f</span><span class="s2">&quot;chroms=</span><span class="si">{</span><span class="n">chroms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;call_dmr_array[</span><span class="si">{</span><span class="n">test</span><span class="si">}</span><span class="s2">]: A=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">a_paths</span><span class="p">)</span><span class="si">}</span><span class="s2"> samples, &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;B=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">b_paths</span><span class="p">)</span><span class="si">}</span><span class="s2"> samples (</span><span class="si">{</span><span class="n">group_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">group_names</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">), &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">chunk_keys</span><span class="p">)</span><span class="si">}</span><span class="s2"> chunks&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># ---- 2. Per-probe test, write BED4 (chrom, start, end, p) --------</span>
+    <span class="n">test_func</span> <span class="o">=</span> <span class="n">_welch_t_two_sample</span> <span class="k">if</span> <span class="n">test</span> <span class="o">==</span> <span class="s1">&#39;t&#39;</span> <span class="k">else</span> <span class="n">_mannwhitney_two_sample</span>
+    <span class="n">pp_chrom</span><span class="p">,</span> <span class="n">pp_pos</span><span class="p">,</span> <span class="n">pp_p</span><span class="p">,</span> <span class="n">pp_delta</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">chunk_keys</span><span class="p">:</span>
+        <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ref_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">n_probes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ref_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">_load_array_chunk</span><span class="p">(</span><span class="n">a_paths</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">beta_col</span><span class="p">,</span> <span class="n">n_probes</span><span class="p">)</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="n">_load_array_chunk</span><span class="p">(</span><span class="n">b_paths</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">beta_col</span><span class="p">,</span> <span class="n">n_probes</span><span class="p">)</span>
+        <span class="n">p</span><span class="p">,</span> <span class="n">a_n</span><span class="p">,</span> <span class="n">b_n</span><span class="p">,</span> <span class="n">delta</span> <span class="o">=</span> <span class="n">test_func</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>
+        <span class="n">keep</span> <span class="o">=</span> <span class="p">(</span><span class="n">a_n</span> <span class="o">&gt;=</span> <span class="n">min_samples_per_group</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">b_n</span> <span class="o">&gt;=</span> <span class="n">min_samples_per_group</span><span class="p">)</span> \
+             <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">keep</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">ref_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">pos_k</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="n">p_k</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="n">d_k</span> <span class="o">=</span> <span class="n">delta</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="c1"># Write chrom-level BED4 for cpv (chrom\tstart\tend\tp)</span>
+        <span class="n">bed_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bed_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.bed&quot;</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+            <span class="s1">&#39;chrom&#39;</span><span class="p">:</span> <span class="n">chrom</span><span class="p">,</span>
+            <span class="s1">&#39;start&#39;</span><span class="p">:</span> <span class="n">pos_k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># 0-based half-open</span>
+            <span class="s1">&#39;end&#39;</span><span class="p">:</span> <span class="n">pos_k</span><span class="p">,</span>
+            <span class="s1">&#39;p&#39;</span><span class="p">:</span> <span class="n">p_k</span><span class="p">,</span>
+        <span class="p">})</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">bed_path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">pp_chrom</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">pos_k</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">))</span>
+        <span class="n">pp_pos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pos_k</span><span class="p">);</span> <span class="n">pp_p</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p_k</span><span class="p">);</span> <span class="n">pp_delta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d_k</span><span class="p">)</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+    <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">_close_cached_readers</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pp_chrom</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;call_dmr_array: no probes passed min-samples filter; &quot;</span>
+                       <span class="s2">&quot;writing empty output.&quot;</span><span class="p">)</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">,</span> <span class="s1">&#39;n_probes&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;sidak_p&#39;</span><span class="p">,</span> <span class="s1">&#39;mean_delta_beta&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;direction&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span>
+                                                   <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_temp</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rm -rf </span><span class="si">{</span><span class="n">tmpdir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span>
+
+    <span class="n">pp</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+        <span class="s1">&#39;chrom&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">pp_chrom</span><span class="p">),</span>
+        <span class="s1">&#39;pos&#39;</span><span class="p">:</span>   <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">pp_pos</span><span class="p">),</span>
+        <span class="s1">&#39;p&#39;</span><span class="p">:</span>     <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">pp_p</span><span class="p">),</span>
+        <span class="s1">&#39;delta_beta&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">pp_delta</span><span class="p">),</span>
+    <span class="p">})</span>
+    <span class="k">if</span> <span class="n">probe_pvalues_output</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pp_out</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">probe_pvalues_output</span><span class="p">))</span>
+        <span class="n">pp</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">pp_out</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  per-probe table </span><span class="se">\u2192</span><span class="s2"> </span><span class="si">{</span><span class="n">pp_out</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># ---- 3. Run comb-p per chrom -------------------------------------</span>
+    <span class="k">if</span> <span class="n">acf_dist</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">acf_dist</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">max_dist</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)))</span>
+    <span class="n">chroms_done</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">chunk_keys</span><span class="p">})</span>
+    <span class="n">pool</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">jobs</span><span class="p">)))</span>
     <span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running cpv..&quot;</span><span class="p">)</span>
-    <span class="n">acf_dist</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dist</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-    <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">chroms</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">sname</span> <span class="ow">in</span> <span class="n">snames</span><span class="p">:</span>
-            <span class="n">bed_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bed_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sname</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.bed&quot;</span><span class="p">)</span>
-            <span class="n">prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sname</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sname</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.regions-p.bed.gz&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
-                <span class="k">continue</span>
-            <span class="n">task</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="n">cpv_pipeline</span><span class="p">,</span>
-                                   <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">acf_dist</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span>
-                                    <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="s2">&quot;refGene&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">bed_file</span><span class="p">],</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span>
-                                    <span class="kc">None</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
-            <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
-        <span class="n">task</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
-    <span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">chroms_done</span><span class="p">:</span>
+        <span class="n">bed_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bed_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.bed&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bed_file</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cpv_dir</span><span class="p">,</span> <span class="n">chrom</span><span class="p">)</span>
+        <span class="n">out_bed</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s2">&quot;.regions-p.bed.gz&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">out_bed</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span>
+            <span class="n">cpv_pipeline</span><span class="p">,</span>
+            <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_dist</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">acf_dist</span><span class="p">),</span> <span class="n">prefix</span><span class="p">,</span>
+             <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="s2">&quot;refGene&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">bed_file</span><span class="p">],</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span>
+             <span class="kc">None</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="p">))</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+    <span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">();</span> <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
 
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Merging cpv results..&quot;</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">sname</span> <span class="ow">in</span> <span class="n">snames</span><span class="p">:</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sname</span><span class="si">}</span><span class="s2">.bed&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">chroms</span><span class="p">:</span>
-            <span class="n">infile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sname</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.regions-p.bed.gz&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">infile</span><span class="p">):</span>
-                <span class="k">continue</span>
-            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">z_sidak_p</span> <span class="o">&lt;=</span> <span class="mf">0.05</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
-                <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># ---- 4. Aggregate region table, attach \u0394\u03b2 / direction --</span>
+    <span class="n">region_rows</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">chroms_done</span><span class="p">:</span>
+        <span class="n">rp</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cpv_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">.regions-p.bed.gz&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">rp</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">rp</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">EmptyDataError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="c1"># comb-p output columns (typical): chrom start end min_p n_probes z_p z_sidak_p</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;z_sidak_p&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sidak_p_cutoff</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="c1"># Attach mean \u0394\u03b2 by averaging probe-level \u0394\u03b2 in [start,end]</span>
+        <span class="n">sub</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">pp</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">chrom</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="s1">&#39;delta_beta&#39;</span><span class="p">]]</span>
+        <span class="n">sub_pos</span> <span class="o">=</span> <span class="n">sub</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">sub_d</span> <span class="o">=</span> <span class="n">sub</span><span class="p">[</span><span class="s1">&#39;delta_beta&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">starts</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">ends</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">sub_pos</span><span class="p">)</span>
+        <span class="n">sp</span> <span class="o">=</span> <span class="n">sub_pos</span><span class="p">[</span><span class="n">order</span><span class="p">];</span> <span class="n">sd</span> <span class="o">=</span> <span class="n">sub_d</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span> <span class="n">starts</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">)</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span> <span class="n">ends</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">)</span>
+        <span class="n">means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">sd</span><span class="p">[</span><span class="n">l</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="n">r</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">l</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                          <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">starts</span><span class="p">))],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">df</span><span class="p">[</span><span class="s1">&#39;mean_delta_beta&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">means</span>
+        <span class="n">df</span><span class="p">[</span><span class="s1">&#39;direction&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;mean_delta_beta&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;hypo&#39;</span><span class="p">,</span> <span class="s1">&#39;hyper&#39;</span><span class="p">)</span>
+        <span class="n">df</span><span class="p">[</span><span class="s1">&#39;sidak_p&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;z_sidak_p&#39;</span><span class="p">]</span>
+        <span class="n">cols_keep</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">,</span> <span class="s1">&#39;n_probes&#39;</span><span class="p">,</span>
+                     <span class="s1">&#39;sidak_p&#39;</span><span class="p">,</span> <span class="s1">&#39;mean_delta_beta&#39;</span><span class="p">,</span> <span class="s1">&#39;direction&#39;</span><span class="p">]</span>
+        <span class="c1"># cpv may name n_probes differently; normalise:</span>
+        <span class="k">if</span> <span class="s1">&#39;n_probes&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">cand</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;n_sig&#39;</span><span class="p">,</span> <span class="s1">&#39;n_sig_probes&#39;</span><span class="p">,</span> <span class="s1">&#39;n&#39;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">cand</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;n_probes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">cand</span><span class="p">];</span> <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">)</span>
-    <span class="n">merged_dmr_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s1">&#39;merged_dmr.txt&#39;</span><span class="p">)</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">for</span> <span class="n">sname</span> <span class="ow">in</span> <span class="n">snames</span><span class="p">:</span>
-        <span class="n">infile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sname</span><span class="si">}</span><span class="s2">.bed&quot;</span><span class="p">)</span>
-        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
-        <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s1">&#39;min_p&#39;</span><span class="p">,</span> <span class="s1">&#39;z_p&#39;</span><span class="p">,</span> <span class="s1">&#39;z_sidak_p&#39;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">df</span><span class="p">[</span><span class="s1">&#39;sname&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sname</span>
-        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">data</span><span class="p">,</span> <span class="n">df</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">merged_dmr_path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">bed</span><span class="p">:</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rm -rf </span><span class="si">{</span><span class="n">bed_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">temp</span><span class="p">:</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rm -rf </span><span class="si">{</span><span class="n">tmpdir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+                <span class="n">df</span><span class="p">[</span><span class="s1">&#39;n_probes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">region_rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">cols_keep</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">region_rows</span><span class="p">:</span>
+        <span class="n">regions</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">region_rows</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">delta_beta_cutoff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">delta_beta_cutoff</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">regions</span> <span class="o">=</span> <span class="n">regions</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                <span class="n">regions</span><span class="p">[</span><span class="s1">&#39;mean_delta_beta&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="nb">float</span><span class="p">(</span><span class="n">delta_beta_cutoff</span><span class="p">)</span>
+            <span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">regions</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">,</span>
+                                        <span class="s1">&#39;n_probes&#39;</span><span class="p">,</span> <span class="s1">&#39;sidak_p&#39;</span><span class="p">,</span>
+                                        <span class="s1">&#39;mean_delta_beta&#39;</span><span class="p">,</span> <span class="s1">&#39;direction&#39;</span><span class="p">])</span>
+
+    <span class="n">regions</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;call_dmr_array: </span><span class="si">{</span><span class="n">pp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> probes </span><span class="se">\u2192</span><span class="s2"> &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">regions</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> DMRs (sidak_p</span><span class="se">\u2264</span><span class="si">{</span><span class="n">sidak_p_cutoff</span><span class="si">}</span><span class="s2">, &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;|</span><span class="se">\u0394\u03b2</span><span class="s2">|</span><span class="se">\u2265</span><span class="si">{</span><span class="n">delta_beta_cutoff</span><span class="si">}</span><span class="s2">) written to </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_temp</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rm -rf </span><span class="si">{</span><span class="n">tmpdir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">output</span></div>
 
 
 
@@ -2676,11 +3238,14 @@
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    input : path</span>
-<span class="sd">        Merged dmr from cytozip combp.</span>
+<span class="sd">        Merged DMR file (e.g. produced by ``call_dmr`` / ``call_dmr_array``).</span>
 <span class="sd">    matrix : path</span>
 <span class="sd">        result of agg_beta using dmr and output of merge_cz (fraction) as input.</span>
 <span class="sd">    output : path</span>
 <span class="sd">        annotated dmr, containing hypomethylated sname, delta</span>
+<span class="sd">    delta_cutoff : float, optional</span>
+<span class="sd">        If given, only keep rows whose ``delta_beta`` (= max-min</span>
+<span class="sd">        beta across cell classes) is at least this value.</span>
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 
