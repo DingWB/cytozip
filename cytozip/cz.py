@@ -810,6 +810,19 @@ class Reader:
 		# each cached chunk. ``np.searchsorted`` runs ~100× faster on a
 		# contiguous buffer than on a strided view of a structured dtype.
 		self._chunk_sortcol_cache = collections.OrderedDict()
+		# Cache resolved 1-D context-index IDs keyed by (index_token, dim).
+		# Avoids re-opening / re-reading a context index .cz on every
+		# chunk in batched/threaded queries (`query_numpy_multi`,
+		# `cz_to_anndata`). The token is a stable id we can derive
+		# without touching the index contents (path str, or id(Reader)).
+		self._index_ids_cache = {}
+		# Cache *gathered* per-chunk arrays keyed by (chunk_key, index_token).
+		# Subsequent indexed region queries on the same chunk skip the
+		# O(chunk_size) fancy-index gather of `arr` / `pos` and go straight
+		# to `searchsorted` on the already-filtered, contiguous arrays.
+		# This is the main optimisation for hot index-aware queries.
+		self._indexed_chunk_cache = collections.OrderedDict()
+		self._indexed_sortcol_cache = collections.OrderedDict()
 		self.read_header()
 
 	def read_header(self):
@@ -1250,7 +1263,7 @@ class Reader:
 			df = pd.DataFrame(rows, columns=header)
 			return df
 
-	def chunk2numpy(self, dims, reformat=False):
+	def chunk2numpy(self, dims, reformat=False, index=None):
 		"""Read an entire chunk as a numpy structured ndarray.
 
 		This is the fastest single-cell read path: it skips the per-row
@@ -1270,6 +1283,12 @@ class Reader:
 			structured arrays can't hold variable-length str directly).
 			Most analysis pipelines should leave this False and operate
 			on the raw bytes columns.
+		index : str, ``Reader``, dict or None, default None
+			If given, restrict the returned rows to those whose 1-based
+			primary IDs are listed in *index*. Typically a 1-D context
+			index built by :func:`cytozip.index_context` (e.g. CG-only
+			or CH-only sites). See :meth:`_resolve_index_ids` for accepted
+			forms.
 
 		Returns
 		-------
@@ -1283,11 +1302,29 @@ class Reader:
 		"""
 		raw = self.fetch_chunk_bytes(dims)
 		dtype = _build_record_dtype(self.header['formats'])
+		# Resolve index BEFORE materializing the full chunk: when given,
+		# we can gather directly from the zero-copy frombuffer view and
+		# skip the O(chunk_size) full-chunk .copy() entirely (the gather
+		# itself produces a small, owned copy).
+		ids = (self._resolve_index_ids(index, dims)
+		       if index is not None else None)
 		if not raw:
-			return np.empty(0, dtype=dtype)
-		# np.frombuffer gives a zero-copy view; copy() so the caller owns
-		# the memory (decompressed buffer can otherwise be freed).
-		arr = np.frombuffer(raw, dtype=dtype).copy()
+			arr = np.empty(0, dtype=dtype)
+		elif ids is not None:
+			view = np.frombuffer(raw, dtype=dtype)
+			if ids.size == 0:
+				arr = np.empty(0, dtype=dtype)
+			else:
+				if ids.min() < 1 or ids.max() > view.size:
+					raise ValueError(
+						f"index ID out of range for chunk {dims}: "
+						f"chunk has {view.size} rows, "
+						f"min/max ID = {int(ids.min())}/{int(ids.max())}")
+				arr = view[ids - 1]  # fancy-index → owned copy
+		else:
+			# np.frombuffer gives a zero-copy view; copy() so the caller owns
+			# the memory (decompressed buffer can otherwise be freed).
+			arr = np.frombuffer(raw, dtype=dtype).copy()
 		if reformat:
 			# For 's'/'c' columns the structured dtype field is V{n}
 			# (opaque bytes). Decode them to Python str on the fly only
@@ -1352,7 +1389,7 @@ class Reader:
 		return col
 
 	def query_numpy(self, chunk_key, start, end, reference=None,
-	                sort_col=None):
+	                sort_col=None, index=None):
 		"""Vectorized region query — returns a structured ``np.ndarray``.
 
 		~10× faster than :meth:`query` for warm in-process queries
@@ -1390,6 +1427,11 @@ class Reader:
 			vectorized slice paired with the reference position column.
 		sort_col : int or None
 			Column index to bisect on. Defaults to ``self.header['sort_col']``.
+		index : str, ``Reader``, dict or None, default None
+			Optional 1-D context index restricting rows to e.g. CG / CH
+			sites. The intersection of the region ``[start, end]`` and
+			the index is returned. See :meth:`chunk2numpy` for accepted
+			forms.
 
 		Returns
 		-------
@@ -1421,10 +1463,11 @@ class Reader:
 		# one place (:meth:`query_numpy_chunk_batch`).
 		return self.query_numpy_chunk_batch(
 			chunk_key, [(start, end)], reference=reference, sort_col=sort_col,
+			index=index,
 		)[0]
 
 	def query_numpy_chunk_batch(self, chunk_key, intervals, reference=None,
-	                            sort_col=None):
+	                            sort_col=None, index=None):
 		"""Vectorized many-region query within a single chunk.
 
 		When you have hundreds/thousands of small intervals that all
@@ -1464,18 +1507,52 @@ class Reader:
 			raise ValueError("intervals must be shape (N, 2)")
 		n = intervals.shape[0]
 
+		# Resolve optional 1-D context index → 1-based row IDs (or None).
+		# When given, we gather both the data array and the position array
+		# down to only the index-selected rows BEFORE searchsorted, so the
+		# region query is intersected with the context filter.
+		ctx_ids = self._resolve_index_ids(index, chunk_key) if index is not None else None
+		# Cache token for gathered-chunk reuse (None when no index).
+		idx_tok = self._index_token(index) if index is not None else None
+
 		if reference is None:
 			sc = sort_col if sort_col is not None else self.header.get('sort_col')
 			if sc is None or sc == _NO_SORT_COL:
 				raise ValueError(
 					"query_numpy_chunk_batch without reference requires sort_col index")
-			arr = self._chunk2numpy_cached(chunk_key)
-			if not len(arr):
-				return [arr[0:0]] * n
-			pos = self._cached_sort_column(chunk_key, sc)
+			if ctx_ids is None:
+				arr = self._chunk2numpy_cached(chunk_key)
+				if not len(arr):
+					return [arr[0:0]] * n
+				pos = self._cached_sort_column(chunk_key, sc)
+			else:
+				if ctx_ids.size == 0:
+					empty_dtype = _build_record_dtype(self.header['formats'])
+					return [np.empty(0, dtype=empty_dtype)] * n
+				# Look up cached gather; fall back to compute + store.
+				ck = (chunk_key, idx_tok, sc)
+				cached = self._indexed_chunk_cache.get(ck)
+				if cached is not None:
+					self._indexed_chunk_cache.move_to_end(ck)
+					arr, pos = cached
+				else:
+					base_arr = self._chunk2numpy_cached(chunk_key)
+					if not len(base_arr):
+						return [base_arr[0:0]] * n
+					base_pos = self._cached_sort_column(chunk_key, sc)
+					if ctx_ids.min() < 1 or ctx_ids.max() > len(base_arr):
+						raise ValueError(
+							f"index ID out of range for chunk {chunk_key}: "
+							f"chunk has {len(base_arr)} rows, "
+							f"min/max ID = {int(ctx_ids.min())}/{int(ctx_ids.max())}")
+					gather = ctx_ids - 1
+					arr = base_arr[gather]
+					pos = np.ascontiguousarray(base_pos[gather])
+					self._indexed_chunk_cache[ck] = (arr, pos)
+					if len(self._indexed_chunk_cache) > self._chunk_array_cache_size:
+						self._indexed_chunk_cache.popitem(last=False)
 			# Cast intervals to position dtype for fast searchsorted.
-			starts = pos.dtype.type(0).__class__(intervals[:, 0]) if False \
-				else intervals[:, 0].astype(pos.dtype, copy=False)
+			starts = intervals[:, 0].astype(pos.dtype, copy=False)
 			ends = intervals[:, 1].astype(pos.dtype, copy=False)
 			lo = pos.searchsorted(starts, side='left')
 			hi = pos.searchsorted(ends, side='right')
@@ -1485,22 +1562,68 @@ class Reader:
 		ref_reader = (Reader(reference) if isinstance(reference, str)
 		              else reference)
 		try:
-			cell_arr = self._chunk2numpy_cached(chunk_key)
-			if not len(cell_arr):
-				empty = np.empty(0, dtype=np.uint64)
-				return [(empty, cell_arr[0:0])] * n
 			ref_sc = sort_col if sort_col is not None else (
 				ref_reader.header.get('sort_col'))
 			if ref_sc is None or ref_sc == _NO_SORT_COL:
 				raise ValueError(
 					"query_numpy_chunk_batch with reference requires sort_col on reference")
-			ref_pos = ref_reader._cached_sort_column(chunk_key, ref_sc)
+			if ctx_ids is None:
+				cell_arr = self._chunk2numpy_cached(chunk_key)
+				if not len(cell_arr):
+					empty = np.empty(0, dtype=np.uint64)
+					return [(empty, cell_arr[0:0])] * n
+				ref_pos = ref_reader._cached_sort_column(chunk_key, ref_sc)
+				max_n = min(len(cell_arr), len(ref_pos))
+			else:
+				if ctx_ids.size == 0:
+					cell_dtype = _build_record_dtype(self.header['formats'])
+					empty_pos = np.empty(0, dtype=np.uint64)
+					empty_arr = np.empty(0, dtype=cell_dtype)
+					return [(empty_pos, empty_arr)] * n
+				# Cache cell-side gathered array per (chunk_key, idx_tok),
+				# and ref-side gathered positions per (chunk_key, ref_sc, idx_tok)
+				# on the ref_reader itself.
+				ck_cell = (chunk_key, idx_tok)
+				cached_cell = self._indexed_chunk_cache.get(ck_cell)
+				if cached_cell is not None:
+					self._indexed_chunk_cache.move_to_end(ck_cell)
+					cell_arr = cached_cell
+				else:
+					base_cell = self._chunk2numpy_cached(chunk_key)
+					if not len(base_cell):
+						empty = np.empty(0, dtype=np.uint64)
+						return [(empty, base_cell[0:0])] * n
+					if ctx_ids.min() < 1 or ctx_ids.max() > len(base_cell):
+						# Some ctx IDs may exceed cell length when cell is
+						# shorter than ref; clip silently to common range.
+						usable = ctx_ids[(ctx_ids >= 1) & (ctx_ids <= len(base_cell))]
+						gather = usable - 1
+					else:
+						gather = ctx_ids - 1
+					cell_arr = base_cell[gather]
+					self._indexed_chunk_cache[ck_cell] = cell_arr
+					if len(self._indexed_chunk_cache) > self._chunk_array_cache_size:
+						self._indexed_chunk_cache.popitem(last=False)
+				ck_ref = (chunk_key, ref_sc, idx_tok)
+				cached_ref = ref_reader._indexed_sortcol_cache.get(ck_ref)
+				if cached_ref is not None:
+					ref_reader._indexed_sortcol_cache.move_to_end(ck_ref)
+					ref_pos = cached_ref
+				else:
+					base_ref_pos = ref_reader._cached_sort_column(chunk_key, ref_sc)
+					ids_for_ref = ctx_ids
+					if ids_for_ref.max() > len(base_ref_pos):
+						ids_for_ref = ids_for_ref[(ids_for_ref >= 1)
+						                          & (ids_for_ref <= len(base_ref_pos))]
+					ref_pos = np.ascontiguousarray(base_ref_pos[ids_for_ref - 1])
+					ref_reader._indexed_sortcol_cache[ck_ref] = ref_pos
+					if len(ref_reader._indexed_sortcol_cache) > ref_reader._chunk_array_cache_size:
+						ref_reader._indexed_sortcol_cache.popitem(last=False)
+				max_n = min(len(cell_arr), len(ref_pos))
 			starts = intervals[:, 0].astype(ref_pos.dtype, copy=False)
 			ends = intervals[:, 1].astype(ref_pos.dtype, copy=False)
 			lo = ref_pos.searchsorted(starts, side='left')
 			hi = ref_pos.searchsorted(ends, side='right')
-			# Clip to common length (cell may be shorter than ref).
-			max_n = min(len(cell_arr), len(ref_pos))
 			lo = np.minimum(lo, max_n)
 			hi = np.minimum(hi, max_n)
 			return [(ref_pos[lo[i]:hi[i]], cell_arr[lo[i]:hi[i]])
@@ -1510,7 +1633,7 @@ class Reader:
 				ref_reader.close()
 
 	def query_numpy_multi(self, regions, reference=None, sort_col=None,
-	                      max_workers=None):
+	                      max_workers=None, index=None):
 		"""Vectorized multi-region query with thread-pool parallelism.
 
 		Runs many :meth:`query_numpy` calls concurrently using a thread
@@ -1558,7 +1681,7 @@ class Reader:
 			           else reference)
 			try:
 				return [self.query_numpy(ck, s, e, reference=ref_obj,
-				                         sort_col=sort_col)
+				                         sort_col=sort_col, index=index)
 				        for (ck, s, e) in regions]
 			finally:
 				if isinstance(reference, str):
@@ -1569,7 +1692,8 @@ class Reader:
 		if not isinstance(path, str):
 			# Can't reopen (fileobj-backed); fall back to serial.
 			return self.query_numpy_multi(regions, reference=reference,
-			                              sort_col=sort_col, max_workers=1)
+			                              sort_col=sort_col, max_workers=1,
+			                              index=index)
 
 		ref_path = None
 		if reference is not None:
@@ -1579,6 +1703,16 @@ class Reader:
 				ref_path = getattr(reference, 'input', None)
 				if not isinstance(ref_path, str):
 					ref_path = None
+		# For thread pool: if `index` is a Reader, capture its path so each
+		# worker thread can open its own (Reader is not thread-safe). dicts
+		# and str paths are safe to share.
+		index_path = None
+		index_for_workers = index
+		if isinstance(index, Reader):
+			ip = getattr(index, 'input', None)
+			if isinstance(ip, str):
+				index_path = ip
+				index_for_workers = None  # workers will open their own
 		_local = threading.local()
 		_openers = []  # track to close at end
 
@@ -1597,12 +1731,19 @@ class Reader:
 						_local.ref = reference  # not openable, share (risky)
 				else:
 					_local.ref = None
-			return r, _local.ref
+				if index_path is not None:
+					ir = Reader(index_path)
+					_openers.append(ir)
+					_local.index = ir
+				else:
+					_local.index = index_for_workers
+			return r, _local.ref, _local.index
 
 		def _one(args):
 			ck, s, e = args
-			r, ref = _get_reader()
-			return r.query_numpy(ck, s, e, reference=ref, sort_col=sort_col)
+			r, ref, idx = _get_reader()
+			return r.query_numpy(ck, s, e, reference=ref, sort_col=sort_col,
+			                     index=idx)
 
 		try:
 			with ThreadPoolExecutor(max_workers=max_workers) as ex:
@@ -1613,7 +1754,8 @@ class Reader:
 					r.close()
 				except Exception:
 					pass
-	def chunk2df(self, dims, reformat=True):
+
+	def chunk2df(self, dims, reformat=True, index=None):
 		"""Read an entire chunk into a pandas DataFrame.
 
 		Thin wrapper around :meth:`chunk2numpy`: builds the structured
@@ -1632,8 +1774,11 @@ class Reader:
 			kept as opaque ``|V{n}`` bytes views (zero-copy, but pandas
 			cannot print or compare them — only useful when piping the
 			DataFrame straight back into another binary path).
+		index : str, ``Reader``, dict or None, default None
+			Optional 1-D context index (e.g. CG / CH) restricting the
+			rows returned. See :meth:`chunk2numpy` for accepted forms.
 		"""
-		arr = self.chunk2numpy(dims, reformat=False)
+		arr = self.chunk2numpy(dims, reformat=False, index=index)
 		cols = self.header['columns']
 		if arr.size == 0:
 			return pd.DataFrame(
@@ -1717,7 +1862,7 @@ class Reader:
 			yield []
 
 	def view(self, show_dims=None, header=True, chunk_order=None,
-			 where=None, reference=None):
+			 where=None, reference=None, index=None):
 		"""
 		View .cz file.
 
@@ -1745,6 +1890,14 @@ class Reader:
 		reference : str, optional
 			Path to a row-aligned reference .cz file whose columns will be
 			prepended to each record.
+		index : str, ``Reader``, dict or None, optional
+			A 1-D context index (e.g. CG / CH; produced by
+			:func:`cytozip.index_context`) restricting the rows printed
+			to those whose 1-based primary IDs are listed in *index*.
+			Independent of *reference*: pass both to view a row-aligned
+			reference + cell joined on chrom and additionally restricted
+			to the context positions. See :meth:`chunk2numpy` for accepted
+			forms.
 
 		Returns
 		-------
@@ -1859,6 +2012,27 @@ class Reader:
 					elif len(ref_arr) != len(arr):
 						raise ValueError(
 							f"reference {reference} not matched.")
+
+				# Optional context-index filter: gather both `arr` and
+				# `ref_arr` (row-aligned) to the index-selected positions.
+				# Skipped when `id_join` is in effect (then `self` IS the
+				# index; filtering it again would be redundant).
+				if index is not None and not id_join:
+					ctx_ids = self._resolve_index_ids(index, d)
+					if ctx_ids is None or ctx_ids.size == 0:
+						continue
+					n_rows = len(arr) if ref_arr is None else min(
+						len(arr), len(ref_arr))
+					if ctx_ids.min() < 1 or ctx_ids.max() > n_rows:
+						raise ValueError(
+							f"index ID out of range for chunk {d}: "
+							f"rows={n_rows}, "
+							f"min/max ID = {int(ctx_ids.min())}/"
+							f"{int(ctx_ids.max())}")
+					gather = ctx_ids - 1
+					arr = arr[gather]
+					if ref_arr is not None:
+						ref_arr = ref_arr[gather]
 
 				# Process the chunk in batches to bound memory.
 				n = len(arr)
@@ -2081,6 +2255,106 @@ class Reader:
 		else:  # two columns: ID_start, ID_end
 			s, e = 0, 2
 			return np.array([record for record in self.__fetch__(dim, s=s, e=e)])
+
+	@staticmethod
+	def _index_token(index):
+		"""Return a stable hashable token identifying a resolved index source.
+
+		Used as part of cache keys for gathered per-chunk arrays. ``None``
+		means "no index" and never appears in cache keys (callers skip
+		caching). Dicts are identified by ``id()`` since they're mutable.
+		"""
+		if isinstance(index, str):
+			return ('path', index)
+		if isinstance(index, Reader):
+			return ('reader', id(index))
+		if isinstance(index, dict):
+			return ('dict', id(index))
+		raise TypeError(
+			f"index must be None, str path, Reader, or dict; got {type(index)}")
+
+	def _resolve_index_ids(self, index, dim):
+		"""Resolve an ``index=`` argument to a 1-D ndarray of 1-based row IDs
+		for the given ``dim`` (chunk_key tuple).
+
+		Accepted forms:
+
+		* ``None`` — return ``None`` (caller skips filtering).
+		* path str — open as a context-index .cz, read IDs, close.
+		* :class:`Reader` — already-opened context-index .cz; left open.
+		* dict-like ``{dim_tuple: ids}`` or ``{chrom_str: ids}`` — pre-loaded.
+
+		Only 1-D context indices (single ``ID`` column produced by
+		:func:`cytozip.index_context`) are accepted here; 2-D region
+		indices belong with :func:`aggregate`.
+
+		Resolved IDs are cached on the Reader keyed by (index_token, dim)
+		so repeated chunk queries that share the same index (e.g. a
+		``query_numpy_multi`` over many regions, or
+		:func:`cz_to_anndata` aggregating a whole genome) only pay the
+		I/O once per chunk.
+
+		Returns
+		-------
+		np.ndarray of np.int64 (1-based IDs), possibly empty, or ``None``.
+		"""
+		if index is None:
+			return None
+		if isinstance(dim, str):
+			dim_t = (dim,)
+		else:
+			dim_t = tuple(dim)
+		# Pre-loaded dict — cheap lookup, no caching needed.
+		if isinstance(index, dict):
+			ids = index.get(dim_t)
+			if ids is None and len(dim_t) == 1:
+				ids = index.get(dim_t[0])
+			if ids is None:
+				return np.empty(0, dtype=np.int64)
+			return np.asarray(ids, dtype=np.int64)
+		# Cache key: stable across calls for the same path / Reader instance.
+		if isinstance(index, str):
+			token = ('path', index)
+		elif isinstance(index, Reader):
+			token = ('reader', id(index))
+		else:
+			raise TypeError(
+				f"index must be None, str path, Reader, or dict; got {type(index)}")
+		ck = (token, dim_t)
+		hit = self._index_ids_cache.get(ck)
+		if hit is not None:
+			return hit
+		# Not cached — open / read.
+		close_after = False
+		if isinstance(index, str):
+			index_reader = Reader(index)
+			close_after = True
+		else:
+			index_reader = index
+		try:
+			if not (index_reader.header['columns'] == ['ID']
+					and index_reader.header['formats'] == ['I']):
+				raise ValueError(
+					"index parameter requires a 1-D context index "
+					"(columns=['ID'], formats=['I']); got "
+					f"columns={index_reader.header['columns']}, "
+					f"formats={index_reader.header['formats']}")
+			if dim_t not in index_reader.chunk_key2offset:
+				ids = np.empty(0, dtype=np.int64)
+			else:
+				ids = index_reader.get_ids_from_index(dim_t)
+				if ids.ndim != 1:
+					raise ValueError(
+						"index parameter requires a 1-D context index; got 2-D")
+				ids = ids.astype(np.int64, copy=False)
+		finally:
+			if close_after:
+				index_reader.close()
+		# Bound cache size to avoid unbounded growth on very large genomes.
+		if len(self._index_ids_cache) > 4096:
+			self._index_ids_cache.clear()
+		self._index_ids_cache[ck] = ids
+		return ids
 
 	def _getRecordsByIds(self, dim=None, IDs=None):
 		"""

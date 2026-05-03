@@ -719,6 +719,7 @@ def _aggregate_one_reader(
     cell_prefix: Optional[tuple] = None,
     chrom_axis: Optional[int] = None,
     ref_pos_map: Optional[dict] = None,
+    index_ids_by_chrom: Optional[dict] = None,
 ) -> np.ndarray:
     """Return shape ``(n_features, 2)`` int64 array ``[sum_mc, sum_cov]``.
 
@@ -739,6 +740,12 @@ def _aggregate_one_reader(
         :func:`_detect_chrom_axis`). Defaults to the *last* position.
     ref_pos_map : dict, optional
         ``{chrom: int64 positions}`` for reference-aligned cells.
+    index_ids_by_chrom : dict, optional
+        ``{chrom: 1-based int64 IDs}`` for an optional context filter
+        (CG / CH / ...). When given, the cell array (and reference
+        positions, if any) are gathered to only the index-selected rows
+        before per-feature summation. The IDs apply equally to row-aligned
+        cell + reference data, so positions and counts stay aligned.
     """
     n_feat = sum(
         v["n_bins"] if v.get("tiled") else len(v["indices"])
@@ -795,6 +802,24 @@ def _aggregate_one_reader(
         else:
             continue
 
+        # Optional 1-D context-index filter (e.g. CG / CH only).
+        # Gather positions, mc and cov together so they stay aligned.
+        if index_ids_by_chrom is not None:
+            ids = index_ids_by_chrom.get(chrom)
+            if ids is None or ids.size == 0:
+                continue
+            n_rows = positions.size
+            if ids.min() < 1 or ids.max() > n_rows:
+                # Be lenient: clip OOB IDs (shorter cell than ref) instead
+                # of erroring, since per-cell .cz may have fewer rows.
+                ids = ids[(ids >= 1) & (ids <= n_rows)]
+                if ids.size == 0:
+                    continue
+            gather = ids - 1
+            positions = positions[gather]
+            mc_vals = mc_vals[gather]
+            cov_vals = cov_vals[gather]
+
         # Cumulative sums -> O(1) range sums via subtraction.
         # Fast path: if features for this chrom are equal-width
         # non-overlapping tiles (from make_genome_bins), use bincount on
@@ -842,7 +867,8 @@ def _aggregate_one_reader(
 _WORKER_STATE: dict = {}
 
 
-def _pool_init(features_by_chrom, pos_col, mc_col, cov_col, reference):
+def _pool_init(features_by_chrom, pos_col, mc_col, cov_col, reference,
+               index_ids_by_chrom=None):
     """Per-process initializer: stash shared read-only state.
 
     Each worker loads the reference position map lazily (only if needed)
@@ -856,6 +882,7 @@ def _pool_init(features_by_chrom, pos_col, mc_col, cov_col, reference):
     _WORKER_STATE["reference"] = reference
     _WORKER_STATE["ref_pos_map"] = None
     _WORKER_STATE["chroms_set"] = set(features_by_chrom.keys())
+    _WORKER_STATE["index_ids_by_chrom"] = index_ids_by_chrom
 
 
 def _pool_get_ref_pos_map(hint_path=None):
@@ -884,8 +911,10 @@ def _pool_process_file(cz_path):
         rpm = _pool_get_ref_pos_map(r.header.get("message")) \
             if pi is None else None
         chrom_axis = _detect_chrom_axis(r, _WORKER_STATE["chroms_set"])
-        arr = _aggregate_one_reader(r, fbc, pi, mc_i, cov_i,
-                                    chrom_axis=chrom_axis, ref_pos_map=rpm)
+        arr = _aggregate_one_reader(
+            r, fbc, pi, mc_i, cov_i,
+            chrom_axis=chrom_axis, ref_pos_map=rpm,
+            index_ids_by_chrom=_WORKER_STATE.get("index_ids_by_chrom"))
     finally:
         r.close()
     return arr
@@ -919,7 +948,8 @@ def _pool_process_prefix(args):
     arr = _aggregate_one_reader(
         r, fbc, pi, _WORKER_STATE["_mc_i"], _WORKER_STATE["_cov_i"],
         cell_prefix=prefix, chrom_axis=_WORKER_STATE["_chrom_axis"],
-        ref_pos_map=rpm)
+        ref_pos_map=rpm,
+        index_ids_by_chrom=_WORKER_STATE.get("index_ids_by_chrom"))
     return arr
 
 
@@ -937,6 +967,7 @@ def cz_to_anndata(
     cov_col: str = "cov",
     obs: Optional[pd.DataFrame] = None,
     reference: Optional[str] = None,
+    index: Optional[Union[str, "Reader", dict]] = None,
     chrom_size: Optional[Union[str, pd.DataFrame, dict]] = None,
     exclude_chroms: Optional[Sequence[str]] = ("chrL",),
     blacklist: Optional[Union[str, pd.DataFrame]] = None,
@@ -1001,6 +1032,15 @@ def cz_to_anndata(
     reference : str, optional
         Reference ``.cz`` supplying positions for cells written with
         ``bam_to_cz(mode='mc_cov')`` / ``allc2cz(reference=...)``.
+    index : str, ``Reader``, dict or None, optional
+        1-D context index built by :func:`cytozip.index_context`
+        (e.g. ``mm10.allc.cz.CGN.index`` for CG-only or ``.CHN.index``
+        for CH-only). When supplied, every per-cell aggregation is
+        restricted to the index-selected positions. The index file is
+        read **once** for the whole job (even with ``jobs>1`` it is
+        materialised to ``{chrom: int64 IDs}`` in the parent and shipped
+        to workers via the pool initializer), so the per-chrom cost is
+        a single zero-copy gather on top of the existing decode pipeline.
     chrom_size : str or DataFrame or dict, optional
         Required when ``features`` is an int: chrom-size / ``.fai`` for
         genome tiling.
@@ -1179,6 +1219,15 @@ def cz_to_anndata(
     paths = _resolve_inputs(cz_inputs)
     n_workers = int(jobs) if jobs and int(jobs) > 1 else 1
 
+    # Pre-materialise the optional context index once for the whole job.
+    # Reading the .cz index here means: (a) workers don't each re-open it,
+    # (b) the dict ships cleanly through ProcessPoolExecutor, (c) per-cell
+    # aggregation only pays a zero-copy gather (no extra I/O / decompress).
+    index_ids_by_chrom: Optional[dict] = None
+    if index is not None:
+        index_ids_by_chrom = _resolve_index_to_dict(
+            index, chroms=set(features_by_chrom.keys()))
+
     # Streaming sparse builder: each cell's (n_feat, 2) array is appended
     # immediately and dropped, so peak memory is dominated by the sparse
     # CSRs (~nnz * 8 B) instead of n_cells * n_feat * 8 B.
@@ -1197,7 +1246,7 @@ def cz_to_anndata(
                 max_workers=n_workers,
                 initializer=_pool_init,
                 initargs=(features_by_chrom, pos_col, mc_col, cov_col,
-                          reference)) as ex:
+                          reference, index_ids_by_chrom)) as ex:
             chunk = max(1, min(_POOL_CHUNK_CAP,
                                len(paths_) // (n_workers * 4) or 1))
             for arr in ex.map(_pool_process_file, paths_, chunksize=chunk):
@@ -1209,7 +1258,7 @@ def cz_to_anndata(
                 max_workers=n_workers,
                 initializer=_pool_init,
                 initargs=(features_by_chrom, pos_col, mc_col, cov_col,
-                          reference)) as ex:
+                          reference, index_ids_by_chrom)) as ex:
             args = [(cz_path, pref) for pref in prefix_list]
             chunk = max(1, min(_POOL_CHUNK_CAP,
                                len(args) // (n_workers * 4) or 1))
@@ -1255,7 +1304,8 @@ def cz_to_anndata(
                         arr = _aggregate_one_reader(
                             r, features_by_chrom, pi, mc_i, cov_i,
                             cell_prefix=prefix, chrom_axis=chrom_axis,
-                            ref_pos_map=rpm)
+                            ref_pos_map=rpm,
+                            index_ids_by_chrom=index_ids_by_chrom)
                         builder.append(arr)
                         obs_names.append(label)
                         del arr
@@ -1265,7 +1315,8 @@ def cz_to_anndata(
                 if sample_set is None or label in sample_set:
                     arr = _aggregate_one_reader(
                         r, features_by_chrom, pi, mc_i, cov_i,
-                        chrom_axis=chrom_axis, ref_pos_map=rpm)
+                        chrom_axis=chrom_axis, ref_pos_map=rpm,
+                        index_ids_by_chrom=index_ids_by_chrom)
                     builder.append(arr)
                     obs_names.append(label)
                     del arr
@@ -1298,7 +1349,8 @@ def cz_to_anndata(
                         r, set(features_by_chrom.keys()))
                     arr = _aggregate_one_reader(
                         r, features_by_chrom, pi, mc_i, cov_i,
-                        chrom_axis=chrom_axis, ref_pos_map=rpm)
+                        chrom_axis=chrom_axis, ref_pos_map=rpm,
+                        index_ids_by_chrom=index_ids_by_chrom)
                 finally:
                     r.close()
                 builder.append(arr)
@@ -1348,6 +1400,51 @@ def cz_to_anndata(
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+def _resolve_index_to_dict(index, chroms=None) -> dict:
+    """Materialise a 1-D context index to ``{chrom_str: int64 IDs}``.
+
+    Used by :func:`cz_to_anndata` to read the index .cz **once** in the
+    parent process and ship a plain dict to workers via ``initargs``.
+    Avoids one open / decompress per worker.
+
+    Accepted forms mirror :meth:`Reader._resolve_index_ids` (str path,
+    open ``Reader``, or pre-built dict).
+    """
+    if isinstance(index, dict):
+        return {k: np.asarray(v, dtype=np.int64) for k, v in index.items()}
+    close_after = False
+    if isinstance(index, str):
+        ir = Reader(index)
+        close_after = True
+    elif isinstance(index, Reader):
+        ir = index
+    else:
+        raise TypeError(
+            f"index must be None, str path, Reader, or dict; got {type(index)}")
+    try:
+        if not (ir.header["columns"] == ["ID"]
+                and ir.header["formats"] == ["I"]):
+            raise ValueError(
+                "index= requires a 1-D context index "
+                "(columns=['ID'], formats=['I']); got "
+                f"columns={ir.header['columns']}, "
+                f"formats={ir.header['formats']}")
+        out: dict = {}
+        for dim in ir.chunk_key2offset.keys():
+            chrom = dim[0] if isinstance(dim, tuple) else dim
+            if chroms is not None and chrom not in chroms:
+                continue
+            ids = ir.get_ids_from_index(dim)
+            if ids.ndim != 1:
+                raise ValueError(
+                    "index= requires a 1-D context index; got 2-D")
+            out[chrom] = ids.astype(np.int64, copy=False)
+        return out
+    finally:
+        if close_after:
+            ir.close()
+
+
 def _resolve_inputs(cz_inputs) -> List[str]:
     if isinstance(cz_inputs, str):
         path = os.path.abspath(os.path.expanduser(cz_inputs))
