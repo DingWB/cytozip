@@ -1,5 +1,5 @@
-# Cytozip: Chunk based ZIP for cytosine data
-
+# cytozip: index-free, chunk-compressed storage for scalable single-cell DNA methylation analysis
+A scalable, cloud-native ecosystem for single-cell and population DNA methylation analysis
 ## Installation
 
 ### Recommended: conda (brings the C libraries with it)

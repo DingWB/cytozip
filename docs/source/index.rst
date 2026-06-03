@@ -1,6 +1,6 @@
 Chunk ZIP
 ======================================
-`cytozip <https://github.com/DingWB/cytozip>`_ is a python package for biological data storage and analysis.
+`cytozip <https://github.com/DingWB/cytozip>`_ is a scalable, cloud-native ecosystem for single-cell and population DNA methylation analysis.
 
 .. toctree::
    :maxdepth: 2
