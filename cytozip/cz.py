@@ -181,6 +181,7 @@ _c_write_c_records = None
 _c_parse_czix = None
 _c_delta_encode_block = None
 _c_parse_tab_lines_int = None
+_c_parse_tocz_int_slab = None
 
 
 def _ensure_cz_accel():
@@ -218,6 +219,7 @@ def _ensure_cz_accel():
 		'c_fetch_chunk', 'c_get_records_by_ids', 'c_block_first_values',
 		'c_extract_c_positions', 'c_write_c_records', 'c_parse_czix',
 		'c_delta_encode_block', 'c_parse_tab_lines_int',
+		'c_parse_tocz_int_slab',
 	):
 		g['_' + _n] = getattr(_a, _n, None)
 
@@ -383,18 +385,97 @@ def open1(infile):
 	if infile.endswith('.gz'):
 		f = gzip.open(infile, 'rb')
 	else:
-		f = open(infile, 'r')
+		# Use the builtin open (``_open``); the bare name ``open`` is
+		# shadowed at module scope by cytozip's own ``open()`` (which
+		# returns a Reader), so it must not be used to read text input.
+		f = _open(infile, 'r')
 	return f
+
+# ==========================================================
+# Integer struct format characters eligible for the vectorized ingestion
+# fast path. Float / string columns route through the per-row fallback.
+_INT_FMT_CHARS = frozenset("BbHhIiLlQq")
+
+
+def _all_int_usecol_formats(formats):
+	"""True if every usecol format is an integer type (fast-path eligible)."""
+	return bool(formats) and all(f[-1] in _INT_FMT_CHARS for f in formats)
+
+
+def _int_slab_parser(f, formats, sep, usecols, key_cols, batch_size,
+					 read_size=8 * 1024 * 1024):
+	"""Vectorized all-integer ingestion: read the input in large byte slabs,
+	parse + group by ``key_cols`` in a single C scan, and yield
+	``(packed_bytes, dims)`` segments.
+
+	Replaces the per-line ``split`` + per-field type-cast + list append of
+	the pure-Python parsers. Values are clipped to each column's struct dtype
+	range (matching the old ``int_func`` clamp) via a single vectorized
+	``np.clip`` per column, so the emitted bytes are identical to the per-row
+	path for valid (non-negative, in-range) input.
+
+	Consecutive segments that share the same ``dims`` across slab boundaries
+	simply append to the same chunk (``write_chunk`` only flushes on a dims
+	change), so no cross-slab carry state is needed.
+	"""
+	sep_byte = ord(sep)
+	dts = [np.dtype(_NP_FMT_MAP[fmt[-1]]) for fmt in formats]
+	bounds = [(np.iinfo(dt).min, np.iinfo(dt).max) for dt in dts]
+	rec_dtype = np.dtype([(f'f{i}', dts[i]) for i in range(len(formats))])
+	n_use = len(usecols)
+	usecols = list(usecols)
+	key_cols = list(key_cols)
+
+	def _emit(slab_bytes):
+		arrays, runs = _c_parse_tocz_int_slab(slab_bytes, usecols, key_cols,
+											  sep_byte)
+		for dims, s, e in runs:
+			out = np.empty(e - s, dtype=rec_dtype)
+			for j in range(n_use):
+				lo, hi = bounds[j]
+				out[f'f{j}'] = np.clip(arrays[j][s:e], lo, hi).astype(
+					dts[j], copy=False)
+			yield out.tobytes(), list(dims)
+
+	leftover = b""
+	while True:
+		chunk = f.read(read_size)
+		if not chunk:
+			break
+		if isinstance(chunk, str):
+			chunk = chunk.encode('utf-8')
+		buf = leftover + chunk if leftover else chunk
+		nl = buf.rfind(b"\n")
+		if nl == -1:
+			leftover = buf
+			continue
+		yield from _emit(buf[:nl + 1])
+		leftover = buf[nl + 1:]
+	if leftover:
+		yield from _emit(leftover)
+
+
 # ==========================================================
 def _gz_input_parser(infile, formats, sep='\t', usecols=[1,4,5], key_cols=[0],
 					 batch_size=5000):
-	"""Parse a gzip-compressed text file into (DataFrame, dims) chunks.
+	"""Parse a gzip-compressed text file into chunks.
 
 	Similar to ``_text_input_parser`` but handles ``.gz`` byte decoding.
-	Each yielded DataFrame contains at most *batch_size* rows sharing
-	the same chunk_key values (e.g., same chromosome).
+	When every usecol is an integer format the C ``_int_slab_parser`` fast
+	path is used (yielding packed bytes); otherwise the per-row fallback
+	yields ``(DataFrame, dims)``. Each yielded segment shares the same
+	chunk_key values (e.g., same chromosome).
 	"""
 	f = open1(infile)
+	_ensure_cz_accel()
+	if (_c_parse_tocz_int_slab is not None and len(sep) == 1
+			and _all_int_usecol_formats(formats)):
+		try:
+			yield from _int_slab_parser(f, formats, sep, usecols, key_cols,
+										batch_size)
+		finally:
+			f.close()
+		return
 	data, i, prev_dims = [], 0, None
 	dtfuncs = get_dtfuncs(formats)
 	line = f.readline()
@@ -447,6 +528,15 @@ def _text_input_parser(infile,formats,sep='\t',usecols=[1,4,5],key_cols=[0],
 	"""
 	# cdef int i, N
 	f = open1(infile)
+	_ensure_cz_accel()
+	if (_c_parse_tocz_int_slab is not None and len(sep) == 1
+			and _all_int_usecol_formats(formats)):
+		try:
+			yield from _int_slab_parser(f, formats, sep, usecols, key_cols,
+										batch_size)
+		finally:
+			f.close()
+		return
 	data, i, prev_dims = [], 0, None
 	dtfuncs = get_dtfuncs(formats)
 	line = f.readline()
@@ -4463,6 +4553,11 @@ class Writer:
 				_np_dt = None
 
 		for df, dim in data_generator:
+			# The all-integer ingestion fast path (``_int_slab_parser``)
+			# yields already-packed record bytes; write them directly.
+			if isinstance(df, (bytes, bytearray, memoryview)):
+				self.write_chunk(df, dim)
+				continue
 			if _np_dt is not None:
 				# Numpy fast path: pack via structured array (no tolist)
 				vals = df.values

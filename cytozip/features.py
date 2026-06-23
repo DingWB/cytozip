@@ -1180,14 +1180,20 @@ def cz_to_anndata(
                 "n_bins": int(counts[k]),
             }
     else:
-        for i, row in feat_df.iterrows():
-            c = row["chrom"]
-            if c not in features_by_chrom:
-                features_by_chrom[c] = {"starts": [], "ends": [],
-                                        "indices": []}
-            features_by_chrom[c]["starts"].append(int(row["start"]))
-            features_by_chrom[c]["ends"].append(int(row["end"]))
-            features_by_chrom[c]["indices"].append(i)
+        # Vectorized equivalent of the per-row iterrows loop: group by chrom
+        # in first-occurrence order, preserving each feature's original index
+        # label (what iterrows yielded as ``i``).
+        _chroms = feat_df["chrom"].to_numpy()
+        _starts = feat_df["start"].to_numpy()
+        _ends = feat_df["end"].to_numpy()
+        _index_labels = feat_df.index.to_numpy()
+        for c in pd.unique(_chroms):
+            sel = np.nonzero(_chroms == c)[0]
+            features_by_chrom[c] = {
+                "starts": _starts[sel].astype(int).tolist(),
+                "ends": _ends[sel].astype(int).tolist(),
+                "indices": _index_labels[sel].tolist(),
+            }
 
     # Lazily load reference positions when needed.
     ref_pos_map_cache = {"loaded": False, "map": None}

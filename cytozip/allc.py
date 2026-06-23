@@ -646,14 +646,46 @@ def extractCG(input=None, output=None, index=None, batch_size=5000,
                     chunk_dims=reader.header['chunk_dims'],
                     message=index_path)
     dtfuncs = get_dtfuncs(writer.formats)
+    # Vectorized merge_cg fast path is only exact when every column is an
+    # unsigned integer (np.iinfo(dtype).max then equals the clamp used by
+    # ``int_func``). methylation count columns (mc/cov) are unsigned, so this
+    # covers the real use case; anything else falls back to the per-record loop.
+    _vec_merge = merge_cg and all(
+        f[-1] in 'BHILQ' for f in reader.header['formats'])
+    _rec_dtype = None
+    if _vec_merge:
+        _rec_dtype = np.dtype([
+            (f'f{i}', _fmt_to_np_dtype(f[-1]))
+            for i, f in enumerate(reader.header['formats'])])
     for dim in reader.chunk_key2offset.keys():
         # print(dim)
         IDs = index_reader.get_ids_from_index(dim)
         if len(IDs.shape) != 1:
             raise ValueError("Only support 1D index now!")
+        # for CG, if pos is forward (+), then pos+1 is reverse strand (-)
+        if _vec_merge:
+            # Gather the indexed rows once, then sum each forward/reverse pair
+            # column-wise with a single vectorized clip — no per-record
+            # struct unpack/pack. Row order matches _getRecordsByIds(IDs).
+            if IDs.size == 0:
+                continue
+            arr = reader.chunk2numpy(dim, index=index_reader)
+            m = arr.shape[0] // 2  # number of (forward, reverse) pairs
+            if m == 0:
+                continue
+            fwd = arr[:2 * m:2]
+            rev = arr[1:2 * m:2]
+            out = np.empty(m, dtype=_rec_dtype)
+            for i in range(len(reader.header['formats'])):
+                fn = f'f{i}'
+                dt = _rec_dtype[fn]
+                summed = fwd[fn].astype(np.int64) + rev[fn].astype(np.int64)
+                info = np.iinfo(dt)
+                out[fn] = np.clip(summed, info.min, info.max).astype(dt)
+            writer.write_chunk(out.tobytes(), dim)
+            continue
         records = reader._getRecordsByIds(dim, IDs)
         data_parts, count = [], 0
-        # for CG, if pos is forward (+), then pos+1 is reverse strand (-)
         if merge_cg:
             for i, record in enumerate(records):  # unpacked bytes
                 if i % 2 == 0:

@@ -50,17 +50,38 @@ cdef object _get_struct(str fmts):
     return st
 
 
+cdef Py_ssize_t *_grow_ssize(Py_ssize_t *old, Py_ssize_t n, Py_ssize_t new_cap):
+    """Grow a Py_ssize_t array to *new_cap*, copying the first *n* entries.
+
+    Returns the new pointer (and frees *old*) on success, or NULL on
+    allocation failure (in which case *old* is left untouched so the caller
+    can free it as part of its cleanup).
+    """
+    cdef Py_ssize_t *new_arr = <Py_ssize_t *> malloc(new_cap * sizeof(Py_ssize_t))
+    if new_arr == NULL:
+        return NULL
+    memcpy(new_arr, old, n * sizeof(Py_ssize_t))
+    free(old)
+    return new_arr
+
+
 cdef bytes _parse_blocks_from_buffer(bytes raw_all):
     """Parse and decompress all BCZ blocks from an in-memory buffer.
 
     Block layout: magic(2B) + bsize(uint32 4B) + deflate(bsize-10) +
     data_len(uint32 4B).
 
-    Two-phase implementation:
-      Phase 1 (serial): walk block headers, record (deflate_off, deflate_size).
-      Phase 2 (parallel via OpenMP, opt-in): inflate each block into a
-        scratch buffer using a per-thread decompressor.
-      Phase 3 (serial): concatenate scratch buffers into the result bytes.
+    Implementation:
+      Phase 1 (serial): walk block headers, recording each block's deflate
+        offset/size and its *exact* decompressed length (the uint32 trailer
+        written by the Writer). Prefix-summing the trailers gives the
+        destination offset of every block in the final buffer up front.
+      Phase 2 (parallel via OpenMP, opt-in): allocate the result buffer
+        ONCE and inflate each block directly into its disjoint slice. This
+        removes the per-block 256 KiB scratch malloc and the serial
+        concatenation memcpy that the previous two-buffer design needed;
+        the parallel writes target non-overlapping regions so they are
+        data-race-free under nogil.
 
     Threading is gated by ``CYTOZIP_INFLATE_THREADS`` (default min(4, omp_max));
     with 0 or 1 threads, or fewer than 2 blocks, the serial path runs.
@@ -70,17 +91,24 @@ cdef bytes _parse_blocks_from_buffer(bytes raw_all):
     cdef Py_ssize_t offset = 0
     cdef unsigned long bsize
     cdef Py_ssize_t deflate_size
+    cdef Py_ssize_t trailer
 
     # ---- Phase 1: header scan (serial) --------------------------------
+    # Per-block: deflate (offset, size), destination offset in the final
+    # buffer, and decompressed length read from the trailer uint32.
     cdef Py_ssize_t cap = 16
     cdef Py_ssize_t n = 0
     cdef Py_ssize_t *def_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
     cdef Py_ssize_t *def_sz = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
-    cdef Py_ssize_t *new_off
-    cdef Py_ssize_t *new_sz
-    if def_off == NULL or def_sz == NULL:
+    cdef Py_ssize_t *out_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+    cdef Py_ssize_t *dlen = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+    cdef Py_ssize_t total_out = 0
+    cdef unsigned long data_len_val
+    if def_off == NULL or def_sz == NULL or out_off == NULL or dlen == NULL:
         if def_off != NULL: free(def_off)
         if def_sz != NULL: free(def_sz)
+        if out_off != NULL: free(out_off)
+        if dlen != NULL: free(dlen)
         raise MemoryError()
     while offset + 6 <= total:
         if base[offset] != 67 or base[offset + 1] != 66:  # 'C', 'B'
@@ -92,50 +120,48 @@ cdef bytes _parse_blocks_from_buffer(bytes raw_all):
         if offset + <Py_ssize_t> bsize > total:
             break
         deflate_size = <Py_ssize_t> bsize - _BLOCK_HEADER_TRAILER_BYTES
+        # Trailer uint32 == exact uncompressed length of this block.
+        trailer = offset + <Py_ssize_t> bsize - 4
+        data_len_val = ((<unsigned long> base[trailer])
+                        | ((<unsigned long> base[trailer + 1]) << 8)
+                        | ((<unsigned long> base[trailer + 2]) << 16)
+                        | ((<unsigned long> base[trailer + 3]) << 24))
         if n == cap:
             cap *= 2
-            new_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
-            new_sz = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
-            if new_off == NULL or new_sz == NULL:
-                if new_off != NULL: free(new_off)
-                if new_sz != NULL: free(new_sz)
-                free(def_off); free(def_sz)
+            def_off = _grow_ssize(def_off, n, cap)
+            def_sz = _grow_ssize(def_sz, n, cap)
+            out_off = _grow_ssize(out_off, n, cap)
+            dlen = _grow_ssize(dlen, n, cap)
+            if def_off == NULL or def_sz == NULL or out_off == NULL or dlen == NULL:
+                if def_off != NULL: free(def_off)
+                if def_sz != NULL: free(def_sz)
+                if out_off != NULL: free(out_off)
+                if dlen != NULL: free(dlen)
                 raise MemoryError()
-            memcpy(new_off, def_off, n * sizeof(Py_ssize_t))
-            memcpy(new_sz, def_sz, n * sizeof(Py_ssize_t))
-            free(def_off); free(def_sz)
-            def_off = new_off
-            def_sz = new_sz
         def_off[n] = offset + 6
         def_sz[n] = deflate_size
+        out_off[n] = total_out
+        dlen[n] = <Py_ssize_t> data_len_val
+        total_out += <Py_ssize_t> data_len_val
         n += 1
         offset += <Py_ssize_t> bsize
 
-    if n == 0:
-        free(def_off); free(def_sz)
+    if n == 0 or total_out == 0:
+        free(def_off); free(def_sz); free(out_off); free(dlen)
         return b""
 
-    # ---- Phase 2: parallel inflate ------------------------------------
+    # ---- Phase 2: parallel inflate directly into the result buffer ----
     cdef int n_threads = _get_inflate_threads_setting()
     if n < 2:
         n_threads = 1
-    cdef size_t out_cap = <size_t> _BLOCK_MAX_LEN + 1
-    cdef Py_ssize_t *act_sz = <Py_ssize_t *> malloc(n * sizeof(Py_ssize_t))
-    cdef unsigned char **out_bufs = <unsigned char **> malloc(n * sizeof(void*))
+    cdef bytes result = PyBytes_FromStringAndSize(NULL, total_out)
+    cdef unsigned char *dst = <unsigned char *> PyBytes_AsString(result)  # mutable while refcount==1
     cdef int *ret_codes = <int *> malloc(n * sizeof(int))
-    if act_sz == NULL or out_bufs == NULL or ret_codes == NULL:
-        if act_sz != NULL: free(act_sz)
-        if out_bufs != NULL: free(out_bufs)
-        if ret_codes != NULL: free(ret_codes)
-        free(def_off); free(def_sz)
+    if ret_codes == NULL:
+        free(def_off); free(def_sz); free(out_off); free(dlen)
         raise MemoryError()
 
     cdef Py_ssize_t i
-    for i in range(n):
-        out_bufs[i] = NULL
-        act_sz[i] = 0
-        ret_codes[i] = 0
-
     cdef libdeflate_decompressor *single_d
     cdef int tid
     cdef size_t actual_local
@@ -146,34 +172,23 @@ cdef bytes _parse_blocks_from_buffer(bytes raw_all):
         with nogil:
             for i in prange(n, num_threads=n_threads, schedule='static'):
                 tid = openmp.omp_get_thread_num()
-                out_bufs[i] = <unsigned char *> malloc(out_cap)
-                if out_bufs[i] == NULL:
-                    ret_codes[i] = -1
-                else:
-                    actual_local = 0
-                    rc = libdeflate_deflate_decompress(
-                        _ld_thread_decoms[tid],
-                        base + def_off[i], <size_t> def_sz[i],
-                        out_bufs[i], out_cap, &actual_local)
-                    ret_codes[i] = rc
-                    act_sz[i] = <Py_ssize_t> actual_local
+                actual_local = 0
+                rc = libdeflate_deflate_decompress(
+                    _ld_thread_decoms[tid],
+                    base + def_off[i], <size_t> def_sz[i],
+                    dst + out_off[i], <size_t> dlen[i], &actual_local)
+                ret_codes[i] = rc
     else:
         single_d = _get_decompressor()
         for i in range(n):
-            out_bufs[i] = <unsigned char *> malloc(out_cap)
-            if out_bufs[i] == NULL:
-                ret_codes[i] = -1
-                continue
             actual_local = 0
             rc = libdeflate_deflate_decompress(
                 single_d,
                 base + def_off[i], <size_t> def_sz[i],
-                out_bufs[i], out_cap, &actual_local)
+                dst + out_off[i], <size_t> dlen[i], &actual_local)
             ret_codes[i] = rc
-            act_sz[i] = <Py_ssize_t> actual_local
 
-    # ---- Phase 3: validate + concat -----------------------------------
-    cdef Py_ssize_t total_out = 0
+    # ---- Phase 3: validate --------------------------------------------
     cdef int err_rc = 0
     cdef Py_ssize_t err_idx = -1
     for i in range(n):
@@ -181,27 +196,10 @@ cdef bytes _parse_blocks_from_buffer(bytes raw_all):
             err_rc = ret_codes[i]
             err_idx = i
             break
-        total_out += act_sz[i]
-
+    free(def_off); free(def_sz); free(out_off); free(dlen); free(ret_codes)
     if err_rc != 0:
-        for i in range(n):
-            if out_bufs[i] != NULL:
-                free(out_bufs[i])
-        free(def_off); free(def_sz); free(act_sz); free(out_bufs); free(ret_codes)
-        if err_rc == -1:
-            raise MemoryError("alloc per-block output buffer")
         raise RuntimeError(
             f"libdeflate_deflate_decompress failed at block {err_idx}: rc={err_rc}")
-
-    cdef bytes result = PyBytes_FromStringAndSize(NULL, total_out)
-    cdef char *dst = PyBytes_AsString(result)  # mutable while refcount==1
-    cdef Py_ssize_t off2 = 0
-    for i in range(n):
-        if act_sz[i] > 0:
-            memcpy(dst + off2, out_bufs[i], <size_t> act_sz[i])
-            off2 += act_sz[i]
-        free(out_bufs[i])
-    free(def_off); free(def_sz); free(act_sz); free(out_bufs); free(ret_codes)
     return result
 
 
@@ -223,77 +221,68 @@ cdef inline object _get_np():
         _np = numpy
     return _np
 
-cdef inline bytes _apply_delta_bytes(bytes data, object delta_dtype, object delta_col_names):
-    """Decode delta-encoded columns of a single block's byte buffer.
+# ---------------------------------------------------------------------------
+# Delta column spec extraction + nogil cumsum / diff kernels.
+#
+# A "spec" is the (byte offset, width) of one delta column within a record.
+# Extracting specs once into plain C arrays lets the per-record cumsum/diff
+# loops run under nogil (no Python objects touched), so block-buffer decode
+# can parallelise across blocks and the single-block path overlaps with
+# other threads.
+# ---------------------------------------------------------------------------
+cdef Py_ssize_t _extract_delta_specs(object delta_dtype, object delta_col_names,
+                                     Py_ssize_t **offs_out,
+                                     Py_ssize_t **widths_out) except -2:
+    """Fill ``*offs_out`` / ``*widths_out`` (malloc'd) with one (offset, width)
+    pair per delta column and return the column count.
 
-    Returns the original *data* unchanged when delta_dtype is None or
-    delta_col_names is empty. Otherwise returns a new bytes object with
-    cumsum applied to each named column.
-
-    Fast path: when every delta column has a homogeneous unsigned-int
-    field of width 1/2/4/8 bytes, run an inline in-place cumsum on a
-    bytearray copy (one allocation) instead of going through numpy
-    (frombuffer + copy + np.cumsum + tobytes ≈ four allocations).
+    Returns -1 (with no allocation leaked) when any column is not a
+    uint8/16/32/64 field, signalling the caller to use the numpy fallback.
+    Raises MemoryError (return code -2) on allocation failure.
     """
-    if delta_dtype is None or not delta_col_names:
-        return data
-    cdef Py_ssize_t itemsize = delta_dtype.itemsize
-    cdef Py_ssize_t nrec = len(data) // itemsize
-    if nrec == 0:
-        return data
-    cdef Py_ssize_t used = nrec * itemsize
-    # Try the fast inline path first.
-    cdef bytes fast = _try_inline_cumsum(data, delta_dtype, delta_col_names)
-    if fast is not None:
-        if used == len(data):
-            return fast
-        return fast + data[used:]
-    # Fallback: numpy cumsum.
-    np = _get_np()
-    arr = np.frombuffer(data, dtype=delta_dtype, count=nrec).copy()
-    for name in delta_col_names:
-        np.cumsum(arr[name], out=arr[name])
-    if used == len(data):
-        return arr.tobytes()
-    return arr.tobytes() + data[used:]
-
-
-cdef bytes _try_inline_cumsum(bytes data, object delta_dtype, object delta_col_names):
-    """Inline in-place cumsum for delta columns when every column is a
-    uint8/16/32/64 field of the structured dtype.
-
-    Returns the patched bytes, or None if the dtype is unsupported (the
-    caller falls back to the numpy path).
-    """
-    cdef Py_ssize_t itemsize = delta_dtype.itemsize
-    cdef Py_ssize_t nrec = len(data) // itemsize
-    cdef Py_ssize_t used = nrec * itemsize
-    # Validate every column upfront; bail to numpy on heterogeneous input.
     fields = delta_dtype.fields
     if fields is None:
-        return None
-    cdef list specs = []  # list of (offset, width)
+        return -1
+    cdef Py_ssize_t ncol = len(delta_col_names)
+    if ncol == 0:
+        return -1
+    cdef Py_ssize_t *offs = <Py_ssize_t *> malloc(ncol * sizeof(Py_ssize_t))
+    cdef Py_ssize_t *widths = <Py_ssize_t *> malloc(ncol * sizeof(Py_ssize_t))
+    if offs == NULL or widths == NULL:
+        if offs != NULL: free(offs)
+        if widths != NULL: free(widths)
+        raise MemoryError()
+    cdef Py_ssize_t i = 0
     for name in delta_col_names:
         if name not in fields:
-            return None
+            free(offs); free(widths)
+            return -1
         sub = fields[name]
         sub_dtype = sub[0]
         sub_off = sub[1]
         # Reject non-numeric or signed dtypes; cumsum on signed differs.
-        if sub_dtype.kind != 'u':
-            return None
-        if sub_dtype.itemsize not in (1, 2, 4, 8):
-            return None
-        specs.append((<Py_ssize_t> sub_off, <Py_ssize_t> sub_dtype.itemsize))
+        if sub_dtype.kind != 'u' or sub_dtype.itemsize not in (1, 2, 4, 8):
+            free(offs); free(widths)
+            return -1
+        offs[i] = <Py_ssize_t> sub_off
+        widths[i] = <Py_ssize_t> sub_dtype.itemsize
+        i += 1
+    offs_out[0] = offs
+    widths_out[0] = widths
+    return ncol
 
-    cdef bytearray out = bytearray(data[:used])
-    cdef unsigned char *base = <unsigned char *> PyByteArray_AsString(out)
-    cdef Py_ssize_t off, w, i
+
+cdef void _cumsum_region(unsigned char *base, Py_ssize_t nrec, Py_ssize_t itemsize,
+                         Py_ssize_t *offs, Py_ssize_t *widths,
+                         Py_ssize_t ncol) noexcept nogil:
+    """In-place per-record cumsum on each delta column of one record-aligned
+    region (``nrec`` records of ``itemsize`` bytes starting at ``base``)."""
+    cdef Py_ssize_t ci, i, off, w
     cdef unsigned long long acc
     cdef unsigned char *p
-    for spec in specs:
-        off = spec[0]
-        w = spec[1]
+    for ci in range(ncol):
+        off = offs[ci]
+        w = widths[ci]
         p = base + off
         acc = 0
         if w == 1:
@@ -340,48 +329,21 @@ cdef bytes _try_inline_cumsum(bytes data, object delta_dtype, object delta_col_n
                 p[6] = <unsigned char> ((acc >> 48) & 0xff)
                 p[7] = <unsigned char> ((acc >> 56) & 0xff)
                 p += itemsize
-    return bytes(out)
 
 
-cdef bytes _try_inline_diff(bytes data, object delta_dtype, object delta_col_names):
-    """Symmetric encoder for `_try_inline_cumsum`: in-place finite
-    difference (block[i] -= block[i-1]) for delta-encoded uint columns.
-
-    Returns the patched bytes, or None if the dtype is unsupported (the
-    caller falls back to the numpy path).
-    """
-    cdef Py_ssize_t itemsize = delta_dtype.itemsize
-    cdef Py_ssize_t nrec = len(data) // itemsize
-    cdef Py_ssize_t used = nrec * itemsize
-    if nrec < 2:
-        # 0- or 1-record blocks: encoded == raw.
-        return bytes(data[:used]) if used == len(data) else bytes(data[:used])
-    fields = delta_dtype.fields
-    if fields is None:
-        return None
-    cdef list specs = []
-    for name in delta_col_names:
-        if name not in fields:
-            return None
-        sub = fields[name]
-        sub_dtype = sub[0]
-        sub_off = sub[1]
-        if sub_dtype.kind != 'u':
-            return None
-        if sub_dtype.itemsize not in (1, 2, 4, 8):
-            return None
-        specs.append((<Py_ssize_t> sub_off, <Py_ssize_t> sub_dtype.itemsize))
-
-    cdef bytearray out = bytearray(data[:used])
-    cdef unsigned char *base = <unsigned char *> PyByteArray_AsString(out)
-    cdef Py_ssize_t off, w, i
+cdef void _diff_region(unsigned char *base, Py_ssize_t nrec, Py_ssize_t itemsize,
+                       Py_ssize_t *offs, Py_ssize_t *widths,
+                       Py_ssize_t ncol) noexcept nogil:
+    """In-place per-record finite difference (inverse of `_cumsum_region`)."""
+    cdef Py_ssize_t ci, i, off, w
     cdef unsigned long long prev, cur, diff
     cdef unsigned char *p
-    for spec in specs:
-        off = spec[0]
-        w = spec[1]
-        # Walk records right-to-left so each subtraction uses the
-        # original value (not the just-overwritten delta).
+    if nrec < 2:
+        return
+    for ci in range(ncol):
+        off = offs[ci]
+        w = widths[ci]
+        # Walk right-to-left so each subtraction uses the original value.
         if w == 1:
             for i in range(nrec - 1, 0, -1):
                 p = base + off + i * itemsize
@@ -441,6 +403,91 @@ cdef bytes _try_inline_diff(bytes data, object delta_dtype, object delta_col_nam
                 p[5] = <unsigned char> ((diff >> 40) & 0xff)
                 p[6] = <unsigned char> ((diff >> 48) & 0xff)
                 p[7] = <unsigned char> ((diff >> 56) & 0xff)
+
+
+cdef inline bytes _apply_delta_bytes(bytes data, object delta_dtype, object delta_col_names):
+    """Decode delta-encoded columns of a single block's byte buffer.
+
+    Returns the original *data* unchanged when delta_dtype is None or
+    delta_col_names is empty. Otherwise returns a new bytes object with
+    cumsum applied to each named column.
+
+    Fast path: when every delta column has a homogeneous unsigned-int
+    field of width 1/2/4/8 bytes, run an inline in-place cumsum on a
+    bytearray copy (one allocation) instead of going through numpy
+    (frombuffer + copy + np.cumsum + tobytes ≈ four allocations).
+    """
+    if delta_dtype is None or not delta_col_names:
+        return data
+    cdef Py_ssize_t itemsize = delta_dtype.itemsize
+    cdef Py_ssize_t nrec = len(data) // itemsize
+    if nrec == 0:
+        return data
+    cdef Py_ssize_t used = nrec * itemsize
+    # Try the fast inline path first.
+    cdef bytes fast = _try_inline_cumsum(data, delta_dtype, delta_col_names)
+    if fast is not None:
+        if used == len(data):
+            return fast
+        return fast + data[used:]
+    # Fallback: numpy cumsum.
+    np = _get_np()
+    arr = np.frombuffer(data, dtype=delta_dtype, count=nrec).copy()
+    for name in delta_col_names:
+        np.cumsum(arr[name], out=arr[name])
+    if used == len(data):
+        return arr.tobytes()
+    return arr.tobytes() + data[used:]
+
+
+cdef bytes _try_inline_cumsum(bytes data, object delta_dtype, object delta_col_names):
+    """Inline in-place cumsum for delta columns when every column is a
+    uint8/16/32/64 field of the structured dtype.
+
+    Returns the patched bytes, or None if the dtype is unsupported (the
+    caller falls back to the numpy path).
+    """
+    cdef Py_ssize_t itemsize = delta_dtype.itemsize
+    cdef Py_ssize_t nrec = len(data) // itemsize
+    cdef Py_ssize_t used = nrec * itemsize
+    cdef Py_ssize_t *offs = NULL
+    cdef Py_ssize_t *widths = NULL
+    cdef Py_ssize_t ncol = _extract_delta_specs(delta_dtype, delta_col_names,
+                                                &offs, &widths)
+    if ncol < 0:
+        return None  # unsupported dtype → caller uses numpy fallback
+    cdef bytearray out = bytearray(data[:used])
+    cdef unsigned char *base = <unsigned char *> PyByteArray_AsString(out)
+    with nogil:
+        _cumsum_region(base, nrec, itemsize, offs, widths, ncol)
+    free(offs); free(widths)
+    return bytes(out)
+
+
+cdef bytes _try_inline_diff(bytes data, object delta_dtype, object delta_col_names):
+    """Symmetric encoder for `_try_inline_cumsum`: in-place finite
+    difference (block[i] -= block[i-1]) for delta-encoded uint columns.
+
+    Returns the patched bytes, or None if the dtype is unsupported (the
+    caller falls back to the numpy path).
+    """
+    cdef Py_ssize_t itemsize = delta_dtype.itemsize
+    cdef Py_ssize_t nrec = len(data) // itemsize
+    cdef Py_ssize_t used = nrec * itemsize
+    if nrec < 2:
+        # 0- or 1-record blocks: encoded == raw.
+        return bytes(data[:used])
+    cdef Py_ssize_t *offs = NULL
+    cdef Py_ssize_t *widths = NULL
+    cdef Py_ssize_t ncol = _extract_delta_specs(delta_dtype, delta_col_names,
+                                                &offs, &widths)
+    if ncol < 0:
+        return None  # unsupported dtype → caller uses numpy fallback
+    cdef bytearray out = bytearray(data[:used])
+    cdef unsigned char *base = <unsigned char *> PyByteArray_AsString(out)
+    with nogil:
+        _diff_region(base, nrec, itemsize, offs, widths, ncol)
+    free(offs); free(widths)
     return bytes(out)
 
 
@@ -476,9 +523,12 @@ def c_delta_encode_block(bytes data, object delta_dtype, object delta_col_names)
 cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, object delta_col_names):
     """Delta-aware variant of _parse_blocks_from_buffer.
 
-    Each block is inflated (in parallel when enabled) and delta-decoded
-    serially before concatenation, because delta decode runs Python/numpy
-    code that requires the GIL.
+    Inflates every block directly into a single result buffer (using the
+    per-block trailer length, exactly like the raw path) and then applies
+    the in-place per-record cumsum to each record-aligned block region.
+    When all delta columns are simple uint fields, the cumsum runs under
+    nogil and parallelises across blocks; otherwise a per-region numpy
+    fallback is used.
     """
     if delta_dtype is None or not delta_col_names:
         return _parse_blocks_from_buffer(raw_all)
@@ -488,17 +538,22 @@ cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, ob
     cdef Py_ssize_t offset = 0
     cdef unsigned long bsize
     cdef Py_ssize_t deflate_size
+    cdef Py_ssize_t trailer
 
     # ---- Phase 1: header scan ----------------------------------------
     cdef Py_ssize_t cap = 16
     cdef Py_ssize_t n = 0
     cdef Py_ssize_t *def_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
     cdef Py_ssize_t *def_sz = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
-    cdef Py_ssize_t *new_off
-    cdef Py_ssize_t *new_sz
-    if def_off == NULL or def_sz == NULL:
+    cdef Py_ssize_t *out_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+    cdef Py_ssize_t *dlen = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
+    cdef Py_ssize_t total_out = 0
+    cdef unsigned long data_len_val
+    if def_off == NULL or def_sz == NULL or out_off == NULL or dlen == NULL:
         if def_off != NULL: free(def_off)
         if def_sz != NULL: free(def_sz)
+        if out_off != NULL: free(out_off)
+        if dlen != NULL: free(dlen)
         raise MemoryError()
     while offset + 6 <= total:
         if base[offset] != 67 or base[offset + 1] != 66:
@@ -510,49 +565,46 @@ cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, ob
         if offset + <Py_ssize_t> bsize > total:
             break
         deflate_size = <Py_ssize_t> bsize - _BLOCK_HEADER_TRAILER_BYTES
+        trailer = offset + <Py_ssize_t> bsize - 4
+        data_len_val = ((<unsigned long> base[trailer])
+                        | ((<unsigned long> base[trailer + 1]) << 8)
+                        | ((<unsigned long> base[trailer + 2]) << 16)
+                        | ((<unsigned long> base[trailer + 3]) << 24))
         if n == cap:
             cap *= 2
-            new_off = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
-            new_sz = <Py_ssize_t *> malloc(cap * sizeof(Py_ssize_t))
-            if new_off == NULL or new_sz == NULL:
-                if new_off != NULL: free(new_off)
-                if new_sz != NULL: free(new_sz)
-                free(def_off); free(def_sz)
+            def_off = _grow_ssize(def_off, n, cap)
+            def_sz = _grow_ssize(def_sz, n, cap)
+            out_off = _grow_ssize(out_off, n, cap)
+            dlen = _grow_ssize(dlen, n, cap)
+            if def_off == NULL or def_sz == NULL or out_off == NULL or dlen == NULL:
+                if def_off != NULL: free(def_off)
+                if def_sz != NULL: free(def_sz)
+                if out_off != NULL: free(out_off)
+                if dlen != NULL: free(dlen)
                 raise MemoryError()
-            memcpy(new_off, def_off, n * sizeof(Py_ssize_t))
-            memcpy(new_sz, def_sz, n * sizeof(Py_ssize_t))
-            free(def_off); free(def_sz)
-            def_off = new_off
-            def_sz = new_sz
         def_off[n] = offset + 6
         def_sz[n] = deflate_size
+        out_off[n] = total_out
+        dlen[n] = <Py_ssize_t> data_len_val
+        total_out += <Py_ssize_t> data_len_val
         n += 1
         offset += <Py_ssize_t> bsize
 
-    if n == 0:
-        free(def_off); free(def_sz)
+    if n == 0 or total_out == 0:
+        free(def_off); free(def_sz); free(out_off); free(dlen)
         return b""
 
-    # ---- Phase 2: parallel inflate -----------------------------------
+    # ---- Phase 2: parallel inflate into one buffer -------------------
     cdef int n_threads = _get_inflate_threads_setting()
     if n < 2:
         n_threads = 1
-    cdef size_t out_cap = <size_t> _BLOCK_MAX_LEN + 1
-    cdef Py_ssize_t *act_sz = <Py_ssize_t *> malloc(n * sizeof(Py_ssize_t))
-    cdef unsigned char **out_bufs = <unsigned char **> malloc(n * sizeof(void*))
+    cdef bytes result = PyBytes_FromStringAndSize(NULL, total_out)
+    cdef unsigned char *dst = <unsigned char *> PyBytes_AsString(result)
     cdef int *ret_codes = <int *> malloc(n * sizeof(int))
-    if act_sz == NULL or out_bufs == NULL or ret_codes == NULL:
-        if act_sz != NULL: free(act_sz)
-        if out_bufs != NULL: free(out_bufs)
-        if ret_codes != NULL: free(ret_codes)
-        free(def_off); free(def_sz)
+    if ret_codes == NULL:
+        free(def_off); free(def_sz); free(out_off); free(dlen)
         raise MemoryError()
     cdef Py_ssize_t i
-    for i in range(n):
-        out_bufs[i] = NULL
-        act_sz[i] = 0
-        ret_codes[i] = 0
-
     cdef libdeflate_decompressor *single_d
     cdef int tid
     cdef size_t actual_local
@@ -563,33 +615,22 @@ cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, ob
         with nogil:
             for i in prange(n, num_threads=n_threads, schedule='static'):
                 tid = openmp.omp_get_thread_num()
-                out_bufs[i] = <unsigned char *> malloc(out_cap)
-                if out_bufs[i] == NULL:
-                    ret_codes[i] = -1
-                else:
-                    actual_local = 0
-                    rc = libdeflate_deflate_decompress(
-                        _ld_thread_decoms[tid],
-                        base + def_off[i], <size_t> def_sz[i],
-                        out_bufs[i], out_cap, &actual_local)
-                    ret_codes[i] = rc
-                    act_sz[i] = <Py_ssize_t> actual_local
+                actual_local = 0
+                rc = libdeflate_deflate_decompress(
+                    _ld_thread_decoms[tid],
+                    base + def_off[i], <size_t> def_sz[i],
+                    dst + out_off[i], <size_t> dlen[i], &actual_local)
+                ret_codes[i] = rc
     else:
         single_d = _get_decompressor()
         for i in range(n):
-            out_bufs[i] = <unsigned char *> malloc(out_cap)
-            if out_bufs[i] == NULL:
-                ret_codes[i] = -1
-                continue
             actual_local = 0
             rc = libdeflate_deflate_decompress(
                 single_d,
                 base + def_off[i], <size_t> def_sz[i],
-                out_bufs[i], out_cap, &actual_local)
+                dst + out_off[i], <size_t> dlen[i], &actual_local)
             ret_codes[i] = rc
-            act_sz[i] = <Py_ssize_t> actual_local
 
-    # Validate inflate phase
     cdef int err_rc = 0
     cdef Py_ssize_t err_idx = -1
     for i in range(n):
@@ -597,27 +638,51 @@ cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, ob
             err_rc = ret_codes[i]
             err_idx = i
             break
+    free(ret_codes)
     if err_rc != 0:
-        for i in range(n):
-            if out_bufs[i] != NULL:
-                free(out_bufs[i])
-        free(def_off); free(def_sz); free(act_sz); free(out_bufs); free(ret_codes)
-        if err_rc == -1:
-            raise MemoryError("alloc per-block output buffer")
+        free(def_off); free(def_sz); free(out_off); free(dlen)
         raise RuntimeError(
             f"libdeflate_deflate_decompress failed at block {err_idx}: rc={err_rc}")
 
-    # ---- Phase 3: delta-decode + concat (serial, GIL) ----------------
-    cdef list chunks = []
-    cdef bytes blk
-    for i in range(n):
-        blk = PyBytes_FromStringAndSize(<char *> out_bufs[i], act_sz[i])
-        free(out_bufs[i])
-        chunks.append(_apply_delta_bytes(blk, delta_dtype, delta_col_names))
-    free(def_off); free(def_sz); free(act_sz); free(out_bufs); free(ret_codes)
-    if not chunks:
-        return b""
-    return b"".join(chunks)
+    # ---- Phase 3: in-place delta decode per block region -------------
+    cdef Py_ssize_t itemsize = <Py_ssize_t> delta_dtype.itemsize
+    cdef Py_ssize_t *offs = NULL
+    cdef Py_ssize_t *widths = NULL
+    cdef Py_ssize_t ncol = _extract_delta_specs(delta_dtype, delta_col_names,
+                                                &offs, &widths)
+    cdef Py_ssize_t nrec_i
+    cdef bytes tb
+    if ncol >= 0:
+        # Fast path: nogil cumsum, parallel across record-aligned blocks
+        # (each block's region is disjoint, so no data race).
+        if n_threads > 1:
+            with nogil:
+                for i in prange(n, num_threads=n_threads, schedule='static'):
+                    _cumsum_region(dst + out_off[i], dlen[i] // itemsize,
+                                   itemsize, offs, widths, ncol)
+        else:
+            with nogil:
+                for i in range(n):
+                    _cumsum_region(dst + out_off[i], dlen[i] // itemsize,
+                                   itemsize, offs, widths, ncol)
+        free(offs); free(widths)
+    else:
+        # Numpy fallback (signed / non-uint columns): decode each region
+        # and copy back into the shared result buffer.
+        np = _get_np()
+        for i in range(n):
+            nrec_i = dlen[i] // itemsize
+            if nrec_i == 0:
+                continue
+            arr = np.frombuffer(
+                PyBytes_FromStringAndSize(<char *> (dst + out_off[i]), dlen[i]),
+                dtype=delta_dtype, count=nrec_i).copy()
+            for name in delta_col_names:
+                np.cumsum(arr[name], out=arr[name])
+            tb = arr.tobytes()
+            memcpy(dst + out_off[i], <const char *> tb, <size_t> dlen[i])
+    free(def_off); free(def_sz); free(out_off); free(dlen)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -669,7 +734,7 @@ cdef extern from "libdeflate.h":
 
 from cpython.bytearray cimport PyByteArray_FromStringAndSize, PyByteArray_AsString
 from cpython.bytes cimport PyBytes_FromStringAndSize, PyBytes_AsString
-from libc.string cimport memset, memcpy
+from libc.string cimport memset, memcpy, memcmp
 from libc.stdlib cimport malloc, free
 
 
@@ -2357,3 +2422,205 @@ def c_parse_tab_lines_int(list lines, list cols, int sep_byte=0x09):
     finally:
         free(ptrs)
     return out_arrays
+
+
+# ---------------------------------------------------------------------------
+# tocz all-integer ingestion fast path.
+# ---------------------------------------------------------------------------
+cdef inline long long _parse_int_field(const unsigned char* lp,
+                                       Py_ssize_t start, Py_ssize_t end) noexcept nogil:
+    """Parse a signed base-10 integer from lp[start:end].
+
+    Non-numeric trailing content stops parsing (matching
+    ``c_parse_tab_lines_int``). Empty field → 0.
+    """
+    cdef long long val = 0
+    cdef int neg = 0
+    cdef Py_ssize_t p = start
+    cdef unsigned char c
+    if p < end and lp[p] == 0x2d:  # '-'
+        neg = 1
+        p += 1
+    while p < end:
+        c = lp[p]
+        if 0x30 <= c <= 0x39:
+            val = val * 10 + (c - 0x30)
+            p += 1
+        else:
+            break
+    return -val if neg else val
+
+
+def c_parse_tocz_int_slab(bytes buf, list usecols, list key_cols, int sep_byte=0x09):
+    """Parse a newline-delimited byte buffer for the all-integer ``tocz``
+    fast path.
+
+    The whole slab is scanned in a single C pass: newlines split records,
+    the integer ``usecols`` are parsed into int64 arrays, and ``key_cols``
+    (grouping keys, e.g. chrom) are tracked only to detect run boundaries
+    via ``memcmp`` directly on the buffer — so there is *no* per-line Python
+    object churn (no per-line ``split``/encode/tuple), unlike the old
+    pure-Python parser.
+
+    Parameters
+    ----------
+    buf : bytes
+        Concatenation of complete lines. A missing trailing newline on the
+        final line is tolerated.
+    usecols : list of int
+        Column indices for the data columns (integer-typed; caller clips
+        the returned int64 values to each column's final dtype).
+    key_cols : list of int
+        Column indices used as chunk grouping keys.
+    sep_byte : int
+        Separator byte (default tab).
+
+    Returns
+    -------
+    (arrays, runs)
+        ``arrays`` : list of int64 ndarrays, one per ``usecols`` entry,
+        each of length == number of lines in *buf*.
+        ``runs`` : list of ``(dims_tuple, start, end)`` for maximal runs of
+        consecutive lines sharing identical ``key_cols`` values; ``dims_tuple``
+        holds the decoded str values in ``key_cols`` order.
+    """
+    np = _get_np()
+    cdef const unsigned char* base = <const unsigned char*> (<const char*> buf)
+    cdef Py_ssize_t blen = len(buf)
+    cdef Py_ssize_t n_use = len(usecols)
+    cdef Py_ssize_t n_key = len(key_cols)
+    cdef list runs = []
+    if blen == 0:
+        return [np.empty(0, dtype=np.int64) for _ in range(n_use)], runs
+
+    # ---- Pass 1: count lines ----
+    cdef Py_ssize_t n_lines = 0
+    cdef Py_ssize_t p = 0
+    while p < blen:
+        if base[p] == 0x0a:
+            n_lines += 1
+        p += 1
+    if base[blen - 1] != 0x0a:
+        n_lines += 1  # final line without trailing newline
+
+    out_arrays = [np.empty(n_lines, dtype=np.int64) for _ in range(n_use)]
+    cdef long long[::1] _v
+    cdef Py_ssize_t k
+    cdef long long** uptr = <long long**> malloc(n_use * sizeof(long long*))
+    if uptr == NULL:
+        raise MemoryError()
+    for k in range(n_use):
+        _v = out_arrays[k]
+        uptr[k] = &_v[0]
+
+    # Column-role lookup tables sized to the largest referenced column.
+    cdef Py_ssize_t max_col = 0
+    for k in range(n_use):
+        if <Py_ssize_t> usecols[k] > max_col:
+            max_col = <Py_ssize_t> usecols[k]
+    for k in range(n_key):
+        if <Py_ssize_t> key_cols[k] > max_col:
+            max_col = <Py_ssize_t> key_cols[k]
+    cdef Py_ssize_t ncols_map = max_col + 1
+    cdef Py_ssize_t kk = n_key if n_key else 1
+    cdef Py_ssize_t* use_slot = <Py_ssize_t*> malloc(ncols_map * sizeof(Py_ssize_t))
+    cdef Py_ssize_t* key_slot = <Py_ssize_t*> malloc(ncols_map * sizeof(Py_ssize_t))
+    cdef Py_ssize_t* cur_off = <Py_ssize_t*> malloc(kk * sizeof(Py_ssize_t))
+    cdef Py_ssize_t* cur_len = <Py_ssize_t*> malloc(kk * sizeof(Py_ssize_t))
+    cdef Py_ssize_t* prev_off = <Py_ssize_t*> malloc(kk * sizeof(Py_ssize_t))
+    cdef Py_ssize_t* prev_len = <Py_ssize_t*> malloc(kk * sizeof(Py_ssize_t))
+    if (use_slot == NULL or key_slot == NULL or cur_off == NULL
+            or cur_len == NULL or prev_off == NULL or prev_len == NULL):
+        free(uptr)
+        if use_slot != NULL: free(use_slot)
+        if key_slot != NULL: free(key_slot)
+        if cur_off != NULL: free(cur_off)
+        if cur_len != NULL: free(cur_len)
+        if prev_off != NULL: free(prev_off)
+        if prev_len != NULL: free(prev_len)
+        raise MemoryError()
+    cdef Py_ssize_t ci
+    for ci in range(ncols_map):
+        use_slot[ci] = -1
+        key_slot[ci] = -1
+    for k in range(n_use):
+        use_slot[<Py_ssize_t> usecols[k]] = k
+    for k in range(n_key):
+        key_slot[<Py_ssize_t> key_cols[k]] = k
+
+    cdef Py_ssize_t li = 0, cur_col, field_start, field_end, kslot, uslot
+    cdef Py_ssize_t run_start = 0
+    cdef int have_prev = 0
+    cdef int same
+    cdef object prev_dims = None
+    p = 0
+    try:
+        while p < blen and li < n_lines:
+            cur_col = 0
+            field_start = p
+            for k in range(n_key):
+                cur_len[k] = -1
+            # Scan one line: split on sep, stop at newline / end of buffer.
+            while p < blen and base[p] != 0x0a:
+                if base[p] == sep_byte:
+                    field_end = p
+                    if cur_col <= max_col:
+                        uslot = use_slot[cur_col]
+                        if uslot != -1:
+                            uptr[uslot][li] = _parse_int_field(base, field_start, field_end)
+                        kslot = key_slot[cur_col]
+                        if kslot != -1:
+                            cur_off[kslot] = field_start
+                            cur_len[kslot] = field_end - field_start
+                    cur_col += 1
+                    field_start = p + 1
+                p += 1
+            # Final field of the line (strip a trailing CR before the LF).
+            field_end = p
+            if field_end > field_start and base[field_end - 1] == 0x0d:
+                field_end -= 1
+            if cur_col <= max_col:
+                uslot = use_slot[cur_col]
+                if uslot != -1:
+                    uptr[uslot][li] = _parse_int_field(base, field_start, field_end)
+                kslot = key_slot[cur_col]
+                if kslot != -1:
+                    cur_off[kslot] = field_start
+                    cur_len[kslot] = field_end - field_start
+            if p < blen:  # skip the newline
+                p += 1
+            # Run-boundary detection: compare key fields to the previous line
+            # directly in the (persistent) buffer — no per-line Python objects.
+            same = 0
+            if have_prev:
+                same = 1
+                for k in range(n_key):
+                    if (cur_len[k] != prev_len[k]
+                            or memcmp(base + cur_off[k], base + prev_off[k],
+                                      cur_len[k]) != 0):
+                        same = 0
+                        break
+            if not same:
+                if have_prev:
+                    runs.append((prev_dims, run_start, li))
+                prev_dims = tuple([
+                    buf[cur_off[k]:cur_off[k] + cur_len[k]].decode('utf-8')
+                    if cur_len[k] >= 0 else u''
+                    for k in range(n_key)])
+                for k in range(n_key):
+                    prev_off[k] = cur_off[k]
+                    prev_len[k] = cur_len[k]
+                run_start = li
+                have_prev = 1
+            li += 1
+        if have_prev:
+            runs.append((prev_dims, run_start, li))
+    finally:
+        free(uptr)
+        free(use_slot)
+        free(key_slot)
+        free(cur_off)
+        free(cur_len)
+        free(prev_off)
+        free(prev_len)
+    return out_arrays, runs

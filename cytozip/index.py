@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-from .cz import Reader, Writer, get_dtfuncs
+from .cz import Reader, Writer, get_dtfuncs, _make_np_dtype
 
 
 # ---------------------------------------------------------------------------
@@ -267,17 +267,29 @@ def _build_region_index_worker(input, output, dim, df1, formats, columns,
 						delta_cols=['ID_start', 'ID_end'])
 		try:
 			if id_start.size:
-				st = struct.Struct(f"<{writer.fmts}")
-				dtfuncs = get_dtfuncs(writer.formats)
-				packs = [None] * id_start.size
-				for k in range(id_start.size):
-					packs[k] = st.pack(*[fn(v) for v, fn in
-					                      zip((int(id_start[k]),
-					                           int(id_end[k]),
-					                           names[k]),
-					                          dtfuncs)])
-				for s in range(0, len(packs), batch_size):
-					writer.write_chunk(b''.join(packs[s:s + batch_size]), dim)
+				# Vectorized pack: build the structured record array in one
+				# shot instead of a per-region struct.pack loop. Integer
+				# columns are clipped to their dtype range (matching the old
+				# ``int_func`` clamp for unsigned formats); the Name column is
+				# encoded to fixed-width bytes (struct '<Ns' == numpy 'SN',
+				# both null-padded/truncated to N).
+				rec_dt = _make_np_dtype(formats, columns)
+				out = np.empty(id_start.size, dtype=rec_dt)
+				col_data = (id_start, id_end, names)
+				for ci, (col, fmt) in enumerate(zip(columns, formats)):
+					npdt = rec_dt[col]
+					if fmt[-1] in 'BHILQbhiq':
+						info = np.iinfo(npdt)
+						out[col] = np.clip(
+							np.asarray(col_data[ci]).astype(np.int64),
+							info.min, info.max).astype(npdt)
+					else:
+						out[col] = np.asarray(col_data[ci]).astype(npdt)
+				buf = out.tobytes()
+				rec_size = rec_dt.itemsize
+				step = batch_size * rec_size
+				for s in range(0, len(buf), step):
+					writer.write_chunk(buf[s:s + step], dim)
 		finally:
 			writer.close()
 	finally:
