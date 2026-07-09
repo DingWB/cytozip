@@ -22,7 +22,7 @@ from ._version import version as __version__
 _LAZY_EXPORTS = {
     # cz.py — generic .cz format layer
     'Reader': 'cz', 'Writer': 'cz', 'RemoteFile': 'cz', 'extract': 'cz',
-    'aggregate': 'cz', 'open': 'cz',
+    'aggregate': 'cz', 'align_cz': 'cz', 'open': 'cz',
     # index.py — context / region coordinate index builders
     'index_context': 'index', 'index_regions': 'index',
     # allc.py — methylation allc-file I/O
@@ -44,6 +44,9 @@ _LAZY_EXPORTS = {
     'call_dmr_one_vs_rest': 'dmr',
     'merge_dmr_results': 'dmr',
     'consensus_dmr': 'dmr',
+    # model.py — site-likelihood cell-type classifier
+    'CellTypeClassifier': 'model', 'predict_cell_type': 'model',
+    'estimate_theta': 'model',
 }
 
 # Submodules that can be accessed as cytozip.cz / cytozip.allc
@@ -238,6 +241,11 @@ def _build_parser():
     p.add_argument('-p', '--pattern', default='C', help='nucleotide pattern')
     p.add_argument('-j', '--jobs', type=int, default=12, help='number of parallel processes (CPUs)')
     p.add_argument('--keep_temp', action='store_true', help='keep temp directory')
+    p.add_argument('-s', '--chrom_size', default=None,
+                   help='path to a .fai index or a single-column text file listing '
+                        'chromosome names; only these chromosomes are extracted and '
+                        'the reference .cz is built in this exact order (default: all '
+                        'sequences in the genome FASTA)')
     p.add_argument('--no_delta', action='store_true',
                    help='disable DELTA encoding on the pos column (default: on, '
                         'gives ~3x smaller reference files with mild query overhead)')
@@ -779,7 +787,8 @@ def main():
         from .allc import AllC
         a = AllC(genome=args.genome, output=args.output,
                  pattern=args.pattern, jobs=args.jobs,
-                 keep_temp=args.keep_temp, delta=not args.no_delta)
+                 keep_temp=args.keep_temp, delta=not args.no_delta,
+                 chrom_size=args.chrom_size)
         a.run()
 
     elif cmd == 'index':

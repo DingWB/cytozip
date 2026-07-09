@@ -127,7 +127,8 @@ def WriteC(record, outdir, batch_size=5000, delta_cols=None):
 # ==========================================================
 class AllC:
     def __init__(self, genome=None, output="hg38_allc.cz",
-                 pattern="C", jobs=12, keep_temp=False, delta=True):
+                 pattern="C", jobs=12, keep_temp=False, delta=True,
+                 chrom_size=None):
         """
         Extract position of specific pattern in the reference genome, for example C.
             Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --jobs 10 run
@@ -135,13 +136,34 @@ class AllC:
         Parameters
         ----------
         genome: path
-            reference genome.
-        out: path
-            path for output
+            reference genome (FASTA). Any format readable by
+            ``Bio.SeqIO.parse(..., "fasta")``.
+        output: path
+            path for the output reference ``.cz`` file
+            (default: ``"hg38_allc.cz"``).
         pattern: str
-            pattern [C]
+            nucleotide pattern to extract. Only ``'C'`` (every cytosine,
+            written by :func:`WriteC`) is currently implemented (default: ``'C'``).
         jobs: int
-            number of CPU (parallel processes) used for the Pool.
+            number of CPU (parallel processes) used for the Pool. ``None``
+            falls back to ``os.cpu_count()`` (default: 12).
+        keep_temp: bool
+            if True, keep the per-chromosome temp directory
+            (``<output>.tmp``) after merging; otherwise it is removed at the
+            end of :meth:`run` (default: False).
+        delta: bool
+            if True (default), DELTA-encode the strictly-monotonic ``pos``
+            column. Positions in a reference ``.cz`` are sorted and closely
+            spaced (~3-10 bp for CGN/CHN), so per-block deltas compress
+            ~4-5x tighter than raw 8-byte ``Q`` values after DEFLATE. Set
+            to False for the fastest query path at the cost of ~2-3x larger
+            files.
+        chrom_size: path, optional
+            Path to a ``.fai`` index file or a plain text file whose first
+            (tab-separated, no header) column lists chromosome names. When
+            provided, only these chromosomes are extracted, and the merged
+            reference ``.cz`` stores chunks in exactly this order. ``None``
+            (default) processes every sequence in the genome fasta.
         """
         self.genome=os.path.abspath(os.path.expanduser(genome))
         self.output=os.path.abspath(os.path.expanduser(output))
@@ -153,6 +175,18 @@ class AllC:
         self.records = SeqIO.parse(self.genome, "fasta")
         self.jobs = jobs if not jobs is None else os.cpu_count()
         self.keep_temp = keep_temp
+        # Optional chromosome whitelist / ordering. Works for both a
+        # samtools ``.fai`` index and a plain single-column text file since
+        # in both cases the chromosome name is the first tab-separated field.
+        if chrom_size is not None:
+            chrom_size = os.path.abspath(os.path.expanduser(chrom_size))
+            chrom_df = pd.read_csv(chrom_size, sep='\t', header=None, usecols=[0])
+            self.chroms = chrom_df.iloc[:, 0].astype(str).tolist()
+            self.chrom_set = set(self.chroms)
+        else:
+            self.chroms = None
+            self.chrom_set = None
+        self.chrom_size = chrom_size
         # DELTA-encode the strictly-monotonic ``pos`` column by default.
         # Positions in a reference .cz are sorted and closely spaced (~3-10 bp
         # for CGN/CHN), so per-block deltas compress ~4-5x tighter than raw
@@ -163,9 +197,19 @@ class AllC:
             self.func=WriteC
 
     def writePattern(self):
+        """Extract the pattern from every (selected) chromosome in parallel.
+
+        Dispatches one :func:`WriteC` task per fasta record to a
+        multiprocessing pool, writing a per-chromosome ``.cz`` file into
+        ``self.outdir``. Records absent from ``self.chrom_set`` (when a
+        ``chrom_size`` whitelist was given) are skipped.
+        """
         pool = multiprocessing.Pool(self.jobs)
         tasks = []
         for record in self.records:
+            # Skip sequences not in the requested chromosome list (if any).
+            if self.chrom_set is not None and record.id not in self.chrom_set:
+                continue
             task = pool.apply_async(self.func, (record, self.outdir, 5000, self.delta_cols))
             tasks.append(task)
         for task in tasks:
@@ -174,13 +218,27 @@ class AllC:
         pool.join()
 
     def merge(self):
+        """Concatenate the per-chromosome temp ``.cz`` files into ``self.output``.
+
+        When a ``chrom_size`` list was provided, chunks are merged in that
+        exact order; otherwise :meth:`cytozip.cz.Writer.catcz` falls back to
+        its default ``sorted()`` ordering.
+        """
         writer = Writer(output=self.output, formats=['Q', 'c', '3s'],
                         columns=['pos', 'strand', 'context'],
                         chunk_dims=['chrom'], message=self.genome,
                         sort_col='pos', delta_cols=self.delta_cols)
-        writer.catcz(input=f"{self.outdir}/*.cz", key_added=None)
+        # When a chromosome list is given, merge chunks in that exact order;
+        # otherwise fall back to catcz's default sorted() ordering.
+        writer.catcz(input=f"{self.outdir}/*.cz", chunk_order=self.chroms,
+                     key_added=None)
 
     def run(self):
+        """Run the full pipeline: extract, merge, and clean up temp files.
+
+        Calls :meth:`writePattern` then :meth:`merge`, and removes the
+        temp directory ``<output>.tmp`` unless ``keep_temp=True``.
+        """
         self.writePattern()
         self.merge()
         if not self.keep_temp:
@@ -265,7 +323,10 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
 
     Returns
     -------
-
+    None
+        The result is written to ``output`` (a single ``.cz`` file in
+        single-file mode, or a directory of ``.cz`` files in batch mode).
+        Nothing is returned; existing outputs are skipped.
     """
     # ---- Batch mode: input is a directory --------------------------------
     if isinstance(input, str) and os.path.isdir(os.path.expanduser(input)):
@@ -525,6 +586,13 @@ def _allc2cz_worker(args):
 
 
 def _strip_allc_suffix(basename):
+    """Strip a common allc/tsv suffix from ``basename`` to build the output stem.
+
+    Tries the known allc extensions (``.allc.tsv.gz``, ``.allc.tsv.bgz``,
+    ``.tsv.gz``, ``.allc.gz``) in order and falls back to
+    :func:`os.path.splitext` when none match. Used in batch mode to name
+    each ``<stem>.cz`` output.
+    """
     for suf in ('.allc.tsv.gz', '.allc.tsv.bgz', '.tsv.gz', '.allc.gz'):
         if basename.endswith(suf):
             return basename[:-len(suf)]
@@ -635,7 +703,9 @@ def extractCG(input=None, output=None, index=None, batch_size=5000,
 
     Returns
     -------
-
+    None
+        The extracted (and optionally CG-merged) records are written to
+        ``output`` as a new ``.cz`` file. Nothing is returned.
     """
     cz_path = os.path.abspath(os.path.expanduser(input))
     index_path = os.path.abspath(os.path.expanduser(index))

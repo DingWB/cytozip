@@ -3766,6 +3766,315 @@ def extract(input=None, output=None, index=None, batch_size=5000):
 
 
 # ==========================================================
+def _find_pos_col(reader, pos_col=None):
+	"""Resolve the coordinate column index of a .cz reader.
+
+	Parameters
+	----------
+	reader : Reader
+		An open :class:`Reader`.
+	pos_col : None, int or str, optional
+		Explicit column selector. ``None`` (default) auto-detects a column
+		named ``'pos'`` (case-insensitive); an ``int`` is used as-is; a
+		``str`` is looked up in the header column names.
+
+	Returns
+	-------
+	int
+		The 0-based index of the coordinate column.
+	"""
+	columns = list(reader.header['columns'])
+	if pos_col is None:
+		for i, c in enumerate(columns):
+			if str(c).lower() == 'pos':
+				return i
+		raise ValueError(
+			f"could not find a 'pos' column in {columns!r}; pass pos_col= "
+			f"explicitly. (A reference-less .cz storing only mc/cov has no "
+			f"coordinate column and cannot be position-aligned.)")
+	if isinstance(pos_col, str):
+		if pos_col not in columns:
+			raise ValueError(f"pos_col {pos_col!r} not in columns {columns!r}")
+		return columns.index(pos_col)
+	return int(pos_col)
+
+
+def align_cz(input1=None, input2=None, output=None, reference=None,
+			 pos_col='pos', suffixes=('_1', '_2'), cov_col='cov',
+			 drop_zero_cov=True, batch_size=5000):
+	r"""Column-concatenate two reference-aligned ``.cz`` files.
+
+	Both inputs must be reference-*less* files (e.g. per-cell ``mc/cov``
+	produced by ``allc2cz`` with a ``reference=``): they store exactly one
+	row per reference position, in reference order, so the two files are
+	already row-aligned. This function attaches the coordinate (``pos``)
+	column decoded from ``reference`` and writes the two files' data columns
+	side-by-side. The three files must share the same reference axis
+	(identical per-chromosome row counts).
+
+	The write path is fully vectorized at the byte level: each chunk's raw
+	packed records are reshaped to ``(n_rows, row_bytes)`` ``uint8`` matrices
+	and horizontally stacked (``np.hstack``) — no per-column struct decode /
+	re-encode — so throughput is close to memory bandwidth.
+
+	Parameters
+	----------
+	input1, input2 : path
+		The two reference-less ``.cz`` files to concatenate.
+	output : path or None
+		Output ``.cz`` path. If ``None`` (default), **no file is written**
+		and a :class:`pandas.DataFrame` of the aligned rows (across all
+		common chromosomes) is returned instead.
+	reference : path
+		Reference ``.cz`` (from ``build_ref``) supplying the ``pos`` axis.
+		Required.
+	pos_col : int or str, optional
+		Which column of ``reference`` holds the coordinate. Default
+		``'pos'``; pass a different name or a 0-based index if the reference
+		names its coordinate column differently.
+	suffixes : (str, str), optional
+		Suffixes appended to *colliding* column names from ``input1`` and
+		``input2`` respectively (default ``('_1', '_2')``). Non-colliding
+		names are kept as-is.
+	cov_col : str, optional
+		Name of the coverage column used by ``drop_zero_cov`` (default
+		``'cov'``).
+	drop_zero_cov : bool, optional
+		If True (default), drop every position whose ``cov_col`` is 0 in
+		**both** inputs (i.e. keep a row only when at least one file has
+		coverage). Requires ``cov_col`` to exist in both inputs; otherwise
+		filtering is skipped with a warning.
+	batch_size : int, optional
+		Rows per output chunk/block batch when writing (default 5000).
+		Ignored when ``output is None``.
+
+	Returns
+	-------
+	None or pandas.DataFrame
+		``None`` when ``output`` is a path (result written to disk); a
+		:class:`pandas.DataFrame` (with a leading ``chrom`` / chunk-dim
+		column, the reference ``pos``, and both files' data columns) when
+		``output is None``.
+	"""
+	if reference is None:
+		raise ValueError(
+			"align_cz requires a reference .cz (reference=...); both inputs "
+			"must be reference-less files aligned to that reference.")
+
+	ref = Reader(os.path.abspath(os.path.expanduser(reference)))
+	r1 = Reader(os.path.abspath(os.path.expanduser(input1)))
+	r2 = Reader(os.path.abspath(os.path.expanduser(input2)))
+	try:
+		ref_fmts = list(ref.header['formats'])
+		ref_cols = list(ref.header['columns'])
+		ref_pos = _find_pos_col(ref, pos_col)
+		ref_pos_name = ref_cols[ref_pos]
+		ref_pos_fmt = ref_fmts[ref_pos]
+
+		cols1 = list(r1.header['columns'])
+		fmts1 = list(r1.header['formats'])
+		cols2 = list(r2.header['columns'])
+		fmts2 = list(r2.header['formats'])
+
+		# ---- Resolve the coverage columns for zero-cov filtering ---------
+		cov1_i = cols1.index(cov_col) if cov_col in cols1 else None
+		cov2_i = cols2.index(cov_col) if cov_col in cols2 else None
+		do_filter = drop_zero_cov and cov1_i is not None and cov2_i is not None
+		if drop_zero_cov and not do_filter:
+			logger.warning(
+				f"drop_zero_cov requested but {cov_col!r} not found in both "
+				f"inputs (input1={cov_col in cols1}, input2={cov_col in cols2}); "
+				f"keeping all rows.")
+		dt1 = _build_record_dtype(fmts1) if do_filter else None
+		dt2 = _build_record_dtype(fmts2) if do_filter else None
+
+		# ---- Byte geometry for the fast hstack path ----------------------
+		sizes_ref = [struct.calcsize(f) for f in ref_fmts]
+		ref_unit = sum(sizes_ref)
+		pos_start = sum(sizes_ref[:ref_pos])
+		pos_size = sizes_ref[ref_pos]
+		unit1 = sum(struct.calcsize(f) for f in fmts1)
+		unit2 = sum(struct.calcsize(f) for f in fmts2)
+
+		# ---- Output columns/formats: pos + file1 + file2 -----------------
+		names1 = set(cols1)
+		names2 = set(cols2)
+		collisions = names1.intersection(names2)
+		pos_collides = ref_pos_name in names1 or ref_pos_name in names2
+		out_columns = [f"{ref_pos_name}_ref" if pos_collides else ref_pos_name]
+		out_formats = [ref_pos_fmt]
+		for c, f in zip(cols1, fmts1):
+			out_columns.append(f"{c}{suffixes[0]}" if c in collisions else c)
+			out_formats.append(f)
+		for c, f in zip(cols2, fmts2):
+			out_columns.append(f"{c}{suffixes[1]}" if c in collisions else c)
+			out_formats.append(f)
+
+		# Chromosomes present in the reference AND both inputs.
+		common_keys = [k for k in ref.chunk_key2offset.keys()
+					   if k in r1.chunk_key2offset and k in r2.chunk_key2offset]
+		chunk_dims = list(ref.header['chunk_dims'])
+
+		# ================================================================
+		# In-memory mode: collect and return a DataFrame.
+		# ================================================================
+		if output is None:
+			return _align_cz_to_dataframe(
+				ref, r1, r2, common_keys, chunk_dims,
+				ref_fmts, fmts1, fmts2, ref_pos,
+				out_columns, ref_unit, unit1, unit2,
+				cov1_i if do_filter else None,
+				cov2_i if do_filter else None)
+
+		# ================================================================
+		# File mode: fast byte-level hstack, no struct decode/re-encode.
+		# ================================================================
+		out_pos_name = out_columns[0]
+		writer = Writer(output, formats=out_formats, columns=out_columns,
+						chunk_dims=chunk_dims,
+						message=f"align_cz({os.path.basename(str(input1))},"
+								f"{os.path.basename(str(input2))};"
+								f"ref={os.path.basename(str(reference))})",
+						sort_col=out_pos_name, delta_cols=[out_pos_name])
+		try:
+			for dim in common_keys:
+				raw_ref = ref.fetch_chunk_bytes(dim)
+				if not raw_ref:
+					continue
+				raw1 = r1.fetch_chunk_bytes(dim)
+				raw2 = r2.fetch_chunk_bytes(dim)
+				n = len(raw_ref) // ref_unit
+				n1 = len(raw1) // unit1 if unit1 else 0
+				n2 = len(raw2) // unit2 if unit2 else 0
+				if n1 != n or n2 != n:
+					raise ValueError(
+						f"row-count mismatch for chunk {dim}: reference has {n} "
+						f"rows but input1 has {n1} and input2 has {n2}. Both "
+						f"inputs must be reference-less files aligned to the "
+						f"same reference.")
+				if n == 0:
+					continue
+				# Reshape each file's packed records into (n, row_bytes) and
+				# slice out just the reference pos column bytes. hstack does a
+				# single C-level concat producing the combined packed rows.
+				refb = np.frombuffer(raw_ref, np.uint8).reshape(n, ref_unit)
+				pos_bytes = refb[:, pos_start:pos_start + pos_size]
+				b1 = np.frombuffer(raw1, np.uint8).reshape(n, unit1)
+				b2 = np.frombuffer(raw2, np.uint8).reshape(n, unit2)
+				if do_filter:
+					# Keep a row when either file has non-zero coverage.
+					cov1 = np.frombuffer(raw1, dtype=dt1)[f'f{cov1_i}']
+					cov2 = np.frombuffer(raw2, dtype=dt2)[f'f{cov2_i}']
+					keep = (cov1 != 0) | (cov2 != 0)
+					if not keep.any():
+						continue
+					out2d = np.hstack((pos_bytes[keep], b1[keep], b2[keep]))
+				else:
+					out2d = np.hstack((pos_bytes, b1, b2))
+				m = out2d.shape[0]
+				dim_vals = list(dim)
+				for start in range(0, m, batch_size):
+					writer.write_chunk(
+						out2d[start:start + batch_size].tobytes(), dim_vals)
+		finally:
+			writer.close()
+		return None
+	finally:
+		ref.close()
+		r1.close()
+		r2.close()
+
+
+def _decode_chunk_columns(raw, formats):
+	"""Decode packed chunk bytes into a list of per-column numpy arrays.
+
+	Numeric columns are returned as zero-copy views cast to owned arrays;
+	bytes columns ('s'/'c') are decoded to fixed-width ``str`` arrays.
+	"""
+	dtype = _build_record_dtype(formats)
+	arr = np.frombuffer(raw, dtype=dtype)
+	cols = []
+	for i, f in enumerate(formats):
+		if f[-1] in ('s', 'c'):
+			n = struct.calcsize(f)
+			cols.append(np.char.decode(
+				arr[f'f{i}'].view(f'|S{n}'), 'utf-8', errors='ignore'))
+		else:
+			cols.append(np.asarray(arr[f'f{i}']))
+	return arr.shape[0], cols
+
+
+def _align_cz_to_dataframe(ref, r1, r2, common_keys, chunk_dims,
+						   ref_fmts, fmts1, fmts2, ref_pos,
+						   out_columns, ref_unit, unit1, unit2,
+						   cov1_i=None, cov2_i=None):
+	"""Build a pandas DataFrame of the aligned rows across all chunks.
+
+	Helper for :func:`align_cz` when ``output is None``. Columns are the
+	chunk-dim keys (e.g. ``chrom``), the reference ``pos``, and both inputs'
+	data columns (using the already-disambiguated ``out_columns`` names).
+	When ``cov1_i`` / ``cov2_i`` are given, rows with zero coverage in *both*
+	inputs are dropped.
+	"""
+	# One accumulator list per output data column (pos + inputs) plus one
+	# per chunk-dim key.
+	n_data_cols = len(out_columns)
+	col_parts = [[] for _ in range(n_data_cols)]
+	dim_parts = [[] for _ in chunk_dims]
+	do_filter = cov1_i is not None and cov2_i is not None
+	for dim in common_keys:
+		raw_ref = ref.fetch_chunk_bytes(dim)
+		if not raw_ref:
+			continue
+		raw1 = r1.fetch_chunk_bytes(dim)
+		raw2 = r2.fetch_chunk_bytes(dim)
+		n = len(raw_ref) // ref_unit
+		n1 = len(raw1) // unit1 if unit1 else 0
+		n2 = len(raw2) // unit2 if unit2 else 0
+		if n1 != n or n2 != n:
+			raise ValueError(
+				f"row-count mismatch for chunk {dim}: reference has {n} rows "
+				f"but input1 has {n1} and input2 has {n2}. Both inputs must be "
+				f"reference-less files aligned to the same reference.")
+		if n == 0:
+			continue
+		# Decode only the reference pos column; decode all input columns.
+		ref_dtype = _build_record_dtype(ref_fmts)
+		pos_vals = np.asarray(
+			np.frombuffer(raw_ref, dtype=ref_dtype)[f'f{ref_pos}'])
+		_, c1 = _decode_chunk_columns(raw1, fmts1)
+		_, c2 = _decode_chunk_columns(raw2, fmts2)
+		if do_filter:
+			# Keep a row when either file has non-zero coverage.
+			keep = (np.asarray(c1[cov1_i]) != 0) | (np.asarray(c2[cov2_i]) != 0)
+			if not keep.any():
+				continue
+			pos_vals = pos_vals[keep]
+			c1 = [a[keep] for a in c1]
+			c2 = [a[keep] for a in c2]
+		m = pos_vals.shape[0]
+		ci = 0
+		col_parts[ci].append(pos_vals); ci += 1
+		for a in c1:
+			col_parts[ci].append(a); ci += 1
+		for a in c2:
+			col_parts[ci].append(a); ci += 1
+		for j in range(len(chunk_dims)):
+			dim_parts[j].append(np.full(m, dim[j]))
+
+	data = {}
+	for j, name in enumerate(chunk_dims):
+		data[name] = (np.concatenate(dim_parts[j]) if dim_parts[j]
+					  else np.array([], dtype=object))
+	for i, name in enumerate(out_columns):
+		data[name] = (np.concatenate(col_parts[i]) if col_parts[i]
+					  else np.array([]))
+	return pd.DataFrame(data)
+
+
+
+
+# ==========================================================
 def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 			  batch_size=5000, formats=['H', 'H']):
 	"""
