@@ -83,6 +83,83 @@ def estimate_theta(mc, cov, alpha0=1.0, beta0=1.0, dtype=np.float32):
 
 
 # ==========================================================
+def estimate_beta_prior(mc, cov, min_cov=2, df_correction=True, eps=1e-6):
+    """Empirical-Bayes Beta prior ``(alpha0, beta0)`` via Beta-Binomial MoM.
+
+    Estimates the shrinkage prior ``Beta(alpha0, beta0)`` for
+    :func:`estimate_theta` from the *global* ``mc`` / ``cov`` of a reference,
+    correcting for the finite-coverage (binomial) sampling noise that a plain
+    Beta method-of-moments (e.g. ALLCools ``calculate_posterior_mc_frac``)
+    ignores. This should be estimated on a DEEP pseudobulk reference and, since
+    CpG / CpH have different backgrounds, run separately per context.
+
+    Model: site ``i`` has ``cov[i]`` reads and ``mc[i]`` methylated, with a
+    latent rate ``p_i ~ Beta(alpha, beta)`` and ``mc[i] | p_i ~
+    Binomial(cov[i], p_i)``. Parameterize by mean ``mu = alpha/(alpha+beta)``,
+    concentration ``kappa = alpha+beta`` and intra-class correlation
+    ``rho = 1/(kappa+1)``. The marginal moments are::
+
+        E[mc_i]   = cov_i * mu
+        Var[mc_i] = cov_i * mu*(1-mu) * (1 + (cov_i-1)*rho)
+
+    Method of moments (handles unequal coverage):
+
+    * ``mu_hat = sum(mc) / sum(cov)``  (first moment = global rate)
+    * Pearson over-dispersion statistic
+      ``X = sum( (mc_i - cov_i*mu)^2 / (cov_i*mu*(1-mu)) )`` with
+      ``E[X] = N + rho * sum(cov_i - 1)`` (``N`` = #sites), giving
+      ``rho_hat = (X - N) / sum(cov_i - 1)`` (``N -> N-1`` if
+      ``df_correction``; Tarone 1979).
+    * ``kappa = (1-rho)/rho``; ``alpha0 = mu*kappa``; ``beta0 = (1-mu)*kappa``.
+
+    Parameters
+    ----------
+    mc, cov : np.ndarray
+        Methylated-count and coverage arrays (same shape) for one context.
+    min_cov : int
+        Ignore sites with ``cov < min_cov`` (default 2; ``cov=1`` contributes
+        nothing to ``sum(cov-1)`` and is noisy).
+    df_correction : bool
+        Use ``N-1`` instead of ``N`` in ``rho_hat`` (Tarone d.f. correction).
+    eps : float
+        Clamp for ``mu`` in ``(eps, 1-eps)`` and ``rho`` in ``(eps, 1-eps)``
+        so ``alpha0``/``beta0`` stay finite and > 0.
+
+    Returns
+    -------
+    (alpha0, beta0) : tuple of float
+        Beta-prior pseudocounts, both > 0.
+    """
+    mc = np.asarray(mc, dtype=np.float64).ravel()
+    cov = np.asarray(cov, dtype=np.float64).ravel()
+    keep = cov >= max(min_cov, 1)
+    mc, cov = mc[keep], cov[keep]
+    n_sites = cov.size
+    if n_sites == 0 or cov.sum() == 0:
+        raise ValueError("no covered sites (cov >= min_cov) to estimate prior.")
+
+    mu = mc.sum() / cov.sum()                      # first moment -> Beta mean
+    mu = min(max(mu, eps), 1.0 - eps)
+
+    denom_var = mu * (1.0 - mu)
+    # Pearson-type over-dispersion statistic (per-site binomial variance scaled)
+    X = np.sum((mc - cov * mu) ** 2 / (cov * denom_var))
+    sum_cov_minus_1 = np.sum(cov - 1.0)            # = sum(cov) - n_sites
+    if sum_cov_minus_1 <= 0:
+        # every kept site has cov == 1 -> no info on dispersion; fall back to
+        # a weak prior with the estimated mean.
+        kappa = 2.0
+        return float(mu * kappa), float((1.0 - mu) * kappa)
+
+    n_eff = (n_sites - 1) if df_correction else n_sites
+    rho = (X - n_eff) / sum_cov_minus_1            # intra-class correlation
+    rho = min(max(rho, eps), 1.0 - eps)            # clamp to (0, 1)
+
+    kappa = (1.0 - rho) / rho                       # = alpha + beta
+    return float(mu * kappa), float((1.0 - mu) * kappa)
+
+
+# ==========================================================
 def _read_mc_cov(path, mc_col='mc', cov_col='cov', chunk_keys=None):
     """Read (mc, cov) as 1-D arrays concatenated over ``chunk_keys``.
 
@@ -255,33 +332,38 @@ class CellTypeClassifier:
 
     Parameters
     ----------
-    alpha0_cg, beta0_cg : float
-        Beta-prior pseudocounts for the CpG channel. CpG is highly
-        methylated, so a prior mean pulled high (``alpha0_cg > beta0_cg``)
-        is reasonable; the defaults are neutral (1, 1).
-    alpha0_ch, beta0_ch : float
-        Beta-prior pseudocounts for the CpH channel. CpH is lowly
-        methylated, so a prior mean pulled low (``beta0_ch > alpha0_ch``)
-        is reasonable; the defaults are neutral (1, 1).
+    alpha0_cg, beta0_cg : float or None
+        Beta-prior pseudocounts for the CpG channel. ``None`` (default) ->
+        estimate them empirically at ``fit`` time from the pooled reference
+        counts of that context via :func:`estimate_beta_prior`
+        (Beta-Binomial method of moments). Pass explicit floats to override
+        the auto-estimate (both must be given to take effect).
+    alpha0_ch, beta0_ch : float or None
+        Beta-prior pseudocounts for the CpH channel. ``None`` (default) ->
+        auto-estimated like the CpG channel (its own separate prior).
     lambda_cg, lambda_ch : float
         Log-space channel weights (default 1 each). CpH sites are far more
         numerous and often dominate implicitly; lower ``lambda_ch`` to
         rebalance.
+    prior_min_cov : int
+        Minimum coverage for a reference site to enter the empirical prior
+        estimation (passed to :func:`estimate_beta_prior`; default 2).
     mc_col, cov_col, context_col : str
         Column names for methylated count, coverage, and sequence context
         in the ``.cz`` files.
     """
 
-    def __init__(self, alpha0_cg=1.0, beta0_cg=1.0,
-                 alpha0_ch=1.0, beta0_ch=1.0,
-                 lambda_cg=1.0, lambda_ch=1.0,
+    def __init__(self, alpha0_cg=None, beta0_cg=None,
+                 alpha0_ch=None, beta0_ch=None,
+                 lambda_cg=1.0, lambda_ch=1.0, prior_min_cov=2,
                  mc_col='mc', cov_col='cov', context_col='context'):
-        self.alpha0_cg = float(alpha0_cg)
-        self.beta0_cg = float(beta0_cg)
-        self.alpha0_ch = float(alpha0_ch)
-        self.beta0_ch = float(beta0_ch)
+        self.alpha0_cg = None if alpha0_cg is None else float(alpha0_cg)
+        self.beta0_cg = None if beta0_cg is None else float(beta0_cg)
+        self.alpha0_ch = None if alpha0_ch is None else float(alpha0_ch)
+        self.beta0_ch = None if beta0_ch is None else float(beta0_ch)
         self.lambda_cg = float(lambda_cg)
         self.lambda_ch = float(lambda_ch)
+        self.prior_min_cov = int(prior_min_cov)
         self.mc_col = mc_col
         self.cov_col = cov_col
         self.context_col = context_col
@@ -299,11 +381,28 @@ class CellTypeClassifier:
 
     # ----------------------------------------------------------------------
     def _build_channel(self, cell_types, mc_all, cov_all, mask,
-                       alpha0, beta0, top, min_range, label):
-        """Estimate theta for one context and pick discriminative sites."""
+                       alpha0, beta0, top, min_range, label,
+                       prior_min_cov=2):
+        """Estimate theta for one context and pick discriminative sites.
+
+        When ``alpha0``/``beta0`` are ``None`` the Beta shrinkage prior is
+        estimated empirically from this context's pooled (all-cell-type)
+        reference counts via :func:`estimate_beta_prior`.
+        """
         if mask.sum() == 0:
             logger.warning(f"{label}: no sites in this context; channel off.")
             return None
+        # empirical-Bayes prior: estimate per context from the pooled reference
+        # counts when not explicitly provided by the user.
+        if alpha0 is None or beta0 is None:
+            mc_pool = np.concatenate([mc_all[t][mask] for t in cell_types])
+            cov_pool = np.concatenate([cov_all[t][mask] for t in cell_types])
+            alpha0, beta0 = estimate_beta_prior(
+                mc_pool, cov_pool, min_cov=prior_min_cov)
+            logger.info(
+                f"{label}: estimated Beta prior alpha0={alpha0:.4g}, "
+                f"beta0={beta0:.4g} (mean={alpha0 / (alpha0 + beta0):.3f}, "
+                f"kappa={alpha0 + beta0:.4g})")
         thetas = []
         for t in cell_types:
             thetas.append(estimate_theta(
@@ -318,6 +417,8 @@ class CellTypeClassifier:
         return {
             'mask': mask,
             'sites': sites,
+            'alpha0': float(alpha0),
+            'beta0': float(beta0),
             'log_theta': np.log(theta_sel).astype(np.float32),
             'log1m_theta': np.log1p(-theta_sel).astype(np.float32),
         }
@@ -382,12 +483,21 @@ class CellTypeClassifier:
 
         self._cg = self._build_channel(
             cell_types, mc_all, cov_all, cg_mask,
-            self.alpha0_cg, self.beta0_cg, top_cg, min_range_cg, 'CG')
+            self.alpha0_cg, self.beta0_cg, top_cg, min_range_cg, 'CG',
+            self.prior_min_cov)
         self._ch = self._build_channel(
             cell_types, mc_all, cov_all, ch_mask,
-            self.alpha0_ch, self.beta0_ch, top_ch, min_range_ch, 'CH')
+            self.alpha0_ch, self.beta0_ch, top_ch, min_range_ch, 'CH',
+            self.prior_min_cov)
         if self._cg is None and self._ch is None:
             raise ValueError("no CpG or CpH sites found; check context_col.")
+
+        # record the effective (possibly auto-estimated) priors so save()/load()
+        # and inspection see the actual numbers used.
+        if self._cg is not None:
+            self.alpha0_cg, self.beta0_cg = self._cg['alpha0'], self._cg['beta0']
+        if self._ch is not None:
+            self.alpha0_ch, self.beta0_ch = self._ch['alpha0'], self._ch['beta0']
 
         self.cell_types = cell_types
         self.cell_counts = cell_counts
@@ -637,8 +747,8 @@ def _as_id_map(queries):
 def predict_cell_type(query=None, pseudobulks=None, reference=None,
                       cell_counts=None, prior_alpha=0.0,
                       lambda_cg=1.0, lambda_ch=1.0,
-                      alpha0_cg=1.0, beta0_cg=1.0,
-                      alpha0_ch=1.0, beta0_ch=1.0,
+                      alpha0_cg=None, beta0_cg=None,
+                      alpha0_ch=None, beta0_ch=None, prior_min_cov=2,
                       top_cg=None, top_ch=None,
                       min_range_cg=0.0, min_range_ch=0.0,
                       mc_col='mc', cov_col='cov', context_col='context',
@@ -672,7 +782,7 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
     clf = CellTypeClassifier(
         alpha0_cg=alpha0_cg, beta0_cg=beta0_cg,
         alpha0_ch=alpha0_ch, beta0_ch=beta0_ch,
-        lambda_cg=lambda_cg, lambda_ch=lambda_ch,
+        lambda_cg=lambda_cg, lambda_ch=lambda_ch, prior_min_cov=prior_min_cov,
         mc_col=mc_col, cov_col=cov_col, context_col=context_col)
     clf.fit(pseudobulks=pseudobulks, reference=reference, cell_counts=cell_counts,
             top_cg=top_cg, top_ch=top_ch,

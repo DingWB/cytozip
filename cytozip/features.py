@@ -387,19 +387,55 @@ def make_genome_bins(
 # ---------------------------------------------------------------------------
 # Scoring (ALLCools conventions)
 # ---------------------------------------------------------------------------
-def _compute_beta_params(mc_mat, cov_mat):
-    """Per-cell method-of-moments Beta(alpha, beta) from raw mc/cov.
+def _beta_binomial_alpha_beta(sum_mc, sum_cov, n_keep, X,
+                              df_correction=True, eps=1e-6):
+    """Finish the Beta-Binomial MoM from per-row aggregate statistics.
 
-    Mirrors ALLCools ``calculate_posterior_mc_frac`` without applying the
-    posterior transform. Returns ``(alpha, beta, prior_mean)`` as
-    ``(n_cells,)`` float32 vectors. Rows whose raw fraction is
-    degenerate (all-NaN, zero variance, mean outside ``(0, 1)``) are
-    flagged with NaN so downstream code can identify them.
+    Given per-row sums over the *kept* sites (``sum_mc``, ``sum_cov``, the
+    count ``n_keep``) and the Pearson over-dispersion statistic
+    ``X = sum (mc_i - cov_i*mu)^2 / (cov_i*mu*(1-mu))``, solve for the Beta
+    concentration and return ``(alpha, beta, prior_mean)`` as float32,
+    NaN on degenerate rows. See ``docs/beta_binomial_prior.md`` (section 3).
+    """
+    n = np.asarray(sum_cov).shape[0]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mu = np.where(sum_cov > 0, sum_mc / sum_cov, np.nan)  # = alpha/(alpha+beta)
+    sum_cov_m1 = sum_cov - n_keep                 # = sum(cov_i - 1) over kept
+    n_eff = (n_keep - 1.0) if df_correction else n_keep
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rho = (X - n_eff) / sum_cov_m1            # intra-class correlation
+    ok = (np.isfinite(mu) & (mu > 0.0) & (mu < 1.0)
+          & (n_keep >= 2) & (sum_cov_m1 > 0.0) & np.isfinite(rho))
+    alpha = np.full(n, np.nan, dtype=np.float64)
+    beta = np.full(n, np.nan, dtype=np.float64)
+    if ok.any():
+        r = np.clip(rho[ok], eps, 1.0 - eps)
+        kappa = (1.0 - r) / r                     # = alpha + beta
+        m = mu[ok]
+        alpha[ok] = np.maximum(m * kappa, 1e-6)
+        beta[ok] = np.maximum((1.0 - m) * kappa, 1e-6)
+    prior_mean = alpha / (alpha + beta)
+    return (alpha.astype(np.float32),
+            beta.astype(np.float32),
+            prior_mean.astype(np.float32))
+
+
+def _compute_beta_params(mc_mat, cov_mat, min_cov=2, df_correction=True):
+    """Per-cell Beta(alpha, beta) via Beta-Binomial method of moments.
+
+    Coverage-aware empirical-Bayes prior over each cell's per-feature
+    methylation rates. Unlike the plain Beta MoM (ALLCools
+    ``calculate_posterior_mc_frac``, preserved as
+    :func:`_compute_beta_params_legacy`), this subtracts the finite-coverage
+    binomial sampling noise, so the concentration ``alpha + beta`` is not
+    biased low on shallow features. See ``docs/beta_binomial_prior.md``.
+
+    Only features with ``cov >= min_cov`` (default 2) enter the estimate;
+    rows with < 2 such features or a degenerate mean are flagged NaN.
+    Returns ``(alpha, beta, prior_mean)`` as ``(n_cells,)`` float32 vectors.
 
     Writing these to ``adata.obs`` lets users reconstruct the posterior
-    fraction later:
-
-    .. code-block:: python
+    fraction later::
 
         a = adata.obs["alpha"].values[:, None]
         b = adata.obs["beta"].values[:, None]
@@ -407,6 +443,36 @@ def _compute_beta_params(mc_mat, cov_mat):
         mc = adata.layers["mc"].toarray()
         cov = adata.layers["cov"].toarray()
         post = (mc + a) / (cov + a + b) / prior  # ALLCools post_frac
+    """
+    mc = mc_mat.astype(np.float64, copy=False)
+    cov = cov_mat.astype(np.float64, copy=False)
+    keep = cov >= min_cov
+    n_keep = keep.sum(axis=1).astype(np.float64)
+    sum_cov = np.where(keep, cov, 0.0).sum(axis=1)
+    sum_mc = np.where(keep, mc, 0.0).sum(axis=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mu = np.where(sum_cov > 0, sum_mc / sum_cov, np.nan)
+    mu_c = np.clip(mu, 1e-6, 1.0 - 1e-6)
+    denom = (mu_c * (1.0 - mu_c))[:, None]
+    safe_cov = np.where(keep, cov, 1.0)          # avoid /0 at dropped entries
+    with np.errstate(divide="ignore", invalid="ignore"):
+        term = np.where(
+            keep,
+            (mc - cov * mu_c[:, None]) ** 2 / (safe_cov * denom),
+            0.0)
+    X = term.sum(axis=1)
+    return _beta_binomial_alpha_beta(sum_mc, sum_cov, n_keep, X, df_correction)
+
+
+def _compute_beta_params_legacy(mc_mat, cov_mat):
+    """Per-cell method-of-moments Beta(alpha, beta) from raw mc/cov.
+
+    ORIGINAL (pre Beta-Binomial) implementation, kept as a backup /
+    fallback. Mirrors ALLCools ``calculate_posterior_mc_frac`` without
+    applying the posterior transform: fits a plain Beta to the observed
+    ``mc/cov`` fractions, which does NOT correct for the binomial sampling
+    noise and therefore under-estimates ``alpha + beta`` on shallow data.
+    Superseded by :func:`_compute_beta_params`.
     """
     mc = mc_mat.astype(np.float64, copy=False)
     cov = cov_mat.astype(np.float64, copy=False)
@@ -575,13 +641,62 @@ class _StreamingSparseBuilder:
         return mc_csr, cov_csr
 
 
-def _compute_beta_params_sparse(mc_csr, cov_csr):
-    """Sparse-input version of :func:`_compute_beta_params`.
+def _compute_beta_params_sparse(mc_csr, cov_csr, min_cov=2, df_correction=True):
+    """Sparse-input Beta-Binomial MoM version of :func:`_compute_beta_params`.
 
+    Operates only on the stored (non-zero-coverage) entries of each row via
+    two ``reduceat`` passes (first the per-row mean, then the Pearson
+    over-dispersion statistic), never densifying. Assumes ``mc_csr`` and
+    ``cov_csr`` share the same sparsity structure (same ``indptr`` /
+    ``indices``), as produced upstream.
+    """
+    n_rows = cov_csr.shape[0]
+    indptr = np.asarray(cov_csr.indptr)
+    counts = np.diff(indptr).astype(np.int64)     # stored entries per row
+    nz_rows = counts > 0
+
+    covd = cov_csr.data.astype(np.float64)
+    mcd = mc_csr.data.astype(np.float64)
+    w = (covd >= min_cov).astype(np.float64)      # keep-mask as 0/1 weights
+
+    # ---- first pass: per-row sums over kept entries -> mu ----
+    sum_cov = np.zeros(n_rows, dtype=np.float64)
+    sum_mc = np.zeros(n_rows, dtype=np.float64)
+    n_keep = np.zeros(n_rows, dtype=np.float64)
+    if nz_rows.any():
+        starts = indptr[:-1][nz_rows]
+        sum_cov[nz_rows] = np.add.reduceat(covd * w, starts)
+        sum_mc[nz_rows] = np.add.reduceat(mcd * w, starts)
+        n_keep[nz_rows] = np.add.reduceat(w, starts)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mu = np.where(sum_cov > 0, sum_mc / sum_cov, np.nan)
+    mu_c = np.clip(mu, 1e-6, 1.0 - 1e-6)
+    denom = mu_c * (1.0 - mu_c)
+
+    # ---- second pass: Pearson over-dispersion statistic X ----
+    mu_entry = np.repeat(mu_c, counts)            # broadcast row mu to entries
+    den_entry = np.repeat(denom, counts)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        term = np.where(w > 0,
+                        (mcd - covd * mu_entry) ** 2 / (covd * den_entry),
+                        0.0)
+    X = np.zeros(n_rows, dtype=np.float64)
+    if nz_rows.any():
+        starts = indptr[:-1][nz_rows]
+        X[nz_rows] = np.add.reduceat(term, starts)
+
+    return _beta_binomial_alpha_beta(sum_mc, sum_cov, n_keep, X, df_correction)
+
+
+def _compute_beta_params_sparse_legacy(mc_csr, cov_csr):
+    """Sparse-input version of :func:`_compute_beta_params_legacy`.
+
+    ORIGINAL (pre Beta-Binomial) sparse implementation, kept as a backup.
     Operates only on the non-zero entries of each row, never building
-    the full dense matrix. Equivalent to the dense version because the
-    raw fraction at zero-coverage entries is NaN and dropped from the
-    nan-mean / nan-var anyway.
+    the full dense matrix. Equivalent to the plain-Beta dense version
+    because the raw fraction at zero-coverage entries is NaN and dropped
+    from the nan-mean / nan-var anyway. Superseded by
+    :func:`_compute_beta_params_sparse`.
     """
     n_rows = cov_csr.shape[0]
     indptr = np.asarray(cov_csr.indptr)
@@ -1385,6 +1500,20 @@ def cz_to_anndata(
     obs_df["alpha"] = alpha
     obs_df["beta"] = beta
     obs_df["prior_mean"] = prior_mean
+    # rho = 1 / (alpha + beta + 1)  == 1/(kappa+1): the intra-class correlation
+    # (over-dispersion) of the per-cell Beta-Binomial fit. It measures how much
+    # the cell's per-feature methylation rates spread around the prior mean,
+    # beyond binomial sampling noise:
+    #   * rho -> 0  : rates are nearly constant (high concentration kappa),
+    #                 so the prior is strong and posterior shrinkage is heavy;
+    #   * rho -> 1  : rates are highly variable (low kappa), weak prior /
+    #                 little shrinkage.
+    # It is coverage-independent (unlike a raw variance), so it is a useful
+    # per-cell QC handle (e.g. flag degenerate/low-complexity cells) and lets
+    # downstream code recover the shrinkage strength kappa = (1 - rho)/rho.
+    # NaN wherever alpha/beta are NaN (degenerate rows).
+    obs_df["rho"] = (1.0 / (alpha.astype(np.float64)
+                            + beta.astype(np.float64) + 1.0)).astype(np.float32)
     if obs is not None:
         obs_df = obs_df.join(obs, how="left")
 
