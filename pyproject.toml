@@ -11,8 +11,14 @@ write_to = 'cytozip/_version.py'
 name = "cytozip"
 dynamic = ["version"]
 dependencies = ['pandas', 'numpy', 'pysam', 'loguru',
-                'fast-fisher', 'fsspec', 'requests',
+                'fsspec', 'requests',
                 'anndata', 'scipy']
+
+[project.optional-dependencies]
+# fast-fisher is a PyPI-only package (not on conda-forge / bioconda).
+# Only needed by `cytozip.pivot.pivot_fisher`. Install with:
+#     pip install cytozip[pivot]
+pivot = ['fast-fisher']
 authors = [
   { name="Wubin Ding", email="ding.wu.bin.gm@gmail.com" },
 ]

@@ -80,7 +80,14 @@ def _fisher_worker_fast(df):
     """
     import warnings
     warnings.filterwarnings("ignore")
-    from fast_fisher.fast_fisher_cython import test1t, odds_ratio
+    try:
+        from fast_fisher.fast_fisher_cython import test1t, odds_ratio
+    except ImportError as e:
+        raise ImportError(
+            "pivot_fisher requires the optional `fast-fisher` package. "
+            "Install it with `pip install fast-fisher` (not available on "
+            "conda; conda users: `pip install fast-fisher` inside your env)."
+        ) from e
 
     columns = df.columns.tolist()
     snames = [col[:-3] for col in columns if col.endswith('.mc')]

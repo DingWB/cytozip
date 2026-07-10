@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: c75e12ccee3fd9a9453d25082115ab87735a40155b82d5bb792aab01ce2c2c8d # filled in by bioconda autobump on each release
+  sha256: 4fba318706ae67106a09a2c860ea0f6755d85b5bc4cfb0a2a87b4c9923bfa5de # filled in by bioconda autobump on each release
 
 build:
   number: 0
@@ -43,11 +43,15 @@ requirements:
     - pandas
     - loguru
     - pysam
-    - fast-fisher
     - fsspec
     - requests
     - anndata
     - scipy
+    # NOTE: ``fast-fisher`` is PyPI-only (not on conda-forge / bioconda).
+    # It is used only by ``cytozip.pivot.pivot_fisher`` and imported
+    # lazily inside the function, so we leave it out of ``run:``. Users
+    # who need pivot_fisher should ``pip install fast-fisher`` in the
+    # same env.
     # Pulled in transitively via the .so's RPATH, but pin them
     # explicitly so ``conda install cytozip`` brings them along.
     - htslib

@@ -64,8 +64,13 @@ setup(
     url="https://github.com/DingWB/cytozip",
     packages=find_packages(exclude=('docs',)),
     install_requires=['pandas', 'numpy', 'loguru', 'pysam',
-                      'fast-fisher', 'fsspec',
+                      'fsspec',
                       'requests', 'anndata', 'scipy'],
+    # fast-fisher is optional (PyPI-only; used only by pivot_fisher).
+    # Install with: pip install cytozip[pivot]
+    extras_require={
+        'pivot': ['fast-fisher'],
+    },
     include_package_data=True,
     package_data={
         '': ['*.txt', '*.tsv', '*.csv', '*.fa', '*Snakefile', '*ipynb']
