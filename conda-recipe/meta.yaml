@@ -1,5 +1,5 @@
 {% set name = "cytozip" %}
-{% set version = "0.31" %}
+{% set version = "0.3.3" %}
 
 package:
   name: {{ name|lower }}
@@ -7,12 +7,18 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 4fba318706ae67106a09a2c860ea0f6755d85b5bc4cfb0a2a87b4c9923bfa5de # filled in by bioconda autobump on each release
+  sha256: 4d7b55641be3a21e68750412dea063a33be00d82a475f7106459671fbc393954 # filled in by bioconda autobump on each release
 
 build:
   number: 0
   skip: true  # [py<38 or win]
   script: |
+    # htslib is guaranteed present in ``host:`` requirements below, so
+    # force setup.py to build the ``cytozip._bam_pileup`` extension even
+    # if the auto-detection based on ``$PREFIX`` / ``$CONDA_PREFIX``
+    # misses the header path for any reason. Without this, the ``test:``
+    # phase fails with ``ModuleNotFoundError: cytozip._bam_pileup``.
+    export CYTOZIP_FORCE_HTSLIB=1
     {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv
   entry_points:
     - czip = cytozip:main
@@ -26,8 +32,14 @@ requirements:
     - pip
     - setuptools >=61
     - setuptools_scm
-    - cython
-    - numpy
+    - cython >=3.0
+    # Build against numpy 2.0 headers. Cython 3.x generates C that
+    # references NumPy 2.0-only C API (``PyDataType_KIND``,
+    # ``_PyUFuncObject_GET_ITEM_DATA`` …), so building against
+    # numpy 1.x fails with ``implicit declaration of function`` errors.
+    # NumPy 2.0 ABI is forward-compatible with 1.19+ at runtime, so
+    # ``run: numpy >=1.19`` keeps installability wide.
+    - numpy >=2.0
     # C-library dependencies — both headers AND libs are needed at
     # build time. ``htslib`` provides ``-lhts`` for cytozip._bam_pileup;
     # ``libdeflate`` provides ``-ldeflate`` for cytozip.cz_accel;
@@ -39,7 +51,8 @@ requirements:
     - zlib
   run:
     - python
-    - {{ pin_compatible('numpy') }}
+    # ABI-compatible with the numpy 2.0 headers used at build time.
+    - numpy >=1.19
     - pandas
     - loguru
     - pysam

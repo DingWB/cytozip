@@ -29,13 +29,27 @@ long_description = (this_directory / "README.md").read_text()
 # without a prior ``conda install -c bioconda htslib``), we silently skip
 # building it. ``cytozip.bam.bam_to_cz`` automatically falls back to the
 # ``samtools mpileup`` subprocess backend at runtime in that case.
+#
+# Env-var convention:
+#   * ``$CONDA_PREFIX`` — set when a user runs ``pip install .`` inside an
+#     activated conda env (htslib lives under ``$CONDA_PREFIX/{include,lib}``).
+#   * ``$PREFIX``       — set by ``conda-build``; points to the *host* env
+#     (which is where htslib headers/libs are actually installed during a
+#     recipe build). ``$CONDA_PREFIX`` in that context points to the
+#     *build* env and does NOT contain htslib.
+# We inspect BOTH so the same setup.py works in ``pip install`` and
+# ``conda build`` without patching.
+_CONDA_ENV_PREFIXES = [
+    p for p in (os.environ.get('PREFIX'), os.environ.get('CONDA_PREFIX'))
+    if p
+]
+
+
 def _have_htslib():
-    """Return True iff <htslib/sam.h> is reachable on the search path used
-    by the active build environment (CONDA_PREFIX/include + CPPFLAGS-ish)."""
+    """Return True iff <htslib/sam.h> is reachable on any known search path."""
     candidates = []
-    cp = os.environ.get('CONDA_PREFIX', '')
-    if cp:
-        candidates.append(os.path.join(cp, 'include', 'htslib', 'sam.h'))
+    for p in _CONDA_ENV_PREFIXES:
+        candidates.append(os.path.join(p, 'include', 'htslib', 'sam.h'))
     for inc in ('/usr/include', '/usr/local/include',
                 '/opt/homebrew/include', '/opt/local/include'):
         candidates.append(os.path.join(inc, 'htslib', 'sam.h'))
@@ -96,18 +110,16 @@ setup(
                 ],
                 extra_link_args=["-fopenmp"], # for multiple threads in cython.
                 libraries=["deflate"],
-                # Pick up libdeflate from the active conda/virtual env first,
-                # then fall back to system paths. Build-time: compile error
-                # if libdeflate-dev is not installed.
-                include_dirs=[
-                    os.path.join(os.environ.get('CONDA_PREFIX', ''), 'include')
-                ] if os.environ.get('CONDA_PREFIX') else [],
-                library_dirs=[
-                    os.path.join(os.environ.get('CONDA_PREFIX', ''), 'lib')
-                ] if os.environ.get('CONDA_PREFIX') else [],
-                runtime_library_dirs=[
-                    os.path.join(os.environ.get('CONDA_PREFIX', ''), 'lib')
-                ] if os.environ.get('CONDA_PREFIX') else [],
+                # Pick up libdeflate from any conda prefix on the search
+                # path (``$PREFIX`` in conda-build, ``$CONDA_PREFIX`` in
+                # a plain activated env). Build-time: compile error if
+                # libdeflate-dev is not installed anywhere.
+                include_dirs=[os.path.join(p, 'include')
+                              for p in _CONDA_ENV_PREFIXES],
+                library_dirs=[os.path.join(p, 'lib')
+                              for p in _CONDA_ENV_PREFIXES],
+                runtime_library_dirs=[os.path.join(p, 'lib')
+                                      for p in _CONDA_ENV_PREFIXES],
             ),
             Extension(
                 "cytozip.dmr_accel",
@@ -138,17 +150,13 @@ setup(
                     "-O3",
                 ],
                 libraries=["hts"],
-                include_dirs=([
-                    np.get_include(),
-                ] + ([
-                    os.path.join(os.environ.get('CONDA_PREFIX', ''), 'include')
-                ] if os.environ.get('CONDA_PREFIX') else [])),
-                library_dirs=[
-                    os.path.join(os.environ.get('CONDA_PREFIX', ''), 'lib')
-                ] if os.environ.get('CONDA_PREFIX') else [],
-                runtime_library_dirs=[
-                    os.path.join(os.environ.get('CONDA_PREFIX', ''), 'lib')
-                ] if os.environ.get('CONDA_PREFIX') else [],
+                include_dirs=([np.get_include()]
+                              + [os.path.join(p, 'include')
+                                 for p in _CONDA_ENV_PREFIXES]),
+                library_dirs=[os.path.join(p, 'lib')
+                              for p in _CONDA_ENV_PREFIXES],
+                runtime_library_dirs=[os.path.join(p, 'lib')
+                                      for p in _CONDA_ENV_PREFIXES],
             ),
         ] if _HAVE_HTSLIB else []),
         language_level="3",
