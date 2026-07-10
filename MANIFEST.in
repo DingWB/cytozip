@@ -1,8 +1,59 @@
+# -----------------------------------------------------------------------------
+# MANIFEST.in — controls what goes into the source distribution (sdist).
+#
+# pip / conda install cytozip
+#   -> downloads the sdist from PyPI, then builds a wheel from it. Only
+#      files listed here (or auto-picked as part of a package) end up in
+#      the downloaded tarball. Keep it lean: no example data, no docs,
+#      no notebooks, no tests -- they add hundreds of MB and are never
+#      needed at runtime.
+# -----------------------------------------------------------------------------
+
+# Files we DO want in the sdist.
 include *.py
-include cytozip/cz_accel.c
-include cytozip/cz_accel.pyx
-# recursive-include notebooks *.ipynb
+include README.md
+include LICENSE
+include pyproject.toml
+include MANIFEST.in
+include conda-recipe/meta.yaml
+# Cython sources + pre-generated C so the sdist builds even on hosts
+# without Cython (bioconda declares cython in ``host:`` so it's fine,
+# but pip users get a fallback).
+include cytozip/*.pyx
+# NOTE: we deliberately do NOT ship the pre-generated ``cytozip/*.c``
+# files. Cython's ``cythonize()`` will use an existing ``.c`` verbatim
+# if it's shipped alongside the ``.pyx``, which locks the numpy C API
+# level (``PyDataType_TYPEOBJ`` etc. are numpy>=2.0 only) to whatever
+# was on the *developer* machine at sdist time. That breaks bioconda /
+# conda builds where the target env may have numpy 1.x (compile errors
+# like ``implicit declaration of function 'PyDataType_TYPEOBJ'``).
+# By shipping only the ``.pyx``, every build regenerates the ``.c``
+# against the numpy actually present in the build env.
+# JS browser reader is a runtime asset shipped with the package.
+include cytozip/*.mjs
+
+# Directories that must never be shipped to users.
 prune data
 prune docs
-prune tests
 prune notebooks
+prune tests
+prune cytozip_example_data      # BAM/.cz test fixtures, hundreds of MB
+prune build
+prune dist
+prune .eggs
+prune .github
+prune .idea
+prune .pytest_cache
+prune .vscode
+
+# Blanket cleanup for junk that can slip into any directory.
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+global-exclude *.dylib
+global-exclude *.pyd
+global-exclude .DS_Store
+global-exclude *.egg-info
+# See the ``include cytozip/*.pyx`` comment above: never ship generated
+# C, always let the build env's Cython regenerate it fresh.
+global-exclude *.c

@@ -76,7 +76,18 @@ setup(
     author="Wubin Ding",
     author_email="ding.wu.bin.gm@gmail.com",
     url="https://github.com/DingWB/cytozip",
-    packages=find_packages(exclude=('docs',)),
+    packages=find_packages(exclude=(
+        # Never install these as Python packages, even if a stray
+        # ``__init__.py`` sneaks in. Also mirrored in MANIFEST.in so
+        # they never end up in the sdist to begin with.
+        'docs', 'docs.*',
+        'notebooks', 'notebooks.*',
+        'tests', 'tests.*',
+        'data', 'data.*',
+        'cytozip_example_data', 'cytozip_example_data.*',
+        'conda-recipe', 'conda-recipe.*',
+        'build', 'build.*',
+    )),
     install_requires=['pandas', 'numpy', 'loguru', 'pysam',
                       'fsspec',
                       'requests', 'anndata', 'scipy'],
@@ -86,8 +97,12 @@ setup(
         'pivot': ['fast-fisher'],
     },
     include_package_data=True,
+    # Only ship data files that live INSIDE the cytozip/ package. The
+    # empty-key ``''`` used to pull ``*.ipynb`` etc. from every package,
+    # which was error-prone. Currently ``cytozip/`` needs the browser
+    # reader ``cz_reader.mjs`` at runtime.
     package_data={
-        '': ['*.txt', '*.tsv', '*.csv', '*.fa', '*Snakefile', '*ipynb']
+        'cytozip': ['*.mjs'],
     },
     entry_points={
         'console_scripts':

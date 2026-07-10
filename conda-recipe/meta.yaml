@@ -1,5 +1,5 @@
 {% set name = "cytozip" %}
-{% set version = "0.3.3" %}
+{% set version = "0.3.4" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 4d7b55641be3a21e68750412dea063a33be00d82a475f7106459671fbc393954 # filled in by bioconda autobump on each release
+  sha256: a952626b317b407a2255f65f9ebd16e98affd308de11ea9e2718c98719ddc533 # filled in by bioconda autobump on each release
 
 build:
   number: 0
@@ -22,10 +22,22 @@ build:
     {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv
   entry_points:
     - czip = cytozip:main
+  # bioconda lint (``missing_run_exports``): downstream recipes that
+  # depend on cytozip should be re-pinned when we release a breaking
+  # change. Because our current version starts with ``0.``, semver
+  # allows breaking changes on minor bumps, so use ``max_pin="x.x"``
+  # (Case 2 in bioconda lint docs). Switch to ``max_pin="x"`` once we
+  # ship 1.0.0.
+  run_exports:
+    - {{ pin_subpackage(name, max_pin="x.x") }}
 
 requirements:
   build:
     - {{ compiler('c') }}
+    # bioconda lint (``compiler_needs_stdlib_c``): recipes that request
+    # a C compiler must also request a matching C stdlib to make the
+    # build reproducible across CI images.
+    - {{ stdlib('c') }}
     - make
   host:
     - python
