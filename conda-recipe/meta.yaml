@@ -1,5 +1,5 @@
 {% set name = "cytozip" %}
-{% set version = "0.3.0" %}
+{% set version = "0.3" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 0000000000000000000000000000000000000000000000000000000000000000  # filled in by bioconda autobump on each release
+  sha256: c75e12ccee3fd9a9453d25082115ab87735a40155b82d5bb792aab01ce2c2c8d # filled in by bioconda autobump on each release
 
 build:
   number: 0
@@ -30,19 +30,29 @@ requirements:
     - numpy
     # C-library dependencies — both headers AND libs are needed at
     # build time. ``htslib`` provides ``-lhts`` for cytozip._bam_pileup;
-    # ``libdeflate`` provides ``-ldeflate`` for cytozip.cz_accel.
+    # ``libdeflate`` provides ``-ldeflate`` for cytozip.cz_accel;
+    # ``zlib`` provides ``zlib.h`` (Cython inserts ``#include "zlib.h"``
+    # for the ``import zlib`` in cz_accel.pyx and is also used at runtime
+    # as a pure-Python DEFLATE fallback).
     - htslib
     - libdeflate
+    - zlib
   run:
     - python
     - {{ pin_compatible('numpy') }}
     - pandas
     - loguru
     - pysam
+    - fast-fisher
+    - fsspec
+    - requests
+    - anndata
+    - scipy
     # Pulled in transitively via the .so's RPATH, but pin them
     # explicitly so ``conda install cytozip`` brings them along.
     - htslib
     - libdeflate
+    - zlib
 
 test:
   imports:
