@@ -3,9 +3,14 @@ requires = ["setuptools>=61.0", "setuptools_scm", "cython", "numpy"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-version_scheme = "release-branch-semver" #"guess-next-dev"
+# Three-segment tags like ``v0.3.1`` / ``0.3.1``. ``guess-next-dev`` gives
+# clean versions on tags (worktree exactly at ``v0.3.1`` -> ``0.3.1``) and
+# ``0.3.2.dev<n>`` on commits after the tag. ``no-local-version`` strips
+# the ``+g<sha>`` suffix so wheels/sdists are PyPI-uploadable.
+version_scheme = "guess-next-dev"
 local_scheme = "no-local-version"
 write_to = 'cytozip/_version.py'
+tag_regex = "^v?(?P<version>[^-+]+)"
 
 [project]
 name = "cytozip"
