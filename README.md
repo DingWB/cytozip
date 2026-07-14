@@ -1,8 +1,19 @@
 # cytozip: index-free, chunk-compressed storage for scalable single-cell DNA methylation analysis
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/cytozip/badges/version.svg)](https://anaconda.org/bioconda/cytozip)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/cytozip/badges/platforms.svg)](https://anaconda.org/bioconda/cytozip)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/cytozip/badges/downloads.svg)](https://anaconda.org/bioconda/cytozip)
+
 A scalable, cloud-native ecosystem for single-cell and population DNA methylation analysis
 ## Installation
-### pip
+### conda
+https://anaconda.org/bioconda/cytozip
+```shell
+mamba install -c bioconda cytozip
+# or
+conda install -c bioconda cytozip
+```
 
+### pip
 ```shell
 # Prerequisites (one of):
 #   conda install -c bioconda htslib libdeflate          # recommended
@@ -11,12 +22,6 @@ A scalable, cloud-native ecosystem for single-cell and population DNA methylatio
 pip install cytozip
 # or reinstall
 pip uninstall -y cytozip && pip install git+http://github.com/DingWB/cytozip
-```
-
-### conda (To-DO)
-```shell
-# (when published to bioconda)
-conda install -c bioconda -c conda-forge cytozip
 ```
 
 ## Implementation

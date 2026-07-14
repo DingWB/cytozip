@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; cytozip 0.3.0.dev23 documentation</title>
+  <title>Index &mdash; cytozip 0.3.5.dev0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
@@ -14,8 +14,8 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=59e0a989"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/documentation_options.js?v=e01d351f"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/js/rtd_search_config.js"></script>
       <script src="_static/js/rtd_sphinx_search.min.js"></script>
@@ -47,7 +47,11 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/1.quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/1.quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/1.quick_start.html#pip">pip</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
@@ -86,6 +90,7 @@
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="notebooks/3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
@@ -145,35 +150,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="benchmark.html">Benchmark</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="benchmark.html#storage">1.Storage</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="format_history.html">cz Format — Change History</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#larger-blocks-256-kib-1">Larger blocks (256 KiB − 1)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#wider-virtual-offsets-44-20">Wider virtual offsets (44 + 20)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#delta-encoded-integer-columns">Delta-encoded integer columns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#tail-chunk-index-czix">Tail chunk index (CZIX)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#ideas-explored-but-not-adopted">Ideas explored but <strong>not</strong> adopted</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="developer_guide.html">Developer Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#architecture-overview">Architecture overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#module-map">Module map</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#performance-memory-patterns">Performance / memory patterns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#building-the-docs-locally">Building the docs locally</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">Benchmark</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cytozip.html">cytozip package</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="cytozip.html#submodules">Submodules</a><ul>
@@ -259,6 +236,7 @@
 </ul>
 </li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -331,6 +309,23 @@
 <li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.model.html">cytozip.model module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -407,10 +402,12 @@
 </li>
       <li><a href="cytozip.cz.html#cytozip.cz.aggregate">aggregate() (in module cytozip.cz)</a>
 </li>
-      <li><a href="cytozip.allc.html#cytozip.allc.AllC">AllC (class in cytozip.allc)</a>
+      <li><a href="cytozip.cz.html#cytozip.cz.align_cz">align_cz() (in module cytozip.cz)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cytozip.allc.html#cytozip.allc.AllC">AllC (class in cytozip.allc)</a>
+</li>
       <li><a href="cytozip.allc.html#cytozip.allc.allc2cz">allc2cz() (in module cytozip.allc)</a>
 </li>
       <li><a href="cytozip.dmr.html#cytozip.dmr.annot_dmr">annot_dmr() (in module cytozip.dmr)</a>
@@ -486,6 +483,8 @@
       <li><a href="cytozip.dmr.html#cytozip.dmr.call_peaks">call_peaks() (in module cytozip.dmr)</a>
 </li>
       <li><a href="cytozip.cz.html#cytozip.cz.Writer.catcz">catcz() (cytozip.cz.Writer method)</a>
+</li>
+      <li><a href="cytozip.model.html#cytozip.model.CellTypeClassifier">CellTypeClassifier (class in cytozip.model)</a>
 </li>
       <li><a href="cytozip.cz.html#cytozip.cz.Reader.chunk2df">chunk2df() (cytozip.cz.Reader method)</a>
 </li>
@@ -587,6 +586,13 @@
 </li>
       </ul></li>
       <li>
+    cytozip.model
+
+      <ul>
+        <li><a href="cytozip.model.html#module-cytozip.model">module</a>
+</li>
+      </ul></li>
+      <li>
     cytozip.pivot
 
       <ul>
@@ -615,10 +621,14 @@
 <h2 id="E">E</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="cytozip.cz.html#cytozip.cz.extract">extract() (in module cytozip.cz)</a>
+      <li><a href="cytozip.model.html#cytozip.model.estimate_beta_prior">estimate_beta_prior() (in module cytozip.model)</a>
+</li>
+      <li><a href="cytozip.model.html#cytozip.model.estimate_theta">estimate_theta() (in module cytozip.model)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cytozip.cz.html#cytozip.cz.extract">extract() (in module cytozip.cz)</a>
+</li>
       <li><a href="cytozip.allc.html#cytozip.allc.extractCG">extractCG() (in module cytozip.allc)</a>
 </li>
   </ul></td>
@@ -633,6 +643,8 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cytozip.model.html#cytozip.model.CellTypeClassifier.fit">fit() (cytozip.model.CellTypeClassifier method)</a>
+</li>
       <li><a href="cytozip.cz.html#cytozip.cz.Writer.flush">flush() (cytozip.cz.Writer method)</a>
 </li>
       <li><a href="cytozip.cz.html#cytozip.cz.Reader.from_url">from_url() (cytozip.cz.Reader class method)</a>
@@ -671,11 +683,15 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cytozip.model.html#cytozip.model.CellTypeClassifier.load">load() (cytozip.model.CellTypeClassifier class method)</a>
+</li>
       <li><a href="cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block">load_bcz_block() (in module cytozip.cz_accel)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cytozip.features.html#cytozip.features.load_blacklist">load_blacklist() (in module cytozip.features)</a>
+</li>
+      <li><a href="cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior">log_posterior() (cytozip.model.CellTypeClassifier method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -725,6 +741,8 @@
 </li>
         <li><a href="cytozip.merge.html#module-cytozip.merge">cytozip.merge</a>
 </li>
+        <li><a href="cytozip.model.html#module-cytozip.model">cytozip.model</a>
+</li>
         <li><a href="cytozip.pivot.html#module-cytozip.pivot">cytozip.pivot</a>
 </li>
       </ul></li>
@@ -752,11 +770,19 @@
 </li>
       <li><a href="cytozip.pivot.html#cytozip.pivot.pivot_fisher">pivot_fisher() (in module cytozip.pivot)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cytozip.pivot.html#cytozip.pivot.pivot_fraction">pivot_fraction() (in module cytozip.pivot)</a>
 </li>
       <li><a href="cytozip.cz.html#cytozip.cz.Reader.pos2id">pos2id() (cytozip.cz.Reader method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict">predict() (cytozip.model.CellTypeClassifier method)</a>
+</li>
+      <li><a href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch">predict_batch() (cytozip.model.CellTypeClassifier method)</a>
+</li>
+      <li><a href="cytozip.model.html#cytozip.model.predict_cell_type">predict_cell_type() (in module cytozip.model)</a>
+</li>
+      <li><a href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba">predict_proba() (cytozip.model.CellTypeClassifier method)</a>
 </li>
       <li><a href="cytozip.cz.html#cytozip.cz.Reader.print_header">print_header() (cytozip.cz.Reader method)</a>
 </li>
@@ -814,6 +840,8 @@
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cytozip.model.html#cytozip.model.CellTypeClassifier.save">save() (cytozip.model.CellTypeClassifier method)</a>
+</li>
       <li><a href="cytozip.cz.html#cytozip.cz.Reader.seek">seek() (cytozip.cz.Reader method)</a>
 
       <ul>
@@ -822,10 +850,10 @@
       </ul></li>
       <li><a href="cytozip.cz.html#cytozip.cz.RemoteFile.size">size (cytozip.cz.RemoteFile property)</a>
 </li>
-      <li><a href="cytozip.cz.html#cytozip.cz.split_virtual_offset">split_virtual_offset() (in module cytozip.cz)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cytozip.cz.html#cytozip.cz.split_virtual_offset">split_virtual_offset() (in module cytozip.cz)</a>
+</li>
       <li><a href="cytozip.cz.html#cytozip.cz.Reader.subset">subset() (cytozip.cz.Reader method)</a>
 </li>
       <li><a href="cytozip.cz.html#cytozip.cz.Reader.summary_blocks">summary_blocks() (cytozip.cz.Reader method)</a>

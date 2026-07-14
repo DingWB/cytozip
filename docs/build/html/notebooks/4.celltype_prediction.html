@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Remote Reading with cytozip &mdash; cytozip 0.3.5.dev0 documentation</title>
+  <title>Cell-type prediction from methylation .cz (CellTypeClassifier) &mdash; cytozip 0.3.5.dev0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
@@ -26,9 +26,7 @@
       <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Advanced Features" href="6.advance.html" />
-    <link rel="prev" title="Calling DMRs with cytozip" href="4.call_dmr.html" /> 
+    <link rel="search" title="Search" href="../search.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -125,18 +123,18 @@
 </li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
-<ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Remote Reading with cytozip</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#1.-Installation">1. Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="5.remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="5.remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="5.remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="5.remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#3.-Querying-remote-files">3. Querying remote files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#4.-Chunk-Index">4. Chunk Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#7.-Performance-Tips">7. Performance Tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="5.remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="5.remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="5.remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="5.remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="5.remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="6.advance.html">Advanced Features</a><ul>
@@ -366,9 +364,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Remote Reading with cytozip</li>
+      <li class="breadcrumb-item active">Cell-type prediction from methylation <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (<code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code>)</li>
       <li class="wy-breadcrumbs-aside">
-              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/notebooks/5.remote_reading.ipynb" class="fa fa-github"> Edit on GitHub</a>
+              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/notebooks/4.celltype_prediction.ipynb" class="fa fa-github"> Edit on GitHub</a>
       </li>
   </ul>
   <hr/>
@@ -376,367 +374,336 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="Remote-Reading-with-cytozip">
-<h1>Remote Reading with cytozip<a class="headerlink" href="#Remote-Reading-with-cytozip" title="Link to this heading"></a></h1>
-<p>cytozip supports reading <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files directly from HTTP/HTTPS URLs without downloading the entire file. This is achieved through:</p>
-<ul class="simple">
-<li><p><strong>HTTP Range requests</strong> — only the required bytes are fetched from the server</p></li>
-<li><p><strong>Chunk index</strong> — enables O(1) lookup of chunk positions (no sequential scanning)</p></li>
-<li><p><strong>Read-ahead cache</strong> — minimizes the number of HTTP requests via a 2MB cache</p></li>
-</ul>
-<p>Requirements:</p>
-<ul class="simple">
-<li><p>The <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file must include a chunk index (written by default)</p></li>
-<li><p>The HTTP server must support Range requests (most modern servers do)</p></li>
-</ul>
-<section id="1.-Installation">
-<h2>1. Installation<a class="headerlink" href="#1.-Installation" title="Link to this heading"></a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>ChunkZIP
-<span class="c1"># or</span>
-pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/DingWB/cytozip.git
-</pre></div>
-</div>
-</section>
-<section id="2.-Opening-a-remote-.cz-file">
-<h2>2. Opening a remote .cz file<a class="headerlink" href="#2.-Opening-a-remote-.cz-file" title="Link to this heading"></a></h2>
-<p>There are two ways to open a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file:</p>
-<p><strong>Method 1: ``Reader.from_url()`` (recommended)</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">cache_size</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>Method 2: Pass URL directly to ``Reader()`` (auto-detected)</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Both methods detect <code class="docutils literal notranslate"><span class="pre">http://</span></code> or <code class="docutils literal notranslate"><span class="pre">https://</span></code> prefixes and automatically use the <code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code> backend.</p>
-<div class="nbinput docutils container">
+  <section id="Cell-type-prediction-from-methylation-.cz-(CellTypeClassifier)">
+<h1>Cell-type prediction from methylation <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (<code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code>)<a class="headerlink" href="#Cell-type-prediction-from-methylation-.cz-(CellTypeClassifier)" title="Link to this heading"></a></h1>
+<p>Predict the cell type of a shallow single-cell (e.g. MiSeq snm3C-seq, ~200 reads/cell) <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file using deep-sequencing per-cell-type pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files.</p>
+<p><strong>Method</strong> — a transparent, training-free naive-Bayes / methylation-frequency deconvolution:</p>
+<ol class="arabic">
+<li><p>For each candidate type <code class="docutils literal notranslate"><span class="pre">t</span></code> and cytosine <code class="docutils literal notranslate"><span class="pre">c</span></code>, estimate a <em>continuous</em> methylation frequency from the pseudobulk with Beta shrinkage:</p>
+<div class="math notranslate nohighlight">
+\[\theta_{c,t} = \frac{m_{c,t} + \alpha_0}{n_{c,t} + \alpha_0 + \beta_0}\]</div>
+</li>
+<li><p>Score a query cell by the aggregated per-cytosine Bernoulli log-likelihood, summed in log-space:</p>
+<div class="math notranslate nohighlight">
+\[\log P(t\mid\text{cell}) \propto \log\pi_t + \lambda_{CG}\!\sum_{c\in CG}[\,s_c\log\theta^{CG}_{c,t} + (1-s_c)\log(1-\theta^{CG}_{c,t})\,] + \lambda_{CH}\!\sum_{c\in CH}[\cdots]\]</div>
+</li>
+<li><p>Softmax over types → calibrated probabilities (supports abstention).</p></li>
+</ol>
+<p>CpG and CpH are modelled as two independent channels; the split is read from the <code class="docutils literal notranslate"><span class="pre">context</span></code> column of a <code class="docutils literal notranslate"><span class="pre">build_ref</span></code> <strong>reference</strong> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (the cell-type / query files usually store only <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>).</p>
+<blockquote>
+<div><p>All inputs (query + pseudobulks) must be aligned to the same reference axis (one row per reference cytosine, in reference order).</p>
+</div></blockquote>
+<div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">cytozip.cz</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteFile</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cytozip version: </span><span class="si">{</span><span class="n">cytozip</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">struct</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">czip</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="kn">import</span> <span class="n">CellTypeClassifier</span>
 </pre></div>
 </div>
 </div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-cytozip version: 0.3.5
-</pre></div></div>
-</div>
-<section id="Example:-Open-and-inspect-a-remote-file">
-<h3>Example: Open and inspect a remote file<a class="headerlink" href="#Example:-Open-and-inspect-a-remote-file" title="Link to this heading"></a></h3>
-<p>Replace <code class="docutils literal notranslate"><span class="pre">url</span></code> below with the URL of your <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file:</p>
+<section id="1.-Build-a-small-self-contained-example">
+<h2>1. Build a small self-contained example<a class="headerlink" href="#1.-Build-a-small-self-contained-example" title="Link to this heading"></a></h2>
+<p>Three cell types (<code class="docutils literal notranslate"><span class="pre">Oligo</span></code> / <code class="docutils literal notranslate"><span class="pre">Astro</span></code> / <code class="docutils literal notranslate"><span class="pre">Micro</span></code>) over 200 cytosines (alternating CpG / CpH contexts). The cell-type <code class="docutils literal notranslate"><span class="pre">.cz</span></code> store only <code class="docutils literal notranslate"><span class="pre">mc</span></code> / <code class="docutils literal notranslate"><span class="pre">cov</span></code> (as real per-cell / pseudobulk files do), and a separate <strong>reference</strong> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (<code class="docutils literal notranslate"><span class="pre">pos</span></code>, <code class="docutils literal notranslate"><span class="pre">strand</span></code>, <code class="docutils literal notranslate"><span class="pre">context</span></code>, from <code class="docutils literal notranslate"><span class="pre">czip</span> <span class="pre">build_ref</span></code>) supplies the CpG/CpH context. All files share one axis. In real use these come from <code class="docutils literal notranslate"><span class="pre">czip</span> <span class="pre">allc2cz</span> <span class="pre">--reference</span></code> (per cell) and <code class="docutils literal notranslate"><span class="pre">czip</span> <span class="pre">merge_cz</span></code> / pseudobulk (per cell type).</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Uncomment and replace with your URL:</span>
-<span class="c1"># url = &quot;https://your-server.com/data/sample.cz&quot;</span>
-<span class="c1"># reader = cytozip.Reader.from_url(url)</span>
-<span class="c1"># reader.print_header()</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Replace the URL above with a real .cz file URL to test remote reading.&quot;</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">d</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+<span class="n">S</span> <span class="o">=</span> <span class="mi">200</span>
+<span class="n">contexts</span> <span class="o">=</span> <span class="p">[</span><span class="sa">b</span><span class="s1">&#39;CGN&#39;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="sa">b</span><span class="s1">&#39;CAC&#39;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="p">)]</span>   <span class="c1"># half CpG, half CpH</span>
+<span class="n">cg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">ch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span><span class="p">])</span>
+
+<span class="c1"># per-type methylation frequency profiles (continuous, discriminative)</span>
+<span class="n">prof</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">S</span><span class="p">);</span> <span class="n">f</span><span class="p">[</span><span class="n">cg</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.90</span><span class="p">;</span> <span class="n">f</span><span class="p">[</span><span class="n">ch</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ch</span><span class="p">))</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">);</span> <span class="n">prof</span><span class="p">[</span><span class="s1">&#39;Oligo&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">S</span><span class="p">);</span> <span class="n">f</span><span class="p">[</span><span class="n">cg</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.60</span><span class="p">;</span> <span class="n">f</span><span class="p">[</span><span class="n">ch</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ch</span><span class="p">))</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">);</span> <span class="n">prof</span><span class="p">[</span><span class="s1">&#39;Astro&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">S</span><span class="p">);</span> <span class="n">f</span><span class="p">[</span><span class="n">cg</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.75</span><span class="p">;</span> <span class="n">f</span><span class="p">[</span><span class="n">ch</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">;</span>                                                 <span class="n">prof</span><span class="p">[</span><span class="s1">&#39;Micro&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">write_cz</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">frac</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write an mc/cov-only .cz (as real per-cell / pseudobulk files are).&quot;&quot;&quot;</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">poisson</span><span class="p">(</span><span class="n">depth</span><span class="p">,</span> <span class="n">S</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
+    <span class="n">mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">binomial</span><span class="p">(</span><span class="n">cov</span><span class="p">,</span> <span class="n">frac</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Writer</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="s1">&#39;H&#39;</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mc&#39;</span><span class="p">,</span> <span class="s1">&#39;cov&#39;</span><span class="p">],</span>
+                    <span class="n">chunk_dims</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">sort_col</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">w</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;&lt;HH&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">mc</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">cov</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+                           <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="p">)),</span> <span class="p">[</span><span class="s1">&#39;chr1&#39;</span><span class="p">])</span>
+    <span class="n">w</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="c1"># a build_ref-style reference .cz carrying pos/strand/context (the CpG/CpH axis)</span>
+<span class="n">reference</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="s1">&#39;reference.cz&#39;</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Writer</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;3s&#39;</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="s1">&#39;strand&#39;</span><span class="p">,</span> <span class="s1">&#39;context&#39;</span><span class="p">],</span>
+                <span class="n">chunk_dims</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">sort_col</span><span class="o">=</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="n">delta_cols</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">])</span>
+<span class="n">w</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;&lt;Qc3s&#39;</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">contexts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="p">)),</span> <span class="p">[</span><span class="s1">&#39;chr1&#39;</span><span class="p">])</span>
+<span class="n">w</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="c1"># deep pseudobulk cell-type files (mc/cov-only, high coverage)</span>
+<span class="n">pseudobulks</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">prof</span><span class="p">:</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s1">.cz&#39;</span><span class="p">);</span> <span class="n">write_cz</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">prof</span><span class="p">[</span><span class="n">t</span><span class="p">],</span> <span class="n">depth</span><span class="o">=</span><span class="mi">60</span><span class="p">);</span> <span class="n">pseudobulks</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+
+<span class="c1"># a shallow query cell that is truly Oligo (~3x coverage)</span>
+<span class="n">query</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="s1">&#39;cellQ.cz&#39;</span><span class="p">);</span> <span class="n">write_cz</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">prof</span><span class="p">[</span><span class="s1">&#39;Oligo&#39;</span><span class="p">],</span> <span class="n">depth</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">pseudobulks</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-Replace the URL above with a real .cz file URL to test remote reading.
+{&#39;Oligo&#39;: &#39;/tmp/tmp08dbjc6i/Oligo.cz&#39;,
+ &#39;Astro&#39;: &#39;/tmp/tmp08dbjc6i/Astro.cz&#39;,
+ &#39;Micro&#39;: &#39;/tmp/tmp08dbjc6i/Micro.cz&#39;}
 </pre></div></div>
 </div>
 </section>
-</section>
-<section id="3.-Querying-remote-files">
-<h2>3. Querying remote files<a class="headerlink" href="#3.-Querying-remote-files" title="Link to this heading"></a></h2>
-<p>Once opened, all Reader methods work identically on remote and local files:</p>
+<section id="2.-Fit-the-classifier">
+<h2>2. Fit the classifier<a class="headerlink" href="#2.-Fit-the-classifier" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">fit</span></code> estimates the CpG/CpH frequencies once. The cell-type files are <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>-only, so the CpG/CpH split comes from the <code class="docutils literal notranslate"><span class="pre">reference</span></code> <code class="docutils literal notranslate"><span class="pre">.cz</span></code>. Optional <code class="docutils literal notranslate"><span class="pre">top_cg</span></code> / <code class="docutils literal notranslate"><span class="pre">top_ch</span></code> keep only the most discriminative sites; <code class="docutils literal notranslate"><span class="pre">cell_counts</span></code> enables an abundance / tempered prior at predict time.</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># reader = cytozip.Reader.from_url(url)</span>
-<span class="c1">#</span>
-<span class="c1"># # Summary of all chunks</span>
-<span class="c1"># reader.summary_chunks()</span>
-<span class="c1">#</span>
-<span class="c1"># # Fetch all records for a chunk</span>
-<span class="c1"># for record in reader.fetch((&quot;chr1&quot;,)):</span>
-<span class="c1">#     print(record)</span>
-<span class="c1">#</span>
-<span class="c1"># # Query by coordinate range</span>
-<span class="c1"># for record in reader.query(dimension=&quot;chr1&quot;, start=3000000, end=3001000, printout=False):</span>
-<span class="c1">#     print(record)</span>
-<span class="c1">#</span>
-<span class="c1"># # Fetch raw bytes for numpy processing</span>
-<span class="c1"># import numpy as np</span>
-<span class="c1"># raw_bytes = reader.fetch_chunk_bytes((&quot;chr1&quot;,))</span>
-<span class="c1"># # Parse with np.frombuffer based on your format</span>
-<span class="c1">#</span>
-<span class="c1"># reader.close()</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;All Reader methods (fetch, query, summary_chunks, etc.) work on remote files.&quot;</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">clf</span> <span class="o">=</span> <span class="n">CellTypeClassifier</span><span class="p">(</span><span class="n">lambda_cg</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">lambda_ch</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">pseudobulks</span><span class="o">=</span><span class="n">pseudobulks</span><span class="p">,</span>
+    <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">,</span>                                      <span class="c1"># build_ref .cz supplying context</span>
+    <span class="n">cell_counts</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Oligo&#39;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="s1">&#39;Astro&#39;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span> <span class="s1">&#39;Micro&#39;</span><span class="p">:</span> <span class="mi">50</span><span class="p">},</span>   <span class="c1"># optional (for abundance prior)</span>
+    <span class="n">top_cg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">top_ch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                                 <span class="c1"># or e.g. 0.1 to keep top 10% sites</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
 <div class="prompt empty docutils container">
 </div>
-<div class="output_area docutils container">
+<div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-All Reader methods (fetch, query, summary_chunks, etc.) work on remote files.
+<span class="ansi-green-fg">2026-07-14 11:08:19.821</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">_build_channel</span>:<span class="ansi-cyan-fg">402</span> - <span class="ansi-bold">CG: estimated Beta prior alpha0=7.951, beta0=2.641 (mean=0.751, kappa=10.59)</span>
+<span class="ansi-green-fg">2026-07-14 11:08:19.822</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">_build_channel</span>:<span class="ansi-cyan-fg">413</span> - <span class="ansi-bold">CG: 100 context sites -&gt; 100 discriminative sites across 3 cell types</span>
+<span class="ansi-green-fg">2026-07-14 11:08:19.823</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">_build_channel</span>:<span class="ansi-cyan-fg">402</span> - <span class="ansi-bold">CH: estimated Beta prior alpha0=2.627, beta0=43.43 (mean=0.057, kappa=46.06)</span>
+<span class="ansi-green-fg">2026-07-14 11:08:19.823</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">_build_channel</span>:<span class="ansi-cyan-fg">413</span> - <span class="ansi-bold">CH: 100 context sites -&gt; 100 discriminative sites across 3 cell types</span>
 </pre></div></div>
 </div>
 </section>
-<section id="4.-Chunk-Index">
-<h2>4. Chunk Index<a class="headerlink" href="#4.-Chunk-Index" title="Link to this heading"></a></h2>
-<p>The chunk index (written at the end of .cz files) maps each dimension tuple to its file offset. This enables O(1) chunk lookup without scanning the entire file — critical for remote access.</p>
+<section id="3.-Predict-a-single-cell">
+<h2>3. Predict a single cell<a class="headerlink" href="#3.-Predict-a-single-cell" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">predict</span></code> returns the label, confidence, the full softmax <code class="docutils literal notranslate"><span class="pre">proba</span></code> Series, and the unnormalized <code class="docutils literal notranslate"><span class="pre">log_posterior</span></code>. <code class="docutils literal notranslate"><span class="pre">prior_alpha</span></code> tempers the abundance prior (<code class="docutils literal notranslate"><span class="pre">0</span></code> = uniform, <code class="docutils literal notranslate"><span class="pre">1</span></code> = full abundance).</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Read chunk index from a local .cz file</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">struct</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span><span class="o">,</span><span class="w"> </span><span class="nn">os</span>
-
-<span class="c1"># Create a .cz file with chunk index</span>
-<span class="n">tmpfile</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mktemp</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.cz&quot;</span><span class="p">)</span>
-<span class="n">w</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Writer</span><span class="p">(</span>
-    <span class="n">output</span><span class="o">=</span><span class="n">tmpfile</span><span class="p">,</span>
-    <span class="n">formats</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Q&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span>
-    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">],</span>
-    <span class="n">dimensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">],</span>
-<span class="p">)</span>
-<span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;chr1&quot;</span><span class="p">,</span> <span class="s2">&quot;chr2&quot;</span><span class="p">,</span> <span class="s2">&quot;chr3&quot;</span><span class="p">]:</span>
-    <span class="n">records</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span> <span class="p">(</span><span class="mi">350</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">20</span><span class="p">)]</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;QHH&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">records</span><span class="p">)</span>
-    <span class="n">w</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="n">chrom</span><span class="p">])</span>
-<span class="n">w</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-<span class="c1"># Read chunk index</span>
-<span class="n">r</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="n">tmpfile</span><span class="p">)</span>
-<span class="n">idx</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">read_chunk_index</span><span class="p">()</span>
-<span class="k">if</span> <span class="n">idx</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Chunk index entries:&quot;</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">idx</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2"> -&gt; offset </span><span class="si">{</span><span class="n">offset</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="n">r</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">tmpfile</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">res</span> <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>          <span class="c1"># uniform prior</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;label     :&#39;</span><span class="p">,</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;confidence: </span><span class="si">%.4f</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;confidence&#39;</span><span class="p">])</span>
+<span class="n">res</span><span class="p">[</span><span class="s1">&#39;proba&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
-<div class="nboutput nblast docutils container">
+<div class="nboutput docutils container">
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">TypeError</span>                                 Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In[4], line 6</span>
-<span class="ansi-green-intense-fg ansi-bold">      4</span> <span style="color: rgb(95,135,135)"># Create a .cz file with chunk index</span>
-<span class="ansi-green-intense-fg ansi-bold">      5</span> tmpfile <span style="color: rgb(98,98,98)">=</span> tempfile<span style="color: rgb(98,98,98)">.</span>mktemp(suffix<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">.cz</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-fg">----&gt; 6</span> w <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">cytozip</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">Writer</span><span class="ansi-yellow-bg">(</span>
-<span class="ansi-green-intense-fg ansi-bold">      7</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">output</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">tmpfile</span><span class="ansi-yellow-bg">,</span>
-<span class="ansi-green-intense-fg ansi-bold">      8</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">formats</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">Q</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">H</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">H</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
-<span class="ansi-green-intense-fg ansi-bold">      9</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">columns</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">pos</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">mc</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">cov</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
-<span class="ansi-green-intense-fg ansi-bold">     10</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">dimensions</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">chrom</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
-<span class="ansi-green-intense-fg ansi-bold">     11</span> <span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">     12</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> chrom <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> [<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr1</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr2</span><span style="color: rgb(175,0,0)">&#34;</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr3</span><span style="color: rgb(175,0,0)">&#34;</span>]:
-<span class="ansi-green-intense-fg ansi-bold">     13</span>     records <span style="color: rgb(98,98,98)">=</span> [(<span style="color: rgb(98,98,98)">100</span>, <span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">10</span>), (<span style="color: rgb(98,98,98)">200</span>, <span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">15</span>), (<span style="color: rgb(98,98,98)">350</span>, <span style="color: rgb(98,98,98)">3</span>, <span style="color: rgb(98,98,98)">20</span>)]
-
-<span class="ansi-red-fg">TypeError</span>: Writer.__init__() got an unexpected keyword argument &#39;dimensions&#39;
+label     : Oligo
+confidence: 1.0000
 </pre></div></div>
 </div>
-</section>
-<section id="5.-RemoteFile-(Low-Level-API)">
-<h2>5. RemoteFile (Low-Level API)<a class="headerlink" href="#5.-RemoteFile-(Low-Level-API)" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code> is a file-like object that reads from HTTP URLs using Range requests. It implements <code class="docutils literal notranslate"><span class="pre">read()</span></code>, <code class="docutils literal notranslate"><span class="pre">seek()</span></code>, <code class="docutils literal notranslate"><span class="pre">tell()</span></code>, and <code class="docutils literal notranslate"><span class="pre">close()</span></code>, making it a drop-in replacement for <code class="docutils literal notranslate"><span class="pre">open(path,</span> <span class="pre">'rb')</span></code>.</p>
-<p>Features:</p>
-<ul class="simple">
-<li><p><strong>Read-ahead cache</strong>: Pre-fetches data in configurable chunks (default 2MB) to minimize HTTP requests</p></li>
-<li><p><strong>Seek support</strong>: <code class="docutils literal notranslate"><span class="pre">SEEK_SET</span></code>, <code class="docutils literal notranslate"><span class="pre">SEEK_CUR</span></code>, and <code class="docutils literal notranslate"><span class="pre">SEEK_END</span></code> are all supported</p></li>
-<li><p><strong>Size property</strong>: Total file size from Content-Length header</p></li>
-</ul>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Oligo    1.0
+Astro    0.0
+Micro    0.0
+dtype: float64
+</pre></div></div>
+</div>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cytozip.cz</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteFile</span>
-
-<span class="c1"># Usage:</span>
-<span class="c1"># rf = RemoteFile(&quot;https://your-server.com/data/file.cz&quot;, cache_size=2*1024*1024)</span>
-<span class="c1"># print(f&quot;File size: {rf.size} bytes&quot;)</span>
-<span class="c1">#</span>
-<span class="c1"># # Read first 100 bytes</span>
-<span class="c1"># header = rf.read(100)</span>
-<span class="c1">#</span>
-<span class="c1"># # Seek to a specific position</span>
-<span class="c1"># rf.seek(1000)</span>
-<span class="c1"># data = rf.read(50)</span>
-<span class="c1">#</span>
-<span class="c1"># # Seek from end (e.g., read last 100 bytes for chunk index)</span>
-<span class="c1"># rf.seek(-100, 2)</span>
-<span class="c1"># tail = rf.read(100)</span>
-<span class="c1">#</span>
-<span class="c1"># rf.close()</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;RemoteFile API:&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  RemoteFile(url, cache_size=2*1024*1024)&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .read(size)     - read bytes with read-ahead caching&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .seek(off, wh)  - seek to position (SEEK_SET/CUR/END)&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .tell()         - return current file position&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .size           - total file size (Content-Length)&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  .close()        - close the connection&quot;</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># abstain when the top probability is not confident enough</span>
+<span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">abstain_threshold</span><span class="o">=</span><span class="mf">0.999</span><span class="p">)[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-RemoteFile API:
-  RemoteFile(url, cache_size=2*1024*1024)
-  .read(size)     - read bytes with read-ahead caching
-  .seek(off, wh)  - seek to position (SEEK_SET/CUR/END)
-  .tell()         - return current file position
-  .size           - total file size (Content-Length)
-  .close()        - close the connection
+&#39;Oligo&#39;
 </pre></div></div>
 </div>
 </section>
-<section id="6.-Local-Demo-with-HTTP-Server">
-<h2>6. Local Demo with HTTP Server<a class="headerlink" href="#6.-Local-Demo-with-HTTP-Server" title="Link to this heading"></a></h2>
-<p>For testing, you can serve local <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files via Python’s built-in HTTP server:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># In one terminal: serve the current directory</span>
-<span class="nb">cd</span><span class="w"> </span>/path/to/cz/files
-python<span class="w"> </span>-m<span class="w"> </span>http.server<span class="w"> </span><span class="m">8765</span>
-
-<span class="c1"># In another terminal or Python session:</span>
-python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
-<span class="s2">import cytozip</span>
-<span class="s2">r = cytozip.Reader.from_url(&#39;http://localhost:8765/sample.cz&#39;)</span>
-<span class="s2">r.print_header()</span>
-<span class="s2">for record in r.fetch((&#39;chr1&#39;,)):</span>
-<span class="s2">    print(record)</span>
-<span class="s2">r.close()</span>
-<span class="s2">&quot;</span>
-</pre></div>
-</div>
+<section id="4.-Save-the-trained-model,-then-predict-a-new-cell-after-reloading">
+<h2>4. Save the trained model, then predict a new cell after reloading<a class="headerlink" href="#4.-Save-the-trained-model,-then-predict-a-new-cell-after-reloading" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">save</span></code> writes a single <code class="docutils literal notranslate"><span class="pre">.npz</span></code> (hyper-parameters + reference axis + pre-computed <code class="docutils literal notranslate"><span class="pre">log_theta</span></code>). <code class="docutils literal notranslate"><span class="pre">load</span></code> restores it with <code class="docutils literal notranslate"><span class="pre">allow_pickle=False</span></code> — no refitting and <strong>no need to re-read the pseudobulks</strong>, so prediction on new cells is instant.</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Full local demo (creates a temp file, serves it, reads remotely)</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">struct</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span><span class="o">,</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">threading</span><span class="o">,</span><span class="w"> </span><span class="nn">time</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">http.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTTPServer</span><span class="p">,</span> <span class="n">SimpleHTTPRequestHandler</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="s1">&#39;celltype_model.npz&#39;</span><span class="p">)</span>
+<span class="n">clf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;model size: </span><span class="si">%.1f</span><span class="s1"> KB&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1024</span><span class="p">))</span>
 
-<span class="c1"># 1. Create a .cz file</span>
-<span class="n">tmpdir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
-<span class="n">czfile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="s2">&quot;demo.cz&quot;</span><span class="p">)</span>
-<span class="n">w</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Writer</span><span class="p">(</span>
-    <span class="n">output</span><span class="o">=</span><span class="n">czfile</span><span class="p">,</span>
-    <span class="n">formats</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Q&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span>
-    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">],</span>
-    <span class="n">dimensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">],</span>
-<span class="p">)</span>
-<span class="n">data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;QHH&quot;</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span> <span class="p">(</span><span class="mi">350</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">20</span><span class="p">)])</span>
-<span class="n">w</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;chr1&quot;</span><span class="p">])</span>
-<span class="n">data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;&lt;QHH&quot;</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">150</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">)])</span>
-<span class="n">w</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;chr2&quot;</span><span class="p">])</span>
-<span class="n">w</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created: </span><span class="si">{</span><span class="n">czfile</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">czfile</span><span class="p">)</span><span class="si">}</span><span class="s2"> bytes)&quot;</span><span class="p">)</span>
-
-<span class="c1"># 2. Start HTTP server in background</span>
-<span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">)</span>
-<span class="n">handler</span> <span class="o">=</span> <span class="n">SimpleHTTPRequestHandler</span>
-<span class="n">handler</span><span class="o">.</span><span class="n">log_message</span> <span class="o">=</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="kc">None</span>  <span class="c1"># suppress logs</span>
-<span class="n">server</span> <span class="o">=</span> <span class="n">HTTPServer</span><span class="p">((</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">handler</span><span class="p">)</span>
-<span class="n">port</span> <span class="o">=</span> <span class="n">server</span><span class="o">.</span><span class="n">server_address</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-<span class="n">thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">server</span><span class="o">.</span><span class="n">serve_forever</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Serving on port </span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-<span class="c1"># 3. Read remotely</span>
-<span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">/demo.cz&quot;</span>
-<span class="n">reader</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Remote is_remote: </span><span class="si">{</span><span class="n">reader</span><span class="o">.</span><span class="n">_is_remote</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Chunks: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">dim2chunk_start</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- chr1 records (remote) ---&quot;</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch</span><span class="p">((</span><span class="s2">&quot;chr1&quot;</span><span class="p">,)):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- chr2 records (remote) ---&quot;</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch</span><span class="p">((</span><span class="s2">&quot;chr2&quot;</span><span class="p">,)):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
-
-<span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<span class="n">server</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
-
-<span class="c1"># Cleanup</span>
-<span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">czfile</span><span class="p">)</span>
-<span class="n">os</span><span class="o">.</span><span class="n">rmdir</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Demo complete!&quot;</span><span class="p">)</span>
+<span class="n">clf2</span> <span class="o">=</span> <span class="n">CellTypeClassifier</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span>
+<span class="n">res2</span> <span class="o">=</span> <span class="n">clf2</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>        <span class="c1"># abundance prior this time</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;reloaded label:&#39;</span><span class="p">,</span> <span class="n">res2</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">],</span> <span class="s1">&#39;(conf </span><span class="si">%.4f</span><span class="s1">)&#39;</span> <span class="o">%</span> <span class="n">res2</span><span class="p">[</span><span class="s1">&#39;confidence&#39;</span><span class="p">])</span>
 </pre></div>
 </div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-07-14 11:08:25.971</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">save</span>:<span class="ansi-cyan-fg">691</span> - <span class="ansi-bold">saved CellTypeClassifier to /tmp/tmp08dbjc6i/celltype_model.npz</span>
+</pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">TypeError</span>                                 Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In[6], line 8</span>
-<span class="ansi-green-intense-fg ansi-bold">      6</span> tmpdir <span style="color: rgb(98,98,98)">=</span> tempfile<span style="color: rgb(98,98,98)">.</span>mkdtemp()
-<span class="ansi-green-intense-fg ansi-bold">      7</span> czfile <span style="color: rgb(98,98,98)">=</span> os<span style="color: rgb(98,98,98)">.</span>path<span style="color: rgb(98,98,98)">.</span>join(tmpdir, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">demo.cz</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-fg">----&gt; 8</span> w <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">cytozip</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">Writer</span><span class="ansi-yellow-bg">(</span>
-<span class="ansi-green-intense-fg ansi-bold">      9</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">output</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">czfile</span><span class="ansi-yellow-bg">,</span>
-<span class="ansi-green-intense-fg ansi-bold">     10</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">formats</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">Q</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">H</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">H</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
-<span class="ansi-green-intense-fg ansi-bold">     11</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">columns</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">pos</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">mc</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">cov</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
-<span class="ansi-green-intense-fg ansi-bold">     12</span> <span class="ansi-yellow-bg">    </span><span class="ansi-yellow-bg">dimensions</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">chrom</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span>
-<span class="ansi-green-intense-fg ansi-bold">     13</span> <span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">     14</span> data <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(175,0,0)">b</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(98,98,98)">.</span>join(struct<span style="color: rgb(98,98,98)">.</span>pack(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">&lt;QHH</span><span style="color: rgb(175,0,0)">&#34;</span>, pos, mc, cov)
-<span class="ansi-green-intense-fg ansi-bold">     15</span>                 <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> pos, mc, cov <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> [(<span style="color: rgb(98,98,98)">100</span>, <span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">10</span>), (<span style="color: rgb(98,98,98)">200</span>, <span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">15</span>), (<span style="color: rgb(98,98,98)">350</span>, <span style="color: rgb(98,98,98)">3</span>, <span style="color: rgb(98,98,98)">20</span>)])
-<span class="ansi-green-intense-fg ansi-bold">     16</span> w<span style="color: rgb(98,98,98)">.</span>write_chunk(data, [<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">chr1</span><span style="color: rgb(175,0,0)">&#34;</span>])
-
-<span class="ansi-red-fg">TypeError</span>: Writer.__init__() got an unexpected keyword argument &#39;dimensions&#39;
+model size: 6.3 KB
+reloaded label: Oligo (conf 1.0000)
 </pre></div></div>
 </div>
 </section>
-<section id="7.-Performance-Tips">
-<h2>7. Performance Tips<a class="headerlink" href="#7.-Performance-Tips" title="Link to this heading"></a></h2>
-<ul>
-<li><p><strong>Cache size</strong>: Increase <code class="docutils literal notranslate"><span class="pre">cache_size</span></code> for sequential reads over large chunks:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span> <span class="o">=</span> <span class="n">cytozip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">cache_size</span><span class="o">=</span><span class="mi">10</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">)</span>  <span class="c1"># 10MB cache</span>
+<section id="5.-Batch-predict-many-cells">
+<h2>5. Batch-predict many cells<a class="headerlink" href="#5.-Batch-predict-many-cells" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">predict_batch</span></code> accepts a <code class="docutils literal notranslate"><span class="pre">{cell_id:</span> <span class="pre">path}</span></code> dict (or a list of paths) and returns a labels DataFrame plus a cell x cell_type probability matrix.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
-</li>
-<li><p><strong>Chunk index</strong>: .cz files include a chunk index by default. Without it, the reader must scan the entire file sequentially.</p></li>
-<li><p><strong>Query vs fetch</strong>: For large files, prefer <code class="docutils literal notranslate"><span class="pre">query()</span></code> with coordinate ranges over <code class="docutils literal notranslate"><span class="pre">fetch()</span></code> on the entire chunk — this minimizes data transferred.</p></li>
-<li><p><strong>Server requirements</strong>: The HTTP server must support:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">Range</span></code> request header</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Content-Length</span></code> response header</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">206</span> <span class="pre">Partial</span> <span class="pre">Content</span></code> response status</p></li>
-</ul>
-</li>
-</ul>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">labels</span><span class="p">,</span> <span class="n">proba</span> <span class="o">=</span> <span class="n">clf2</span><span class="o">.</span><span class="n">predict_batch</span><span class="p">({</span><span class="s1">&#39;cellQ&#39;</span><span class="p">:</span> <span class="n">query</span><span class="p">})</span>
+<span class="n">display</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+<span class="n">proba</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>label</th>
+      <th>confidence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>cellQ</th>
+      <td>Oligo</td>
+      <td>1.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Oligo</th>
+      <th>Astro</th>
+      <th>Micro</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>cellQ</th>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+</section>
+<section id="6.-Applying-it-to-real-data">
+<h2>6. Applying it to real data<a class="headerlink" href="#6.-Applying-it-to-real-data" title="Link to this heading"></a></h2>
+<p>The cell-type pseudobulk and single-cell <code class="docutils literal notranslate"><span class="pre">.cz</span></code> normally store only <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code> and are aligned to the same reference axis (produced by <code class="docutils literal notranslate"><span class="pre">czip</span> <span class="pre">build_ref</span></code> + <code class="docutils literal notranslate"><span class="pre">czip</span> <span class="pre">allc2cz</span> <span class="pre">--reference</span></code>). Pass the <code class="docutils literal notranslate"><span class="pre">build_ref</span></code> reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code> via <code class="docutils literal notranslate"><span class="pre">reference=</span></code> so the classifier can split CpG vs CpH:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="kn">import</span> <span class="n">CellTypeClassifier</span>
+
+<span class="n">pseudobulks</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;Oligo&#39;</span><span class="p">:</span> <span class="s1">&#39;pseudobulk/Oligo.cz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Astro&#39;</span><span class="p">:</span> <span class="s1">&#39;pseudobulk/Astro.cz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Micro&#39;</span><span class="p">:</span> <span class="s1">&#39;pseudobulk/Micro.cz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;OPC&#39;</span><span class="p">:</span>   <span class="s1">&#39;pseudobulk/OPC.cz&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">clf</span> <span class="o">=</span> <span class="n">CellTypeClassifier</span><span class="p">(</span><span class="n">lambda_cg</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">lambda_ch</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">pseudobulks</span><span class="o">=</span><span class="n">pseudobulks</span><span class="p">,</span>
+    <span class="n">reference</span><span class="o">=</span><span class="s1">&#39;mm10_with_chrL.allc.cz&#39;</span><span class="p">,</span>   <span class="c1"># build_ref .cz supplying the per-row context</span>
+    <span class="n">top_cg</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">top_ch</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>               <span class="c1"># keep the top 10% most discriminative sites</span>
+<span class="p">)</span>
+<span class="n">clf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;bg_celltype_model.npz&#39;</span><span class="p">)</span>
+
+<span class="c1"># later / elsewhere — predict shallow MiSeq cells directly</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">CellTypeClassifier</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;bg_celltype_model.npz&#39;</span><span class="p">)</span>
+<span class="n">labels</span><span class="p">,</span> <span class="n">proba</span> <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">predict_batch</span><span class="p">({</span>
+    <span class="n">cell_id</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;miseq/</span><span class="si">{</span><span class="n">cell_id</span><span class="si">}</span><span class="s1">.cz&#39;</span> <span class="k">for</span> <span class="n">cell_id</span> <span class="ow">in</span> <span class="n">cell_ids</span>
+<span class="p">},</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">abstain_threshold</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Tuning tips</strong>: start with a uniform prior (<code class="docutils literal notranslate"><span class="pre">prior_alpha=0</span></code>) to check raw discriminative power, then sweep <code class="docutils literal notranslate"><span class="pre">prior_alpha</span></code> / <code class="docutils literal notranslate"><span class="pre">top_*</span></code> / <code class="docutils literal notranslate"><span class="pre">lambda_ch</span></code> on a held-out set while watching <strong>macro-F1</strong> (fair to rare types) and the confusion matrix, not just overall accuracy.</p>
 </section>
 </section>
 
 
            </div>
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="4.call_dmr.html" class="btn btn-neutral float-left" title="Calling DMRs with cytozip" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="6.advance.html" class="btn btn-neutral float-right" title="Advanced Features" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
+          <footer>
 
   <hr/>
 

@@ -3,10 +3,10 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cz Format — Change History &mdash; cytozip 0.3.0.dev23 documentation</title>
+  <title>&lt;no title&gt; &mdash; cytozip 0.3.5.dev0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
@@ -15,8 +15,8 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=59e0a989"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/documentation_options.js?v=e01d351f"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/js/rtd_search_config.js"></script>
       <script src="_static/js/rtd_sphinx_search.min.js"></script>
@@ -24,7 +24,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Developer Guide" href="developer_guide.html" />
+    <link rel="next" title="&lt;no title&gt;" href="developer_guide.html" />
     <link rel="prev" title="Benchmark" href="benchmark.html" /> 
 </head>
 
@@ -50,7 +50,11 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/1.quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/1.quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/1.quick_start.html#pip">pip</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
@@ -89,6 +93,7 @@
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="notebooks/3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
@@ -147,36 +152,8 @@
 </li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
-<ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="benchmark.html">Benchmark</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="benchmark.html#storage">1.Storage</a></li>
-</ul>
-</li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">cz Format — Change History</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#larger-blocks-256-kib-1">Larger blocks (256 KiB − 1)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#wider-virtual-offsets-44-20">Wider virtual offsets (44 + 20)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#delta-encoded-integer-columns">Delta-encoded integer columns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#tail-chunk-index-czix">Tail chunk index (CZIX)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#ideas-explored-but-not-adopted">Ideas explored but <strong>not</strong> adopted</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="developer_guide.html">Developer Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#architecture-overview">Architecture overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#module-map">Module map</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#performance-memory-patterns">Performance / memory patterns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#building-the-docs-locally">Building the docs locally</a></li>
-</ul>
-</li>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">Benchmark</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cytozip.html">cytozip package</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="cytozip.html#submodules">Submodules</a><ul>
@@ -262,6 +239,7 @@
 </ul>
 </li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -336,6 +314,23 @@
 <li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.model.html">cytozip.model module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.pivot.html">cytozip.pivot module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.pivot.html#cytozip.pivot.pivot_fisher"><code class="docutils literal notranslate"><span class="pre">pivot_fisher()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.pivot.html#cytozip.pivot.pivot_fraction"><code class="docutils literal notranslate"><span class="pre">pivot_fraction()</span></code></a></li>
@@ -368,7 +363,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">cz Format — Change History</li>
+      <li class="breadcrumb-item active">&lt;no title&gt;</li>
       <li class="wy-breadcrumbs-aside">
               <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/format_history.md" class="fa fa-github"> Edit on GitHub</a>
       </li>
@@ -378,60 +373,48 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="cz-format-change-history">
-<h1>cz Format — Change History<a class="headerlink" href="#cz-format-change-history" title="Link to this heading"></a></h1>
+  <p># cz Format — Change History</p>
 <p>Historical record of on-disk format changes. The current format is
-documented in <a class="reference external" href="../../dev">dev.md</a> and
-<a class="reference internal" href="developer_guide.html"><span class="doc">developer_guide.md</span></a>. The package version is still
-<code class="docutils literal notranslate"><span class="pre">0.3</span></code> — the format itself is not separately versioned, so changes
+documented in [dev.md](../../dev.md) and
+[developer_guide.md](developer_guide.md). The package version is still
+<cite>0.3</cite> — the format itself is not separately versioned, so changes
 listed below are tracked against package releases / commits rather than
 a numbered format spec.</p>
-<blockquote>
-<div><p>Older <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files written before any of these changes are no longer
-readable. Re-generate from source data when needed.</p>
-</div></blockquote>
-<hr class="docutils" />
-<section id="larger-blocks-256-kib-1">
-<h2>Larger blocks (256 KiB − 1)<a class="headerlink" href="#larger-blocks-256-kib-1" title="Link to this heading"></a></h2>
-<p>Block size cap was raised from 65 535 raw bytes to <code class="docutils literal notranslate"><span class="pre">(1</span> <span class="pre">&lt;&lt;</span> <span class="pre">18)</span> <span class="pre">−</span> <span class="pre">1</span></code>
+<p>&gt; Older <cite>.cz</cite> files written before any of these changes are no longer
+&gt; readable. Re-generate from source data when needed.</p>
+<p>—</p>
+<p>## Larger blocks (256 KiB − 1)</p>
+<p>Block size cap was raised from 65 535 raw bytes to <cite>(1 &lt;&lt; 18) − 1</cite>
 (256 KiB − 1).</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">block_size</span></code> field grew from <code class="docutils literal notranslate"><span class="pre">&lt;H</span></code> (2 B) to <code class="docutils literal notranslate"><span class="pre">&lt;I</span></code> (4 B); <code class="docutils literal notranslate"><span class="pre">raw_len</span></code>
+<li><p><cite>block_size</cite> field grew from <cite>&lt;H</cite> (2 B) to <cite>&lt;I</cite> (4 B); <cite>raw_len</cite>
 grew the same way → block header overhead is now 10 B instead of 6 B.</p></li>
 <li><p>DEFLATE’s 32 KiB sliding window saturates compression around 256 KiB,
 so file size shrinks 5–10 % on real biological data with no codec
 change.</p></li>
-<li><p>~10× fewer blocks → ~10× fewer <code class="docutils literal notranslate"><span class="pre">inflate</span></code> calls per chunk read.</p></li>
+<li><p>~10× fewer blocks → ~10× fewer <cite>inflate</cite> calls per chunk read.</p></li>
 </ul>
-</section>
-<section id="wider-virtual-offsets-44-20">
-<h2>Wider virtual offsets (44 + 20)<a class="headerlink" href="#wider-virtual-offsets-44-20" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">uint64</span></code> virtual offsets were re-split from 48 + 16 to <strong>44 + 20</strong>:</p>
+<p>## Wider virtual offsets (44 + 20)</p>
+<p><cite>uint64</cite> virtual offsets were re-split from 48 + 16 to <strong>44 + 20</strong>:</p>
 <ul class="simple">
 <li><p>44 bits file offset (16 TiB addressable — still ample).</p></li>
 <li><p>20 bits within-block byte offset (matches the new 256 KiB block cap).</p></li>
 </ul>
-</section>
-<section id="delta-encoded-integer-columns">
-<h2>Delta-encoded integer columns<a class="headerlink" href="#delta-encoded-integer-columns" title="Link to this heading"></a></h2>
+<p>## Delta-encoded integer columns</p>
 <p>Strictly-monotonic integer columns (typically genomic positions) can be
-stored as first-order differences within each block (<code class="docutils literal notranslate"><span class="pre">_ENC_DELTA</span></code>).
+stored as first-order differences within each block (<cite>_ENC_DELTA</cite>).
 DEFLATE compresses the delta stream to a small fraction of the raw
-column. Decoding is one numpy <code class="docutils literal notranslate"><span class="pre">cumsum</span></code> per delta column per block.</p>
+column. Decoding is one numpy <cite>cumsum</cite> per delta column per block.</p>
 <p>The delta-column mask is recorded in the chunk header so old files
 without the flag are not silently mis-read — but, as noted above,
 pre-change files are not readable.</p>
-</section>
-<section id="tail-chunk-index-czix">
-<h2>Tail chunk index (CZIX)<a class="headerlink" href="#tail-chunk-index-czix" title="Link to this heading"></a></h2>
+<p>## Tail chunk index (CZIX)</p>
 <p>A tail-appended chunk index lets HTTP / remote readers locate any chunk
 in O(1) without scanning the whole file. Index entries store
-<code class="docutils literal notranslate"><span class="pre">(start_offset,</span> <span class="pre">size,</span> <span class="pre">n_blocks,</span> <span class="pre">first_voffset)</span></code> per chunk; the index
+<cite>(start_offset, size, n_blocks, first_voffset)</cite> per chunk; the index
 itself is found via a single small range request near EOF.</p>
-</section>
-<hr class="docutils" />
-<section id="ideas-explored-but-not-adopted">
-<h2>Ideas explored but <strong>not</strong> adopted<a class="headerlink" href="#ideas-explored-but-not-adopted" title="Link to this heading"></a></h2>
+<p>—</p>
+<p>## Ideas explored but <strong>not</strong> adopted</p>
 <p>These were considered during earlier design rounds and intentionally
 left out — recording here so they are not re-proposed without new
 evidence:</p>
@@ -453,15 +436,13 @@ added compatibility surface without a clear win.</p></li>
 <li><p><strong>Encryption / multi-file artefacts</strong> — out of scope; use
 filesystem-level encryption and keep the “single artefact” model.</p></li>
 </ul>
-</section>
-</section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="benchmark.html" class="btn btn-neutral float-left" title="Benchmark" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="developer_guide.html" class="btn btn-neutral float-right" title="Developer Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="developer_guide.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

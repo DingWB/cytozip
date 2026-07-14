@@ -1,0 +1,1239 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cytozip.model &mdash; cytozip 0.3.5.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=161b7e8c" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=e01d351f"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/js/rtd_search_config.js"></script>
+      <script src="../../_static/js/rtd_sphinx_search.min.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            cytozip
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/1.quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#pip">pip</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/2.dnam.html">DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#2.-Build-CG-/-CH-context-index-from-the-reference">2. Build CG / CH context index from the reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#3.-BAM-→-.cz">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#BAM-→-.cz-benchmark-vs-ALLCools">BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> benchmark vs ALLCools</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#4.-ALLC-→-.cz">4. ALLC → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#5.-view-and-query">5. <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">query</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#Warm-query:-query_numpy-vs-pytabix-across-region-sizes">Warm query: <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> across region sizes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/2.dnam.html#Correctness-check:-cytozip-query-vs-pytabix">Correctness check: cytozip query vs pytabix</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#6.-View-/-query-a-remote-.cz-(no-download)">6. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#7.-catcz-and-merge_cz">7. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/2.dnam.html#8.-Build-a-cell-×-gene-AnnData">8. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/3.python_api.html">cytozip Python API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#view-header">view header</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#summary-chunks-&amp;-blocks">summary chunks &amp; blocks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query">query</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Numpy-/-DataFrame-APIs">Numpy / DataFrame APIs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2numpy(dims)-—-decode-a-whole-chunk"><code class="docutils literal notranslate"><span class="pre">chunk2numpy(dims)</span></code> — decode a whole chunk</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#chunk2df(dims)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims)</span></code> — decode as a DataFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/4.call_dmr.html">Calling DMRs with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Pseudobulk-vs-single-cell-input">Pseudobulk vs single-cell input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#1.-DMR-—-call_dmr">1. DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Call-CG-DMR">Call CG DMR</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#2.-CH-DMR-—-call_dmr_ch">2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#Stratified-one-vs-rest-(within-each-class)">Stratified one-vs-rest (within each class)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/4.call_dmr.html#CH-batch-one-vs-rest-with-shared-global-rate-pre-scan">CH batch one-vs-rest with shared global-rate pre-scan</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#4.-Merging-results-—-merge_dmr_results">4. Merging results — <code class="docutils literal notranslate"><span class="pre">merge_dmr_results</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#5.-CLI-equivalents">5. CLI equivalents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/4.call_dmr.html#6.-Per-cell-methylation-over-DMRs-—-cz_to_anndata">6. Per-cell methylation over DMRs — <code class="docutils literal notranslate"><span class="pre">cz_to_anndata</span></code></a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/5.remote_reading.html">Remote Reading with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/5.remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/5.remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/6.advance.html">Advanced Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#Build-a-region-based-subset-index-(BED-→-.cz-index)">Build a region-based subset index (BED → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> index)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#DMR-calling">DMR calling</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/6.advance.html#Calling-DMRs-on-methylation-array-.cz">Calling DMRs on methylation-array <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/6.advance.html#id1">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/6.advance.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/6.advance.html#Remote-Reading">Remote Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmark.html">Benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../cytozip.html">cytozip package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#submodules">Submodules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.allc.html">cytozip.allc module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.array.html">cytozip.array module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#input-shape-conventions">Input shape conventions</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#output-layout">Output layout</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#float-quantization">Float quantization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.array2cz"><code class="docutils literal notranslate"><span class="pre">array2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.dequantize_cz"><code class="docutils literal notranslate"><span class="pre">dequantize_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.dequantize_uniform"><code class="docutils literal notranslate"><span class="pre">dequantize_uniform()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.quantize_uniform"><code class="docutils literal notranslate"><span class="pre">quantize_uniform()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.bam.html">cytozip.bam module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz.html">cytozip.cz module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2numpy"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.iter_chunks_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.iter_chunks_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_chunk_batch"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_chunk_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_multi"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_multi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_compress_blocks_parallel"><code class="docutils literal notranslate"><span class="pre">c_compress_blocks_parallel()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_delta_encode_block"><code class="docutils literal notranslate"><span class="pre">c_delta_encode_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr.html">cytozip.dmr module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr"><code class="docutils literal notranslate"><span class="pre">call_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr_accel.html#public-entry-point">Public entry point</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr_accel.html#cytozip.dmr_accel.rms_run_sites"><code class="docutils literal notranslate"><span class="pre">rms_run_sites()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.features.html">cytozip.features module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#design-notes">Design notes</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.cz_to_anndata"><code class="docutils literal notranslate"><span class="pre">cz_to_anndata()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.load_blacklist"><code class="docutils literal notranslate"><span class="pre">load_blacklist()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.make_genome_bins"><code class="docutils literal notranslate"><span class="pre">make_genome_bins()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_features"><code class="docutils literal notranslate"><span class="pre">parse_features()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_gtf"><code class="docutils literal notranslate"><span class="pre">parse_gtf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.index.html">cytozip.index module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.index.html#cytozip.index.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.index.html#cytozip.index.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.merge.html">cytozip.merge module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.model.html">cytozip.model module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.pivot.html">cytozip.pivot module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.pivot.html#cytozip.pivot.pivot_fisher"><code class="docutils literal notranslate"><span class="pre">pivot_fisher()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.pivot.html#cytozip.pivot.pivot_fraction"><code class="docutils literal notranslate"><span class="pre">pivot_fraction()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#module-cytozip">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../setup.html">setup module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">cytozip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../cytozip.html">cytozip</a></li>
+      <li class="breadcrumb-item active">cytozip.model</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for cytozip.model</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">model.py — Site-likelihood cell-type classifier for shallow snm3C-seq.</span>
+
+<span class="sd">Given a single-cell ``.cz`` file (per-cytosine ``mc``/``cov`` over *all*</span>
+<span class="sd">cytosines, CpG and CpH together) and a set of cell-type-level pseudobulk</span>
+<span class="sd">``.cz`` files (deep-sequencing reference), predict which cell type the query</span>
+<span class="sd">cell most likely belongs to.</span>
+
+<span class="sd">Method (naive-Bayes / methylation-frequency deconvolution)</span>
+<span class="sd">----------------------------------------------------------</span>
+<span class="sd">For every discriminative cytosine ``c`` and candidate type ``t`` the reference</span>
+<span class="sd">methylation frequency is estimated with a Beta-shrinkage estimator::</span>
+
+<span class="sd">    theta[c,t] = (m[c,t] + alpha0) / (n[c,t] + alpha0 + beta0)</span>
+
+<span class="sd">where ``m`` = methylated count, ``n`` = coverage. The frequency is kept</span>
+<span class="sd">*continuous* (never binarized) because the discriminative signal lives in the</span>
+<span class="sd">intermediate frequencies.</span>
+
+<span class="sd">The aggregated per-site Bernoulli log-likelihood of a query cell (with ``mc``</span>
+<span class="sd">methylated and ``cov`` total observations at each site) under type ``t`` is::</span>
+
+<span class="sd">    loglik[t] = sum_c ( mc[c] * log(theta[c,t])</span>
+<span class="sd">                        + (cov[c] - mc[c]) * log(1 - theta[c,t]) )</span>
+
+<span class="sd">CpG and CpH have very different backgrounds, so the two contexts are modelled</span>
+<span class="sd">as independent channels (each with its own frequencies and shrinkage prior)</span>
+<span class="sd">and summed in log-space with weights ``lambda_cg`` / ``lambda_ch``::</span>
+
+<span class="sd">    logpost[t] = log(pi[t]) + lambda_cg * loglik_cg[t] + lambda_ch * loglik_ch[t]</span>
+
+<span class="sd">The CpG / CpH split is derived from the ``context`` column (2nd base ``G`` -&gt;</span>
+<span class="sd">CpG, ``A``/``C``/``T`` -&gt; CpH) so a single ``.cz`` file carrying all cytosines</span>
+<span class="sd">is enough — you do not pre-split CG / CH into separate files. A softmax over</span>
+<span class="sd">types yields calibrated probabilities that support abstention.</span>
+
+<span class="sd">All input ``.cz`` files must be aligned to the same reference axis (one row per</span>
+<span class="sd">reference cytosine, in reference order), so positions align by row index across</span>
+<span class="sd">the query and all references. The cell-type ``.cz`` normally store only</span>
+<span class="sd">``mc``/``cov`` (no ``pos``/``context``), so the per-row ``context`` is taken</span>
+<span class="sd">from a separate ``reference=`` ``.cz`` (a ``build_ref`` output with</span>
+<span class="sd">``pos, strand, context``); if the files happen to carry their own ``context``</span>
+<span class="sd">column, ``reference`` can be omitted.</span>
+
+<span class="sd">@author: DingWB</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">struct</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.cz</span><span class="w"> </span><span class="kn">import</span> <span class="n">Reader</span><span class="p">,</span> <span class="n">np</span><span class="p">,</span> <span class="n">pd</span>
+
+
+<span class="c1"># ==========================================================</span>
+<div class="viewcode-block" id="estimate_theta">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.estimate_theta">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">estimate_theta</span><span class="p">(</span><span class="n">mc</span><span class="p">,</span> <span class="n">cov</span><span class="p">,</span> <span class="n">alpha0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">beta0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Beta-shrinkage estimate of the per-site methylation frequency.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mc, cov : np.ndarray</span>
+<span class="sd">        Methylated-count and coverage arrays (same shape).</span>
+<span class="sd">    alpha0, beta0 : float</span>
+<span class="sd">        Beta-prior pseudocounts. The shrinkage prior mean is</span>
+<span class="sd">        ``alpha0 / (alpha0 + beta0)``; both must be &gt; 0 so the estimate</span>
+<span class="sd">        never hits exactly 0 or 1 (which would make ``log(theta)`` or</span>
+<span class="sd">        ``log(1 - theta)`` diverge).</span>
+<span class="sd">    dtype : np.dtype</span>
+<span class="sd">        Output floating dtype (default ``float32``).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        ``theta`` in the open interval (0, 1), same shape as inputs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">alpha0</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">beta0</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;alpha0 and beta0 must both be &gt; 0 for shrinkage.&quot;</span><span class="p">)</span>
+    <span class="n">mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mc</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cov</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="p">(</span><span class="n">mc</span> <span class="o">+</span> <span class="n">alpha0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">cov</span> <span class="o">+</span> <span class="n">alpha0</span> <span class="o">+</span> <span class="n">beta0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">theta</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># ==========================================================</span>
+<div class="viewcode-block" id="estimate_beta_prior">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.estimate_beta_prior">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">estimate_beta_prior</span><span class="p">(</span><span class="n">mc</span><span class="p">,</span> <span class="n">cov</span><span class="p">,</span> <span class="n">min_cov</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">df_correction</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Empirical-Bayes Beta prior ``(alpha0, beta0)`` via Beta-Binomial MoM.</span>
+
+<span class="sd">    Estimates the shrinkage prior ``Beta(alpha0, beta0)`` for</span>
+<span class="sd">    :func:`estimate_theta` from the *global* ``mc`` / ``cov`` of a reference,</span>
+<span class="sd">    correcting for the finite-coverage (binomial) sampling noise that a plain</span>
+<span class="sd">    Beta method-of-moments (e.g. ALLCools ``calculate_posterior_mc_frac``)</span>
+<span class="sd">    ignores. This should be estimated on a DEEP pseudobulk reference and, since</span>
+<span class="sd">    CpG / CpH have different backgrounds, run separately per context.</span>
+
+<span class="sd">    Model: site ``i`` has ``cov[i]`` reads and ``mc[i]`` methylated, with a</span>
+<span class="sd">    latent rate ``p_i ~ Beta(alpha, beta)`` and ``mc[i] | p_i ~</span>
+<span class="sd">    Binomial(cov[i], p_i)``. Parameterize by mean ``mu = alpha/(alpha+beta)``,</span>
+<span class="sd">    concentration ``kappa = alpha+beta`` and intra-class correlation</span>
+<span class="sd">    ``rho = 1/(kappa+1)``. The marginal moments are::</span>
+
+<span class="sd">        E[mc_i]   = cov_i * mu</span>
+<span class="sd">        Var[mc_i] = cov_i * mu*(1-mu) * (1 + (cov_i-1)*rho)</span>
+
+<span class="sd">    Method of moments (handles unequal coverage):</span>
+
+<span class="sd">    * ``mu_hat = sum(mc) / sum(cov)``  (first moment = global rate)</span>
+<span class="sd">    * Pearson over-dispersion statistic</span>
+<span class="sd">      ``X = sum( (mc_i - cov_i*mu)^2 / (cov_i*mu*(1-mu)) )`` with</span>
+<span class="sd">      ``E[X] = N + rho * sum(cov_i - 1)`` (``N`` = #sites), giving</span>
+<span class="sd">      ``rho_hat = (X - N) / sum(cov_i - 1)`` (``N -&gt; N-1`` if</span>
+<span class="sd">      ``df_correction``; Tarone 1979).</span>
+<span class="sd">    * ``kappa = (1-rho)/rho``; ``alpha0 = mu*kappa``; ``beta0 = (1-mu)*kappa``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mc, cov : np.ndarray</span>
+<span class="sd">        Methylated-count and coverage arrays (same shape) for one context.</span>
+<span class="sd">    min_cov : int</span>
+<span class="sd">        Ignore sites with ``cov &lt; min_cov`` (default 2; ``cov=1`` contributes</span>
+<span class="sd">        nothing to ``sum(cov-1)`` and is noisy).</span>
+<span class="sd">    df_correction : bool</span>
+<span class="sd">        Use ``N-1`` instead of ``N`` in ``rho_hat`` (Tarone d.f. correction).</span>
+<span class="sd">    eps : float</span>
+<span class="sd">        Clamp for ``mu`` in ``(eps, 1-eps)`` and ``rho`` in ``(eps, 1-eps)``</span>
+<span class="sd">        so ``alpha0``/``beta0`` stay finite and &gt; 0.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (alpha0, beta0) : tuple of float</span>
+<span class="sd">        Beta-prior pseudocounts, both &gt; 0.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mc</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cov</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">keep</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="nb">max</span><span class="p">(</span><span class="n">min_cov</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">mc</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+    <span class="n">n_sites</span> <span class="o">=</span> <span class="n">cov</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">if</span> <span class="n">n_sites</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cov</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;no covered sites (cov &gt;= min_cov) to estimate prior.&quot;</span><span class="p">)</span>
+
+    <span class="n">mu</span> <span class="o">=</span> <span class="n">mc</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">cov</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>                      <span class="c1"># first moment -&gt; Beta mean</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">eps</span><span class="p">),</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">eps</span><span class="p">)</span>
+
+    <span class="n">denom_var</span> <span class="o">=</span> <span class="n">mu</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span>
+    <span class="c1"># Pearson-type over-dispersion statistic (per-site binomial variance scaled)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">mc</span> <span class="o">-</span> <span class="n">cov</span> <span class="o">*</span> <span class="n">mu</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="n">cov</span> <span class="o">*</span> <span class="n">denom_var</span><span class="p">))</span>
+    <span class="n">sum_cov_minus_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">cov</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>            <span class="c1"># = sum(cov) - n_sites</span>
+    <span class="k">if</span> <span class="n">sum_cov_minus_1</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># every kept site has cov == 1 -&gt; no info on dispersion; fall back to</span>
+        <span class="c1"># a weak prior with the estimated mean.</span>
+        <span class="n">kappa</span> <span class="o">=</span> <span class="mf">2.0</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">mu</span> <span class="o">*</span> <span class="n">kappa</span><span class="p">),</span> <span class="nb">float</span><span class="p">((</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="n">kappa</span><span class="p">)</span>
+
+    <span class="n">n_eff</span> <span class="o">=</span> <span class="p">(</span><span class="n">n_sites</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">df_correction</span> <span class="k">else</span> <span class="n">n_sites</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">n_eff</span><span class="p">)</span> <span class="o">/</span> <span class="n">sum_cov_minus_1</span>            <span class="c1"># intra-class correlation</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="n">eps</span><span class="p">),</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">eps</span><span class="p">)</span>            <span class="c1"># clamp to (0, 1)</span>
+
+    <span class="n">kappa</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">rho</span><span class="p">)</span> <span class="o">/</span> <span class="n">rho</span>                       <span class="c1"># = alpha + beta</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">mu</span> <span class="o">*</span> <span class="n">kappa</span><span class="p">),</span> <span class="nb">float</span><span class="p">((</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="n">kappa</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># ==========================================================</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_mc_cov</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">mc_col</span><span class="o">=</span><span class="s1">&#39;mc&#39;</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="s1">&#39;cov&#39;</span><span class="p">,</span> <span class="n">chunk_keys</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read (mc, cov) as 1-D arrays concatenated over ``chunk_keys``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str</span>
+<span class="sd">        Path to a ``.cz`` file with ``mc_col`` / ``cov_col`` columns.</span>
+<span class="sd">    mc_col, cov_col : str</span>
+<span class="sd">        Column names holding the methylated count and coverage.</span>
+<span class="sd">    chunk_keys : list of tuple or None</span>
+<span class="sd">        Chunk keys (e.g. ``[(&#39;chr1&#39;,), (&#39;chr2&#39;,), ...]``) in the desired</span>
+<span class="sd">        concatenation order. ``None`` uses ``sorted(chunk_key2offset)``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (chunk_keys, mc, cov) : (list, np.ndarray float64, np.ndarray float64)</span>
+<span class="sd">        The keys actually used and the concatenated arrays.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">mc_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cols</span> <span class="ow">or</span> <span class="n">cov_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: expected columns </span><span class="si">{</span><span class="n">mc_col</span><span class="si">!r}</span><span class="s2"> and </span><span class="si">{</span><span class="n">cov_col</span><span class="si">!r}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">cols</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">mi</span><span class="p">,</span> <span class="n">ci</span> <span class="o">=</span> <span class="n">cols</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">mc_col</span><span class="p">),</span> <span class="n">cols</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">cov_col</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">chunk_keys</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">chunk_keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">mc_parts</span><span class="p">,</span> <span class="n">cov_parts</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">chunk_keys</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: missing chunk </span><span class="si">{</span><span class="n">k</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+            <span class="n">mc_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">mi</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]))</span>
+            <span class="n">cov_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">ci</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]))</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">r</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">mc_parts</span><span class="p">:</span>
+        <span class="n">mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">mc_parts</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">cov_parts</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">chunk_keys</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_context</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">context_col</span><span class="o">=</span><span class="s1">&#39;context&#39;</span><span class="p">,</span> <span class="n">chunk_keys</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read the per-row ``context`` bytes concatenated over ``chunk_keys``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str</span>
+<span class="sd">        Path to a ``.cz`` file carrying a ``context_col`` column (e.g. a</span>
+<span class="sd">        ``build_ref`` reference with ``pos, strand, context``, or any file</span>
+<span class="sd">        that stores its own context).</span>
+<span class="sd">    context_col : str</span>
+<span class="sd">        Name of the context column.</span>
+<span class="sd">    chunk_keys : list of tuple or None</span>
+<span class="sd">        Chunk order; ``None`` uses ``sorted(chunk_key2offset)``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (chunk_keys, ctx) : (list, np.ndarray of ``S{n}`` bytes)</span>
+<span class="sd">        Fixed-width byte strings such as ``b&#39;CGN&#39;`` / ``b&#39;CAC&#39;``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">context_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: no </span><span class="si">{</span><span class="n">context_col</span><span class="si">!r}</span><span class="s2"> column (got </span><span class="si">{</span><span class="n">cols</span><span class="si">!r}</span><span class="s2">); pass &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;context= a reference .cz that has one.&quot;</span><span class="p">)</span>
+        <span class="n">ci</span> <span class="o">=</span> <span class="n">cols</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">context_col</span><span class="p">)</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">][</span><span class="n">ci</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">chunk_keys</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">chunk_keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">chunk_keys</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: missing chunk </span><span class="si">{</span><span class="n">k</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+            <span class="n">fld</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">ci</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">])</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">fld</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;S</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">))</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">r</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">ctx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="k">if</span> <span class="n">parts</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;S1&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">chunk_keys</span><span class="p">,</span> <span class="n">ctx</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_context_masks</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split a context byte array into (CpG mask, CpH mask).</span>
+
+<span class="sd">    A cytosine is CpG when the 2nd base is ``G`` (e.g. ``CGN``); it is CpH</span>
+<span class="sd">    when the 2nd base is ``A``/``C``/``T`` (e.g. ``CAC``, ``CTG``). Anything</span>
+<span class="sd">    else (e.g. ``CNN``) belongs to neither mask and is ignored.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ctx : np.ndarray of ``S{n}`` bytes</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (cg_mask, ch_mask) : (np.ndarray bool, np.ndarray bool)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">bool</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">itemsize</span>
+    <span class="k">if</span> <span class="n">width</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;context strings must be at least 2 bases wide.&quot;</span><span class="p">)</span>
+    <span class="n">second</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;S1&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">width</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">second</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">char</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">second</span><span class="p">)</span>
+    <span class="n">cg</span> <span class="o">=</span> <span class="n">second</span> <span class="o">==</span> <span class="sa">b</span><span class="s1">&#39;G&#39;</span>
+    <span class="n">ch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">second</span><span class="p">,</span> <span class="p">[</span><span class="sa">b</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;C&#39;</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;T&#39;</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">cg</span><span class="p">,</span> <span class="n">ch</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_select_discriminative</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_range</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Select discriminative sites from a ``(n_sites, n_types)`` theta matrix.</span>
+
+<span class="sd">    The per-site score is the across-type frequency range</span>
+<span class="sd">    ``theta.max(axis=1) - theta.min(axis=1)``: sites where types disagree</span>
+<span class="sd">    most carry the most classification signal, while constant-methylation</span>
+<span class="sd">    sites (range ~0) are uninformative and dropped.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    theta : np.ndarray, shape (n_sites, n_types)</span>
+<span class="sd">    top : None, int, or float</span>
+<span class="sd">        If ``None``, keep every site with score &gt;= ``min_range``. If an</span>
+<span class="sd">        ``int``, keep the top-``top`` sites by score. If a ``float`` in</span>
+<span class="sd">        (0, 1], keep the top fraction of sites.</span>
+<span class="sd">    min_range : float</span>
+<span class="sd">        Minimum across-type range required to keep a site (default 0.0).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        Sorted 1-D array of selected site indices (into the channel subset).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">theta</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">score</span> <span class="o">=</span> <span class="n">theta</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">theta</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">score</span> <span class="o">&gt;=</span> <span class="n">min_range</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">top</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">keep</span>
+    <span class="n">order</span> <span class="o">=</span> <span class="n">keep</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">score</span><span class="p">[</span><span class="n">keep</span><span class="p">])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">top</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">top</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;float `top` must be in (0, 1].&quot;</span><span class="p">)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">top</span> <span class="o">*</span> <span class="n">order</span><span class="o">.</span><span class="n">size</span><span class="p">)))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">top</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">order</span><span class="p">[:</span><span class="n">k</span><span class="p">])</span>
+
+
+<span class="c1"># ==========================================================</span>
+<div class="viewcode-block" id="CellTypeClassifier">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CellTypeClassifier</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Site-likelihood (naive-Bayes) cell-type classifier for methylation .cz.</span>
+
+<span class="sd">    Estimate per-site methylation frequencies from cell-type pseudobulk</span>
+<span class="sd">    ``.cz`` files, then score query cells by aggregated per-cytosine</span>
+<span class="sd">    Bernoulli log-likelihood in the CpG and CpH channels. Each input ``.cz``</span>
+<span class="sd">    holds *all* cytosines (CpG + CpH) as ``mc``/``cov``; the CpG vs CpH split</span>
+<span class="sd">    comes from the ``context`` column, read from a ``build_ref`` ``reference``</span>
+<span class="sd">    ``.cz`` (the cell-type files usually store only ``mc``/``cov``), so no</span>
+<span class="sd">    pre-splitting into separate CG / CH files is needed.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    alpha0_cg, beta0_cg : float or None</span>
+<span class="sd">        Beta-prior pseudocounts for the CpG channel. ``None`` (default) -&gt;</span>
+<span class="sd">        estimate them empirically at ``fit`` time from the pooled reference</span>
+<span class="sd">        counts of that context via :func:`estimate_beta_prior`</span>
+<span class="sd">        (Beta-Binomial method of moments). Pass explicit floats to override</span>
+<span class="sd">        the auto-estimate (both must be given to take effect).</span>
+<span class="sd">    alpha0_ch, beta0_ch : float or None</span>
+<span class="sd">        Beta-prior pseudocounts for the CpH channel. ``None`` (default) -&gt;</span>
+<span class="sd">        auto-estimated like the CpG channel (its own separate prior).</span>
+<span class="sd">    lambda_cg, lambda_ch : float</span>
+<span class="sd">        Log-space channel weights (default 1 each). CpH sites are far more</span>
+<span class="sd">        numerous and often dominate implicitly; lower ``lambda_ch`` to</span>
+<span class="sd">        rebalance.</span>
+<span class="sd">    prior_min_cov : int</span>
+<span class="sd">        Minimum coverage for a reference site to enter the empirical prior</span>
+<span class="sd">        estimation (passed to :func:`estimate_beta_prior`; default 2).</span>
+<span class="sd">    mc_col, cov_col, context_col : str</span>
+<span class="sd">        Column names for methylated count, coverage, and sequence context</span>
+<span class="sd">        in the ``.cz`` files.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha0_cg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">beta0_cg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">alpha0_ch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">beta0_ch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">lambda_cg</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">lambda_ch</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">prior_min_cov</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                 <span class="n">mc_col</span><span class="o">=</span><span class="s1">&#39;mc&#39;</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="s1">&#39;cov&#39;</span><span class="p">,</span> <span class="n">context_col</span><span class="o">=</span><span class="s1">&#39;context&#39;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha0_cg</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">alpha0_cg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">alpha0_cg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta0_cg</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">beta0_cg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">beta0_cg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha0_ch</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">alpha0_ch</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">alpha0_ch</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta0_ch</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">beta0_ch</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">beta0_ch</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambda_cg</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">lambda_cg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambda_ch</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">lambda_ch</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prior_min_cov</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">prior_min_cov</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mc_col</span> <span class="o">=</span> <span class="n">mc_col</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cov_col</span> <span class="o">=</span> <span class="n">cov_col</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">context_col</span> <span class="o">=</span> <span class="n">context_col</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_counts</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_keys</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_n_full</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Per-channel fitted state (None if that context has no sites):</span>
+        <span class="c1">#   mask        : bool over the full axis selecting this context</span>
+        <span class="c1">#   sites       : indices into the masked subset (discriminative)</span>
+        <span class="c1">#   log_theta / log1m_theta : (n_selected, n_types) float32</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cg</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ch</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span>
+                       <span class="n">alpha0</span><span class="p">,</span> <span class="n">beta0</span><span class="p">,</span> <span class="n">top</span><span class="p">,</span> <span class="n">min_range</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span>
+                       <span class="n">prior_min_cov</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Estimate theta for one context and pick discriminative sites.</span>
+
+<span class="sd">        When ``alpha0``/``beta0`` are ``None`` the Beta shrinkage prior is</span>
+<span class="sd">        estimated empirically from this context&#39;s pooled (all-cell-type)</span>
+<span class="sd">        reference counts via :func:`estimate_beta_prior`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: no sites in this context; channel off.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="c1"># empirical-Bayes prior: estimate per context from the pooled reference</span>
+        <span class="c1"># counts when not explicitly provided by the user.</span>
+        <span class="k">if</span> <span class="n">alpha0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">beta0</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mc_pool</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">mc_all</span><span class="p">[</span><span class="n">t</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">cell_types</span><span class="p">])</span>
+            <span class="n">cov_pool</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">cov_all</span><span class="p">[</span><span class="n">t</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">cell_types</span><span class="p">])</span>
+            <span class="n">alpha0</span><span class="p">,</span> <span class="n">beta0</span> <span class="o">=</span> <span class="n">estimate_beta_prior</span><span class="p">(</span>
+                <span class="n">mc_pool</span><span class="p">,</span> <span class="n">cov_pool</span><span class="p">,</span> <span class="n">min_cov</span><span class="o">=</span><span class="n">prior_min_cov</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: estimated Beta prior alpha0=</span><span class="si">{</span><span class="n">alpha0</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;beta0=</span><span class="si">{</span><span class="n">beta0</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2"> (mean=</span><span class="si">{</span><span class="n">alpha0</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">alpha0</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">beta0</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;kappa=</span><span class="si">{</span><span class="n">alpha0</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">beta0</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="n">thetas</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">cell_types</span><span class="p">:</span>
+            <span class="n">thetas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">estimate_theta</span><span class="p">(</span>
+                <span class="n">mc_all</span><span class="p">[</span><span class="n">t</span><span class="p">][</span><span class="n">mask</span><span class="p">],</span> <span class="n">cov_all</span><span class="p">[</span><span class="n">t</span><span class="p">][</span><span class="n">mask</span><span class="p">],</span> <span class="n">alpha0</span><span class="p">,</span> <span class="n">beta0</span><span class="p">))</span>
+        <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">(</span><span class="n">thetas</span><span class="p">)</span>  <span class="c1"># (n_ctx, n_types)</span>
+        <span class="n">sites</span> <span class="o">=</span> <span class="n">_select_discriminative</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="n">top</span><span class="p">,</span> <span class="n">min_range</span><span class="o">=</span><span class="n">min_range</span><span class="p">)</span>
+        <span class="n">theta_sel</span> <span class="o">=</span> <span class="n">theta</span><span class="p">[</span><span class="n">sites</span><span class="p">]</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> context sites -&gt; &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sites</span><span class="o">.</span><span class="n">size</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> discriminative sites across &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cell_types</span><span class="p">)</span><span class="si">}</span><span class="s2"> cell types&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;mask&#39;</span><span class="p">:</span> <span class="n">mask</span><span class="p">,</span>
+            <span class="s1">&#39;sites&#39;</span><span class="p">:</span> <span class="n">sites</span><span class="p">,</span>
+            <span class="s1">&#39;alpha0&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">alpha0</span><span class="p">),</span>
+            <span class="s1">&#39;beta0&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">beta0</span><span class="p">),</span>
+            <span class="s1">&#39;log_theta&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">theta_sel</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+            <span class="s1">&#39;log1m_theta&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="o">-</span><span class="n">theta_sel</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="CellTypeClassifier.fit">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.fit">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pseudobulks</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_counts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">top_cg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">top_ch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_range_cg</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">min_range_ch</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Estimate per-type methylation frequencies from cell-type ``.cz`` files.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        pseudobulks : dict {cell_type: path}</span>
+<span class="sd">            Per-type pseudobulk ``.cz`` files, each holding *all* cytosines</span>
+<span class="sd">            (CpG + CpH) as ``mc``/``cov`` aligned to a common reference axis.</span>
+<span class="sd">            These typically store **only** ``mc``/``cov`` (no ``pos`` /</span>
+<span class="sd">            ``context``), in which case ``reference`` is required.</span>
+<span class="sd">        reference : str or None</span>
+<span class="sd">            Path to the ``build_ref`` reference ``.cz`` (with ``pos, strand,</span>
+<span class="sd">            context``) supplying the per-row ``context`` used to split CpG</span>
+<span class="sd">            vs CpH. ``None`` (default) only works when the ``pseudobulks``</span>
+<span class="sd">            files themselves carry a ``context_col`` column; otherwise pass</span>
+<span class="sd">            the reference here.</span>
+<span class="sd">        cell_counts : dict {cell_type: int}, optional</span>
+<span class="sd">            Number of reference cells per type, used for the abundance /</span>
+<span class="sd">            tempered prior at predict time. ``None`` (default) -&gt; uniform</span>
+<span class="sd">            prior only.</span>
+<span class="sd">        top_cg, top_ch : None, int, or float, optional</span>
+<span class="sd">            Discriminative-site selection for each channel. ``None`` keeps</span>
+<span class="sd">            all sites with range &gt;= ``min_range_*``; an int keeps the top-N</span>
+<span class="sd">            sites; a float in (0, 1] keeps the top fraction.</span>
+<span class="sd">        min_range_cg, min_range_ch : float, optional</span>
+<span class="sd">            Minimum across-type frequency range to keep a site.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        self</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pseudobulks</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;pseudobulks must be a non-empty {cell_type: path} dict.&quot;</span><span class="p">)</span>
+        <span class="n">cell_types</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">pseudobulks</span><span class="p">)</span>
+
+        <span class="c1"># ---- Canonical axis + CpG/CpH masks from the context source ------</span>
+        <span class="c1"># Cell-type files are usually mc/cov-only, so read context from the</span>
+        <span class="c1"># build_ref `reference` when provided; otherwise fall back to the</span>
+        <span class="c1"># pseudobulk files themselves (only works if they carry `context`).</span>
+        <span class="n">ctx_source</span> <span class="o">=</span> <span class="n">reference</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pseudobulks</span><span class="p">[</span><span class="n">cell_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">chunk_keys</span><span class="p">,</span> <span class="n">ctx</span> <span class="o">=</span> <span class="n">_read_context</span><span class="p">(</span><span class="n">ctx_source</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">context_col</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">cg_mask</span><span class="p">,</span> <span class="n">ch_mask</span> <span class="o">=</span> <span class="n">_context_masks</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="n">n_full</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">size</span>
+
+        <span class="c1"># ---- Read every pseudobulk&#39;s mc/cov once (full axis) -------------</span>
+        <span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">cell_types</span><span class="p">:</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">_read_mc_cov</span><span class="p">(</span>
+                <span class="n">pseudobulks</span><span class="p">[</span><span class="n">t</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">mc_col</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cov_col</span><span class="p">,</span> <span class="n">chunk_keys</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">mc</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">n_full</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;pseudobulk </span><span class="si">{</span><span class="n">t</span><span class="si">!r}</span><span class="s2"> has </span><span class="si">{</span><span class="n">mc</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> sites but the context &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;axis has </span><span class="si">{</span><span class="n">n_full</span><span class="si">}</span><span class="s2">; all cell-type files (and the query) &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;must be aligned to the same reference axis.&quot;</span><span class="p">)</span>
+            <span class="n">mc_all</span><span class="p">[</span><span class="n">t</span><span class="p">],</span> <span class="n">cov_all</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_channel</span><span class="p">(</span>
+            <span class="n">cell_types</span><span class="p">,</span> <span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span><span class="p">,</span> <span class="n">cg_mask</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">alpha0_cg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta0_cg</span><span class="p">,</span> <span class="n">top_cg</span><span class="p">,</span> <span class="n">min_range_cg</span><span class="p">,</span> <span class="s1">&#39;CG&#39;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prior_min_cov</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_channel</span><span class="p">(</span>
+            <span class="n">cell_types</span><span class="p">,</span> <span class="n">mc_all</span><span class="p">,</span> <span class="n">cov_all</span><span class="p">,</span> <span class="n">ch_mask</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">alpha0_ch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta0_ch</span><span class="p">,</span> <span class="n">top_ch</span><span class="p">,</span> <span class="n">min_range_ch</span><span class="p">,</span> <span class="s1">&#39;CH&#39;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">prior_min_cov</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ch</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;no CpG or CpH sites found; check context_col.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># record the effective (possibly auto-estimated) priors so save()/load()</span>
+        <span class="c1"># and inspection see the actual numbers used.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">alpha0_cg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta0_cg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cg</span><span class="p">[</span><span class="s1">&#39;alpha0&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cg</span><span class="p">[</span><span class="s1">&#39;beta0&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ch</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">alpha0_ch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta0_ch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ch</span><span class="p">[</span><span class="s1">&#39;alpha0&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ch</span><span class="p">[</span><span class="s1">&#39;beta0&#39;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span> <span class="o">=</span> <span class="n">cell_types</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_counts</span> <span class="o">=</span> <span class="n">cell_counts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_keys</span> <span class="o">=</span> <span class="n">chunk_keys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_n_full</span> <span class="o">=</span> <span class="n">n_full</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_prior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the (n_types,) log-prior vector.</span>
+
+<span class="sd">        Uniform when ``cell_counts`` is unknown; otherwise the tempered</span>
+<span class="sd">        abundance prior ``pi_t ∝ N_t ** prior_alpha`` (``prior_alpha=0`` -&gt;</span>
+<span class="sd">        uniform, ``1`` -&gt; pure abundance).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_counts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">prior_alpha</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">T</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_counts</span><span class="p">[</span><span class="n">t</span><span class="p">])</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span><span class="p">])</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">prior_alpha</span><span class="p">))</span>
+        <span class="n">pi</span> <span class="o">=</span> <span class="n">w</span> <span class="o">/</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">pi</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_score</span><span class="p">(</span><span class="n">chan</span><span class="p">,</span> <span class="n">mc_full</span><span class="p">,</span> <span class="n">cov_full</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Aggregated Bernoulli log-likelihood for one channel: (n_types,).&quot;&quot;&quot;</span>
+        <span class="n">mc</span> <span class="o">=</span> <span class="n">mc_full</span><span class="p">[</span><span class="n">chan</span><span class="p">[</span><span class="s1">&#39;mask&#39;</span><span class="p">]][</span><span class="n">chan</span><span class="p">[</span><span class="s1">&#39;sites&#39;</span><span class="p">]]</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">cov_full</span><span class="p">[</span><span class="n">chan</span><span class="p">[</span><span class="s1">&#39;mask&#39;</span><span class="p">]][</span><span class="n">chan</span><span class="p">[</span><span class="s1">&#39;sites&#39;</span><span class="p">]]</span>
+        <span class="n">umc</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span>  <span class="c1"># unmethylated observations</span>
+        <span class="c1"># (n_types,) = (n_sites,) . (n_sites, n_types)</span>
+        <span class="k">return</span> <span class="n">mc</span> <span class="o">@</span> <span class="n">chan</span><span class="p">[</span><span class="s1">&#39;log_theta&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">umc</span> <span class="o">@</span> <span class="n">chan</span><span class="p">[</span><span class="s1">&#39;log1m_theta&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return full-axis (mc, cov) for a query path or preloaded arrays.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+            <span class="n">mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">query</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">query</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">_read_mc_cov</span><span class="p">(</span>
+                <span class="n">query</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mc_col</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cov_col</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_keys</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mc</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n_full</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;query has </span><span class="si">{</span><span class="n">mc</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> sites but the model was fit on &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_n_full</span><span class="si">}</span><span class="s2">; query must be aligned to the same reference &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;axis as the references.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span>
+
+<div class="viewcode-block" id="CellTypeClassifier.log_posterior">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_posterior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unnormalized log-posterior per cell type: pandas Series.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        query : str or (mc, cov) tuple</span>
+<span class="sd">            The query cell&#39;s all-cytosine ``.cz`` (or preloaded full-axis</span>
+<span class="sd">            ``(mc, cov)`` arrays).</span>
+<span class="sd">        prior_alpha : float</span>
+<span class="sd">            Temperature for the abundance prior (see :meth:`_log_prior`).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;call fit() before predicting.&quot;</span><span class="p">)</span>
+        <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="n">logpost</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_prior</span><span class="p">(</span><span class="n">prior_alpha</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logpost</span> <span class="o">=</span> <span class="n">logpost</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambda_cg</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_score</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cg</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ch</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logpost</span> <span class="o">=</span> <span class="n">logpost</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambda_ch</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_score</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ch</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">logpost</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span><span class="p">)</span></div>
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_softmax</span><span class="p">(</span><span class="n">logpost</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Numerically stable softmax of an array -&gt; array.&quot;&quot;&quot;</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">logpost</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="n">vals</span> <span class="o">-</span> <span class="n">vals</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+        <span class="n">p</span> <span class="o">/=</span> <span class="n">p</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+<div class="viewcode-block" id="CellTypeClassifier.predict_proba">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_proba</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Softmax posterior probabilities per cell type: pandas Series.&quot;&quot;&quot;</span>
+        <span class="n">logpost</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_posterior</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_softmax</span><span class="p">(</span><span class="n">logpost</span><span class="o">.</span><span class="n">values</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CellTypeClassifier.predict">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">abstain_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Predict the most likely cell type for one query cell.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        query : str or (mc, cov) tuple</span>
+<span class="sd">            The query cell&#39;s all-cytosine ``.cz`` (or preloaded arrays).</span>
+<span class="sd">        prior_alpha : float</span>
+<span class="sd">            Abundance-prior temperature (default 0 -&gt; uniform prior).</span>
+<span class="sd">        abstain_threshold : float or None</span>
+<span class="sd">            If given and the top probability is below it, the label becomes</span>
+<span class="sd">            ``&#39;unassigned&#39;`` (abstention).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            ``{&#39;label&#39;, &#39;confidence&#39;, &#39;proba&#39; (Series), &#39;log_posterior&#39;</span>
+<span class="sd">            (Series)}``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logpost</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_posterior</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="p">)</span>
+        <span class="n">proba</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_softmax</span><span class="p">(</span><span class="n">logpost</span><span class="o">.</span><span class="n">values</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span><span class="p">)</span>
+        <span class="n">top</span> <span class="o">=</span> <span class="n">proba</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()</span>
+        <span class="n">conf</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">proba</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">top</span>
+        <span class="k">if</span> <span class="n">abstain_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">conf</span> <span class="o">&lt;</span> <span class="n">abstain_threshold</span><span class="p">:</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;unassigned&#39;</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span> <span class="s1">&#39;confidence&#39;</span><span class="p">:</span> <span class="n">conf</span><span class="p">,</span>
+                <span class="s1">&#39;proba&#39;</span><span class="p">:</span> <span class="n">proba</span><span class="p">,</span> <span class="s1">&#39;log_posterior&#39;</span><span class="p">:</span> <span class="n">logpost</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="CellTypeClassifier.predict_batch">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">abstain_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Predict many cells at once.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        queries : dict {cell_id: path} or list of paths</span>
+<span class="sd">            One all-cytosine ``.cz`` per query cell.</span>
+<span class="sd">        prior_alpha, abstain_threshold : see :meth:`predict`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        (labels, proba) : (pandas.DataFrame, pandas.DataFrame)</span>
+<span class="sd">            ``labels`` has columns ``[&#39;label&#39;, &#39;confidence&#39;]`` indexed by</span>
+<span class="sd">            cell id; ``proba`` is a cell x cell_type probability matrix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">qmap</span> <span class="o">=</span> <span class="n">_as_id_map</span><span class="p">(</span><span class="n">queries</span><span class="p">)</span>
+        <span class="n">rows</span><span class="p">,</span> <span class="n">proba_rows</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">cid</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">qmap</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="n">prior_alpha</span><span class="p">,</span>
+                               <span class="n">abstain_threshold</span><span class="o">=</span><span class="n">abstain_threshold</span><span class="p">)</span>
+            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">cid</span><span class="p">,</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">],</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;confidence&#39;</span><span class="p">]))</span>
+            <span class="n">proba_rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">[</span><span class="s1">&#39;proba&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">cid</span><span class="p">))</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">[(</span><span class="n">l</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">],</span>
+            <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">,</span> <span class="s1">&#39;confidence&#39;</span><span class="p">])</span>
+        <span class="n">proba</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">proba_rows</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">labels</span><span class="p">,</span> <span class="n">proba</span></div>
+
+
+    <span class="c1"># ----------------------------------------------------------------------</span>
+<div class="viewcode-block" id="CellTypeClassifier.save">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.save">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Persist the fitted model to a single ``.npz`` file.</span>
+
+<span class="sd">        Stores all hyper-parameters, the reference axis (chunk order +</span>
+<span class="sd">        length), the CpG/CpH masks and discriminative-site indices, and the</span>
+<span class="sd">        pre-computed ``log_theta`` / ``log1m_theta`` matrices. Nothing is</span>
+<span class="sd">        pickled — arrays are saved natively and the metadata is a JSON</span>
+<span class="sd">        string — so :meth:`load` runs with ``allow_pickle=False``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        path : str</span>
+<span class="sd">            Output ``.npz`` path. The exact name is used (no ``.npz`` is</span>
+<span class="sd">            auto-appended).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            The path written.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;call fit() before save().&quot;</span><span class="p">)</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;format&#39;</span><span class="p">:</span> <span class="s1">&#39;cytozip.CellTypeClassifier&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s1">&#39;alpha0_cg&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha0_cg</span><span class="p">,</span> <span class="s1">&#39;beta0_cg&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta0_cg</span><span class="p">,</span>
+            <span class="s1">&#39;alpha0_ch&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha0_ch</span><span class="p">,</span> <span class="s1">&#39;beta0_ch&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta0_ch</span><span class="p">,</span>
+            <span class="s1">&#39;lambda_cg&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambda_cg</span><span class="p">,</span> <span class="s1">&#39;lambda_ch&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambda_ch</span><span class="p">,</span>
+            <span class="s1">&#39;mc_col&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">mc_col</span><span class="p">,</span> <span class="s1">&#39;cov_col&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cov_col</span><span class="p">,</span>
+            <span class="s1">&#39;context_col&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">context_col</span><span class="p">,</span>
+            <span class="s1">&#39;cell_types&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_types</span><span class="p">),</span>
+            <span class="s1">&#39;cell_counts&#39;</span><span class="p">:</span> <span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_counts</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_counts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="s1">&#39;chunk_keys&#39;</span><span class="p">:</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_keys</span><span class="p">],</span>
+            <span class="s1">&#39;n_full&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_n_full</span><span class="p">),</span>
+            <span class="s1">&#39;has_cg&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;has_ch&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ch</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">arrays</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;meta&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">meta</span><span class="p">))}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">chan</span> <span class="ow">in</span> <span class="p">((</span><span class="s1">&#39;cg&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cg</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;ch&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ch</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">chan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_mask&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chan</span><span class="p">[</span><span class="s1">&#39;mask&#39;</span><span class="p">]</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_sites&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chan</span><span class="p">[</span><span class="s1">&#39;sites&#39;</span><span class="p">]</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_log_theta&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chan</span><span class="p">[</span><span class="s1">&#39;log_theta&#39;</span><span class="p">]</span>
+            <span class="n">arrays</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_log1m_theta&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chan</span><span class="p">[</span><span class="s1">&#39;log1m_theta&#39;</span><span class="p">]</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="c1"># Pass a file object so numpy does not auto-append &quot;.npz&quot;.</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">savez_compressed</span><span class="p">(</span><span class="n">fh</span><span class="p">,</span> <span class="o">**</span><span class="n">arrays</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;saved CellTypeClassifier to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">path</span></div>
+
+
+<div class="viewcode-block" id="CellTypeClassifier.load">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.load">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a model saved by :meth:`save` (no refitting needed).</span>
+
+<span class="sd">        The returned classifier can immediately score a new single-cell</span>
+<span class="sd">        ``.cz`` via :meth:`predict` / :meth:`predict_batch`, as long as the</span>
+<span class="sd">        query is aligned to the same reference axis used at ``fit`` time.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        path : str</span>
+<span class="sd">            Path to a ``.npz`` produced by :meth:`save`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CellTypeClassifier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;meta&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
+        <span class="k">if</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;format&#39;</span><span class="p">)</span> <span class="o">!=</span> <span class="s1">&#39;cytozip.CellTypeClassifier&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: not a CellTypeClassifier model file.&quot;</span><span class="p">)</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">alpha0_cg</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;alpha0_cg&#39;</span><span class="p">],</span> <span class="n">beta0_cg</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;beta0_cg&#39;</span><span class="p">],</span>
+            <span class="n">alpha0_ch</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;alpha0_ch&#39;</span><span class="p">],</span> <span class="n">beta0_ch</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;beta0_ch&#39;</span><span class="p">],</span>
+            <span class="n">lambda_cg</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;lambda_cg&#39;</span><span class="p">],</span> <span class="n">lambda_ch</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;lambda_ch&#39;</span><span class="p">],</span>
+            <span class="n">mc_col</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;mc_col&#39;</span><span class="p">],</span> <span class="n">cov_col</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;cov_col&#39;</span><span class="p">],</span>
+            <span class="n">context_col</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;context_col&#39;</span><span class="p">])</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">cell_types</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;cell_types&#39;</span><span class="p">])</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">cell_counts</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;cell_counts&#39;</span><span class="p">]</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">_chunk_keys</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;chunk_keys&#39;</span><span class="p">]]</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">_n_full</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;n_full&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;has_cg&#39;</span><span class="p">]:</span>
+            <span class="n">obj</span><span class="o">.</span><span class="n">_cg</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;mask&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;cg_mask&#39;</span><span class="p">],</span> <span class="s1">&#39;sites&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;cg_sites&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;log_theta&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;cg_log_theta&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;log1m_theta&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;cg_log1m_theta&#39;</span><span class="p">]}</span>
+        <span class="k">if</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;has_ch&#39;</span><span class="p">]:</span>
+            <span class="n">obj</span><span class="o">.</span><span class="n">_ch</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;mask&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;ch_mask&#39;</span><span class="p">],</span> <span class="s1">&#39;sites&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;ch_sites&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;log_theta&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;ch_log_theta&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;log1m_theta&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;ch_log1m_theta&#39;</span><span class="p">]}</span>
+        <span class="k">return</span> <span class="n">obj</span></div>
+</div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_as_id_map</span><span class="p">(</span><span class="n">queries</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize a dict/list of query paths into a ``{id: path}`` dict.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">queries</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">))</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">}</span>
+
+
+<span class="c1"># ==========================================================</span>
+<div class="viewcode-block" id="predict_cell_type">
+<a class="viewcode-back" href="../../cytozip.model.html#cytozip.model.predict_cell_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">predict_cell_type</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pseudobulks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                      <span class="n">cell_counts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+                      <span class="n">lambda_cg</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">lambda_ch</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                      <span class="n">alpha0_cg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">beta0_cg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                      <span class="n">alpha0_ch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">beta0_ch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prior_min_cov</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                      <span class="n">top_cg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">top_ch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                      <span class="n">min_range_cg</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">min_range_ch</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+                      <span class="n">mc_col</span><span class="o">=</span><span class="s1">&#39;mc&#39;</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="s1">&#39;cov&#39;</span><span class="p">,</span> <span class="n">context_col</span><span class="o">=</span><span class="s1">&#39;context&#39;</span><span class="p">,</span>
+                      <span class="n">abstain_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;One-shot convenience wrapper: fit cell-type files and predict one cell.</span>
+
+<span class="sd">    Given a single-cell query ``.cz`` (all cytosines) and per-cell-type</span>
+<span class="sd">    pseudobulk ``.cz`` files, return the most likely cell type. See</span>
+<span class="sd">    :class:`CellTypeClassifier` for the parameter semantics.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    query : str or (mc, cov) tuple</span>
+<span class="sd">        Single-cell all-cytosine ``.cz`` (or preloaded full-axis arrays).</span>
+<span class="sd">    pseudobulks : dict {cell_type: path}</span>
+<span class="sd">        Per-type pseudobulk ``.cz`` files (all cytosines, usually mc/cov-only).</span>
+<span class="sd">    reference : str or None</span>
+<span class="sd">        ``build_ref`` reference ``.cz`` supplying the per-row ``context``</span>
+<span class="sd">        (required when the ``pseudobulks`` files lack a context column). See</span>
+<span class="sd">        :meth:`CellTypeClassifier.fit`.</span>
+<span class="sd">    (remaining) :</span>
+<span class="sd">        Forwarded to :class:`CellTypeClassifier` / :meth:`fit` /</span>
+<span class="sd">        :meth:`predict`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        As returned by :meth:`CellTypeClassifier.predict`</span>
+<span class="sd">        (``label``, ``confidence``, ``proba``, ``log_posterior``).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">clf</span> <span class="o">=</span> <span class="n">CellTypeClassifier</span><span class="p">(</span>
+        <span class="n">alpha0_cg</span><span class="o">=</span><span class="n">alpha0_cg</span><span class="p">,</span> <span class="n">beta0_cg</span><span class="o">=</span><span class="n">beta0_cg</span><span class="p">,</span>
+        <span class="n">alpha0_ch</span><span class="o">=</span><span class="n">alpha0_ch</span><span class="p">,</span> <span class="n">beta0_ch</span><span class="o">=</span><span class="n">beta0_ch</span><span class="p">,</span>
+        <span class="n">lambda_cg</span><span class="o">=</span><span class="n">lambda_cg</span><span class="p">,</span> <span class="n">lambda_ch</span><span class="o">=</span><span class="n">lambda_ch</span><span class="p">,</span> <span class="n">prior_min_cov</span><span class="o">=</span><span class="n">prior_min_cov</span><span class="p">,</span>
+        <span class="n">mc_col</span><span class="o">=</span><span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="n">cov_col</span><span class="p">,</span> <span class="n">context_col</span><span class="o">=</span><span class="n">context_col</span><span class="p">)</span>
+    <span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">pseudobulks</span><span class="o">=</span><span class="n">pseudobulks</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">,</span> <span class="n">cell_counts</span><span class="o">=</span><span class="n">cell_counts</span><span class="p">,</span>
+            <span class="n">top_cg</span><span class="o">=</span><span class="n">top_cg</span><span class="p">,</span> <span class="n">top_ch</span><span class="o">=</span><span class="n">top_ch</span><span class="p">,</span>
+            <span class="n">min_range_cg</span><span class="o">=</span><span class="n">min_range_cg</span><span class="p">,</span> <span class="n">min_range_ch</span><span class="o">=</span><span class="n">min_range_ch</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">prior_alpha</span><span class="o">=</span><span class="n">prior_alpha</span><span class="p">,</span>
+                       <span class="n">abstain_threshold</span><span class="o">=</span><span class="n">abstain_threshold</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Wubin Ding.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-F0T1MBS19V', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

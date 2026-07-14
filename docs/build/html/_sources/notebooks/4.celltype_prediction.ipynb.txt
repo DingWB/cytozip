@@ -1,0 +1,251 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "4b4d3807",
+   "metadata": {},
+   "source": [
+    "# Cell-type prediction from methylation `.cz` (`CellTypeClassifier`)\n",
+    "\n",
+    "Predict the cell type of a shallow single-cell (e.g. MiSeq snm3C-seq, ~200 reads/cell) `.cz` file using deep-sequencing per-cell-type pseudobulk `.cz` files.\n",
+    "\n",
+    "**Method** — a transparent, training-free naive-Bayes / methylation-frequency deconvolution:\n",
+    "\n",
+    "1. For each candidate type `t` and cytosine `c`, estimate a *continuous* methylation frequency from the pseudobulk with Beta shrinkage:\n",
+    "   $$\\theta_{c,t} = \\frac{m_{c,t} + \\alpha_0}{n_{c,t} + \\alpha_0 + \\beta_0}$$\n",
+    "2. Score a query cell by the aggregated per-cytosine Bernoulli log-likelihood, summed in log-space:\n",
+    "   $$\\log P(t\\mid\\text{cell}) \\propto \\log\\pi_t + \\lambda_{CG}\\!\\sum_{c\\in CG}[\\,s_c\\log\\theta^{CG}_{c,t} + (1-s_c)\\log(1-\\theta^{CG}_{c,t})\\,] + \\lambda_{CH}\\!\\sum_{c\\in CH}[\\cdots]$$\n",
+    "3. Softmax over types → calibrated probabilities (supports abstention).\n",
+    "\n",
+    "CpG and CpH are modelled as two independent channels; the split is read from the `context` column of a `build_ref` **reference** `.cz` (the cell-type / query files usually store only `mc`/`cov`).\n",
+    "\n",
+    "> All inputs (query + pseudobulks) must be aligned to the same reference axis (one row per reference cytosine, in reference order)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5172138e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os, struct, tempfile\n",
+    "import numpy as np\n",
+    "import cytozip as czip\n",
+    "from cytozip import CellTypeClassifier"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "1cf4017d",
+   "metadata": {},
+   "source": [
+    "## 1. Build a small self-contained example\n",
+    "\n",
+    "Three cell types (`Oligo` / `Astro` / `Micro`) over 200 cytosines (alternating CpG / CpH contexts). The cell-type `.cz` store only `mc` / `cov` (as real per-cell / pseudobulk files do), and a separate **reference** `.cz` (`pos`, `strand`, `context`, from `czip build_ref`) supplies the CpG/CpH context. All files share one axis. In real use these come from `czip allc2cz --reference` (per cell) and `czip merge_cz` / pseudobulk (per cell type)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1ddd65f5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "np.random.seed(0)\n",
+    "d = tempfile.mkdtemp()\n",
+    "S = 200\n",
+    "contexts = [b'CGN' if i % 2 == 0 else b'CAC' for i in range(S)]   # half CpG, half CpH\n",
+    "cg = np.array([i for i in range(S) if i % 2 == 0])\n",
+    "ch = np.array([i for i in range(S) if i % 2 == 1])\n",
+    "\n",
+    "# per-type methylation frequency profiles (continuous, discriminative)\n",
+    "prof = {}\n",
+    "f = np.empty(S); f[cg] = 0.90; f[ch] = np.where(np.arange(len(ch)) < len(ch)//2, 0.10, 0.02); prof['Oligo'] = f.copy()\n",
+    "f = np.empty(S); f[cg] = 0.60; f[ch] = np.where(np.arange(len(ch)) < len(ch)//2, 0.02, 0.10); prof['Astro'] = f.copy()\n",
+    "f = np.empty(S); f[cg] = 0.75; f[ch] = 0.05;                                                 prof['Micro'] = f.copy()\n",
+    "\n",
+    "def write_cz(path, frac, depth):\n",
+    "    \"\"\"Write an mc/cov-only .cz (as real per-cell / pseudobulk files are).\"\"\"\n",
+    "    cov = np.maximum(np.random.poisson(depth, S), 0).astype(np.uint16)\n",
+    "    mc = np.random.binomial(cov, frac).astype(np.uint16)\n",
+    "    w = czip.Writer(path, formats=['H', 'H'], columns=['mc', 'cov'],\n",
+    "                    chunk_dims=['chrom'], sort_col=False)\n",
+    "    w.write_chunk(b''.join(struct.pack('<HH', int(mc[i]), int(cov[i]))\n",
+    "                           for i in range(S)), ['chr1'])\n",
+    "    w.close()\n",
+    "\n",
+    "# a build_ref-style reference .cz carrying pos/strand/context (the CpG/CpH axis)\n",
+    "reference = os.path.join(d, 'reference.cz')\n",
+    "w = czip.Writer(reference, formats=['Q', 'c', '3s'], columns=['pos', 'strand', 'context'],\n",
+    "                chunk_dims=['chrom'], sort_col='pos', delta_cols=['pos'])\n",
+    "w.write_chunk(b''.join(struct.pack('<Qc3s', i + 1, b'+', contexts[i]) for i in range(S)), ['chr1'])\n",
+    "w.close()\n",
+    "\n",
+    "# deep pseudobulk cell-type files (mc/cov-only, high coverage)\n",
+    "pseudobulks = {}\n",
+    "for t in prof:\n",
+    "    p = os.path.join(d, f'{t}.cz'); write_cz(p, prof[t], depth=60); pseudobulks[t] = p\n",
+    "\n",
+    "# a shallow query cell that is truly Oligo (~3x coverage)\n",
+    "query = os.path.join(d, 'cellQ.cz'); write_cz(query, prof['Oligo'], depth=3)\n",
+    "pseudobulks"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dfbe5daa",
+   "metadata": {},
+   "source": [
+    "## 2. Fit the classifier\n",
+    "\n",
+    "`fit` estimates the CpG/CpH frequencies once. The cell-type files are `mc`/`cov`-only, so the CpG/CpH split comes from the `reference` `.cz`. Optional `top_cg` / `top_ch` keep only the most discriminative sites; `cell_counts` enables an abundance / tempered prior at predict time."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "25592a7d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "clf = CellTypeClassifier(lambda_cg=1.0, lambda_ch=1.0).fit(\n",
+    "    pseudobulks=pseudobulks,\n",
+    "    reference=reference,                                      # build_ref .cz supplying context\n",
+    "    cell_counts={'Oligo': 1000, 'Astro': 500, 'Micro': 50},   # optional (for abundance prior)\n",
+    "    top_cg=None, top_ch=None,                                 # or e.g. 0.1 to keep top 10% sites\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3d30c849",
+   "metadata": {},
+   "source": [
+    "## 3. Predict a single cell\n",
+    "\n",
+    "`predict` returns the label, confidence, the full softmax `proba` Series, and the unnormalized `log_posterior`. `prior_alpha` tempers the abundance prior (`0` = uniform, `1` = full abundance)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "461d5900",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "res = clf.predict(query, prior_alpha=0.0)          # uniform prior\n",
+    "print('label     :', res['label'])\n",
+    "print('confidence: %.4f' % res['confidence'])\n",
+    "res['proba'].round(4)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "80e9143f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# abstain when the top probability is not confident enough\n",
+    "clf.predict(query, abstain_threshold=0.999)['label']"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ee95c1c6",
+   "metadata": {},
+   "source": [
+    "## 4. Save the trained model, then predict a new cell after reloading\n",
+    "\n",
+    "`save` writes a single `.npz` (hyper-parameters + reference axis + pre-computed `log_theta`). `load` restores it with `allow_pickle=False` — no refitting and **no need to re-read the pseudobulks**, so prediction on new cells is instant."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2d0b4680",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "model_path = os.path.join(d, 'celltype_model.npz')\n",
+    "clf.save(model_path)\n",
+    "print('model size: %.1f KB' % (os.path.getsize(model_path) / 1024))\n",
+    "\n",
+    "clf2 = CellTypeClassifier.load(model_path)\n",
+    "res2 = clf2.predict(query, prior_alpha=1.0)        # abundance prior this time\n",
+    "print('reloaded label:', res2['label'], '(conf %.4f)' % res2['confidence'])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8a505eaa",
+   "metadata": {},
+   "source": [
+    "## 5. Batch-predict many cells\n",
+    "\n",
+    "`predict_batch` accepts a `{cell_id: path}` dict (or a list of paths) and returns a labels DataFrame plus a cell x cell_type probability matrix."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "95905047",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "labels, proba = clf2.predict_batch({'cellQ': query})\n",
+    "display(labels)\n",
+    "proba.round(4)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3f74ecfa",
+   "metadata": {},
+   "source": [
+    "## 6. Applying it to real data\n",
+    "\n",
+    "The cell-type pseudobulk and single-cell `.cz` normally store only `mc`/`cov` and are aligned to the same reference axis (produced by `czip build_ref` + `czip allc2cz --reference`). Pass the `build_ref` reference `.cz` via `reference=` so the classifier can split CpG vs CpH:\n",
+    "\n",
+    "```python\n",
+    "from cytozip import CellTypeClassifier\n",
+    "\n",
+    "pseudobulks = {\n",
+    "    'Oligo': 'pseudobulk/Oligo.cz',\n",
+    "    'Astro': 'pseudobulk/Astro.cz',\n",
+    "    'Micro': 'pseudobulk/Micro.cz',\n",
+    "    'OPC':   'pseudobulk/OPC.cz',\n",
+    "}\n",
+    "\n",
+    "clf = CellTypeClassifier(lambda_cg=1.0, lambda_ch=1.0).fit(\n",
+    "    pseudobulks=pseudobulks,\n",
+    "    reference='mm10_with_chrL.allc.cz',   # build_ref .cz supplying the per-row context\n",
+    "    top_cg=0.1, top_ch=0.1,               # keep the top 10% most discriminative sites\n",
+    ")\n",
+    "clf.save('bg_celltype_model.npz')\n",
+    "\n",
+    "# later / elsewhere — predict shallow MiSeq cells directly\n",
+    "clf = CellTypeClassifier.load('bg_celltype_model.npz')\n",
+    "labels, proba = clf.predict_batch({\n",
+    "    cell_id: f'miseq/{cell_id}.cz' for cell_id in cell_ids\n",
+    "}, prior_alpha=0.0, abstain_threshold=0.6)\n",
+    "```\n",
+    "\n",
+    "**Tuning tips**: start with a uniform prior (`prior_alpha=0`) to check raw discriminative power, then sweep `prior_alpha` / `top_*` / `lambda_ch` on a held-out set while watching **macro-F1** (fair to rare types) and the confusion matrix, not just overall accuracy."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

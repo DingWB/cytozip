@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.cz &mdash; cytozip 0.3.0.dev23 documentation</title>
+  <title>cytozip.cz &mdash; cytozip 0.3.5.dev0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
@@ -14,8 +14,8 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=59e0a989"></script>
-      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/documentation_options.js?v=e01d351f"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/js/rtd_search_config.js"></script>
       <script src="../../_static/js/rtd_sphinx_search.min.js"></script>
@@ -47,7 +47,11 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/1.quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#pip">pip</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
@@ -86,6 +90,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
@@ -145,35 +150,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../benchmark.html">Benchmark</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../benchmark.html#storage">1.Storage</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../../format_history.html">cz Format — Change History</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#larger-blocks-256-kib-1">Larger blocks (256 KiB − 1)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#wider-virtual-offsets-44-20">Wider virtual offsets (44 + 20)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#delta-encoded-integer-columns">Delta-encoded integer columns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#tail-chunk-index-czix">Tail chunk index (CZIX)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#ideas-explored-but-not-adopted">Ideas explored but <strong>not</strong> adopted</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../../developer_guide.html">Developer Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#architecture-overview">Architecture overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#module-map">Module map</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#performance-memory-patterns">Performance / memory patterns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#building-the-docs-locally">Building the docs locally</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmark.html">Benchmark</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../modules.html">cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../cytozip.html">cytozip package</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#submodules">Submodules</a><ul>
@@ -259,6 +236,7 @@
 </ul>
 </li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -331,6 +309,23 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.model.html">cytozip.model module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -560,6 +555,7 @@
 <span class="n">_c_parse_czix</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="n">_c_delta_encode_block</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="n">_c_parse_tab_lines_int</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">_c_parse_tocz_int_slab</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_ensure_cz_accel</span><span class="p">():</span>
@@ -597,6 +593,7 @@
 		<span class="s1">&#39;c_fetch_chunk&#39;</span><span class="p">,</span> <span class="s1">&#39;c_get_records_by_ids&#39;</span><span class="p">,</span> <span class="s1">&#39;c_block_first_values&#39;</span><span class="p">,</span>
 		<span class="s1">&#39;c_extract_c_positions&#39;</span><span class="p">,</span> <span class="s1">&#39;c_write_c_records&#39;</span><span class="p">,</span> <span class="s1">&#39;c_parse_czix&#39;</span><span class="p">,</span>
 		<span class="s1">&#39;c_delta_encode_block&#39;</span><span class="p">,</span> <span class="s1">&#39;c_parse_tab_lines_int&#39;</span><span class="p">,</span>
+		<span class="s1">&#39;c_parse_tocz_int_slab&#39;</span><span class="p">,</span>
 	<span class="p">):</span>
 		<span class="n">g</span><span class="p">[</span><span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="n">_n</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="n">_n</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
@@ -779,19 +776,98 @@
 	<span class="k">if</span> <span class="n">infile</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.gz&#39;</span><span class="p">):</span>
 		<span class="n">f</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span>
 	<span class="k">else</span><span class="p">:</span>
-		<span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+		<span class="c1"># Use the builtin open (``_open``); the bare name ``open`` is</span>
+		<span class="c1"># shadowed at module scope by cytozip&#39;s own ``open()`` (which</span>
+		<span class="c1"># returns a Reader), so it must not be used to read text input.</span>
+		<span class="n">f</span> <span class="o">=</span> <span class="n">_open</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
 	<span class="k">return</span> <span class="n">f</span></div>
+
+
+<span class="c1"># ==========================================================</span>
+<span class="c1"># Integer struct format characters eligible for the vectorized ingestion</span>
+<span class="c1"># fast path. Float / string columns route through the per-row fallback.</span>
+<span class="n">_INT_FMT_CHARS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="s2">&quot;BbHhIiLlQq&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_all_int_usecol_formats</span><span class="p">(</span><span class="n">formats</span><span class="p">):</span>
+<span class="w">	</span><span class="sd">&quot;&quot;&quot;True if every usecol format is an integer type (fast-path eligible).&quot;&quot;&quot;</span>
+	<span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">formats</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="n">_INT_FMT_CHARS</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">formats</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_int_slab_parser</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">usecols</span><span class="p">,</span> <span class="n">key_cols</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span>
+					 <span class="n">read_size</span><span class="o">=</span><span class="mi">8</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">):</span>
+<span class="w">	</span><span class="sd">&quot;&quot;&quot;Vectorized all-integer ingestion: read the input in large byte slabs,</span>
+<span class="sd">	parse + group by ``key_cols`` in a single C scan, and yield</span>
+<span class="sd">	``(packed_bytes, dims)`` segments.</span>
+
+<span class="sd">	Replaces the per-line ``split`` + per-field type-cast + list append of</span>
+<span class="sd">	the pure-Python parsers. Values are clipped to each column&#39;s struct dtype</span>
+<span class="sd">	range (matching the old ``int_func`` clamp) via a single vectorized</span>
+<span class="sd">	``np.clip`` per column, so the emitted bytes are identical to the per-row</span>
+<span class="sd">	path for valid (non-negative, in-range) input.</span>
+
+<span class="sd">	Consecutive segments that share the same ``dims`` across slab boundaries</span>
+<span class="sd">	simply append to the same chunk (``write_chunk`` only flushes on a dims</span>
+<span class="sd">	change), so no cross-slab carry state is needed.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">sep_byte</span> <span class="o">=</span> <span class="nb">ord</span><span class="p">(</span><span class="n">sep</span><span class="p">)</span>
+	<span class="n">dts</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">_NP_FMT_MAP</span><span class="p">[</span><span class="n">fmt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span> <span class="k">for</span> <span class="n">fmt</span> <span class="ow">in</span> <span class="n">formats</span><span class="p">]</span>
+	<span class="n">bounds</span> <span class="o">=</span> <span class="p">[(</span><span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">)</span> <span class="k">for</span> <span class="n">dt</span> <span class="ow">in</span> <span class="n">dts</span><span class="p">]</span>
+	<span class="n">rec_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([(</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">dts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">formats</span><span class="p">))])</span>
+	<span class="n">n_use</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">usecols</span><span class="p">)</span>
+	<span class="n">usecols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">usecols</span><span class="p">)</span>
+	<span class="n">key_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">key_cols</span><span class="p">)</span>
+
+	<span class="k">def</span><span class="w"> </span><span class="nf">_emit</span><span class="p">(</span><span class="n">slab_bytes</span><span class="p">):</span>
+		<span class="n">arrays</span><span class="p">,</span> <span class="n">runs</span> <span class="o">=</span> <span class="n">_c_parse_tocz_int_slab</span><span class="p">(</span><span class="n">slab_bytes</span><span class="p">,</span> <span class="n">usecols</span><span class="p">,</span> <span class="n">key_cols</span><span class="p">,</span>
+											  <span class="n">sep_byte</span><span class="p">)</span>
+		<span class="k">for</span> <span class="n">dims</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">runs</span><span class="p">:</span>
+			<span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">e</span> <span class="o">-</span> <span class="n">s</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">rec_dtype</span><span class="p">)</span>
+			<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_use</span><span class="p">):</span>
+				<span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">bounds</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+				<span class="n">out</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">s</span><span class="p">:</span><span class="n">e</span><span class="p">],</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+					<span class="n">dts</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+			<span class="k">yield</span> <span class="n">out</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span> <span class="nb">list</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span>
+
+	<span class="n">leftover</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
+	<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+		<span class="n">chunk</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">read_size</span><span class="p">)</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">chunk</span><span class="p">:</span>
+			<span class="k">break</span>
+		<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+			<span class="n">chunk</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+		<span class="n">buf</span> <span class="o">=</span> <span class="n">leftover</span> <span class="o">+</span> <span class="n">chunk</span> <span class="k">if</span> <span class="n">leftover</span> <span class="k">else</span> <span class="n">chunk</span>
+		<span class="n">nl</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">nl</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+			<span class="n">leftover</span> <span class="o">=</span> <span class="n">buf</span>
+			<span class="k">continue</span>
+		<span class="k">yield from</span> <span class="n">_emit</span><span class="p">(</span><span class="n">buf</span><span class="p">[:</span><span class="n">nl</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+		<span class="n">leftover</span> <span class="o">=</span> <span class="n">buf</span><span class="p">[</span><span class="n">nl</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:]</span>
+	<span class="k">if</span> <span class="n">leftover</span><span class="p">:</span>
+		<span class="k">yield from</span> <span class="n">_emit</span><span class="p">(</span><span class="n">leftover</span><span class="p">)</span>
+
 
 <span class="c1"># ==========================================================</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_gz_input_parser</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">],</span> <span class="n">key_cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
 					 <span class="n">batch_size</span><span class="o">=</span><span class="mi">5000</span><span class="p">):</span>
-<span class="w">	</span><span class="sd">&quot;&quot;&quot;Parse a gzip-compressed text file into (DataFrame, dims) chunks.</span>
+<span class="w">	</span><span class="sd">&quot;&quot;&quot;Parse a gzip-compressed text file into chunks.</span>
 
 <span class="sd">	Similar to ``_text_input_parser`` but handles ``.gz`` byte decoding.</span>
-<span class="sd">	Each yielded DataFrame contains at most *batch_size* rows sharing</span>
-<span class="sd">	the same chunk_key values (e.g., same chromosome).</span>
+<span class="sd">	When every usecol is an integer format the C ``_int_slab_parser`` fast</span>
+<span class="sd">	path is used (yielding packed bytes); otherwise the per-row fallback</span>
+<span class="sd">	yields ``(DataFrame, dims)``. Each yielded segment shares the same</span>
+<span class="sd">	chunk_key values (e.g., same chromosome).</span>
 <span class="sd">	&quot;&quot;&quot;</span>
 	<span class="n">f</span> <span class="o">=</span> <span class="n">open1</span><span class="p">(</span><span class="n">infile</span><span class="p">)</span>
+	<span class="n">_ensure_cz_accel</span><span class="p">()</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">_c_parse_tocz_int_slab</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">sep</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+			<span class="ow">and</span> <span class="n">_all_int_usecol_formats</span><span class="p">(</span><span class="n">formats</span><span class="p">)):</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="k">yield from</span> <span class="n">_int_slab_parser</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">usecols</span><span class="p">,</span> <span class="n">key_cols</span><span class="p">,</span>
+										<span class="n">batch_size</span><span class="p">)</span>
+		<span class="k">finally</span><span class="p">:</span>
+			<span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		<span class="k">return</span>
 	<span class="n">data</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">prev_dims</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span>
 	<span class="n">dtfuncs</span> <span class="o">=</span> <span class="n">get_dtfuncs</span><span class="p">(</span><span class="n">formats</span><span class="p">)</span>
 	<span class="n">line</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span>
@@ -844,6 +920,15 @@
 <span class="sd">	&quot;&quot;&quot;</span>
 	<span class="c1"># cdef int i, N</span>
 	<span class="n">f</span> <span class="o">=</span> <span class="n">open1</span><span class="p">(</span><span class="n">infile</span><span class="p">)</span>
+	<span class="n">_ensure_cz_accel</span><span class="p">()</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">_c_parse_tocz_int_slab</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">sep</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+			<span class="ow">and</span> <span class="n">_all_int_usecol_formats</span><span class="p">(</span><span class="n">formats</span><span class="p">)):</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="k">yield from</span> <span class="n">_int_slab_parser</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">usecols</span><span class="p">,</span> <span class="n">key_cols</span><span class="p">,</span>
+										<span class="n">batch_size</span><span class="p">)</span>
+		<span class="k">finally</span><span class="p">:</span>
+			<span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		<span class="k">return</span>
 	<span class="n">data</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">prev_dims</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span>
 	<span class="n">dtfuncs</span> <span class="o">=</span> <span class="n">get_dtfuncs</span><span class="p">(</span><span class="n">formats</span><span class="p">)</span>
 	<span class="n">line</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span>
@@ -1224,6 +1309,19 @@
 		<span class="c1"># each cached chunk. ``np.searchsorted`` runs ~100× faster on a</span>
 		<span class="c1"># contiguous buffer than on a strided view of a structured dtype.</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">_chunk_sortcol_cache</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
+		<span class="c1"># Cache resolved 1-D context-index IDs keyed by (index_token, dim).</span>
+		<span class="c1"># Avoids re-opening / re-reading a context index .cz on every</span>
+		<span class="c1"># chunk in batched/threaded queries (`query_numpy_multi`,</span>
+		<span class="c1"># `cz_to_anndata`). The token is a stable id we can derive</span>
+		<span class="c1"># without touching the index contents (path str, or id(Reader)).</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_index_ids_cache</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="c1"># Cache *gathered* per-chunk arrays keyed by (chunk_key, index_token).</span>
+		<span class="c1"># Subsequent indexed region queries on the same chunk skip the</span>
+		<span class="c1"># O(chunk_size) fancy-index gather of `arr` / `pos` and go straight</span>
+		<span class="c1"># to `searchsorted` on the already-filtered, contiguous arrays.</span>
+		<span class="c1"># This is the main optimisation for hot index-aware queries.</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_indexed_sortcol_cache</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
 		<span class="bp">self</span><span class="o">.</span><span class="n">read_header</span><span class="p">()</span>
 
 <div class="viewcode-block" id="Reader.read_header">
@@ -1684,7 +1782,7 @@
 
 <div class="viewcode-block" id="Reader.chunk2numpy">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2numpy">[docs]</a>
-	<span class="k">def</span><span class="w"> </span><span class="nf">chunk2numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">,</span> <span class="n">reformat</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+	<span class="k">def</span><span class="w"> </span><span class="nf">chunk2numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">,</span> <span class="n">reformat</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;Read an entire chunk as a numpy structured ndarray.</span>
 
 <span class="sd">		This is the fastest single-cell read path: it skips the per-row</span>
@@ -1704,6 +1802,12 @@
 <span class="sd">			structured arrays can&#39;t hold variable-length str directly).</span>
 <span class="sd">			Most analysis pipelines should leave this False and operate</span>
 <span class="sd">			on the raw bytes columns.</span>
+<span class="sd">		index : str, ``Reader``, dict or None, default None</span>
+<span class="sd">			If given, restrict the returned rows to those whose 1-based</span>
+<span class="sd">			primary IDs are listed in *index*. Typically a 1-D context</span>
+<span class="sd">			index built by :func:`cytozip.index_context` (e.g. CG-only</span>
+<span class="sd">			or CH-only sites). See :meth:`_resolve_index_ids` for accepted</span>
+<span class="sd">			forms.</span>
 
 <span class="sd">		Returns</span>
 <span class="sd">		-------</span>
@@ -1717,11 +1821,29 @@
 <span class="sd">		&quot;&quot;&quot;</span>
 		<span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span>
 		<span class="n">dtype</span> <span class="o">=</span> <span class="n">_build_record_dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])</span>
+		<span class="c1"># Resolve index BEFORE materializing the full chunk: when given,</span>
+		<span class="c1"># we can gather directly from the zero-copy frombuffer view and</span>
+		<span class="c1"># skip the O(chunk_size) full-chunk .copy() entirely (the gather</span>
+		<span class="c1"># itself produces a small, owned copy).</span>
+		<span class="n">ids</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_resolve_index_ids</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">dims</span><span class="p">)</span>
+		       <span class="k">if</span> <span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
 		<span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
-			<span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-		<span class="c1"># np.frombuffer gives a zero-copy view; copy() so the caller owns</span>
-		<span class="c1"># the memory (decompressed buffer can otherwise be freed).</span>
-		<span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+			<span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+		<span class="k">elif</span> <span class="n">ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+			<span class="n">view</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">ids</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+				<span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="k">if</span> <span class="n">ids</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">ids</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">view</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+					<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+						<span class="sa">f</span><span class="s2">&quot;index ID out of range for chunk </span><span class="si">{</span><span class="n">dims</span><span class="si">}</span><span class="s2">: &quot;</span>
+						<span class="sa">f</span><span class="s2">&quot;chunk has </span><span class="si">{</span><span class="n">view</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> rows, &quot;</span>
+						<span class="sa">f</span><span class="s2">&quot;min/max ID = </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">min</span><span class="p">())</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+				<span class="n">arr</span> <span class="o">=</span> <span class="n">view</span><span class="p">[</span><span class="n">ids</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>  <span class="c1"># fancy-index → owned copy</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="c1"># np.frombuffer gives a zero-copy view; copy() so the caller owns</span>
+			<span class="c1"># the memory (decompressed buffer can otherwise be freed).</span>
+			<span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 		<span class="k">if</span> <span class="n">reformat</span><span class="p">:</span>
 			<span class="c1"># For &#39;s&#39;/&#39;c&#39; columns the structured dtype field is V{n}</span>
 			<span class="c1"># (opaque bytes). Decode them to Python str on the fly only</span>
@@ -1789,7 +1911,7 @@
 <div class="viewcode-block" id="Reader.query_numpy">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy">[docs]</a>
 	<span class="k">def</span><span class="w"> </span><span class="nf">query_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunk_key</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-	                <span class="n">sort_col</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+	                <span class="n">sort_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;Vectorized region query — returns a structured ``np.ndarray``.</span>
 
 <span class="sd">		~10× faster than :meth:`query` for warm in-process queries</span>
@@ -1827,6 +1949,11 @@
 <span class="sd">			vectorized slice paired with the reference position column.</span>
 <span class="sd">		sort_col : int or None</span>
 <span class="sd">			Column index to bisect on. Defaults to ``self.header[&#39;sort_col&#39;]``.</span>
+<span class="sd">		index : str, ``Reader``, dict or None, default None</span>
+<span class="sd">			Optional 1-D context index restricting rows to e.g. CG / CH</span>
+<span class="sd">			sites. The intersection of the region ``[start, end]`` and</span>
+<span class="sd">			the index is returned. See :meth:`chunk2numpy` for accepted</span>
+<span class="sd">			forms.</span>
 
 <span class="sd">		Returns</span>
 <span class="sd">		-------</span>
@@ -1858,13 +1985,14 @@
 		<span class="c1"># one place (:meth:`query_numpy_chunk_batch`).</span>
 		<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_numpy_chunk_batch</span><span class="p">(</span>
 			<span class="n">chunk_key</span><span class="p">,</span> <span class="p">[(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)],</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">,</span> <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">,</span>
+			<span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
 		<span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="Reader.query_numpy_chunk_batch">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_chunk_batch">[docs]</a>
 	<span class="k">def</span><span class="w"> </span><span class="nf">query_numpy_chunk_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunk_key</span><span class="p">,</span> <span class="n">intervals</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-	                            <span class="n">sort_col</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+	                            <span class="n">sort_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;Vectorized many-region query within a single chunk.</span>
 
 <span class="sd">		When you have hundreds/thousands of small intervals that all</span>
@@ -1904,18 +2032,52 @@
 			<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;intervals must be shape (N, 2)&quot;</span><span class="p">)</span>
 		<span class="n">n</span> <span class="o">=</span> <span class="n">intervals</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
+		<span class="c1"># Resolve optional 1-D context index → 1-based row IDs (or None).</span>
+		<span class="c1"># When given, we gather both the data array and the position array</span>
+		<span class="c1"># down to only the index-selected rows BEFORE searchsorted, so the</span>
+		<span class="c1"># region query is intersected with the context filter.</span>
+		<span class="n">ctx_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_index_ids</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">chunk_key</span><span class="p">)</span> <span class="k">if</span> <span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+		<span class="c1"># Cache token for gathered-chunk reuse (None when no index).</span>
+		<span class="n">idx_tok</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index_token</span><span class="p">(</span><span class="n">index</span><span class="p">)</span> <span class="k">if</span> <span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+
 		<span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 			<span class="n">sc</span> <span class="o">=</span> <span class="n">sort_col</span> <span class="k">if</span> <span class="n">sort_col</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sort_col&#39;</span><span class="p">)</span>
 			<span class="k">if</span> <span class="n">sc</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">sc</span> <span class="o">==</span> <span class="n">_NO_SORT_COL</span><span class="p">:</span>
 				<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
 					<span class="s2">&quot;query_numpy_chunk_batch without reference requires sort_col index&quot;</span><span class="p">)</span>
-			<span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk2numpy_cached</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">)</span>
-			<span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
-				<span class="k">return</span> <span class="p">[</span><span class="n">arr</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">]]</span> <span class="o">*</span> <span class="n">n</span>
-			<span class="n">pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_sort_column</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">,</span> <span class="n">sc</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">ctx_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+				<span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk2numpy_cached</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">)</span>
+				<span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+					<span class="k">return</span> <span class="p">[</span><span class="n">arr</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">]]</span> <span class="o">*</span> <span class="n">n</span>
+				<span class="n">pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_sort_column</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">,</span> <span class="n">sc</span><span class="p">)</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="k">if</span> <span class="n">ctx_ids</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+					<span class="n">empty_dtype</span> <span class="o">=</span> <span class="n">_build_record_dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])</span>
+					<span class="k">return</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">empty_dtype</span><span class="p">)]</span> <span class="o">*</span> <span class="n">n</span>
+				<span class="c1"># Look up cached gather; fall back to compute + store.</span>
+				<span class="n">ck</span> <span class="o">=</span> <span class="p">(</span><span class="n">chunk_key</span><span class="p">,</span> <span class="n">idx_tok</span><span class="p">,</span> <span class="n">sc</span><span class="p">)</span>
+				<span class="n">cached</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ck</span><span class="p">)</span>
+				<span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+					<span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="n">ck</span><span class="p">)</span>
+					<span class="n">arr</span><span class="p">,</span> <span class="n">pos</span> <span class="o">=</span> <span class="n">cached</span>
+				<span class="k">else</span><span class="p">:</span>
+					<span class="n">base_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk2numpy_cached</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">)</span>
+					<span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">base_arr</span><span class="p">):</span>
+						<span class="k">return</span> <span class="p">[</span><span class="n">base_arr</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">]]</span> <span class="o">*</span> <span class="n">n</span>
+					<span class="n">base_pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_sort_column</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">,</span> <span class="n">sc</span><span class="p">)</span>
+					<span class="k">if</span> <span class="n">ctx_ids</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">ctx_ids</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">base_arr</span><span class="p">):</span>
+						<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+							<span class="sa">f</span><span class="s2">&quot;index ID out of range for chunk </span><span class="si">{</span><span class="n">chunk_key</span><span class="si">}</span><span class="s2">: &quot;</span>
+							<span class="sa">f</span><span class="s2">&quot;chunk has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">base_arr</span><span class="p">)</span><span class="si">}</span><span class="s2"> rows, &quot;</span>
+							<span class="sa">f</span><span class="s2">&quot;min/max ID = </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">ctx_ids</span><span class="o">.</span><span class="n">min</span><span class="p">())</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">ctx_ids</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+					<span class="n">gather</span> <span class="o">=</span> <span class="n">ctx_ids</span> <span class="o">-</span> <span class="mi">1</span>
+					<span class="n">arr</span> <span class="o">=</span> <span class="n">base_arr</span><span class="p">[</span><span class="n">gather</span><span class="p">]</span>
+					<span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">base_pos</span><span class="p">[</span><span class="n">gather</span><span class="p">])</span>
+					<span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="p">[</span><span class="n">ck</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+					<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_array_cache_size</span><span class="p">:</span>
+						<span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="o">.</span><span class="n">popitem</span><span class="p">(</span><span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 			<span class="c1"># Cast intervals to position dtype for fast searchsorted.</span>
-			<span class="n">starts</span> <span class="o">=</span> <span class="n">pos</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span><span class="n">intervals</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="kc">False</span> \
-				<span class="k">else</span> <span class="n">intervals</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+			<span class="n">starts</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 			<span class="n">ends</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 			<span class="n">lo</span> <span class="o">=</span> <span class="n">pos</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">starts</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">)</span>
 			<span class="n">hi</span> <span class="o">=</span> <span class="n">pos</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">ends</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">)</span>
@@ -1925,22 +2087,68 @@
 		<span class="n">ref_reader</span> <span class="o">=</span> <span class="p">(</span><span class="n">Reader</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
 		              <span class="k">else</span> <span class="n">reference</span><span class="p">)</span>
 		<span class="k">try</span><span class="p">:</span>
-			<span class="n">cell_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk2numpy_cached</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">)</span>
-			<span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">cell_arr</span><span class="p">):</span>
-				<span class="n">empty</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">)</span>
-				<span class="k">return</span> <span class="p">[(</span><span class="n">empty</span><span class="p">,</span> <span class="n">cell_arr</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">])]</span> <span class="o">*</span> <span class="n">n</span>
 			<span class="n">ref_sc</span> <span class="o">=</span> <span class="n">sort_col</span> <span class="k">if</span> <span class="n">sort_col</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">(</span>
 				<span class="n">ref_reader</span><span class="o">.</span><span class="n">header</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sort_col&#39;</span><span class="p">))</span>
 			<span class="k">if</span> <span class="n">ref_sc</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ref_sc</span> <span class="o">==</span> <span class="n">_NO_SORT_COL</span><span class="p">:</span>
 				<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
 					<span class="s2">&quot;query_numpy_chunk_batch with reference requires sort_col on reference&quot;</span><span class="p">)</span>
-			<span class="n">ref_pos</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_cached_sort_column</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">,</span> <span class="n">ref_sc</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">ctx_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+				<span class="n">cell_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk2numpy_cached</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">)</span>
+				<span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">cell_arr</span><span class="p">):</span>
+					<span class="n">empty</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">)</span>
+					<span class="k">return</span> <span class="p">[(</span><span class="n">empty</span><span class="p">,</span> <span class="n">cell_arr</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">])]</span> <span class="o">*</span> <span class="n">n</span>
+				<span class="n">ref_pos</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_cached_sort_column</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">,</span> <span class="n">ref_sc</span><span class="p">)</span>
+				<span class="n">max_n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cell_arr</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_pos</span><span class="p">))</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="k">if</span> <span class="n">ctx_ids</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+					<span class="n">cell_dtype</span> <span class="o">=</span> <span class="n">_build_record_dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])</span>
+					<span class="n">empty_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">)</span>
+					<span class="n">empty_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">cell_dtype</span><span class="p">)</span>
+					<span class="k">return</span> <span class="p">[(</span><span class="n">empty_pos</span><span class="p">,</span> <span class="n">empty_arr</span><span class="p">)]</span> <span class="o">*</span> <span class="n">n</span>
+				<span class="c1"># Cache cell-side gathered array per (chunk_key, idx_tok),</span>
+				<span class="c1"># and ref-side gathered positions per (chunk_key, ref_sc, idx_tok)</span>
+				<span class="c1"># on the ref_reader itself.</span>
+				<span class="n">ck_cell</span> <span class="o">=</span> <span class="p">(</span><span class="n">chunk_key</span><span class="p">,</span> <span class="n">idx_tok</span><span class="p">)</span>
+				<span class="n">cached_cell</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ck_cell</span><span class="p">)</span>
+				<span class="k">if</span> <span class="n">cached_cell</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+					<span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="n">ck_cell</span><span class="p">)</span>
+					<span class="n">cell_arr</span> <span class="o">=</span> <span class="n">cached_cell</span>
+				<span class="k">else</span><span class="p">:</span>
+					<span class="n">base_cell</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk2numpy_cached</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">)</span>
+					<span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">base_cell</span><span class="p">):</span>
+						<span class="n">empty</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">)</span>
+						<span class="k">return</span> <span class="p">[(</span><span class="n">empty</span><span class="p">,</span> <span class="n">base_cell</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">])]</span> <span class="o">*</span> <span class="n">n</span>
+					<span class="k">if</span> <span class="n">ctx_ids</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">ctx_ids</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">base_cell</span><span class="p">):</span>
+						<span class="c1"># Some ctx IDs may exceed cell length when cell is</span>
+						<span class="c1"># shorter than ref; clip silently to common range.</span>
+						<span class="n">usable</span> <span class="o">=</span> <span class="n">ctx_ids</span><span class="p">[(</span><span class="n">ctx_ids</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">ctx_ids</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">base_cell</span><span class="p">))]</span>
+						<span class="n">gather</span> <span class="o">=</span> <span class="n">usable</span> <span class="o">-</span> <span class="mi">1</span>
+					<span class="k">else</span><span class="p">:</span>
+						<span class="n">gather</span> <span class="o">=</span> <span class="n">ctx_ids</span> <span class="o">-</span> <span class="mi">1</span>
+					<span class="n">cell_arr</span> <span class="o">=</span> <span class="n">base_cell</span><span class="p">[</span><span class="n">gather</span><span class="p">]</span>
+					<span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="p">[</span><span class="n">ck_cell</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_arr</span>
+					<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunk_array_cache_size</span><span class="p">:</span>
+						<span class="bp">self</span><span class="o">.</span><span class="n">_indexed_chunk_cache</span><span class="o">.</span><span class="n">popitem</span><span class="p">(</span><span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+				<span class="n">ck_ref</span> <span class="o">=</span> <span class="p">(</span><span class="n">chunk_key</span><span class="p">,</span> <span class="n">ref_sc</span><span class="p">,</span> <span class="n">idx_tok</span><span class="p">)</span>
+				<span class="n">cached_ref</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_indexed_sortcol_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ck_ref</span><span class="p">)</span>
+				<span class="k">if</span> <span class="n">cached_ref</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+					<span class="n">ref_reader</span><span class="o">.</span><span class="n">_indexed_sortcol_cache</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="n">ck_ref</span><span class="p">)</span>
+					<span class="n">ref_pos</span> <span class="o">=</span> <span class="n">cached_ref</span>
+				<span class="k">else</span><span class="p">:</span>
+					<span class="n">base_ref_pos</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_cached_sort_column</span><span class="p">(</span><span class="n">chunk_key</span><span class="p">,</span> <span class="n">ref_sc</span><span class="p">)</span>
+					<span class="n">ids_for_ref</span> <span class="o">=</span> <span class="n">ctx_ids</span>
+					<span class="k">if</span> <span class="n">ids_for_ref</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">base_ref_pos</span><span class="p">):</span>
+						<span class="n">ids_for_ref</span> <span class="o">=</span> <span class="n">ids_for_ref</span><span class="p">[(</span><span class="n">ids_for_ref</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span>
+						                          <span class="o">&amp;</span> <span class="p">(</span><span class="n">ids_for_ref</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">base_ref_pos</span><span class="p">))]</span>
+					<span class="n">ref_pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">base_ref_pos</span><span class="p">[</span><span class="n">ids_for_ref</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+					<span class="n">ref_reader</span><span class="o">.</span><span class="n">_indexed_sortcol_cache</span><span class="p">[</span><span class="n">ck_ref</span><span class="p">]</span> <span class="o">=</span> <span class="n">ref_pos</span>
+					<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">_indexed_sortcol_cache</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">_chunk_array_cache_size</span><span class="p">:</span>
+						<span class="n">ref_reader</span><span class="o">.</span><span class="n">_indexed_sortcol_cache</span><span class="o">.</span><span class="n">popitem</span><span class="p">(</span><span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+				<span class="n">max_n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cell_arr</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_pos</span><span class="p">))</span>
 			<span class="n">starts</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">ref_pos</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 			<span class="n">ends</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">ref_pos</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 			<span class="n">lo</span> <span class="o">=</span> <span class="n">ref_pos</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">starts</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">)</span>
 			<span class="n">hi</span> <span class="o">=</span> <span class="n">ref_pos</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">ends</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">)</span>
-			<span class="c1"># Clip to common length (cell may be shorter than ref).</span>
-			<span class="n">max_n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cell_arr</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_pos</span><span class="p">))</span>
 			<span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">max_n</span><span class="p">)</span>
 			<span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">hi</span><span class="p">,</span> <span class="n">max_n</span><span class="p">)</span>
 			<span class="k">return</span> <span class="p">[(</span><span class="n">ref_pos</span><span class="p">[</span><span class="n">lo</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="n">hi</span><span class="p">[</span><span class="n">i</span><span class="p">]],</span> <span class="n">cell_arr</span><span class="p">[</span><span class="n">lo</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="n">hi</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
@@ -1953,7 +2161,7 @@
 <div class="viewcode-block" id="Reader.query_numpy_multi">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_multi">[docs]</a>
 	<span class="k">def</span><span class="w"> </span><span class="nf">query_numpy_multi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">regions</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sort_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-	                      <span class="n">max_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+	                      <span class="n">max_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;Vectorized multi-region query with thread-pool parallelism.</span>
 
 <span class="sd">		Runs many :meth:`query_numpy` calls concurrently using a thread</span>
@@ -2001,7 +2209,7 @@
 			           <span class="k">else</span> <span class="n">reference</span><span class="p">)</span>
 			<span class="k">try</span><span class="p">:</span>
 				<span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">query_numpy</span><span class="p">(</span><span class="n">ck</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">ref_obj</span><span class="p">,</span>
-				                         <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">)</span>
+				                         <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
 				        <span class="k">for</span> <span class="p">(</span><span class="n">ck</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span> <span class="ow">in</span> <span class="n">regions</span><span class="p">]</span>
 			<span class="k">finally</span><span class="p">:</span>
 				<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
@@ -2012,7 +2220,8 @@
 		<span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
 			<span class="c1"># Can&#39;t reopen (fileobj-backed); fall back to serial.</span>
 			<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_numpy_multi</span><span class="p">(</span><span class="n">regions</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">,</span>
-			                              <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">,</span> <span class="n">max_workers</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+			                              <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">,</span> <span class="n">max_workers</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+			                              <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
 
 		<span class="n">ref_path</span> <span class="o">=</span> <span class="kc">None</span>
 		<span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -2022,6 +2231,16 @@
 				<span class="n">ref_path</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">reference</span><span class="p">,</span> <span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 				<span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ref_path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
 					<span class="n">ref_path</span> <span class="o">=</span> <span class="kc">None</span>
+		<span class="c1"># For thread pool: if `index` is a Reader, capture its path so each</span>
+		<span class="c1"># worker thread can open its own (Reader is not thread-safe). dicts</span>
+		<span class="c1"># and str paths are safe to share.</span>
+		<span class="n">index_path</span> <span class="o">=</span> <span class="kc">None</span>
+		<span class="n">index_for_workers</span> <span class="o">=</span> <span class="n">index</span>
+		<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">Reader</span><span class="p">):</span>
+			<span class="n">ip</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+			<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+				<span class="n">index_path</span> <span class="o">=</span> <span class="n">ip</span>
+				<span class="n">index_for_workers</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># workers will open their own</span>
 		<span class="n">_local</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">local</span><span class="p">()</span>
 		<span class="n">_openers</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># track to close at end</span>
 
@@ -2040,12 +2259,19 @@
 						<span class="n">_local</span><span class="o">.</span><span class="n">ref</span> <span class="o">=</span> <span class="n">reference</span>  <span class="c1"># not openable, share (risky)</span>
 				<span class="k">else</span><span class="p">:</span>
 					<span class="n">_local</span><span class="o">.</span><span class="n">ref</span> <span class="o">=</span> <span class="kc">None</span>
-			<span class="k">return</span> <span class="n">r</span><span class="p">,</span> <span class="n">_local</span><span class="o">.</span><span class="n">ref</span>
+				<span class="k">if</span> <span class="n">index_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+					<span class="n">ir</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">index_path</span><span class="p">)</span>
+					<span class="n">_openers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ir</span><span class="p">)</span>
+					<span class="n">_local</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">ir</span>
+				<span class="k">else</span><span class="p">:</span>
+					<span class="n">_local</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">index_for_workers</span>
+			<span class="k">return</span> <span class="n">r</span><span class="p">,</span> <span class="n">_local</span><span class="o">.</span><span class="n">ref</span><span class="p">,</span> <span class="n">_local</span><span class="o">.</span><span class="n">index</span>
 
 		<span class="k">def</span><span class="w"> </span><span class="nf">_one</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
 			<span class="n">ck</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span> <span class="o">=</span> <span class="n">args</span>
-			<span class="n">r</span><span class="p">,</span> <span class="n">ref</span> <span class="o">=</span> <span class="n">_get_reader</span><span class="p">()</span>
-			<span class="k">return</span> <span class="n">r</span><span class="o">.</span><span class="n">query_numpy</span><span class="p">(</span><span class="n">ck</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">)</span>
+			<span class="n">r</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">idx</span> <span class="o">=</span> <span class="n">_get_reader</span><span class="p">()</span>
+			<span class="k">return</span> <span class="n">r</span><span class="o">.</span><span class="n">query_numpy</span><span class="p">(</span><span class="n">ck</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">,</span>
+			                     <span class="n">index</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
 
 		<span class="k">try</span><span class="p">:</span>
 			<span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">max_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -2057,9 +2283,10 @@
 				<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
 					<span class="k">pass</span></div>
 
+
 <div class="viewcode-block" id="Reader.chunk2df">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2df">[docs]</a>
-	<span class="k">def</span><span class="w"> </span><span class="nf">chunk2df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">,</span> <span class="n">reformat</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+	<span class="k">def</span><span class="w"> </span><span class="nf">chunk2df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dims</span><span class="p">,</span> <span class="n">reformat</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;Read an entire chunk into a pandas DataFrame.</span>
 
 <span class="sd">		Thin wrapper around :meth:`chunk2numpy`: builds the structured</span>
@@ -2078,8 +2305,11 @@
 <span class="sd">			kept as opaque ``|V{n}`` bytes views (zero-copy, but pandas</span>
 <span class="sd">			cannot print or compare them — only useful when piping the</span>
 <span class="sd">			DataFrame straight back into another binary path).</span>
+<span class="sd">		index : str, ``Reader``, dict or None, default None</span>
+<span class="sd">			Optional 1-D context index (e.g. CG / CH) restricting the</span>
+<span class="sd">			rows returned. See :meth:`chunk2numpy` for accepted forms.</span>
 <span class="sd">		&quot;&quot;&quot;</span>
-		<span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">reformat</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+		<span class="n">arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">reformat</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
 		<span class="n">cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">]</span>
 		<span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
 			<span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
@@ -2166,7 +2396,7 @@
 <div class="viewcode-block" id="Reader.view">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.Reader.view">[docs]</a>
 	<span class="k">def</span><span class="w"> </span><span class="nf">view</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">show_dims</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">chunk_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-			 <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+			 <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">		View .cz file.</span>
 
@@ -2194,6 +2424,14 @@
 <span class="sd">		reference : str, optional</span>
 <span class="sd">			Path to a row-aligned reference .cz file whose columns will be</span>
 <span class="sd">			prepended to each record.</span>
+<span class="sd">		index : str, ``Reader``, dict or None, optional</span>
+<span class="sd">			A 1-D context index (e.g. CG / CH; produced by</span>
+<span class="sd">			:func:`cytozip.index_context`) restricting the rows printed</span>
+<span class="sd">			to those whose 1-based primary IDs are listed in *index*.</span>
+<span class="sd">			Independent of *reference*: pass both to view a row-aligned</span>
+<span class="sd">			reference + cell joined on chrom and additionally restricted</span>
+<span class="sd">			to the context positions. See :meth:`chunk2numpy` for accepted</span>
+<span class="sd">			forms.</span>
 
 <span class="sd">		Returns</span>
 <span class="sd">		-------</span>
@@ -2308,6 +2546,27 @@
 					<span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_arr</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
 						<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
 							<span class="sa">f</span><span class="s2">&quot;reference </span><span class="si">{</span><span class="n">reference</span><span class="si">}</span><span class="s2"> not matched.&quot;</span><span class="p">)</span>
+
+				<span class="c1"># Optional context-index filter: gather both `arr` and</span>
+				<span class="c1"># `ref_arr` (row-aligned) to the index-selected positions.</span>
+				<span class="c1"># Skipped when `id_join` is in effect (then `self` IS the</span>
+				<span class="c1"># index; filtering it again would be redundant).</span>
+				<span class="k">if</span> <span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">id_join</span><span class="p">:</span>
+					<span class="n">ctx_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_index_ids</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+					<span class="k">if</span> <span class="n">ctx_ids</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ctx_ids</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+						<span class="k">continue</span>
+					<span class="n">n_rows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span> <span class="k">if</span> <span class="n">ref_arr</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span>
+						<span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_arr</span><span class="p">))</span>
+					<span class="k">if</span> <span class="n">ctx_ids</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">ctx_ids</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">n_rows</span><span class="p">:</span>
+						<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+							<span class="sa">f</span><span class="s2">&quot;index ID out of range for chunk </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="s2">: &quot;</span>
+							<span class="sa">f</span><span class="s2">&quot;rows=</span><span class="si">{</span><span class="n">n_rows</span><span class="si">}</span><span class="s2">, &quot;</span>
+							<span class="sa">f</span><span class="s2">&quot;min/max ID = </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">ctx_ids</span><span class="o">.</span><span class="n">min</span><span class="p">())</span><span class="si">}</span><span class="s2">/&quot;</span>
+							<span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">ctx_ids</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+					<span class="n">gather</span> <span class="o">=</span> <span class="n">ctx_ids</span> <span class="o">-</span> <span class="mi">1</span>
+					<span class="n">arr</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">gather</span><span class="p">]</span>
+					<span class="k">if</span> <span class="n">ref_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+						<span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">gather</span><span class="p">]</span>
 
 				<span class="c1"># Process the chunk in batches to bound memory.</span>
 				<span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
@@ -2537,6 +2796,106 @@
 			<span class="n">s</span><span class="p">,</span> <span class="n">e</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span>
 			<span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">record</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__fetch__</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="n">e</span><span class="p">)])</span></div>
 
+
+	<span class="nd">@staticmethod</span>
+	<span class="k">def</span><span class="w"> </span><span class="nf">_index_token</span><span class="p">(</span><span class="n">index</span><span class="p">):</span>
+<span class="w">		</span><span class="sd">&quot;&quot;&quot;Return a stable hashable token identifying a resolved index source.</span>
+
+<span class="sd">		Used as part of cache keys for gathered per-chunk arrays. ``None``</span>
+<span class="sd">		means &quot;no index&quot; and never appears in cache keys (callers skip</span>
+<span class="sd">		caching). Dicts are identified by ``id()`` since they&#39;re mutable.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+			<span class="k">return</span> <span class="p">(</span><span class="s1">&#39;path&#39;</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+		<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">Reader</span><span class="p">):</span>
+			<span class="k">return</span> <span class="p">(</span><span class="s1">&#39;reader&#39;</span><span class="p">,</span> <span class="nb">id</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
+		<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+			<span class="k">return</span> <span class="p">(</span><span class="s1">&#39;dict&#39;</span><span class="p">,</span> <span class="nb">id</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
+		<span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+			<span class="sa">f</span><span class="s2">&quot;index must be None, str path, Reader, or dict; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">index</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+	<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_index_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+<span class="w">		</span><span class="sd">&quot;&quot;&quot;Resolve an ``index=`` argument to a 1-D ndarray of 1-based row IDs</span>
+<span class="sd">		for the given ``dim`` (chunk_key tuple).</span>
+
+<span class="sd">		Accepted forms:</span>
+
+<span class="sd">		* ``None`` — return ``None`` (caller skips filtering).</span>
+<span class="sd">		* path str — open as a context-index .cz, read IDs, close.</span>
+<span class="sd">		* :class:`Reader` — already-opened context-index .cz; left open.</span>
+<span class="sd">		* dict-like ``{dim_tuple: ids}`` or ``{chrom_str: ids}`` — pre-loaded.</span>
+
+<span class="sd">		Only 1-D context indices (single ``ID`` column produced by</span>
+<span class="sd">		:func:`cytozip.index_context`) are accepted here; 2-D region</span>
+<span class="sd">		indices belong with :func:`aggregate`.</span>
+
+<span class="sd">		Resolved IDs are cached on the Reader keyed by (index_token, dim)</span>
+<span class="sd">		so repeated chunk queries that share the same index (e.g. a</span>
+<span class="sd">		``query_numpy_multi`` over many regions, or</span>
+<span class="sd">		:func:`cz_to_anndata` aggregating a whole genome) only pay the</span>
+<span class="sd">		I/O once per chunk.</span>
+
+<span class="sd">		Returns</span>
+<span class="sd">		-------</span>
+<span class="sd">		np.ndarray of np.int64 (1-based IDs), possibly empty, or ``None``.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="k">if</span> <span class="n">index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+			<span class="k">return</span> <span class="kc">None</span>
+		<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+			<span class="n">dim_t</span> <span class="o">=</span> <span class="p">(</span><span class="n">dim</span><span class="p">,)</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">dim_t</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+		<span class="c1"># Pre-loaded dict — cheap lookup, no caching needed.</span>
+		<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+			<span class="n">ids</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">dim_t</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">ids</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">dim_t</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+				<span class="n">ids</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">dim_t</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+			<span class="k">if</span> <span class="n">ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+				<span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+			<span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+		<span class="c1"># Cache key: stable across calls for the same path / Reader instance.</span>
+		<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+			<span class="n">token</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;path&#39;</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+		<span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">Reader</span><span class="p">):</span>
+			<span class="n">token</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;reader&#39;</span><span class="p">,</span> <span class="nb">id</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+				<span class="sa">f</span><span class="s2">&quot;index must be None, str path, Reader, or dict; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">index</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+		<span class="n">ck</span> <span class="o">=</span> <span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">dim_t</span><span class="p">)</span>
+		<span class="n">hit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index_ids_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ck</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">hit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+			<span class="k">return</span> <span class="n">hit</span>
+		<span class="c1"># Not cached — open / read.</span>
+		<span class="n">close_after</span> <span class="o">=</span> <span class="kc">False</span>
+		<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+			<span class="n">index_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+			<span class="n">close_after</span> <span class="o">=</span> <span class="kc">True</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">index_reader</span> <span class="o">=</span> <span class="n">index</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">index_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;ID&#39;</span><span class="p">]</span>
+					<span class="ow">and</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;I&#39;</span><span class="p">]):</span>
+				<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+					<span class="s2">&quot;index parameter requires a 1-D context index &quot;</span>
+					<span class="s2">&quot;(columns=[&#39;ID&#39;], formats=[&#39;I&#39;]); got &quot;</span>
+					<span class="sa">f</span><span class="s2">&quot;columns=</span><span class="si">{</span><span class="n">index_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, &quot;</span>
+					<span class="sa">f</span><span class="s2">&quot;formats=</span><span class="si">{</span><span class="n">index_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">dim_t</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+				<span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim_t</span><span class="p">)</span>
+				<span class="k">if</span> <span class="n">ids</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+					<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+						<span class="s2">&quot;index parameter requires a 1-D context index; got 2-D&quot;</span><span class="p">)</span>
+				<span class="n">ids</span> <span class="o">=</span> <span class="n">ids</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+		<span class="k">finally</span><span class="p">:</span>
+			<span class="k">if</span> <span class="n">close_after</span><span class="p">:</span>
+				<span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		<span class="c1"># Bound cache size to avoid unbounded growth on very large genomes.</span>
+		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_index_ids_cache</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">4096</span><span class="p">:</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">_index_ids_cache</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_index_ids_cache</span><span class="p">[</span><span class="n">ck</span><span class="p">]</span> <span class="o">=</span> <span class="n">ids</span>
+		<span class="k">return</span> <span class="n">ids</span>
 
 	<span class="k">def</span><span class="w"> </span><span class="nf">_getRecordsByIds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">IDs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">		</span><span class="sd">&quot;&quot;&quot;</span>
@@ -3904,6 +4263,318 @@
 
 
 <span class="c1"># ==========================================================</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_pos_col</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">pos_col</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">	</span><span class="sd">&quot;&quot;&quot;Resolve the coordinate column index of a .cz reader.</span>
+
+<span class="sd">	Parameters</span>
+<span class="sd">	----------</span>
+<span class="sd">	reader : Reader</span>
+<span class="sd">		An open :class:`Reader`.</span>
+<span class="sd">	pos_col : None, int or str, optional</span>
+<span class="sd">		Explicit column selector. ``None`` (default) auto-detects a column</span>
+<span class="sd">		named ``&#39;pos&#39;`` (case-insensitive); an ``int`` is used as-is; a</span>
+<span class="sd">		``str`` is looked up in the header column names.</span>
+
+<span class="sd">	Returns</span>
+<span class="sd">	-------</span>
+<span class="sd">	int</span>
+<span class="sd">		The 0-based index of the coordinate column.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+	<span class="k">if</span> <span class="n">pos_col</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+		<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">columns</span><span class="p">):</span>
+			<span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;pos&#39;</span><span class="p">:</span>
+				<span class="k">return</span> <span class="n">i</span>
+		<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+			<span class="sa">f</span><span class="s2">&quot;could not find a &#39;pos&#39; column in </span><span class="si">{</span><span class="n">columns</span><span class="si">!r}</span><span class="s2">; pass pos_col= &quot;</span>
+			<span class="sa">f</span><span class="s2">&quot;explicitly. (A reference-less .cz storing only mc/cov has no &quot;</span>
+			<span class="sa">f</span><span class="s2">&quot;coordinate column and cannot be position-aligned.)&quot;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pos_col</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+		<span class="k">if</span> <span class="n">pos_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;pos_col </span><span class="si">{</span><span class="n">pos_col</span><span class="si">!r}</span><span class="s2"> not in columns </span><span class="si">{</span><span class="n">columns</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+		<span class="k">return</span> <span class="n">columns</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">pos_col</span><span class="p">)</span>
+	<span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">pos_col</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="align_cz">
+<a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.align_cz">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">align_cz</span><span class="p">(</span><span class="n">input1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">input2</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+			 <span class="n">pos_col</span><span class="o">=</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;_1&#39;</span><span class="p">,</span> <span class="s1">&#39;_2&#39;</span><span class="p">),</span> <span class="n">cov_col</span><span class="o">=</span><span class="s1">&#39;cov&#39;</span><span class="p">,</span>
+			 <span class="n">drop_zero_cov</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">5000</span><span class="p">):</span>
+<span class="w">	</span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Column-concatenate two reference-aligned ``.cz`` files.</span>
+
+<span class="sd">	Both inputs must be reference-*less* files (e.g. per-cell ``mc/cov``</span>
+<span class="sd">	produced by ``allc2cz`` with a ``reference=``): they store exactly one</span>
+<span class="sd">	row per reference position, in reference order, so the two files are</span>
+<span class="sd">	already row-aligned. This function attaches the coordinate (``pos``)</span>
+<span class="sd">	column decoded from ``reference`` and writes the two files&#39; data columns</span>
+<span class="sd">	side-by-side. The three files must share the same reference axis</span>
+<span class="sd">	(identical per-chromosome row counts).</span>
+
+<span class="sd">	The write path is fully vectorized at the byte level: each chunk&#39;s raw</span>
+<span class="sd">	packed records are reshaped to ``(n_rows, row_bytes)`` ``uint8`` matrices</span>
+<span class="sd">	and horizontally stacked (``np.hstack``) — no per-column struct decode /</span>
+<span class="sd">	re-encode — so throughput is close to memory bandwidth.</span>
+
+<span class="sd">	Parameters</span>
+<span class="sd">	----------</span>
+<span class="sd">	input1, input2 : path</span>
+<span class="sd">		The two reference-less ``.cz`` files to concatenate.</span>
+<span class="sd">	output : path or None</span>
+<span class="sd">		Output ``.cz`` path. If ``None`` (default), **no file is written**</span>
+<span class="sd">		and a :class:`pandas.DataFrame` of the aligned rows (across all</span>
+<span class="sd">		common chromosomes) is returned instead.</span>
+<span class="sd">	reference : path</span>
+<span class="sd">		Reference ``.cz`` (from ``build_ref``) supplying the ``pos`` axis.</span>
+<span class="sd">		Required.</span>
+<span class="sd">	pos_col : int or str, optional</span>
+<span class="sd">		Which column of ``reference`` holds the coordinate. Default</span>
+<span class="sd">		``&#39;pos&#39;``; pass a different name or a 0-based index if the reference</span>
+<span class="sd">		names its coordinate column differently.</span>
+<span class="sd">	suffixes : (str, str), optional</span>
+<span class="sd">		Suffixes appended to *colliding* column names from ``input1`` and</span>
+<span class="sd">		``input2`` respectively (default ``(&#39;_1&#39;, &#39;_2&#39;)``). Non-colliding</span>
+<span class="sd">		names are kept as-is.</span>
+<span class="sd">	cov_col : str, optional</span>
+<span class="sd">		Name of the coverage column used by ``drop_zero_cov`` (default</span>
+<span class="sd">		``&#39;cov&#39;``).</span>
+<span class="sd">	drop_zero_cov : bool, optional</span>
+<span class="sd">		If True (default), drop every position whose ``cov_col`` is 0 in</span>
+<span class="sd">		**both** inputs (i.e. keep a row only when at least one file has</span>
+<span class="sd">		coverage). Requires ``cov_col`` to exist in both inputs; otherwise</span>
+<span class="sd">		filtering is skipped with a warning.</span>
+<span class="sd">	batch_size : int, optional</span>
+<span class="sd">		Rows per output chunk/block batch when writing (default 5000).</span>
+<span class="sd">		Ignored when ``output is None``.</span>
+
+<span class="sd">	Returns</span>
+<span class="sd">	-------</span>
+<span class="sd">	None or pandas.DataFrame</span>
+<span class="sd">		``None`` when ``output`` is a path (result written to disk); a</span>
+<span class="sd">		:class:`pandas.DataFrame` (with a leading ``chrom`` / chunk-dim</span>
+<span class="sd">		column, the reference ``pos``, and both files&#39; data columns) when</span>
+<span class="sd">		``output is None``.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+		<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+			<span class="s2">&quot;align_cz requires a reference .cz (reference=...); both inputs &quot;</span>
+			<span class="s2">&quot;must be reference-less files aligned to that reference.&quot;</span><span class="p">)</span>
+
+	<span class="n">ref</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">reference</span><span class="p">)))</span>
+	<span class="n">r1</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">input1</span><span class="p">)))</span>
+	<span class="n">r2</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">input2</span><span class="p">)))</span>
+	<span class="k">try</span><span class="p">:</span>
+		<span class="n">ref_fmts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])</span>
+		<span class="n">ref_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+		<span class="n">ref_pos</span> <span class="o">=</span> <span class="n">_find_pos_col</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">pos_col</span><span class="p">)</span>
+		<span class="n">ref_pos_name</span> <span class="o">=</span> <span class="n">ref_cols</span><span class="p">[</span><span class="n">ref_pos</span><span class="p">]</span>
+		<span class="n">ref_pos_fmt</span> <span class="o">=</span> <span class="n">ref_fmts</span><span class="p">[</span><span class="n">ref_pos</span><span class="p">]</span>
+
+		<span class="n">cols1</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">r1</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+		<span class="n">fmts1</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">r1</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])</span>
+		<span class="n">cols2</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">r2</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+		<span class="n">fmts2</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">r2</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])</span>
+
+		<span class="c1"># ---- Resolve the coverage columns for zero-cov filtering ---------</span>
+		<span class="n">cov1_i</span> <span class="o">=</span> <span class="n">cols1</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">cov_col</span><span class="p">)</span> <span class="k">if</span> <span class="n">cov_col</span> <span class="ow">in</span> <span class="n">cols1</span> <span class="k">else</span> <span class="kc">None</span>
+		<span class="n">cov2_i</span> <span class="o">=</span> <span class="n">cols2</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">cov_col</span><span class="p">)</span> <span class="k">if</span> <span class="n">cov_col</span> <span class="ow">in</span> <span class="n">cols2</span> <span class="k">else</span> <span class="kc">None</span>
+		<span class="n">do_filter</span> <span class="o">=</span> <span class="n">drop_zero_cov</span> <span class="ow">and</span> <span class="n">cov1_i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cov2_i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+		<span class="k">if</span> <span class="n">drop_zero_cov</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">do_filter</span><span class="p">:</span>
+			<span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+				<span class="sa">f</span><span class="s2">&quot;drop_zero_cov requested but </span><span class="si">{</span><span class="n">cov_col</span><span class="si">!r}</span><span class="s2"> not found in both &quot;</span>
+				<span class="sa">f</span><span class="s2">&quot;inputs (input1=</span><span class="si">{</span><span class="n">cov_col</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">cols1</span><span class="si">}</span><span class="s2">, input2=</span><span class="si">{</span><span class="n">cov_col</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">cols2</span><span class="si">}</span><span class="s2">); &quot;</span>
+				<span class="sa">f</span><span class="s2">&quot;keeping all rows.&quot;</span><span class="p">)</span>
+		<span class="n">dt1</span> <span class="o">=</span> <span class="n">_build_record_dtype</span><span class="p">(</span><span class="n">fmts1</span><span class="p">)</span> <span class="k">if</span> <span class="n">do_filter</span> <span class="k">else</span> <span class="kc">None</span>
+		<span class="n">dt2</span> <span class="o">=</span> <span class="n">_build_record_dtype</span><span class="p">(</span><span class="n">fmts2</span><span class="p">)</span> <span class="k">if</span> <span class="n">do_filter</span> <span class="k">else</span> <span class="kc">None</span>
+
+		<span class="c1"># ---- Byte geometry for the fast hstack path ----------------------</span>
+		<span class="n">sizes_ref</span> <span class="o">=</span> <span class="p">[</span><span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">ref_fmts</span><span class="p">]</span>
+		<span class="n">ref_unit</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">sizes_ref</span><span class="p">)</span>
+		<span class="n">pos_start</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">sizes_ref</span><span class="p">[:</span><span class="n">ref_pos</span><span class="p">])</span>
+		<span class="n">pos_size</span> <span class="o">=</span> <span class="n">sizes_ref</span><span class="p">[</span><span class="n">ref_pos</span><span class="p">]</span>
+		<span class="n">unit1</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">fmts1</span><span class="p">)</span>
+		<span class="n">unit2</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">fmts2</span><span class="p">)</span>
+
+		<span class="c1"># ---- Output columns/formats: pos + file1 + file2 -----------------</span>
+		<span class="n">names1</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">cols1</span><span class="p">)</span>
+		<span class="n">names2</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">cols2</span><span class="p">)</span>
+		<span class="n">collisions</span> <span class="o">=</span> <span class="n">names1</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">names2</span><span class="p">)</span>
+		<span class="n">pos_collides</span> <span class="o">=</span> <span class="n">ref_pos_name</span> <span class="ow">in</span> <span class="n">names1</span> <span class="ow">or</span> <span class="n">ref_pos_name</span> <span class="ow">in</span> <span class="n">names2</span>
+		<span class="n">out_columns</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ref_pos_name</span><span class="si">}</span><span class="s2">_ref&quot;</span> <span class="k">if</span> <span class="n">pos_collides</span> <span class="k">else</span> <span class="n">ref_pos_name</span><span class="p">]</span>
+		<span class="n">out_formats</span> <span class="o">=</span> <span class="p">[</span><span class="n">ref_pos_fmt</span><span class="p">]</span>
+		<span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">cols1</span><span class="p">,</span> <span class="n">fmts1</span><span class="p">):</span>
+			<span class="n">out_columns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">}{</span><span class="n">suffixes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">collisions</span> <span class="k">else</span> <span class="n">c</span><span class="p">)</span>
+			<span class="n">out_formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+		<span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">cols2</span><span class="p">,</span> <span class="n">fmts2</span><span class="p">):</span>
+			<span class="n">out_columns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">}{</span><span class="n">suffixes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">collisions</span> <span class="k">else</span> <span class="n">c</span><span class="p">)</span>
+			<span class="n">out_formats</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+		<span class="c1"># Chromosomes present in the reference AND both inputs.</span>
+		<span class="n">common_keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ref</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+					   <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">r1</span><span class="o">.</span><span class="n">chunk_key2offset</span> <span class="ow">and</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">r2</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">]</span>
+		<span class="n">chunk_dims</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">])</span>
+
+		<span class="c1"># ================================================================</span>
+		<span class="c1"># In-memory mode: collect and return a DataFrame.</span>
+		<span class="c1"># ================================================================</span>
+		<span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+			<span class="k">return</span> <span class="n">_align_cz_to_dataframe</span><span class="p">(</span>
+				<span class="n">ref</span><span class="p">,</span> <span class="n">r1</span><span class="p">,</span> <span class="n">r2</span><span class="p">,</span> <span class="n">common_keys</span><span class="p">,</span> <span class="n">chunk_dims</span><span class="p">,</span>
+				<span class="n">ref_fmts</span><span class="p">,</span> <span class="n">fmts1</span><span class="p">,</span> <span class="n">fmts2</span><span class="p">,</span> <span class="n">ref_pos</span><span class="p">,</span>
+				<span class="n">out_columns</span><span class="p">,</span> <span class="n">ref_unit</span><span class="p">,</span> <span class="n">unit1</span><span class="p">,</span> <span class="n">unit2</span><span class="p">,</span>
+				<span class="n">cov1_i</span> <span class="k">if</span> <span class="n">do_filter</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+				<span class="n">cov2_i</span> <span class="k">if</span> <span class="n">do_filter</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+
+		<span class="c1"># ================================================================</span>
+		<span class="c1"># File mode: fast byte-level hstack, no struct decode/re-encode.</span>
+		<span class="c1"># ================================================================</span>
+		<span class="n">out_pos_name</span> <span class="o">=</span> <span class="n">out_columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">out_formats</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">out_columns</span><span class="p">,</span>
+						<span class="n">chunk_dims</span><span class="o">=</span><span class="n">chunk_dims</span><span class="p">,</span>
+						<span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;align_cz(</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">input1</span><span class="p">))</span><span class="si">}</span><span class="s2">,&quot;</span>
+								<span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">input2</span><span class="p">))</span><span class="si">}</span><span class="s2">;&quot;</span>
+								<span class="sa">f</span><span class="s2">&quot;ref=</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">reference</span><span class="p">))</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+						<span class="n">sort_col</span><span class="o">=</span><span class="n">out_pos_name</span><span class="p">,</span> <span class="n">delta_cols</span><span class="o">=</span><span class="p">[</span><span class="n">out_pos_name</span><span class="p">])</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">common_keys</span><span class="p">:</span>
+				<span class="n">raw_ref</span> <span class="o">=</span> <span class="n">ref</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+				<span class="k">if</span> <span class="ow">not</span> <span class="n">raw_ref</span><span class="p">:</span>
+					<span class="k">continue</span>
+				<span class="n">raw1</span> <span class="o">=</span> <span class="n">r1</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+				<span class="n">raw2</span> <span class="o">=</span> <span class="n">r2</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+				<span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw_ref</span><span class="p">)</span> <span class="o">//</span> <span class="n">ref_unit</span>
+				<span class="n">n1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw1</span><span class="p">)</span> <span class="o">//</span> <span class="n">unit1</span> <span class="k">if</span> <span class="n">unit1</span> <span class="k">else</span> <span class="mi">0</span>
+				<span class="n">n2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw2</span><span class="p">)</span> <span class="o">//</span> <span class="n">unit2</span> <span class="k">if</span> <span class="n">unit2</span> <span class="k">else</span> <span class="mi">0</span>
+				<span class="k">if</span> <span class="n">n1</span> <span class="o">!=</span> <span class="n">n</span> <span class="ow">or</span> <span class="n">n2</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+					<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+						<span class="sa">f</span><span class="s2">&quot;row-count mismatch for chunk </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">: reference has </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> &quot;</span>
+						<span class="sa">f</span><span class="s2">&quot;rows but input1 has </span><span class="si">{</span><span class="n">n1</span><span class="si">}</span><span class="s2"> and input2 has </span><span class="si">{</span><span class="n">n2</span><span class="si">}</span><span class="s2">. Both &quot;</span>
+						<span class="sa">f</span><span class="s2">&quot;inputs must be reference-less files aligned to the &quot;</span>
+						<span class="sa">f</span><span class="s2">&quot;same reference.&quot;</span><span class="p">)</span>
+				<span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+					<span class="k">continue</span>
+				<span class="c1"># Reshape each file&#39;s packed records into (n, row_bytes) and</span>
+				<span class="c1"># slice out just the reference pos column bytes. hstack does a</span>
+				<span class="c1"># single C-level concat producing the combined packed rows.</span>
+				<span class="n">refb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw_ref</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">ref_unit</span><span class="p">)</span>
+				<span class="n">pos_bytes</span> <span class="o">=</span> <span class="n">refb</span><span class="p">[:,</span> <span class="n">pos_start</span><span class="p">:</span><span class="n">pos_start</span> <span class="o">+</span> <span class="n">pos_size</span><span class="p">]</span>
+				<span class="n">b1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">unit1</span><span class="p">)</span>
+				<span class="n">b2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">unit2</span><span class="p">)</span>
+				<span class="k">if</span> <span class="n">do_filter</span><span class="p">:</span>
+					<span class="c1"># Keep a row when either file has non-zero coverage.</span>
+					<span class="n">cov1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dt1</span><span class="p">)[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">cov1_i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span>
+					<span class="n">cov2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dt2</span><span class="p">)[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">cov2_i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span>
+					<span class="n">keep</span> <span class="o">=</span> <span class="p">(</span><span class="n">cov1</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">cov2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+					<span class="k">if</span> <span class="ow">not</span> <span class="n">keep</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+						<span class="k">continue</span>
+					<span class="n">out2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">pos_bytes</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">b1</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">b2</span><span class="p">[</span><span class="n">keep</span><span class="p">]))</span>
+				<span class="k">else</span><span class="p">:</span>
+					<span class="n">out2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">pos_bytes</span><span class="p">,</span> <span class="n">b1</span><span class="p">,</span> <span class="n">b2</span><span class="p">))</span>
+				<span class="n">m</span> <span class="o">=</span> <span class="n">out2d</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+				<span class="n">dim_vals</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+				<span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+					<span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span>
+						<span class="n">out2d</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">start</span> <span class="o">+</span> <span class="n">batch_size</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span> <span class="n">dim_vals</span><span class="p">)</span>
+		<span class="k">finally</span><span class="p">:</span>
+			<span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		<span class="k">return</span> <span class="kc">None</span>
+	<span class="k">finally</span><span class="p">:</span>
+		<span class="n">ref</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		<span class="n">r1</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		<span class="n">r2</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_decode_chunk_columns</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">formats</span><span class="p">):</span>
+<span class="w">	</span><span class="sd">&quot;&quot;&quot;Decode packed chunk bytes into a list of per-column numpy arrays.</span>
+
+<span class="sd">	Numeric columns are returned as zero-copy views cast to owned arrays;</span>
+<span class="sd">	bytes columns (&#39;s&#39;/&#39;c&#39;) are decoded to fixed-width ``str`` arrays.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="n">dtype</span> <span class="o">=</span> <span class="n">_build_record_dtype</span><span class="p">(</span><span class="n">formats</span><span class="p">)</span>
+	<span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+	<span class="n">cols</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">formats</span><span class="p">):</span>
+		<span class="k">if</span> <span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">):</span>
+			<span class="n">n</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">calcsize</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+			<span class="n">cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">char</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
+				<span class="n">arr</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;|S</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">),</span> <span class="s1">&#39;utf-8&#39;</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s1">&#39;ignore&#39;</span><span class="p">))</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]))</span>
+	<span class="k">return</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cols</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_align_cz_to_dataframe</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">r1</span><span class="p">,</span> <span class="n">r2</span><span class="p">,</span> <span class="n">common_keys</span><span class="p">,</span> <span class="n">chunk_dims</span><span class="p">,</span>
+						   <span class="n">ref_fmts</span><span class="p">,</span> <span class="n">fmts1</span><span class="p">,</span> <span class="n">fmts2</span><span class="p">,</span> <span class="n">ref_pos</span><span class="p">,</span>
+						   <span class="n">out_columns</span><span class="p">,</span> <span class="n">ref_unit</span><span class="p">,</span> <span class="n">unit1</span><span class="p">,</span> <span class="n">unit2</span><span class="p">,</span>
+						   <span class="n">cov1_i</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cov2_i</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">	</span><span class="sd">&quot;&quot;&quot;Build a pandas DataFrame of the aligned rows across all chunks.</span>
+
+<span class="sd">	Helper for :func:`align_cz` when ``output is None``. Columns are the</span>
+<span class="sd">	chunk-dim keys (e.g. ``chrom``), the reference ``pos``, and both inputs&#39;</span>
+<span class="sd">	data columns (using the already-disambiguated ``out_columns`` names).</span>
+<span class="sd">	When ``cov1_i`` / ``cov2_i`` are given, rows with zero coverage in *both*</span>
+<span class="sd">	inputs are dropped.</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="c1"># One accumulator list per output data column (pos + inputs) plus one</span>
+	<span class="c1"># per chunk-dim key.</span>
+	<span class="n">n_data_cols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">out_columns</span><span class="p">)</span>
+	<span class="n">col_parts</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_data_cols</span><span class="p">)]</span>
+	<span class="n">dim_parts</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">chunk_dims</span><span class="p">]</span>
+	<span class="n">do_filter</span> <span class="o">=</span> <span class="n">cov1_i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cov2_i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+	<span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">common_keys</span><span class="p">:</span>
+		<span class="n">raw_ref</span> <span class="o">=</span> <span class="n">ref</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">raw_ref</span><span class="p">:</span>
+			<span class="k">continue</span>
+		<span class="n">raw1</span> <span class="o">=</span> <span class="n">r1</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+		<span class="n">raw2</span> <span class="o">=</span> <span class="n">r2</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+		<span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw_ref</span><span class="p">)</span> <span class="o">//</span> <span class="n">ref_unit</span>
+		<span class="n">n1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw1</span><span class="p">)</span> <span class="o">//</span> <span class="n">unit1</span> <span class="k">if</span> <span class="n">unit1</span> <span class="k">else</span> <span class="mi">0</span>
+		<span class="n">n2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw2</span><span class="p">)</span> <span class="o">//</span> <span class="n">unit2</span> <span class="k">if</span> <span class="n">unit2</span> <span class="k">else</span> <span class="mi">0</span>
+		<span class="k">if</span> <span class="n">n1</span> <span class="o">!=</span> <span class="n">n</span> <span class="ow">or</span> <span class="n">n2</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+			<span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+				<span class="sa">f</span><span class="s2">&quot;row-count mismatch for chunk </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">: reference has </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> rows &quot;</span>
+				<span class="sa">f</span><span class="s2">&quot;but input1 has </span><span class="si">{</span><span class="n">n1</span><span class="si">}</span><span class="s2"> and input2 has </span><span class="si">{</span><span class="n">n2</span><span class="si">}</span><span class="s2">. Both inputs must be &quot;</span>
+				<span class="sa">f</span><span class="s2">&quot;reference-less files aligned to the same reference.&quot;</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+			<span class="k">continue</span>
+		<span class="c1"># Decode only the reference pos column; decode all input columns.</span>
+		<span class="n">ref_dtype</span> <span class="o">=</span> <span class="n">_build_record_dtype</span><span class="p">(</span><span class="n">ref_fmts</span><span class="p">)</span>
+		<span class="n">pos_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+			<span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw_ref</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)[</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">ref_pos</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">])</span>
+		<span class="n">_</span><span class="p">,</span> <span class="n">c1</span> <span class="o">=</span> <span class="n">_decode_chunk_columns</span><span class="p">(</span><span class="n">raw1</span><span class="p">,</span> <span class="n">fmts1</span><span class="p">)</span>
+		<span class="n">_</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">_decode_chunk_columns</span><span class="p">(</span><span class="n">raw2</span><span class="p">,</span> <span class="n">fmts2</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">do_filter</span><span class="p">:</span>
+			<span class="c1"># Keep a row when either file has non-zero coverage.</span>
+			<span class="n">keep</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">c1</span><span class="p">[</span><span class="n">cov1_i</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">c2</span><span class="p">[</span><span class="n">cov2_i</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">keep</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+				<span class="k">continue</span>
+			<span class="n">pos_vals</span> <span class="o">=</span> <span class="n">pos_vals</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+			<span class="n">c1</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">c1</span><span class="p">]</span>
+			<span class="n">c2</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">c2</span><span class="p">]</span>
+		<span class="n">m</span> <span class="o">=</span> <span class="n">pos_vals</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="n">ci</span> <span class="o">=</span> <span class="mi">0</span>
+		<span class="n">col_parts</span><span class="p">[</span><span class="n">ci</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pos_vals</span><span class="p">);</span> <span class="n">ci</span> <span class="o">+=</span> <span class="mi">1</span>
+		<span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">c1</span><span class="p">:</span>
+			<span class="n">col_parts</span><span class="p">[</span><span class="n">ci</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">);</span> <span class="n">ci</span> <span class="o">+=</span> <span class="mi">1</span>
+		<span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">c2</span><span class="p">:</span>
+			<span class="n">col_parts</span><span class="p">[</span><span class="n">ci</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">);</span> <span class="n">ci</span> <span class="o">+=</span> <span class="mi">1</span>
+		<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">chunk_dims</span><span class="p">)):</span>
+			<span class="n">dim_parts</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">dim</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+
+	<span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+	<span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">chunk_dims</span><span class="p">):</span>
+		<span class="n">data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">dim_parts</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="k">if</span> <span class="n">dim_parts</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+					  <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">))</span>
+	<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">out_columns</span><span class="p">):</span>
+		<span class="n">data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">col_parts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">if</span> <span class="n">col_parts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+					  <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]))</span>
+	<span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+
+
+
+<span class="c1"># ==========================================================</span>
 <div class="viewcode-block" id="aggregate">
 <a class="viewcode-back" href="../../cytozip.cz.html#cytozip.cz.aggregate">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">aggregate</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">intersect</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -4704,6 +5375,11 @@
 				<span class="n">_np_dt</span> <span class="o">=</span> <span class="kc">None</span>
 
 		<span class="k">for</span> <span class="n">df</span><span class="p">,</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">data_generator</span><span class="p">:</span>
+			<span class="c1"># The all-integer ingestion fast path (``_int_slab_parser``)</span>
+			<span class="c1"># yields already-packed record bytes; write them directly.</span>
+			<span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">bytearray</span><span class="p">,</span> <span class="nb">memoryview</span><span class="p">)):</span>
+				<span class="bp">self</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+				<span class="k">continue</span>
 			<span class="k">if</span> <span class="n">_np_dt</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 				<span class="c1"># Numpy fast path: pack via structured array (no tolist)</span>
 				<span class="n">vals</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">values</span>

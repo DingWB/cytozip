@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.allc &mdash; cytozip 0.3.0.dev23 documentation</title>
+  <title>cytozip.allc &mdash; cytozip 0.3.5.dev0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
@@ -14,8 +14,8 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=59e0a989"></script>
-      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/documentation_options.js?v=e01d351f"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/js/rtd_search_config.js"></script>
       <script src="../../_static/js/rtd_sphinx_search.min.js"></script>
@@ -47,7 +47,11 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/1.quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#pip">pip</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
@@ -86,6 +90,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
@@ -145,35 +150,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../benchmark.html">Benchmark</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../benchmark.html#storage">1.Storage</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../../format_history.html">cz Format — Change History</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#larger-blocks-256-kib-1">Larger blocks (256 KiB − 1)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#wider-virtual-offsets-44-20">Wider virtual offsets (44 + 20)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#delta-encoded-integer-columns">Delta-encoded integer columns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#tail-chunk-index-czix">Tail chunk index (CZIX)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../format_history.html#ideas-explored-but-not-adopted">Ideas explored but <strong>not</strong> adopted</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../../developer_guide.html">Developer Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#architecture-overview">Architecture overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#module-map">Module map</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../developer_guide.html#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#performance-memory-patterns">Performance / memory patterns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer_guide.html#building-the-docs-locally">Building the docs locally</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchmark.html">Benchmark</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../modules.html">cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../cytozip.html">cytozip package</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#submodules">Submodules</a><ul>
@@ -259,6 +236,7 @@
 </ul>
 </li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -331,6 +309,23 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.model.html">cytozip.model module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -511,7 +506,8 @@
 <a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.AllC">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">AllC</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">genome</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s2">&quot;hg38_allc.cz&quot;</span><span class="p">,</span>
-                 <span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">keep_temp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+                 <span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">keep_temp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">chrom_size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Extract position of specific pattern in the reference genome, for example C.</span>
 <span class="sd">            Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --jobs 10 run</span>
@@ -519,13 +515,34 @@
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        genome: path</span>
-<span class="sd">            reference genome.</span>
-<span class="sd">        out: path</span>
-<span class="sd">            path for output</span>
+<span class="sd">            reference genome (FASTA). Any format readable by</span>
+<span class="sd">            ``Bio.SeqIO.parse(..., &quot;fasta&quot;)``.</span>
+<span class="sd">        output: path</span>
+<span class="sd">            path for the output reference ``.cz`` file</span>
+<span class="sd">            (default: ``&quot;hg38_allc.cz&quot;``).</span>
 <span class="sd">        pattern: str</span>
-<span class="sd">            pattern [C]</span>
+<span class="sd">            nucleotide pattern to extract. Only ``&#39;C&#39;`` (every cytosine,</span>
+<span class="sd">            written by :func:`WriteC`) is currently implemented (default: ``&#39;C&#39;``).</span>
 <span class="sd">        jobs: int</span>
-<span class="sd">            number of CPU (parallel processes) used for the Pool.</span>
+<span class="sd">            number of CPU (parallel processes) used for the Pool. ``None``</span>
+<span class="sd">            falls back to ``os.cpu_count()`` (default: 12).</span>
+<span class="sd">        keep_temp: bool</span>
+<span class="sd">            if True, keep the per-chromosome temp directory</span>
+<span class="sd">            (``&lt;output&gt;.tmp``) after merging; otherwise it is removed at the</span>
+<span class="sd">            end of :meth:`run` (default: False).</span>
+<span class="sd">        delta: bool</span>
+<span class="sd">            if True (default), DELTA-encode the strictly-monotonic ``pos``</span>
+<span class="sd">            column. Positions in a reference ``.cz`` are sorted and closely</span>
+<span class="sd">            spaced (~3-10 bp for CGN/CHN), so per-block deltas compress</span>
+<span class="sd">            ~4-5x tighter than raw 8-byte ``Q`` values after DEFLATE. Set</span>
+<span class="sd">            to False for the fastest query path at the cost of ~2-3x larger</span>
+<span class="sd">            files.</span>
+<span class="sd">        chrom_size: path, optional</span>
+<span class="sd">            Path to a ``.fai`` index file or a plain text file whose first</span>
+<span class="sd">            (tab-separated, no header) column lists chromosome names. When</span>
+<span class="sd">            provided, only these chromosomes are extracted, and the merged</span>
+<span class="sd">            reference ``.cz`` stores chunks in exactly this order. ``None``</span>
+<span class="sd">            (default) processes every sequence in the genome fasta.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">genome</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">genome</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
@@ -537,6 +554,18 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">records</span> <span class="o">=</span> <span class="n">SeqIO</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">genome</span><span class="p">,</span> <span class="s2">&quot;fasta&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span> <span class="o">=</span> <span class="n">jobs</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">jobs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keep_temp</span> <span class="o">=</span> <span class="n">keep_temp</span>
+        <span class="c1"># Optional chromosome whitelist / ordering. Works for both a</span>
+        <span class="c1"># samtools ``.fai`` index and a plain single-column text file since</span>
+        <span class="c1"># in both cases the chromosome name is the first tab-separated field.</span>
+        <span class="k">if</span> <span class="n">chrom_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">chrom_size</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">chrom_size</span><span class="p">))</span>
+            <span class="n">chrom_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">chrom_size</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chroms</span> <span class="o">=</span> <span class="n">chrom_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chrom_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">chroms</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chroms</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chrom_set</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">chrom_size</span> <span class="o">=</span> <span class="n">chrom_size</span>
         <span class="c1"># DELTA-encode the strictly-monotonic ``pos`` column by default.</span>
         <span class="c1"># Positions in a reference .cz are sorted and closely spaced (~3-10 bp</span>
         <span class="c1"># for CGN/CHN), so per-block deltas compress ~4-5x tighter than raw</span>
@@ -549,9 +578,19 @@
 <div class="viewcode-block" id="AllC.writePattern">
 <a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.AllC.writePattern">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">writePattern</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract the pattern from every (selected) chromosome in parallel.</span>
+
+<span class="sd">        Dispatches one :func:`WriteC` task per fasta record to a</span>
+<span class="sd">        multiprocessing pool, writing a per-chromosome ``.cz`` file into</span>
+<span class="sd">        ``self.outdir``. Records absent from ``self.chrom_set`` (when a</span>
+<span class="sd">        ``chrom_size`` whitelist was given) are skipped.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">pool</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">jobs</span><span class="p">)</span>
         <span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">records</span><span class="p">:</span>
+            <span class="c1"># Skip sequences not in the requested chromosome list (if any).</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">chrom_set</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">record</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chrom_set</span><span class="p">:</span>
+                <span class="k">continue</span>
             <span class="n">task</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">outdir</span><span class="p">,</span> <span class="mi">5000</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_cols</span><span class="p">))</span>
             <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
@@ -563,16 +602,30 @@
 <div class="viewcode-block" id="AllC.merge">
 <a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.AllC.merge">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">merge</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Concatenate the per-chromosome temp ``.cz`` files into ``self.output``.</span>
+
+<span class="sd">        When a ``chrom_size`` list was provided, chunks are merged in that</span>
+<span class="sd">        exact order; otherwise :meth:`cytozip.cz.Writer.catcz` falls back to</span>
+<span class="sd">        its default ``sorted()`` ordering.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">output</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;3s&#39;</span><span class="p">],</span>
                         <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="s1">&#39;strand&#39;</span><span class="p">,</span> <span class="s1">&#39;context&#39;</span><span class="p">],</span>
                         <span class="n">chunk_dims</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">message</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">genome</span><span class="p">,</span>
                         <span class="n">sort_col</span><span class="o">=</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="n">delta_cols</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">delta_cols</span><span class="p">)</span>
-        <span class="n">writer</span><span class="o">.</span><span class="n">catcz</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">outdir</span><span class="si">}</span><span class="s2">/*.cz&quot;</span><span class="p">,</span> <span class="n">key_added</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
+        <span class="c1"># When a chromosome list is given, merge chunks in that exact order;</span>
+        <span class="c1"># otherwise fall back to catcz&#39;s default sorted() ordering.</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">catcz</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">outdir</span><span class="si">}</span><span class="s2">/*.cz&quot;</span><span class="p">,</span> <span class="n">chunk_order</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">chroms</span><span class="p">,</span>
+                     <span class="n">key_added</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="AllC.run">
 <a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.AllC.run">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the full pipeline: extract, merge, and clean up temp files.</span>
+
+<span class="sd">        Calls :meth:`writePattern` then :meth:`merge`, and removes the</span>
+<span class="sd">        temp directory ``&lt;output&gt;.tmp`` unless ``keep_temp=True``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">writePattern</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">merge</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_temp</span><span class="p">:</span>
@@ -661,7 +714,10 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-
+<span class="sd">    None</span>
+<span class="sd">        The result is written to ``output`` (a single ``.cz`` file in</span>
+<span class="sd">        single-file mode, or a directory of ``.cz`` files in batch mode).</span>
+<span class="sd">        Nothing is returned; existing outputs are skipped.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># ---- Batch mode: input is a directory --------------------------------</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">)):</span>
@@ -922,6 +978,13 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_strip_allc_suffix</span><span class="p">(</span><span class="n">basename</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Strip a common allc/tsv suffix from ``basename`` to build the output stem.</span>
+
+<span class="sd">    Tries the known allc extensions (``.allc.tsv.gz``, ``.allc.tsv.bgz``,</span>
+<span class="sd">    ``.tsv.gz``, ``.allc.gz``) in order and falls back to</span>
+<span class="sd">    :func:`os.path.splitext` when none match. Used in batch mode to name</span>
+<span class="sd">    each ``&lt;stem&gt;.cz`` output.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">for</span> <span class="n">suf</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;.allc.tsv.gz&#39;</span><span class="p">,</span> <span class="s1">&#39;.allc.tsv.bgz&#39;</span><span class="p">,</span> <span class="s1">&#39;.tsv.gz&#39;</span><span class="p">,</span> <span class="s1">&#39;.allc.gz&#39;</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">basename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">suf</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">basename</span><span class="p">[:</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">suf</span><span class="p">)]</span>
@@ -1034,7 +1097,9 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-
+<span class="sd">    None</span>
+<span class="sd">        The extracted (and optionally CG-merged) records are written to</span>
+<span class="sd">        ``output`` as a new ``.cz`` file. Nothing is returned.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cz_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
     <span class="n">index_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
@@ -1045,14 +1110,46 @@
                     <span class="n">chunk_dims</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">],</span>
                     <span class="n">message</span><span class="o">=</span><span class="n">index_path</span><span class="p">)</span>
     <span class="n">dtfuncs</span> <span class="o">=</span> <span class="n">get_dtfuncs</span><span class="p">(</span><span class="n">writer</span><span class="o">.</span><span class="n">formats</span><span class="p">)</span>
+    <span class="c1"># Vectorized merge_cg fast path is only exact when every column is an</span>
+    <span class="c1"># unsigned integer (np.iinfo(dtype).max then equals the clamp used by</span>
+    <span class="c1"># ``int_func``). methylation count columns (mc/cov) are unsigned, so this</span>
+    <span class="c1"># covers the real use case; anything else falls back to the per-record loop.</span>
+    <span class="n">_vec_merge</span> <span class="o">=</span> <span class="n">merge_cg</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span>
+        <span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="s1">&#39;BHILQ&#39;</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])</span>
+    <span class="n">_rec_dtype</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">_vec_merge</span><span class="p">:</span>
+        <span class="n">_rec_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([</span>
+            <span class="p">(</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">_fmt_to_np_dtype</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])])</span>
     <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
         <span class="c1"># print(dim)</span>
         <span class="n">IDs</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">IDs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only support 1D index now!&quot;</span><span class="p">)</span>
+        <span class="c1"># for CG, if pos is forward (+), then pos+1 is reverse strand (-)</span>
+        <span class="k">if</span> <span class="n">_vec_merge</span><span class="p">:</span>
+            <span class="c1"># Gather the indexed rows once, then sum each forward/reverse pair</span>
+            <span class="c1"># column-wise with a single vectorized clip — no per-record</span>
+            <span class="c1"># struct unpack/pack. Row order matches _getRecordsByIds(IDs).</span>
+            <span class="k">if</span> <span class="n">IDs</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index_reader</span><span class="p">)</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span>  <span class="c1"># number of (forward, reverse) pairs</span>
+            <span class="k">if</span> <span class="n">m</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">fwd</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[:</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">rev</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_rec_dtype</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])):</span>
+                <span class="n">fn</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="n">dt</span> <span class="o">=</span> <span class="n">_rec_dtype</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span>
+                <span class="n">summed</span> <span class="o">=</span> <span class="n">fwd</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">+</span> <span class="n">rev</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+                <span class="n">info</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">summed</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">min</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">max</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span> <span class="n">dim</span><span class="p">)</span>
+            <span class="k">continue</span>
         <span class="n">records</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_getRecordsByIds</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">IDs</span><span class="p">)</span>
         <span class="n">data_parts</span><span class="p">,</span> <span class="n">count</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
-        <span class="c1"># for CG, if pos is forward (+), then pos+1 is reverse strand (-)</span>
         <span class="k">if</span> <span class="n">merge_cg</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">records</span><span class="p">):</span>  <span class="c1"># unpacked bytes</span>
                 <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>

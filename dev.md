@@ -616,7 +616,7 @@ final merge step.
 # Upload onto conda
 ## Step1: publish onto pypi
 ```shell
-curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.4.tar.gz | sha256sum
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.5.tar.gz | sha256sum
 # or curl -sL https://files.pythonhosted.org/packages/ae/e1/11a583a1910a47894b06553d6697af3acac357a07ee94bbbeb17a0963930/cytozip-0.3.tar.gz | sha256sum
 # put sha256 in meta.yaml for the first time
 ```
@@ -632,24 +632,16 @@ git checkout -b add-cytozip # create a new branch
 mkdir -p recipes/cytozip
 cp /home/x-wding2/Projects/Github/cytozip/conda-recipe/meta.yaml recipes/cytozip/
 
-# 3. bioconda-utils lint  (Optional)
-#  https://bioconda.github.io/contributor/index.html
-conda activate base
-mamba create -n conda-build -c conda-forge -c bioconda bioconda-utils
-conda activate bioconda
-# optional linting
-bioconda-utils lint --git-range master HEAD
-# build and test
-bioconda-utils build --docker --mulled-build-and-test --git-range master HEAD
-
 # test before PR
-# m3c
-mamba create -n conda-build -c conda-forge conda-build boa conda-verify anaconda-client
-conda activate conda-build
-conda mambabuild -c conda-forge -c bioconda recipes/cytozip
+# mamba create -n bioconda-build -c conda-forge -c bioconda conda-build boa conda-verify
+# conda mambabuild -c conda-forge -c bioconda recipes/cytozip
+mamba create -n bioconda-build -c conda-forge -c bioconda bioconda-utils
+conda activate bioconda-build
+bioconda-utils lint --packages cytozip
+bioconda-utils build --packages cytozip
 # If you see .conda / .tar.bz2 in output folder, then recipe is good, then:
 git add recipes/cytozip/meta.yaml
-git commit -m "Add cytozip 0.3.4"
+git commit -m "Add cytozip 0.3.5"
 git push origin add-cytozip
 # PR to bioconda/bioconda-recipes:master, and finally:
 conda install -c bioconda cytozip

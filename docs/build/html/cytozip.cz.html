@@ -3,10 +3,10 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.cz module &mdash; cytozip 0.3.0.dev23 documentation</title>
+  <title>cytozip.cz module &mdash; cytozip 0.3.5.dev0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
@@ -15,8 +15,8 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=59e0a989"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/documentation_options.js?v=e01d351f"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/js/rtd_search_config.js"></script>
       <script src="_static/js/rtd_sphinx_search.min.js"></script>
@@ -50,7 +50,11 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/1.quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/1.quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/1.quick_start.html#pip">pip</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
@@ -89,6 +93,7 @@
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="notebooks/3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="notebooks/3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
@@ -148,35 +153,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="benchmark.html">Benchmark</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="benchmark.html#storage">1.Storage</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="format_history.html">cz Format — Change History</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#larger-blocks-256-kib-1">Larger blocks (256 KiB − 1)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#wider-virtual-offsets-44-20">Wider virtual offsets (44 + 20)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#delta-encoded-integer-columns">Delta-encoded integer columns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#tail-chunk-index-czix">Tail chunk index (CZIX)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="format_history.html#ideas-explored-but-not-adopted">Ideas explored but <strong>not</strong> adopted</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="developer_guide.html">Developer Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#architecture-overview">Architecture overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#module-map">Module map</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
-<li class="toctree-l3"><a class="reference internal" href="developer_guide.html#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#performance-memory-patterns">Performance / memory patterns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer_guide.html#building-the-docs-locally">Building the docs locally</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">Benchmark</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">cytozip</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="cytozip.html">cytozip package</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="cytozip.html#submodules">Submodules</a><ul class="current">
@@ -262,6 +239,7 @@
 </ul>
 </li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -334,6 +312,23 @@
 <li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.model.html">cytozip.model module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -460,7 +455,7 @@ file ends up counted against <code class="docutils literal notranslate"><span cl
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.cz.Reader.chunk2df">
-<span class="sig-name descname"><span class="pre">chunk2df</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reformat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.chunk2df"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.chunk2df" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">chunk2df</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reformat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.chunk2df"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.chunk2df" title="Link to this definition"></a></dt>
 <dd><p>Read an entire chunk into a pandas DataFrame.</p>
 <p>Thin wrapper around <a class="reference internal" href="#cytozip.cz.Reader.chunk2numpy" title="cytozip.cz.Reader.chunk2numpy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">chunk2numpy()</span></code></a>: builds the structured
 ndarray once via the C/numpy fast path, then materializes a
@@ -476,6 +471,8 @@ comparable with Python strings. If False, those columns are
 kept as opaque <code class="docutils literal notranslate"><span class="pre">|V{n}</span></code> bytes views (zero-copy, but pandas
 cannot print or compare them — only useful when piping the
 DataFrame straight back into another binary path).</p></li>
+<li><p><strong>index</strong> (str, <code class="docutils literal notranslate"><span class="pre">Reader</span></code>, dict or None, default None) – Optional 1-D context index (e.g. CG / CH) restricting the
+rows returned. See <a class="reference internal" href="#cytozip.cz.Reader.chunk2numpy" title="cytozip.cz.Reader.chunk2numpy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">chunk2numpy()</span></code></a> for accepted forms.</p></li>
 </ul>
 </dd>
 </dl>
@@ -483,7 +480,7 @@ DataFrame straight back into another binary path).</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.cz.Reader.chunk2numpy">
-<span class="sig-name descname"><span class="pre">chunk2numpy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reformat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.chunk2numpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.chunk2numpy" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">chunk2numpy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reformat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.chunk2numpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.chunk2numpy" title="Link to this definition"></a></dt>
 <dd><p>Read an entire chunk as a numpy structured ndarray.</p>
 <p>This is the fastest single-cell read path: it skips the per-row
 Python tuple construction and the <code class="docutils literal notranslate"><span class="pre">pd.DataFrame</span></code> build that
@@ -500,6 +497,11 @@ str (returned as a separate <code class="docutils literal notranslate"><span cla
 structured arrays can’t hold variable-length str directly).
 Most analysis pipelines should leave this False and operate
 on the raw bytes columns.</p></li>
+<li><p><strong>index</strong> (str, <code class="docutils literal notranslate"><span class="pre">Reader</span></code>, dict or None, default None) – If given, restrict the returned rows to those whose 1-based
+primary IDs are listed in <em>index</em>. Typically a 1-D context
+index built by <code class="xref py py-func docutils literal notranslate"><span class="pre">cytozip.index_context()</span></code> (e.g. CG-only
+or CH-only sites). See <code class="xref py py-meth docutils literal notranslate"><span class="pre">_resolve_index_ids()</span></code> for accepted
+forms.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -732,7 +734,7 @@ and only collect matches via the returned generator.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.cz.Reader.query_numpy">
-<span class="sig-name descname"><span class="pre">query_numpy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.query_numpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.query_numpy" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">query_numpy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.query_numpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.query_numpy" title="Link to this definition"></a></dt>
 <dd><p>Vectorized region query — returns a structured <code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code>.</p>
 <p>~10× faster than <a class="reference internal" href="#cytozip.cz.Reader.query" title="cytozip.cz.Reader.query"><code class="xref py py-meth docutils literal notranslate"><span class="pre">query()</span></code></a> for warm in-process queries
 because it bypasses the per-record Python tuple loop and uses
@@ -789,6 +791,15 @@ vectorized slice paired with the reference position column.</p>
 <dt class="field-even">type sort_col<span class="colon">:</span></dt>
 <dd class="field-even"><p>int or None</p>
 </dd>
+<dt class="field-odd">param index<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional 1-D context index restricting rows to e.g. CG / CH
+sites. The intersection of the region <code class="docutils literal notranslate"><span class="pre">[start,</span> <span class="pre">end]</span></code> and
+the index is returned. See <a class="reference internal" href="#cytozip.cz.Reader.chunk2numpy" title="cytozip.cz.Reader.chunk2numpy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">chunk2numpy()</span></code></a> for accepted
+forms.</p>
+</dd>
+<dt class="field-even">type index<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, <code class="docutils literal notranslate"><span class="pre">Reader</span></code>, dict or None, default None</p>
+</dd>
 <dt class="field-odd">returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Structured ndarray with one record per hit. When <em>reference</em>
 is supplied, returns <code class="docutils literal notranslate"><span class="pre">(positions,</span> <span class="pre">records)</span></code> where
@@ -819,7 +830,7 @@ that <a class="reference internal" href="#cytozip.cz.Reader.query" title="cytozi
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.cz.Reader.query_numpy_chunk_batch">
-<span class="sig-name descname"><span class="pre">query_numpy_chunk_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intervals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.query_numpy_chunk_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.query_numpy_chunk_batch" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">query_numpy_chunk_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intervals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.query_numpy_chunk_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.query_numpy_chunk_batch" title="Link to this definition"></a></dt>
 <dd><p>Vectorized many-region query within a single chunk.</p>
 <p>When you have hundreds/thousands of small intervals that all
 fall in the same chunk (e.g., all DMRs on chr1, or every gene
@@ -852,7 +863,7 @@ tuple, mirroring <a class="reference internal" href="#cytozip.cz.Reader.query_nu
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.cz.Reader.query_numpy_multi">
-<span class="sig-name descname"><span class="pre">query_numpy_multi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">regions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.query_numpy_multi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.query_numpy_multi" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">query_numpy_multi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">regions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.query_numpy_multi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.query_numpy_multi" title="Link to this definition"></a></dt>
 <dd><p>Vectorized multi-region query with thread-pool parallelism.</p>
 <p>Runs many <a class="reference internal" href="#cytozip.cz.Reader.query_numpy" title="cytozip.cz.Reader.query_numpy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">query_numpy()</span></code></a> calls concurrently using a thread
 pool with <strong>per-thread Reader instances</strong> (the underlying file
@@ -1069,7 +1080,7 @@ layout. Default <code class="docutils literal notranslate"><span class="pre">Fal
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.cz.Reader.view">
-<span class="sig-name descname"><span class="pre">view</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">show_dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">header</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">where</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.view"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.view" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">view</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">show_dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">header</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">where</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#Reader.view"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.Reader.view" title="Link to this definition"></a></dt>
 <dd><p>View .cz file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1091,6 +1102,13 @@ fields must be tab-separated.</p></li>
 with <code class="docutils literal notranslate"><span class="pre">chunk_order</span></code>.</p></li>
 <li><p><strong>reference</strong> (<em>str</em><em>, </em><em>optional</em>) – Path to a row-aligned reference .cz file whose columns will be
 prepended to each record.</p></li>
+<li><p><strong>index</strong> (str, <code class="docutils literal notranslate"><span class="pre">Reader</span></code>, dict or None, optional) – A 1-D context index (e.g. CG / CH; produced by
+<code class="xref py py-func docutils literal notranslate"><span class="pre">cytozip.index_context()</span></code>) restricting the rows printed
+to those whose 1-based primary IDs are listed in <em>index</em>.
+Independent of <em>reference</em>: pass both to view a row-aligned
+reference + cell joined on chrom and additionally restricted
+to the context positions. See <a class="reference internal" href="#cytozip.cz.Reader.chunk2numpy" title="cytozip.cz.Reader.chunk2numpy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">chunk2numpy()</span></code></a> for accepted
+forms.</p></li>
 </ul>
 </dd>
 </dl>
@@ -1268,7 +1286,7 @@ or a file path (need to specify sep,header and skiprows).</p></li>
 <li><p><strong>usecols</strong> (<em>list</em>) – usecols is the index of columns to be packed into .cz columns.</p></li>
 <li><p><strong>key_cols</strong> (<em>list</em>) – index of columns to be set as chunk_dims of Writer, such as chrom
 columns.</p></li>
-<li><p><strong>sep</strong> (<em>str</em>) – defauls is “    “, used as separator for the input file path.</p></li>
+<li><p><strong>sep</strong> (<em>str</em>) – defauls is ”    “, used as separator for the input file path.</p></li>
 <li><p><strong>batch_size</strong> (<em>int</em>) – Chunk input dataframe of file path.</p></li>
 <li><p><strong>header</strong> (<em>bool</em>) – whether the input file path contain header.</p></li>
 <li><p><strong>skiprows</strong> (<em>int</em>) – number of rows to skip for input file path.</p></li>
@@ -1344,6 +1362,59 @@ first chunk.</p></li>
 <li><p><strong>batch_size</strong></p></li>
 <li><p><strong>formats</strong></p></li>
 </ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz.align_cz">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">align_cz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pos_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pos'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suffixes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('_1',</span> <span class="pre">'_2')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cov'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_zero_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#align_cz"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.align_cz" title="Link to this definition"></a></dt>
+<dd><p>Column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files.</p>
+<p>Both inputs must be reference-<em>less</em> files (e.g. per-cell <code class="docutils literal notranslate"><span class="pre">mc/cov</span></code>
+produced by <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code> with a <code class="docutils literal notranslate"><span class="pre">reference=</span></code>): they store exactly one
+row per reference position, in reference order, so the two files are
+already row-aligned. This function attaches the coordinate (<code class="docutils literal notranslate"><span class="pre">pos</span></code>)
+column decoded from <code class="docutils literal notranslate"><span class="pre">reference</span></code> and writes the two files’ data columns
+side-by-side. The three files must share the same reference axis
+(identical per-chromosome row counts).</p>
+<p>The write path is fully vectorized at the byte level: each chunk’s raw
+packed records are reshaped to <code class="docutils literal notranslate"><span class="pre">(n_rows,</span> <span class="pre">row_bytes)</span></code> <code class="docutils literal notranslate"><span class="pre">uint8</span></code> matrices
+and horizontally stacked (<code class="docutils literal notranslate"><span class="pre">np.hstack</span></code>) — no per-column struct decode /
+re-encode — so throughput is close to memory bandwidth.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input1</strong> (<em>path</em>) – The two reference-less <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files to concatenate.</p></li>
+<li><p><strong>input2</strong> (<em>path</em>) – The two reference-less <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files to concatenate.</p></li>
+<li><p><strong>output</strong> (<em>path</em><em> or </em><em>None</em>) – Output <code class="docutils literal notranslate"><span class="pre">.cz</span></code> path. If <code class="docutils literal notranslate"><span class="pre">None</span></code> (default), <strong>no file is written</strong>
+and a <code class="xref py py-class docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> of the aligned rows (across all
+common chromosomes) is returned instead.</p></li>
+<li><p><strong>reference</strong> (<em>path</em>) – Reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (from <code class="docutils literal notranslate"><span class="pre">build_ref</span></code>) supplying the <code class="docutils literal notranslate"><span class="pre">pos</span></code> axis.
+Required.</p></li>
+<li><p><strong>pos_col</strong> (<em>int</em><em> or </em><em>str</em><em>, </em><em>optional</em>) – Which column of <code class="docutils literal notranslate"><span class="pre">reference</span></code> holds the coordinate. Default
+<code class="docutils literal notranslate"><span class="pre">'pos'</span></code>; pass a different name or a 0-based index if the reference
+names its coordinate column differently.</p></li>
+<li><p><strong>suffixes</strong> (<em>(</em><em>str</em><em>, </em><em>str</em><em>)</em><em>, </em><em>optional</em>) – Suffixes appended to <em>colliding</em> column names from <code class="docutils literal notranslate"><span class="pre">input1</span></code> and
+<code class="docutils literal notranslate"><span class="pre">input2</span></code> respectively (default <code class="docutils literal notranslate"><span class="pre">('_1',</span> <span class="pre">'_2')</span></code>). Non-colliding
+names are kept as-is.</p></li>
+<li><p><strong>cov_col</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of the coverage column used by <code class="docutils literal notranslate"><span class="pre">drop_zero_cov</span></code> (default
+<code class="docutils literal notranslate"><span class="pre">'cov'</span></code>).</p></li>
+<li><p><strong>drop_zero_cov</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), drop every position whose <code class="docutils literal notranslate"><span class="pre">cov_col</span></code> is 0 in
+<strong>both</strong> inputs (i.e. keep a row only when at least one file has
+coverage). Requires <code class="docutils literal notranslate"><span class="pre">cov_col</span></code> to exist in both inputs; otherwise
+filtering is skipped with a warning.</p></li>
+<li><p><strong>batch_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Rows per output chunk/block batch when writing (default 5000).
+Ignored when <code class="docutils literal notranslate"><span class="pre">output</span> <span class="pre">is</span> <span class="pre">None</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">None</span></code> when <code class="docutils literal notranslate"><span class="pre">output</span></code> is a path (result written to disk); a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> (with a leading <code class="docutils literal notranslate"><span class="pre">chrom</span></code> / chunk-dim
+column, the reference <code class="docutils literal notranslate"><span class="pre">pos</span></code>, and both files’ data columns) when
+<code class="docutils literal notranslate"><span class="pre">output</span> <span class="pre">is</span> <span class="pre">None</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None or pandas.DataFrame</p>
 </dd>
 </dl>
 </dd></dl>

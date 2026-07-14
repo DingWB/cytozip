@@ -1701,6 +1701,66 @@
   },
   {
    "cell_type": "markdown",
+   "id": "07e962e6",
+   "metadata": {},
+   "source": [
+    "### `align_cz` — column-concatenate two reference-aligned `.cz` files\n",
+    "\n",
+    "Two reference-*less* `.cz` files (per-cell `mc`/`cov` produced by `allc2cz` with a `reference=`) share the same reference axis — one row per reference position, in reference order. `align_cz` attaches the `pos` column decoded from the reference and writes the two files' data columns side-by-side. The write path is a vectorized byte-level `hstack` (no per-column struct decode / re-encode), so it runs close to memory bandwidth.\n",
+    "\n",
+    "* Pass `output=` a path to write a new `.cz`; colliding column names (e.g. `mc`, `cov`) get the `suffixes` (default `_1` / `_2`).\n",
+    "* Pass `output=None` (default) to get a `pandas.DataFrame` back instead of writing a file.\n",
+    "* `pos_col` selects the reference's coordinate column (default `'pos'`; pass a name or 0-based index if your reference names it differently)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "84f2108a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "?czip.align_cz"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d4650e98",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Write mode: join two per-cell .cz files into one, attaching pos from the reference\n",
+    "czip.align_cz(\n",
+    "    input1=\"output/cz/FC_P13a_3C_7-1-A11-O1.cz\",\n",
+    "    input2=\"output/cz/FC_E17b_3C_5-5-I24-A21.cz\",\n",
+    "    output=\"output/FC_P13a_vs_E17b.aligned.cz\",\n",
+    "    reference=\"output/mm10_with_chrL.allc.cz\",\n",
+    ")\n",
+    "out = czip.Reader(\"output/FC_P13a_vs_E17b.aligned.cz\")\n",
+    "print(\"columns:\", out.header[\"columns\"])\n",
+    "out.chunk2df(dims=(\"chr1\",)).head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e7fcdefc",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# DataFrame mode: output=None returns a pandas DataFrame directly (no file written)\n",
+    "df = czip.align_cz(\n",
+    "    input1=\"output/cz/FC_P13a_3C_7-1-A11-O1.cz\",\n",
+    "    input2=\"output/cz/FC_E17b_3C_5-5-I24-A21.cz\",\n",
+    "    reference=\"output/mm10_with_chrL.allc.cz\",\n",
+    ")\n",
+    "print(\"shape:\", df.shape)\n",
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
    "id": "c7d56e17-5b1b-4c0a-83f7-dbe1255078c0",
    "metadata": {},
    "source": [

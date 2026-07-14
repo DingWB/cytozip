@@ -3,10 +3,10 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../">
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Calling DMRs with cytozip &mdash; cytozip 0.3.0.dev23 documentation</title>
+  <title>Calling DMRs with cytozip &mdash; cytozip 0.3.5.dev0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
@@ -16,8 +16,8 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=59e0a989"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/documentation_options.js?v=e01d351f"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/js/rtd_search_config.js"></script>
       <script src="../_static/js/rtd_sphinx_search.min.js"></script>
@@ -53,7 +53,11 @@
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="1.quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="1.quick_start.html#1.-Installation">1. Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1.quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="1.quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="1.quick_start.html#pip">pip</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
 <li class="toctree-l2"><a class="reference internal" href="1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
@@ -92,6 +96,7 @@
 <li class="toctree-l2"><a class="reference internal" href="3.python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="3.python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="3.python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="3.python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="3.python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="3.python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="3.python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
@@ -151,35 +156,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../benchmark.html">Benchmark</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../benchmark.html#storage">1.Storage</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../format_history.html">cz Format — Change History</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../format_history.html#larger-blocks-256-kib-1">Larger blocks (256 KiB − 1)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../format_history.html#wider-virtual-offsets-44-20">Wider virtual offsets (44 + 20)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../format_history.html#delta-encoded-integer-columns">Delta-encoded integer columns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../format_history.html#tail-chunk-index-czix">Tail chunk index (CZIX)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../format_history.html#ideas-explored-but-not-adopted">Ideas explored but <strong>not</strong> adopted</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../developer_guide.html">Developer Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../developer_guide.html#architecture-overview">Architecture overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer_guide.html#module-map">Module map</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#cz-py-core-format"><code class="docutils literal notranslate"><span class="pre">cz.py</span></code> — core format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#cz-accel-pyx-cython-hot-paths"><code class="docutils literal notranslate"><span class="pre">cz_accel.pyx</span></code> — Cython hot paths</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#bam-py-bam-cz"><code class="docutils literal notranslate"><span class="pre">bam.py</span></code> — BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#allc-py-allc-table-i-o"><code class="docutils literal notranslate"><span class="pre">allc.py</span></code> — allc table I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#dmr-py-pseudo-reads-bedgraph"><code class="docutils literal notranslate"><span class="pre">dmr.py</span></code> — pseudo-reads + bedGraph</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#features-py-anndata-aggregation"><code class="docutils literal notranslate"><span class="pre">features.py</span></code> — AnnData aggregation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#merge-py-merge-cz-files"><code class="docutils literal notranslate"><span class="pre">merge.py</span></code> — merge <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../developer_guide.html#init-py-cli"><code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> — CLI</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../developer_guide.html#performance-memory-patterns">Performance / memory patterns</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer_guide.html#building-the-docs-locally">Building the docs locally</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../benchmark.html">Benchmark</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../modules.html">cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../cytozip.html">cytozip package</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../cytozip.html#submodules">Submodules</a><ul>
@@ -265,6 +242,7 @@
 </ul>
 </li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -337,6 +315,23 @@
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../cytozip.model.html">cytozip.model module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -439,171 +434,10 @@
 <li><p>Sites with <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&lt;</span> <span class="pre">p_value_cutoff</span></code> and <code class="docutils literal notranslate"><span class="pre">|mean(frac_A)</span> <span class="pre">-</span> <span class="pre">mean(frac_B)|</span> <span class="pre">&gt;</span> <span class="pre">frac_delta_cutoff</span></code> are DMS.</p></li>
 <li><p>Adjacent same-sign DMS within <code class="docutils literal notranslate"><span class="pre">max_dist</span></code> bp are merged into DMRs (<code class="docutils literal notranslate"><span class="pre">min_dms</span></code> per DMR).</p></li>
 </ol>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Generate CG and CH context index for a given reference .cz file</span>
-<span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>index<span class="w"> </span>context<span class="w"> </span>-I<span class="w"> </span>output/mm10_with_chrL.allc.cz<span class="w"> </span>-O<span class="w"> </span>output/mm10_with_chrL.allc.CGN.index<span class="w"> </span><span class="err">\</span>
-    <span class="o">--</span><span class="n">pattern</span> <span class="n">CGN</span> <span class="o">-</span><span class="n">j</span> <span class="mi">16</span> <span class="o">-</span><span class="n">k</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">mm10</span><span class="o">/</span><span class="n">mm10_ucsc</span><span class="o">.</span><span class="n">nochrM</span><span class="o">.</span><span class="n">sizes</span>
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-
-real    0m31.315s
-user    3m52.181s
-sys     0m25.937s
-</pre></div></div>
-</div>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>index<span class="w"> </span>context<span class="w"> </span>-I<span class="w"> </span>output/mm10_with_chrL.allc.cz<span class="w"> </span>-O<span class="w"> </span>output/mm10_with_chrL.allc.CHN.index<span class="w"> </span><span class="err">\</span>
-    <span class="o">--</span><span class="n">pattern</span> <span class="n">CHN</span> <span class="o">-</span><span class="n">j</span> <span class="mi">16</span> <span class="o">-</span><span class="n">k</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">mm10</span><span class="o">/</span><span class="n">mm10_ucsc</span><span class="o">.</span><span class="n">nochrM</span><span class="o">.</span><span class="n">sizes</span>
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-
-real    1m13.453s
-user    11m15.588s
-sys     0m26.608s
-</pre></div></div>
-</div>
-<p>output/mm10_with_chrL.allc.CHN.index is a tiny .cz “row-pointer” file. It stores, per chromosome, the 1-based row numbers of every non-CpG cytosine (CHN, where H = A/C/T) in the reference mm10_with_chrL.allc.cz — just one little-endian uint32 column named ID, no positions / strands / counts.</p>
-<p>Think of it as a bookmark list: “these are the rows in the reference that are CHN sites.” Downstream commands (call_dmr_ch -s, extractCG, allc2cz –reference, aggregate –index, …) take this file as –index to skip all CG sites and only touch CHN rows — much faster than re-scanning the full reference.</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">ls</span> <span class="n">output</span><span class="o">/</span><span class="n">mm10_with_chrL</span><span class="o">*.</span><span class="n">index</span> <span class="o">-</span><span class="n">sh</span>
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-31M output/mm10_with_chrL.allc.CGN.index
-50M output/mm10_with_chrL.allc.CHN.index
-</pre></div></div>
-</div>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># .index is also a cz format file and can be viewed using czip too</span>
-<span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>header<span class="w"> </span>-I<span class="w"> </span>output/mm10_with_chrL.allc.CGN.index
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-magic  :  b&#39;CZIP&#39;
-version  :  0.3
-total_size  :  31886384
-message  :  mm10_with_chrL.allc.cz
-formats  :  [&#39;I&#39;]
-columns  :  [&#39;ID&#39;]
-sort_col  :  None
-delta_cols  :  [0]
-chunk_dims  :  [&#39;chrom&#39;]
-header_size  :  57
-</pre></div></div>
-</div>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>view<span class="w"> </span>-I<span class="w"> </span>output/mm10_with_chrL.allc.CGN.index<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-ID
-298
-299
-352
-353
-358
-359
-458
-459
-587
-</pre></div></div>
-</div>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>view<span class="w"> </span>-I<span class="w"> </span>output/mm10_with_chrL.allc.CGN.index<span class="w"> </span>-r<span class="w"> </span>output/mm10_with_chrL.allc.cz<span class="w"> </span>--show_dims<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-chrom   pos     strand  context ID
-chr1    3000827 +       CGT     298
-chr1    3000828 -       CGG     299
-chr1    3001007 +       CGG     352
-chr1    3001008 -       CGA     353
-chr1    3001018 +       CGT     358
-chr1    3001019 -       CGG     359
-chr1    3001277 +       CGA     458
-chr1    3001278 -       CGA     459
-chr1    3001629 +       CGT     587
-</pre></div></div>
-</div>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>view<span class="w"> </span>-I<span class="w"> </span>output/mm10_with_chrL.allc.CHN.index<span class="w"> </span>--show_dims<span class="w"> </span><span class="m">0</span><span class="w"> </span>-K<span class="w"> </span>chr9<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-chrom   ID
-chr9    2
-chr9    3
-chr9    4
-chr9    5
-chr9    6
-chr9    7
-chr9    8
-chr9    9
-chr9    10
-</pre></div></div>
-</div>
 <section id="Call-CG-DMR">
 <h3>Call CG DMR<a class="headerlink" href="#Call-CG-DMR" title="Link to this heading"></a></h3>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cells</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;output/cz/FC_*.cz&quot;</span><span class="p">))</span>
@@ -613,7 +447,7 @@ chr9    10
     <span class="n">group_a</span><span class="o">=</span><span class="n">group_a</span><span class="p">,</span> <span class="n">group_b</span><span class="o">=</span><span class="n">group_b</span><span class="p">,</span>
     <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
     <span class="n">output</span><span class="o">=</span><span class="s2">&quot;/tmp/cz_dmr_demo.tsv&quot;</span><span class="p">,</span>
-    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.CGN.index&quot;</span><span class="p">,</span>
+    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.CGN.cz&quot;</span><span class="p">,</span>
     <span class="n">dms_output</span><span class="o">=</span><span class="s2">&quot;/tmp/cz_dms_demo.tsv&quot;</span><span class="p">,</span>
     <span class="n">chroms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrM&quot;</span><span class="p">,</span> <span class="s2">&quot;chr19&quot;</span><span class="p">],</span>   <span class="c1"># restrict to small chroms for the demo</span>
     <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">min_samples_per_group</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
@@ -636,8 +470,7 @@ chr9    10
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
-</pre></div>
+<div class="prompt empty docutils container">
 </div>
 <div class="output_area rendered_html docutils container">
 <div>
@@ -761,14 +594,14 @@ chr9    10
 </ol>
 <p>For CH, <strong>pseudobulk input is even more strongly recommended</strong> than for CG: per-cell per-site CH coverage is essentially zero, so even with binning the signal in single-cell input is dominated by sampling noise.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">czip</span><span class="o">.</span><span class="n">call_dmr_ch</span><span class="p">(</span>
     <span class="n">group_a</span><span class="o">=</span><span class="n">group_a</span><span class="p">,</span> <span class="n">group_b</span><span class="o">=</span><span class="n">group_b</span><span class="p">,</span>
     <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
     <span class="n">output</span><span class="o">=</span><span class="s2">&quot;/tmp/cz_dmr_ch_demo.tsv&quot;</span><span class="p">,</span>
-    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.CHN.index&quot;</span><span class="p">,</span>
+    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.CHN.cz&quot;</span><span class="p">,</span>
     <span class="n">dms_output</span><span class="o">=</span><span class="s2">&quot;/tmp/cz_dms_ch_demo.tsv&quot;</span><span class="p">,</span>
     <span class="n">bin_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>                  <span class="c1"># smaller bins for the tiny demo dataset</span>
     <span class="n">chroms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrM&quot;</span><span class="p">,</span> <span class="s2">&quot;chr19&quot;</span><span class="p">],</span>        <span class="c1"># tiny chroms keep the demo fast</span>
@@ -797,8 +630,7 @@ chr9    10
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
-</pre></div>
+<div class="prompt empty docutils container">
 </div>
 <div class="output_area rendered_html docutils container">
 <div>
@@ -922,7 +754,7 @@ chr9    10
 <li><p>For CH, the per-pseudobulk global mCH rates are pre-scanned <strong>once</strong> at the wrapper level and reused across all comparisons via <code class="docutils literal notranslate"><span class="pre">global_a</span></code> / <code class="docutils literal notranslate"><span class="pre">global_b</span></code>, instead of re-scanning on every call.</p></li>
 </ul>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Treat each cell .cz as a (toy) pseudobulk and stage them in a folder.</span>
@@ -938,7 +770,7 @@ chr9    10
 <span class="n">czip</span><span class="o">.</span><span class="n">call_dmr_one_vs_rest</span><span class="p">(</span>
     <span class="n">indir</span><span class="o">=</span><span class="n">tmpd</span><span class="p">,</span>
     <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
-    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.CGN.index&quot;</span><span class="p">,</span>
+    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.CGN.cz&quot;</span><span class="p">,</span>
     <span class="n">outdir</span><span class="o">=</span><span class="n">outdir</span><span class="p">,</span>
     <span class="n">ext</span><span class="o">=</span><span class="s2">&quot;.cz&quot;</span><span class="p">,</span>
     <span class="n">method</span><span class="o">=</span><span class="s2">&quot;cg&quot;</span><span class="p">,</span>
@@ -1012,8 +844,7 @@ merged shape: (605, 14)
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
-</pre></div>
+<div class="prompt empty docutils container">
 </div>
 <div class="output_area rendered_html docutils container">
 <div>
@@ -1215,7 +1046,7 @@ merged shape: (605, 14)
 </div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">outdir2</span> <span class="o">=</span> <span class="s2">&quot;/tmp/cz_dmr_ovr_strat&quot;</span>
@@ -1224,7 +1055,7 @@ merged shape: (605, 14)
 <span class="n">czip</span><span class="o">.</span><span class="n">call_dmr_one_vs_rest</span><span class="p">(</span>
     <span class="n">indir</span><span class="o">=</span><span class="n">tmpd</span><span class="p">,</span>
     <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
-    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.CGN.index&quot;</span><span class="p">,</span>
+    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.CGN.cz&quot;</span><span class="p">,</span>
     <span class="n">outdir</span><span class="o">=</span><span class="n">outdir2</span><span class="p">,</span>
     <span class="n">ext</span><span class="o">=</span><span class="s2">&quot;.cz&quot;</span><span class="p">,</span>
     <span class="n">method</span><span class="o">=</span><span class="s2">&quot;cg&quot;</span><span class="p">,</span>
@@ -1301,7 +1132,7 @@ cls2 -&gt; [&#39;FC_M_P6a_3C_7-3-K21-P5.dmr.tsv&#39;, &#39;FC_M_P9B_3C_6-2-F6-O4
 <h3>CH batch one-vs-rest with shared global-rate pre-scan<a class="headerlink" href="#CH-batch-one-vs-rest-with-shared-global-rate-pre-scan" title="Link to this heading"></a></h3>
 <p>Switch to <code class="docutils literal notranslate"><span class="pre">method='ch'</span></code> and pass CH-specific knobs through <code class="docutils literal notranslate"><span class="pre">**dmr_kwargs</span></code>. The wrapper logs <code class="docutils literal notranslate"><span class="pre">pre-scanning</span> <span class="pre">global</span> <span class="pre">mCH</span> <span class="pre">rates</span> <span class="pre">for</span> <span class="pre">N</span> <span class="pre">pseudobulks</span></code> once at the start, then reuses those rates for every comparison.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">outdir3</span> <span class="o">=</span> <span class="s2">&quot;/tmp/cz_dmr_ovr_ch&quot;</span>
@@ -1310,7 +1141,7 @@ cls2 -&gt; [&#39;FC_M_P6a_3C_7-3-K21-P5.dmr.tsv&#39;, &#39;FC_M_P9B_3C_6-2-F6-O4
 <span class="n">czip</span><span class="o">.</span><span class="n">call_dmr_one_vs_rest</span><span class="p">(</span>
     <span class="n">indir</span><span class="o">=</span><span class="n">tmpd</span><span class="p">,</span>
     <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
-    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.CHN.index&quot;</span><span class="p">,</span>
+    <span class="n">index</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.CHN.cz&quot;</span><span class="p">,</span>
     <span class="n">outdir</span><span class="o">=</span><span class="n">outdir3</span><span class="p">,</span>
     <span class="n">ext</span><span class="o">=</span><span class="s2">&quot;.cz&quot;</span><span class="p">,</span>
     <span class="n">method</span><span class="o">=</span><span class="s2">&quot;ch&quot;</span><span class="p">,</span>
