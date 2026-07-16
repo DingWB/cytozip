@@ -8,9 +8,9 @@ Public entry points:
 * :func:`cz_to_anndata` - aggregate many single-cell ``.cz`` files (or one
   ``catcz``-merged ``.cz``) over a BED / DataFrame / genome-bins feature
   set and emit a single :class:`anndata.AnnData` with ``mc`` / ``cov``
-  layers. ``.X`` holds a user-selected score (raw fraction, posterior
-  fraction normalized by the cell's prior mean a la ALLCools, or a
-  binomial hypo / hyper score).
+  layers. ``.X`` holds a user-selected score (raw fraction, per-cell
+  empirical-Bayes posterior fraction ``(mc + alpha)/(cov + alpha + beta)``
+  from a Beta-Binomial prior, or a binomial hypo / hyper score).
 * :func:`parse_features` - read a BED (plain or bgzipped) feature file
   into a DataFrame, normalizing columns.
 * :func:`make_genome_bins` - tile every chromosome of a chrom-size /
@@ -39,7 +39,7 @@ import pandas as pd
 from .cz import Reader, _fmt_to_np_dtype
 
 
-_VALID_SCORES = ("frac", "hypo-score", "hyper-score", "mc", "cov", "umc")
+_VALID_SCORES = ("frac", "posterior_frac", "hypo-score", "hyper-score", "mc", "cov", "umc")
 
 
 def _record_dtype_for(formats):
@@ -420,145 +420,10 @@ def _beta_binomial_alpha_beta(sum_mc, sum_cov, n_keep, X,
             prior_mean.astype(np.float32))
 
 
-def _compute_beta_params(mc_mat, cov_mat, min_cov=2, df_correction=True):
-    """Per-cell Beta(alpha, beta) via Beta-Binomial method of moments.
-
-    Coverage-aware empirical-Bayes prior over each cell's per-feature
-    methylation rates. Unlike the plain Beta MoM (ALLCools
-    ``calculate_posterior_mc_frac``, preserved as
-    :func:`_compute_beta_params_legacy`), this subtracts the finite-coverage
-    binomial sampling noise, so the concentration ``alpha + beta`` is not
-    biased low on shallow features. See ``docs/beta_binomial_prior.md``.
-
-    Only features with ``cov >= min_cov`` (default 2) enter the estimate;
-    rows with < 2 such features or a degenerate mean are flagged NaN.
-    Returns ``(alpha, beta, prior_mean)`` as ``(n_cells,)`` float32 vectors.
-
-    Writing these to ``adata.obs`` lets users reconstruct the posterior
-    fraction later::
-
-        a = adata.obs["alpha"].values[:, None]
-        b = adata.obs["beta"].values[:, None]
-        prior = adata.obs["prior_mean"].values[:, None]
-        mc = adata.layers["mc"].toarray()
-        cov = adata.layers["cov"].toarray()
-        post = (mc + a) / (cov + a + b) / prior  # ALLCools post_frac
-    """
-    mc = mc_mat.astype(np.float64, copy=False)
-    cov = cov_mat.astype(np.float64, copy=False)
-    keep = cov >= min_cov
-    n_keep = keep.sum(axis=1).astype(np.float64)
-    sum_cov = np.where(keep, cov, 0.0).sum(axis=1)
-    sum_mc = np.where(keep, mc, 0.0).sum(axis=1)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        mu = np.where(sum_cov > 0, sum_mc / sum_cov, np.nan)
-    mu_c = np.clip(mu, 1e-6, 1.0 - 1e-6)
-    denom = (mu_c * (1.0 - mu_c))[:, None]
-    safe_cov = np.where(keep, cov, 1.0)          # avoid /0 at dropped entries
-    with np.errstate(divide="ignore", invalid="ignore"):
-        term = np.where(
-            keep,
-            (mc - cov * mu_c[:, None]) ** 2 / (safe_cov * denom),
-            0.0)
-    X = term.sum(axis=1)
-    return _beta_binomial_alpha_beta(sum_mc, sum_cov, n_keep, X, df_correction)
-
-
-def _compute_beta_params_legacy(mc_mat, cov_mat):
-    """Per-cell method-of-moments Beta(alpha, beta) from raw mc/cov.
-
-    ORIGINAL (pre Beta-Binomial) implementation, kept as a backup /
-    fallback. Mirrors ALLCools ``calculate_posterior_mc_frac`` without
-    applying the posterior transform: fits a plain Beta to the observed
-    ``mc/cov`` fractions, which does NOT correct for the binomial sampling
-    noise and therefore under-estimates ``alpha + beta`` on shallow data.
-    Superseded by :func:`_compute_beta_params`.
-    """
-    mc = mc_mat.astype(np.float64, copy=False)
-    cov = cov_mat.astype(np.float64, copy=False)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        raw = np.where(cov > 0, mc / np.maximum(cov, 1), np.nan)
-    with np.errstate(invalid="ignore"), \
-            np.testing.suppress_warnings() as sup:
-        sup.filter(RuntimeWarning)
-        mean = np.nanmean(raw, axis=1)
-        var = np.nanvar(raw, axis=1)
-    ok = (np.isfinite(mean) & np.isfinite(var)
-          & (mean > 0) & (mean < 1) & (var > 0))
-    alpha = np.full(mc.shape[0], np.nan, dtype=np.float64)
-    beta = np.full(mc.shape[0], np.nan, dtype=np.float64)
-    if ok.any():
-        m = mean[ok]
-        v = var[ok]
-        a = (1.0 - m) * m * m / v - m
-        b = a * (1.0 / m - 1.0)
-        alpha[ok] = np.maximum(a, 1e-6)
-        beta[ok] = np.maximum(b, 1e-6)
-    prior_mean = alpha / (alpha + beta)
-    return (alpha.astype(np.float32),
-            beta.astype(np.float32),
-            prior_mean.astype(np.float32))
-
-
-def _compute_score_matrix(mc_mat, cov_mat, score, score_cutoff):
-    """Fully-vectorized dispatch to the requested scoring function.
-
-    Supported scores: ``'frac'``, ``'hypo-score'``, ``'hyper-score'``,
-    ``'mc'``, ``'cov'``, ``'umc'``. The ``mc`` / ``cov`` / ``umc``
-    options place the raw integer counts (or unmethylated count
-    ``cov - mc``) directly into ``.X`` so callers can use
-    :func:`cz_to_anndata` purely as a per-cell raw-count aggregator over
-    a feature set.
-
-    The ALLCools posterior-fraction transform is intentionally *not*
-    computed here; per-cell Beta(alpha, beta) parameters are instead
-    written to ``adata.obs`` by :func:`cz_to_anndata` so users can
-    reconstruct the posterior fraction on demand.
-    """
-    if score == "frac":
-        with np.errstate(divide="ignore", invalid="ignore"):
-            x = np.where(cov_mat > 0,
-                         mc_mat.astype(np.float32) / np.maximum(cov_mat, 1),
-                         0.0).astype(np.float32)
-        return x
-
-    if score == "mc":
-        return mc_mat.astype(np.float32, copy=False)
-    if score == "cov":
-        return cov_mat.astype(np.float32, copy=False)
-    if score == "umc":
-        # Unmethylated count = cov - mc; clip at 0 in case of weird inputs.
-        umc = cov_mat.astype(np.int64) - mc_mat.astype(np.int64)
-        np.maximum(umc, 0, out=umc)
-        return umc.astype(np.float32, copy=False)
-
-    mc = mc_mat.astype(np.float64, copy=False)
-    cov = cov_mat.astype(np.float64, copy=False)
-
-    if score in ("hypo-score", "hyper-score"):
-        from scipy.stats import binom
-        tot_mc = mc.sum(axis=1)
-        tot_cov = cov.sum(axis=1)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            p = tot_mc / (tot_cov + 1e-6)
-        valid = np.isfinite(p) & (p > 0) & (p < 1) & (tot_cov > 0)
-        out = np.zeros_like(mc, dtype=np.float32)
-        if valid.any():
-            # binom.sf broadcasts (k, n_feat) vs (k, 1) -> (k, n_feat).
-            sf = binom.sf(mc[valid], cov[valid], p[valid, None])
-            pv = (1.0 - sf) if score == "hyper-score" else sf
-            pv = np.where(cov[valid] > 0, pv, 0.0)
-            pv = np.where(pv >= float(score_cutoff), pv, 0.0)
-            out[valid] = pv.astype(np.float32)
-        return out
-
-    raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
-
-
 # ---------------------------------------------------------------------------
 # Sparse-streaming helpers (memory-efficient path for hundreds of thousands
-# of cells). The dense-matrix fallbacks above are kept for callers that
-# already pass ``mc_mat`` / ``cov_mat``.
+# of cells). All scoring / Beta-prior estimation runs directly on the
+# streamed CSR mc/cov layers; there is no dense code path.
 # ---------------------------------------------------------------------------
 class _StreamingSparseBuilder:
     """Append-one-cell-at-a-time CSR builder.
@@ -642,7 +507,7 @@ class _StreamingSparseBuilder:
 
 
 def _compute_beta_params_sparse(mc_csr, cov_csr, min_cov=2, df_correction=True):
-    """Sparse-input Beta-Binomial MoM version of :func:`_compute_beta_params`.
+    """Per-cell Beta(alpha, beta) via the coverage-aware Beta-Binomial MoM.
 
     Operates only on the stored (non-zero-coverage) entries of each row via
     two ``reduceat`` passes (first the per-row mean, then the Pearson
@@ -688,60 +553,18 @@ def _compute_beta_params_sparse(mc_csr, cov_csr, min_cov=2, df_correction=True):
     return _beta_binomial_alpha_beta(sum_mc, sum_cov, n_keep, X, df_correction)
 
 
-def _compute_beta_params_sparse_legacy(mc_csr, cov_csr):
-    """Sparse-input version of :func:`_compute_beta_params_legacy`.
+def _compute_score_matrix_sparse(mc_csr, cov_csr, score, score_cutoff,
+                                 alpha=None, beta=None):
+    """Compute the requested score matrix from the streamed CSR mc/cov layers.
 
-    ORIGINAL (pre Beta-Binomial) sparse implementation, kept as a backup.
-    Operates only on the non-zero entries of each row, never building
-    the full dense matrix. Equivalent to the plain-Beta dense version
-    because the raw fraction at zero-coverage entries is NaN and dropped
-    from the nan-mean / nan-var anyway. Superseded by
-    :func:`_compute_beta_params_sparse`.
-    """
-    n_rows = cov_csr.shape[0]
-    indptr = np.asarray(cov_csr.indptr)
-    counts = np.diff(indptr).astype(np.int64)
-    nz_rows = counts > 0
-
-    raw = np.divide(
-        mc_csr.data.astype(np.float64),
-        np.maximum(cov_csr.data, 1).astype(np.float64),
-    )
-    sums = np.zeros(n_rows, dtype=np.float64)
-    sums_sq = np.zeros(n_rows, dtype=np.float64)
-    if nz_rows.any():
-        starts = indptr[:-1][nz_rows]
-        sums[nz_rows] = np.add.reduceat(raw, starts)
-        sums_sq[nz_rows] = np.add.reduceat(raw * raw, starts)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        mean = np.where(nz_rows, sums / np.maximum(counts, 1), np.nan)
-        var = np.where(nz_rows,
-                       sums_sq / np.maximum(counts, 1) - mean * mean,
-                       np.nan)
-    ok = (np.isfinite(mean) & np.isfinite(var)
-          & (mean > 0) & (mean < 1) & (var > 0))
-    alpha = np.full(n_rows, np.nan, dtype=np.float64)
-    beta = np.full(n_rows, np.nan, dtype=np.float64)
-    if ok.any():
-        m = mean[ok]
-        v = var[ok]
-        a = (1.0 - m) * m * m / v - m
-        b = a * (1.0 / m - 1.0)
-        alpha[ok] = np.maximum(a, 1e-6)
-        beta[ok] = np.maximum(b, 1e-6)
-    prior_mean = alpha / (alpha + beta)
-    return (alpha.astype(np.float32),
-            beta.astype(np.float32),
-            prior_mean.astype(np.float32))
-
-
-def _compute_score_matrix_sparse(mc_csr, cov_csr, score, score_cutoff):
-    """Sparse-input version of :func:`_compute_score_matrix`.
-
+    Supported scores: ``'frac'``, ``'posterior_frac'``, ``'hypo-score'``,
+    ``'hyper-score'``, ``'mc'``, ``'cov'``, ``'umc'`` (see :func:`cz_to_anndata`).
     Returns a ``csr_matrix`` of shape ``(n_cells, n_features)`` with
     ``float32`` data. Zero-coverage entries are *implicit* zeros — they
     are not materialised, which is the whole point of the streaming
-    path.
+    path. For ``'posterior_frac'`` the per-cell posterior mean is computed
+    only on the stored (``cov > 0``) entries, so the sparsity pattern is
+    identical to ``'frac'`` (uncovered entries stay implicit ``0``).
     """
     import scipy.sparse as ss
     indptr = np.asarray(cov_csr.indptr)
@@ -762,6 +585,25 @@ def _compute_score_matrix_sparse(mc_csr, cov_csr, score, score_cutoff):
         data = (mc_csr.data.astype(np.float32)
                 / np.maximum(cov_csr.data, 1).astype(np.float32))
         return ss.csr_matrix((data, indices, indptr),
+                             shape=shape, dtype=np.float32)
+
+    if score == "posterior_frac":
+        # per-cell empirical-Bayes posterior mean (mc + a)/(cov + a + b) on
+        # the stored (cov>0) entries; broadcast the per-row alpha/beta out to
+        # per-nonzero via repeat. Zero-cov entries remain implicit 0.
+        if alpha is None or beta is None:
+            alpha, beta, _ = _compute_beta_params_sparse(mc_csr, cov_csr)
+        counts = np.diff(indptr).astype(np.int64)
+        a_nz = np.repeat(alpha.astype(np.float64), counts)
+        b_nz = np.repeat(beta.astype(np.float64), counts)
+        mcd = mc_csr.data.astype(np.float64)
+        covd = cov_csr.data.astype(np.float64)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            post = (mcd + a_nz) / (covd + a_nz + b_nz)
+            raw = mcd / np.maximum(covd, 1.0)
+        # degenerate cells (NaN alpha/beta) fall back to the raw fraction
+        post = np.where(np.isfinite(post), post, raw).astype(np.float32)
+        return ss.csr_matrix((post, indices, indptr),
                              shape=shape, dtype=np.float32)
 
     if score in ("hypo-score", "hyper-score"):
@@ -792,6 +634,62 @@ def _compute_score_matrix_sparse(mc_csr, cov_csr, score, score_cutoff):
                              shape=shape, dtype=np.float32)
 
     raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
+
+
+def _compute_hvf_var_stats_sparse(mc_csr, cov_csr, alpha=None, beta=None,
+                                  method="posterior"):
+    """Per-feature additive HVF accumulators via column reductions.
+
+    For each feature (column ``j``), over the cells covering it (``cov > 0``),
+    computes three additive statistics of the methylation fraction ``f``:
+
+    * ``hvf_n_cov[j]``   = number of covering cells,
+    * ``hvf_sum[j]``     = ``sum_i f_ij``,
+    * ``hvf_sum_sq[j]``  = ``sum_i f_ij^2``.
+
+    With ``method='posterior'`` (default) ``f`` is the per-cell empirical-Bayes
+    posterior mean ``(mc + a)/(cov + a + b)`` (falling back to raw ``mc/cov``
+    for degenerate cells whose ``alpha``/``beta`` are NaN); ``method='raw'``
+    uses ``mc/cov`` directly. All stored entries have ``cov > 0`` (the builder
+    drops zero-coverage), so the column non-zero count equals the covered-cell
+    count.
+
+    These three vectors are additive across cells (and across merged
+    datasets), so the per-feature mean, variance, dispersion and mean-binned
+    normalized dispersion can be reconstructed later without re-reading the
+    matrix (e.g. by ``pym3c`` ``MultiAdata.select_hvf``):
+
+    .. code-block:: text
+
+        mean = hvf_sum / hvf_n_cov
+        var  = hvf_sum_sq / hvf_n_cov - mean**2
+        dispersion = var / mean
+        normalized_dispersion = z-score of dispersion within mean bins
+
+    Returns three ``(n_feat,)`` float64 arrays
+    ``(hvf_n_cov, hvf_sum, hvf_sum_sq)``.
+    """
+    n_feat = cov_csr.shape[1]
+    indptr = np.asarray(cov_csr.indptr)
+    indices = np.asarray(cov_csr.indices)
+    covd = cov_csr.data.astype(np.float64)
+    mcd = mc_csr.data.astype(np.float64)
+    # all stored entries are covered (cov > 0), so raw is always finite
+    with np.errstate(divide="ignore", invalid="ignore"):
+        raw = mcd / np.maximum(covd, 1.0)
+    if method == "posterior" and alpha is not None and beta is not None:
+        counts = np.diff(indptr).astype(np.int64)
+        a_nz = np.repeat(alpha.astype(np.float64), counts)
+        b_nz = np.repeat(beta.astype(np.float64), counts)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            frac = (mcd + a_nz) / (covd + a_nz + b_nz)
+        frac = np.where(np.isfinite(frac), frac, raw)
+    else:
+        frac = raw
+    hvf_n_cov = np.bincount(indices, minlength=n_feat).astype(np.float64)
+    hvf_sum = np.bincount(indices, weights=frac, minlength=n_feat)
+    hvf_sum_sq = np.bincount(indices, weights=frac * frac, minlength=n_feat)
+    return hvf_n_cov, hvf_sum, hvf_sum_sq
 
 
 # ---------------------------------------------------------------------------
@@ -1088,8 +986,9 @@ def cz_to_anndata(
     blacklist: Optional[Union[str, pd.DataFrame]] = None,
     flank_bp: int = 2000,
     gtf_id_col: str = "gene_name",
-    score: str = "frac",
+    score: str = "posterior_frac",
     score_cutoff: float = 0.9,
+    hvf_frac: str = "posterior",
     jobs: int = 1,
 ):
     """Build an :class:`anndata.AnnData` of shape ``(n_cells, n_features)``.
@@ -1178,11 +1077,17 @@ def cz_to_anndata(
         becomes ``var_names``. When ``'gene_name'`` (the default), GENCODE
         records that share a symbol on one chrom are merged into a single
         interval so the output has exactly one row per gene symbol.
-    score : {'frac', 'hypo-score', 'hyper-score', 'mc', 'cov', 'umc'}
+    score : {'frac', 'posterior_frac', 'hypo-score', 'hyper-score', 'mc', 'cov', 'umc'}
         What to store in ``.X``:
 
-        - ``'frac'`` (default): raw ``mc/cov`` fraction. Zero-cov
+        - ``'frac'``: raw ``mc/cov`` fraction. Zero-cov
           features are ``0``.
+        - ``'posterior_frac'`` (default): per-cell empirical-Bayes posterior mean
+          ``(mc + alpha) / (cov + alpha + beta)`` using the per-cell Beta
+          prior estimated by the Beta-Binomial method of moments (see
+          ``docs/Methods.md``). Shrinks noisy low-coverage estimates toward
+          the cell's prior mean. Only covered features get a value;
+          zero-cov features stay ``0`` (same sparsity as ``'frac'``).
         - ``'hypo-score'``: per-cell binomial survival function
           ``P(X > mc | Binomial(cov, p_cell))``, with ``p_cell = total_mc /
           total_cov`` for that cell. Values below ``score_cutoff`` are set
@@ -1202,13 +1107,23 @@ def cz_to_anndata(
         ``.layers['cov']`` regardless of which score is selected; the
         ``score`` choice only changes ``.X``.
 
-        The ALLCools posterior-fraction transform is intentionally *not*
-        offered as a score; instead, per-cell Beta(alpha, beta) are
-        written to ``adata.obs`` as ``['alpha', 'beta', 'prior_mean']``
-        so users can recover the posterior fraction downstream:
-        ``(mc + alpha) / (cov + alpha + beta) / prior_mean``.
+        Only when ``score='posterior_frac'`` are the per-cell Beta prior
+        columns ``['alpha', 'beta', 'prior_mean', 'rho']`` written to
+        ``adata.obs`` and the per-feature accumulators ``['hvf_n_cov',
+        'hvf_sum', 'hvf_sum_sq']`` written to ``adata.var`` (they reuse the
+        same per-cell prior, estimated once). For the other scores these are
+        skipped to avoid the extra Beta-Binomial estimation.
     score_cutoff : float
         Sparsification threshold for hypo/hyper scores. Default 0.9.
+    hvf_frac : {'posterior', 'raw'}, default ``'posterior'``
+        Only used when ``score='posterior_frac'``. Which per-(cell, feature)
+        fraction the per-feature HVF accumulators
+        (``adata.var['hvf_n_cov' / 'hvf_sum' / 'hvf_sum_sq']``) are computed
+        on. ``'posterior'`` uses the empirical-Bayes posterior mean
+        ``(mc + alpha) / (cov + alpha + beta)`` (raw ``mc/cov`` fallback for
+        degenerate cells); ``'raw'`` uses ``mc/cov``. These three additive
+        accumulators let mean / var / dispersion / normalized dispersion be
+        reconstructed downstream (see ``docs/Methods.md``).
     jobs : int
         Number of worker processes (CPUs) for parallel per-cell aggregation.
         ``1`` (default) runs serially in-process. ``>1`` uses a
@@ -1221,7 +1136,8 @@ def cz_to_anndata(
     Returns
     -------
     anndata.AnnData
-        ``.X`` holds the requested score (dense ``float32``).
+        ``.X`` holds the requested score as a CSR sparse ``float32``
+        matrix (uncovered features are implicit zeros).
         ``.layers['mc']`` and ``.layers['cov']`` hold the raw integer
         counts (``uint32``) as CSR sparse matrices.
     """
@@ -1488,32 +1404,41 @@ def cz_to_anndata(
     if gtf_meta_df is not None:
         var_df = var_df.join(gtf_meta_df)
 
-    X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
-                                     score_cutoff=score_cutoff)
-
-    # Per-cell Beta(alpha, beta) + prior_mean for ALLCools-style
-    # posterior fraction reconstruction downstream — sparse-aware so
-    # we don't densify just to compute per-row stats.
-    alpha, beta, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
-
+    # The per-cell Beta prior (alpha, beta) and the per-feature HVF
+    # accumulators are only needed for the posterior_frac score, so they are
+    # computed *only* in that branch to avoid wasted work on the other scores.
+    # alpha/beta are estimated once here and shared by the score transform, the
+    # HVF accumulators and adata.obs (no double estimation).
     obs_df = pd.DataFrame(index=obs_names)
-    obs_df["alpha"] = alpha
-    obs_df["beta"] = beta
-    obs_df["prior_mean"] = prior_mean
-    # rho = 1 / (alpha + beta + 1)  == 1/(kappa+1): the intra-class correlation
-    # (over-dispersion) of the per-cell Beta-Binomial fit. It measures how much
-    # the cell's per-feature methylation rates spread around the prior mean,
-    # beyond binomial sampling noise:
-    #   * rho -> 0  : rates are nearly constant (high concentration kappa),
-    #                 so the prior is strong and posterior shrinkage is heavy;
-    #   * rho -> 1  : rates are highly variable (low kappa), weak prior /
-    #                 little shrinkage.
-    # It is coverage-independent (unlike a raw variance), so it is a useful
-    # per-cell QC handle (e.g. flag degenerate/low-complexity cells) and lets
-    # downstream code recover the shrinkage strength kappa = (1 - rho)/rho.
-    # NaN wherever alpha/beta are NaN (degenerate rows).
-    obs_df["rho"] = (1.0 / (alpha.astype(np.float64)
-                            + beta.astype(np.float64) + 1.0)).astype(np.float32)
+    if score == "posterior_frac":
+        alpha, beta, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
+        X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
+                                         score_cutoff=score_cutoff,
+                                         alpha=alpha, beta=beta)
+        # Per-feature additive HVF accumulators -> adata.var. Additive across
+        # cells (and merged datasets), so mean / var / dispersion / normalized
+        # dispersion can be reconstructed downstream (e.g. pym3c
+        # MultiAdata.select_hvf) without re-reading the matrix.
+        hvf_n_cov, hvf_sum, hvf_sum_sq = _compute_hvf_var_stats_sparse(
+            mc_sp, cov_sp, alpha=alpha, beta=beta, method=hvf_frac)
+        var_df["hvf_n_cov"] = hvf_n_cov
+        var_df["hvf_sum"] = hvf_sum
+        var_df["hvf_sum_sq"] = hvf_sum_sq
+        # per-cell Beta prior + prior_mean + rho for downstream posterior use.
+        obs_df["alpha"] = alpha
+        obs_df["beta"] = beta
+        obs_df["prior_mean"] = prior_mean
+        # rho = 1 / (alpha + beta + 1)  == 1/(kappa+1): the intra-class
+        # correlation (over-dispersion) of the per-cell Beta-Binomial fit. It
+        # is coverage-independent (unlike a raw variance), so it doubles as a
+        # per-cell QC handle (flag degenerate/low-complexity cells) and lets
+        # downstream code recover the shrinkage strength kappa = (1 - rho)/rho.
+        # NaN wherever alpha/beta are NaN (degenerate rows).
+        obs_df["rho"] = (1.0 / (alpha.astype(np.float64)
+                                + beta.astype(np.float64) + 1.0)).astype(np.float32)
+    else:
+        X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
+                                         score_cutoff=score_cutoff)
     if obs is not None:
         obs_df = obs_df.join(obs, how="left")
 
@@ -1526,6 +1451,7 @@ def cz_to_anndata(
     adata.uns["cytozip_score"] = {
         "score": score,
         "score_cutoff": float(score_cutoff),
+        "hvf_frac": hvf_frac,
     }
     if output:
         adata.write_h5ad(os.path.abspath(os.path.expanduser(output)))

@@ -30,6 +30,7 @@ _LAZY_EXPORTS = {
     'extractCG': 'allc',
     # bam.py — BAM → .cz
     'bam_to_cz': 'bam',
+    'name_sort_bam_to_deduped': 'bam',
     # features.py — feature aggregation / anndata
     'cz_to_anndata': 'features', 'parse_features': 'features',
     'parse_gtf': 'features', 'make_genome_bins': 'features',
@@ -651,6 +652,12 @@ def _build_parser():
                         'typical single-cell data.')
     p.add_argument('-r', '--reference', default=None,
                    help='reference .cz with pos column; required when --mode mc_cov')
+    p.add_argument('--name_sorted', action='store_true',
+                   help='input BAM is name-sorted; coordinate-sort + picard '
+                        'MarkDuplicates it first (via name_sort_bam_to_deduped)')
+    p.add_argument('--env', default=None,
+                   help='conda env providing picard/samtools for --name_sorted '
+                        '(e.g. yap); bare name or full env prefix path')
 
     # ---- cz_to_anndata -------------------------------------------------------
     p = sub.add_parser('cz_to_anndata', help='Aggregate many single-cell .cz files over a feature BED into AnnData h5ad', formatter_class=_fmt)
@@ -1025,7 +1032,9 @@ def main():
                   min_base_quality=args.min_base_quality,
                   batch_size=args.batch_size,
                   convert_bam_strandness=args.convert_bam_strandness,
-                  save_count_df=args.save_count_df)
+                  save_count_df=args.save_count_df,
+                  name_sorted=args.name_sorted,
+                  env=args.env)
 
     elif cmd == 'cz_to_anndata':
         from .features import cz_to_anndata

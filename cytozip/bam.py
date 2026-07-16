@@ -38,10 +38,12 @@ import os
 import shlex
 import struct
 import subprocess
+import sys
 from typing import Optional
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 from . import cz as _cz_mod
 from .cz import (
@@ -362,6 +364,191 @@ def _load_reference_positions(reference):
 
 
 # ---------------------------------------------------------------------------
+# Pre-processing: name-sorted BAM -> position-sorted + deduplicated BAM
+# ---------------------------------------------------------------------------
+def _resolve_env_bin(exe: str, env: Optional[str]) -> str:
+    """Resolve an executable path, optionally from a specific conda env.
+
+    Some tools (e.g. ``picard``) are not installed in every conda env. This
+    helper lets callers pin the env that provides ``exe``.
+
+    Parameters
+    ----------
+    exe : str
+        Executable name, e.g. ``"picard"`` or ``"samtools"``.
+    env : str, optional
+        * ``None`` - return ``exe`` unchanged (resolved on ``$PATH`` at run
+          time).
+        * a directory path - treated as a conda env *prefix*; the executable
+          is looked up at ``<env>/bin/<exe>``.
+        * a bare env name (e.g. ``"yap"``) - resolved against the sibling
+          env dirs of the current interpreter (e.g.
+          ``/home/user/conda/m3c`` -> ``/home/user/conda/yap``), the
+          standard ``envs/`` layout, and ``$CONDA_EXE``'s ``envs/``.
+
+    Returns
+    -------
+    str
+        Absolute path to the executable (or ``exe`` unchanged if
+        ``env is None``).
+    """
+    if env is None:
+        return exe
+    candidates = []
+    if os.path.sep in env or os.path.isdir(env):
+        candidates.append(env)
+    else:
+        # Sibling of the current interpreter's env prefix, e.g.
+        # /home/.../conda/m3c/bin/python -> /home/.../conda/yap
+        cur_prefix = os.path.dirname(
+            os.path.dirname(os.path.abspath(sys.executable)))
+        parent = os.path.dirname(cur_prefix)
+        candidates.append(os.path.join(parent, env))
+        candidates.append(os.path.join(parent, "envs", env))
+        conda_exe = os.environ.get("CONDA_EXE")
+        if conda_exe:
+            conda_root = os.path.dirname(os.path.dirname(conda_exe))
+            candidates.append(os.path.join(conda_root, "envs", env))
+    for prefix in candidates:
+        cand = os.path.join(prefix, "bin", exe)
+        if os.path.exists(cand):
+            return cand
+    raise FileNotFoundError(
+        f"Could not find {exe!r} in conda env {env!r}. Tried: "
+        + ", ".join(os.path.join(p, "bin", exe) for p in candidates)
+    )
+
+
+def name_sort_bam_to_deduped(
+    bam_path: str,
+    output: Optional[str] = None,
+    stats: Optional[str] = None,
+    remove_duplicates: bool = True,
+    tmp_dir: Optional[str] = None,
+    sort_threads: int = 1,
+    sort_mem_mb: int = 1000,
+    index: bool = True,
+    keep_pos_sort: bool = False,
+    env: Optional[str] = None,
+) -> str:
+    """Turn a name-sorted BAM into a position-sorted, deduplicated BAM.
+
+    ``bam_to_cz`` requires a **position-sorted** BAM with a ``.bai`` index.
+    The hisat-3n / snmC pipeline (see cemba_data ``hisat3n.smk``) produces a
+    name-sorted BAM (``*.all_reads.name_sort.bam``), which must first be
+    coordinate-sorted and PCR-deduplicated before it can be fed to
+    ``bam_to_cz``. This helper reproduces those two Snakemake rules
+    (``sort_bam_by_pos`` + ``dedup``):
+
+    1. ``samtools sort -O BAM`` (name order -> coordinate order)
+    2. ``picard MarkDuplicates -REMOVE_DUPLICATES true`` (drop PCR dups)
+    3. ``samtools index`` (optional, produces the ``.bai`` needed by
+       ``bam_to_cz``)
+
+    Parameters
+    ----------
+    bam_path : str
+        Input name-sorted BAM (e.g. ``*.hisat3n_dna.all_reads.name_sort.bam``).
+    output : str, optional
+        Output deduplicated BAM path. Defaults to
+        ``<stem>.deduped.bam`` next to the input, where ``<stem>`` strips a
+        trailing ``.name_sort`` if present.
+    stats : str, optional
+        Path for the picard MarkDuplicates metrics file. Defaults to
+        ``<output>.matrix.txt``.
+    remove_duplicates : bool
+        If True (default), pass ``-REMOVE_DUPLICATES true`` so duplicates are
+        physically removed. If False, duplicates are only flagged.
+    tmp_dir : str, optional
+        Temp directory for picard. Defaults to ``<output_dir>/temp``
+        (created if missing).
+    sort_threads : int
+        Threads for ``samtools sort`` (``-@``).
+    sort_mem_mb : int
+        Per-thread memory for ``samtools sort`` in MB (``-m``).
+    index : bool
+        If True (default), build the ``.bai`` index for the deduped BAM.
+    keep_pos_sort : bool
+        If True, keep the intermediate coordinate-sorted BAM. By default it
+        is deleted after deduplication.
+    env : str, optional
+        Conda env that provides ``samtools`` / ``picard``. Useful when the
+        current env lacks ``picard`` (e.g. run cytozip from ``m3c`` but pull
+        ``picard`` from ``yap`` via ``env="yap"``). May be a bare env name
+        (resolved against sibling env dirs of the current interpreter and
+        the standard ``envs/`` layout) or a full env prefix path. ``None``
+        (default) resolves both tools on ``$PATH``.
+
+    Returns
+    -------
+    str
+        Path to the deduplicated BAM.
+    """
+    if not os.path.exists(bam_path):
+        raise FileNotFoundError(f"Input BAM not found: {bam_path}")
+
+    samtools_exe = _resolve_env_bin("samtools", env)
+    picard_exe = _resolve_env_bin("picard", env)
+
+    bam_dir = os.path.dirname(os.path.abspath(bam_path))
+    base = os.path.basename(bam_path)
+    if base.endswith(".bam"):
+        base = base[: -len(".bam")]
+    # Strip a trailing ".name_sort" so the output stem matches the pipeline
+    # convention (``*.all_reads.deduped.bam``).
+    if base.endswith(".name_sort"):
+        stem = base[: -len(".name_sort")]
+    else:
+        stem = base
+
+    if output is None:
+        output = os.path.join(bam_dir, stem + ".deduped.bam")
+    out_dir = os.path.dirname(os.path.abspath(output))
+    if out_dir and not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+    if stats is None:
+        stats = output + ".matrix.txt"
+
+    if tmp_dir is None:
+        tmp_dir = os.path.join(out_dir, "temp")
+    os.makedirs(tmp_dir, exist_ok=True)
+
+    # 1. Coordinate-sort (rule sort_bam_by_pos).
+    pos_sort_bam = os.path.join(out_dir, stem + ".pos_sort.bam")
+    subprocess.check_call([
+        samtools_exe, "sort", "-O", "BAM",
+        "-@", str(sort_threads),
+        "-m", f"{sort_mem_mb}M",
+        "-o", pos_sort_bam, bam_path,
+    ])
+
+    # 2. Mark / remove PCR duplicates (rule dedup).
+    picard_cmd = [
+        picard_exe, "MarkDuplicates",
+        "-I", pos_sort_bam,
+        "-O", output,
+        "-M", stats,
+        "-REMOVE_DUPLICATES", "true" if remove_duplicates else "false",
+        "-TMP_DIR", tmp_dir,
+    ]
+    try:
+        subprocess.check_call(picard_cmd)
+    finally:
+        if not keep_pos_sort and os.path.exists(pos_sort_bam):
+            try:
+                os.remove(pos_sort_bam)
+            except OSError:
+                pass
+
+    # 3. Index (rule index_bam).
+    if index:
+        subprocess.check_call([samtools_exe, "index", output])
+
+    return output
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 def bam_to_cz(
@@ -378,6 +565,8 @@ def bam_to_cz(
     batch_size: int = 5000,
     convert_bam_strandness: bool = False,
     save_count_df: bool = False,
+    name_sorted: bool = False,
+    env: Optional[str] = None,
 ) -> Optional[pd.DataFrame]:
     """Convert a position-sorted BAM to a ``.cz`` methylation file.
 
@@ -385,6 +574,8 @@ def bam_to_cz(
     ----------
     bam_path : str
         Position-sorted BAM (requires ``.bai``; we will build it if missing).
+        If ``name_sorted=True``, a name-sorted BAM is accepted instead and
+        is first coordinate-sorted + PCR-deduplicated (see ``name_sorted``).
     genome : str
         Indexed reference fasta (``.fai`` required).
     output : str, optional
@@ -415,6 +606,19 @@ def bam_to_cz(
     save_count_df : bool
         If True, write a ``<output>.count.csv`` with total mC / cov per context.
 
+    name_sorted : bool
+        If True, ``bam_path`` is a **name-sorted** BAM (e.g. the hisat-3n
+        ``*.all_reads.name_sort.bam``). It is first passed through
+        :func:`name_sort_bam_to_deduped` (coordinate-sort + picard
+        MarkDuplicates) to produce the position-sorted, deduplicated BAM
+        that ``bam_to_cz`` requires. The generated deduped BAM is used as
+        the actual input.
+    env : str, optional
+        Conda env that provides ``picard`` / ``samtools`` for the
+        ``name_sorted`` pre-processing step (e.g. ``env="yap"`` when running
+        from an env without picard). Ignored unless ``name_sorted=True``.
+        See :func:`name_sort_bam_to_deduped`.
+
     Returns
     -------
     pd.DataFrame or None
@@ -427,6 +631,15 @@ def bam_to_cz(
             "mode='mc_cov' requires reference (positions are not stored "
             "in the output and must be recovered from the reference)."
         )
+
+    if name_sorted:
+        # Coordinate-sort + PCR-dedup the name-sorted BAM first; the
+        # resulting deduped BAM is what the pileup backends consume.
+        bam_path = name_sort_bam_to_deduped(bam_path, env=env)
+
+    # Resolve samtools once (optionally from a specific conda env) so both
+    # the .bai indexing and the mpileup fallback use the same binary.
+    samtools_exe = _resolve_env_bin("samtools", env)
 
     if not os.path.exists(genome):
         raise FileNotFoundError(f"Reference fasta not found: {genome}")
@@ -443,7 +656,7 @@ def bam_to_cz(
         bam_path = temp_bam
 
     if not os.path.exists(bam_path + ".bai"):
-        subprocess.check_call(["samtools", "index", bam_path])
+        subprocess.check_call([samtools_exe, "index", bam_path])
 
     if output is None:
         stem = os.path.basename(bam_path).split(".")[0]
@@ -471,7 +684,7 @@ def bam_to_cz(
     fmt_struct = struct.Struct("<" + "".join(formats))
 
     mpileup_cmd = (
-        f"samtools mpileup -Q {min_base_quality} -q {min_mapq} -B "
+        f"{samtools_exe} mpileup -Q {min_base_quality} -q {min_mapq} -B "
         f"-f {genome} {bam_path}"
     )
     # Backend selection. Two options:
@@ -496,6 +709,13 @@ def bam_to_cz(
     if use_htslib:
         pipes = None
     else:
+        reason = ("CYTOZIP_BAM_BACKEND_MPILEUP=1 set" if force_mpileup
+                  else "htslib extension (cytozip._bam_pileup) unavailable")
+        logger.info(
+            f"Using `samtools mpileup` subprocess backend ({reason}). This "
+            f"is ~10-20x slower than the in-process htslib backend; build "
+            f"the optional `_bam_pileup` extension for speed."
+        )
         pipes = subprocess.Popen(
             shlex.split(mpileup_cmd),
             stdout=subprocess.PIPE,
@@ -664,12 +884,10 @@ def bam_to_cz(
         mc_dict[context] = mc_dict.get(context, 0) + unconverted
         if unconverted > count_max or cov > count_max:
             if not _overflow_warned[0]:
-                import warnings
-                warnings.warn(
+                logger.warning(
                     f"mc/cov value exceeds count_fmt={count_fmt!r} max "
-                    f"({count_max}); clipping. Consider count_fmt='H' "
-                    "for bulk/high-coverage data.",
-                    stacklevel=2,
+                    f"({count_max}); clipping. Consider count_fmt='H' for "
+                    f"bulk/high-coverage data."
                 )
                 _overflow_warned[0] = True
             if unconverted > count_max:

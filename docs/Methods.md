@@ -307,6 +307,151 @@ When all sites have high and roughly equal coverage ($n_i \gg 1$, $\bar n$ close
 The same Beta-Binomial MoM is used in two places, with different pooling axes:
 
 - **`cytozip/model.py` → `estimate_beta_prior(mc, cov, ...)`**: per-context prior, pooled over sites (and over all cell types), estimated on the **deep pseudobulk reference** at `fit` time (CpG / CpH each get their own prior). Feeds `estimate_theta`.
-- **`cytozip/features.py` → `_compute_beta_params` / `_compute_beta_params_sparse`**: **per-cell** prior, pooled over that cell's features, written to `adata.obs` as `alpha`, `beta`, `prior_mean`, `rho`. The originals are kept as `*_legacy` (the old plain Beta-MoM) for reference.
+- **`cytozip/features.py` → `_compute_beta_params_sparse`**: **per-cell** prior, pooled over that cell's features (sparse-streamed over the CSR mc/cov layers), written to `adata.obs` as `alpha`, `beta`, `prior_mean`, `rho` (only when `score='posterior_frac'`).
   - The exported `rho = 1/(alpha+beta+1)` is coverage-independent, so it doubles as a **per-cell QC handle** (flag degenerate / low-complexity cells), and lets downstream code recover the shrinkage strength $\kappa=(1-\rho)/\rho$.
+
+## 8. 后验甲基化分数（Posterior methylation fraction）
+
+有了每个细胞的 Beta 先验 $\text{Beta}(\alpha,\beta)$（第 3 节的矩估计）后，某位点/特征观测到 $mc$ 个甲基化、覆盖 $cov$，由 Beta–Binomial 的**共轭性**得到该位点真实甲基化率的后验：
+
+$$
+p \mid mc, cov \ \sim\ \text{Beta}\bigl(\alpha + mc,\ \beta + cov - mc\bigr)
+$$
+
+**后验均值**（即 `posterior_frac`，用作收缩后的甲基化分数）：
+
+$$
+\boxed{\ \widehat{p}_{\text{post}} = \frac{mc + \alpha}{cov + \alpha + \beta}\ }
+$$
+
+**后验标准差**（可选，`post_sigma`）：
+
+$$
+\sigma_{\text{post}} = \sqrt{\dfrac{(\alpha + mc)\,(\beta + cov - mc)}{(\alpha + \beta + cov + 1)\,(\alpha + \beta + cov)^2}}
+$$
+
+**直觉**：把后验均值改写成先验均值 $\mu=\alpha/(\alpha+\beta)$ 与观测率 $f=mc/cov$ 的凸组合：
+
+$$
+\widehat{p}_{\text{post}} = w\,f + (1-w)\,\mu, \qquad w = \frac{cov}{cov + \alpha + \beta}
+$$
+
+覆盖 $cov$ 越低，权重 $w$ 越小，越向背景 $\mu$ 收缩，从而**扣除低覆盖的抽样噪声**；覆盖越高越保留观测本身。这正是它比原始分数 $mc/cov$ 更稳的原因。
+
+**可选的按细胞归一化（ALLCools 口径）**：$\widehat{p}_{\text{post}} / \mu$，使 $cov=0$ 的特征归一化率恒为 1（即"无信息"）。
+
+**cytozip 实现要点**（`features.py`）：
+
+- `score='posterior_frac'` 时 `.X` 存**未归一化**的后验均值 $\dfrac{mc+\alpha}{cov+\alpha+\beta}$（尺度仍在 $[0,1]$，与 `frac` 可比）。
+- 仅在**覆盖到的条目**（$cov>0$）上计算；未覆盖条目保持隐式 0（与 `frac` 相同的稀疏结构）。
+- $\alpha,\beta$ 为**每个细胞一套**（对该细胞的所有特征池化），写入 `adata.obs['alpha','beta','prior_mean','rho']`；退化细胞（$\alpha/\beta$ 为 NaN）回退到原始分数 $mc/cov$。
+
+## 9. 高变特征累加量与离散度（HVF：`hvf_n_cov` / `hvf_sum` / `hvf_sum_sq`、var、dispersion、normalized dispersion）
+
+为了在**不重新读取矩阵**（甚至跨多个文件合并）的前提下选出高变特征（HVF），对每个特征 $j$ 存三个**可加**的累加量。设 $f_{ij}$ 为细胞 $i$ 在特征 $j$ 上的甲基化分数（默认用第 8 节的后验均值，退化细胞回退原始 $mc/cov$；也可设 `hvf_frac='raw'` 直接用 $mc/cov$），只在覆盖到的细胞（$cov_{ij}>0$）上累加：
+
+$$
+\text{hvf\_n\_cov}_j = \sum_i \mathbb{1}(cov_{ij}>0), \qquad
+\text{hvf\_sum}_j = \sum_i f_{ij}, \qquad
+\text{hvf\_sum\_sq}_j = \sum_i f_{ij}^2
+$$
+
+三者都是对细胞求和，**跨细胞、跨数据集可加**（合并时逐特征相加即可），写入 `adata.var`。由它们可重构：
+
+**均值与方差**：
+
+$$
+\text{mean}_j = \frac{\text{hvf\_sum}_j}{\text{hvf\_n\_cov}_j}, \qquad
+\text{var}_j = \frac{\text{hvf\_sum\_sq}_j}{\text{hvf\_n\_cov}_j} - \text{mean}_j^2
+$$
+
+**离散度（dispersion）**：
+
+$$
+\text{disp}_j = \frac{\text{var}_j}{\text{mean}_j}
+$$
+
+**归一化离散度（normalized dispersion，scanpy 'seurat' 口径）**：把所有特征按 $\text{mean}$ 分到 $K$ 个箱（例如 $K=20$），在**每个箱内**对 dispersion 做 z-score，避免只挑到高均值特征：
+
+$$
+\text{ndisp}_j = \frac{\text{disp}_j - \mu_{b(j)}}{\sigma_{b(j)}}
+$$
+
+其中 $b(j)$ 是特征 $j$ 所在的均值箱，$\mu_{b},\sigma_{b}$ 是该箱内 dispersion 的均值与标准差。最后取 $\text{ndisp}$ 最高的 top-$n$ 个特征作为 HVF。
+
+**为什么只存三个累加量**：`mean/var/dispersion` 都能由 $(\text{hvf\_n\_cov},\text{hvf\_sum},\text{hvf\_sum\_sq})$ 精确重构，而这三者可加 —— 所以合并多个 `.h5ad`（例如 `AnnDataCollection.from_files(..., var_agg='sum')`）后能在**合并后的全体细胞**上正确重算 HVF。**注意**：`mean/var/dispersion` 本身**不可加**，不要直接对它们求和；尤其 `normalized dispersion` 依赖全体特征的分箱，必须**最后一步**统一计算。覆盖细胞数少于阈值（如 `min_cells`）的特征在选择时置为不合格。
+
+---
+
+## 8. Posterior methylation fraction (English)
+
+Given each cell's Beta prior $\text{Beta}(\alpha,\beta)$ (the MoM of Section 3), a site/feature observed with $mc$ methylated calls out of coverage $cov$ has, by Beta–Binomial **conjugacy**, the posterior of the true rate:
+
+$$
+p \mid mc, cov \ \sim\ \text{Beta}\bigl(\alpha + mc,\ \beta + cov - mc\bigr)
+$$
+
+**Posterior mean** (this is `posterior_frac`, the shrunk methylation fraction):
+
+$$
+\boxed{\ \widehat{p}_{\text{post}} = \frac{mc + \alpha}{cov + \alpha + \beta}\ }
+$$
+
+**Posterior std** (optional, `post_sigma`):
+
+$$
+\sigma_{\text{post}} = \sqrt{\dfrac{(\alpha + mc)\,(\beta + cov - mc)}{(\alpha + \beta + cov + 1)\,(\alpha + \beta + cov)^2}}
+$$
+
+**Intuition**: rewrite the posterior mean as a convex combination of the prior mean $\mu=\alpha/(\alpha+\beta)$ and the observed rate $f=mc/cov$:
+
+$$
+\widehat{p}_{\text{post}} = w\,f + (1-w)\,\mu, \qquad w = \frac{cov}{cov + \alpha + \beta}
+$$
+
+The lower the coverage $cov$, the smaller the weight $w$ and the stronger the shrinkage toward the background $\mu$, which **removes the low-coverage sampling noise**; high-coverage sites keep their own signal. That is why it is more stable than the raw fraction $mc/cov$.
+
+**Optional per-cell normalization (ALLCools convention)**: $\widehat{p}_{\text{post}} / \mu$, which forces the normalized rate of $cov=0$ features to exactly 1 (i.e. "no information").
+
+**cytozip implementation notes** (`features.py`):
+
+- With `score='posterior_frac'`, `.X` stores the **un-normalized** posterior mean $\dfrac{mc+\alpha}{cov+\alpha+\beta}$ (still on $[0,1]$, comparable to `frac`).
+- Computed **only on covered entries** ($cov>0$); uncovered entries stay implicit 0 (same sparsity as `frac`).
+- $\alpha,\beta$ are **per cell** (pooled over that cell's features), written to `adata.obs['alpha','beta','prior_mean','rho']`; degenerate cells (NaN $\alpha/\beta$) fall back to the raw fraction $mc/cov$.
+
+## 9. HVF accumulators, dispersion & normalized dispersion (English)
+
+To select highly variable features (HVF) **without re-reading the matrix** (and even after merging multiple files), three **additive** accumulators are stored per feature $j$. Let $f_{ij}$ be the methylation fraction of cell $i$ at feature $j$ (posterior mean of Section 8 by default, raw $mc/cov$ fallback for degenerate cells; set `hvf_frac='raw'` to use $mc/cov$ directly), summed only over covering cells ($cov_{ij}>0$):
+
+$$
+\text{hvf\_n\_cov}_j = \sum_i \mathbb{1}(cov_{ij}>0), \qquad
+\text{hvf\_sum}_j = \sum_i f_{ij}, \qquad
+\text{hvf\_sum\_sq}_j = \sum_i f_{ij}^2
+$$
+
+All three are sums over cells and thus **additive across cells and across datasets** (just add per feature when merging); they are written to `adata.var`. From them:
+
+**Mean and variance**:
+
+$$
+\text{mean}_j = \frac{\text{hvf\_sum}_j}{\text{hvf\_n\_cov}_j}, \qquad
+\text{var}_j = \frac{\text{hvf\_sum\_sq}_j}{\text{hvf\_n\_cov}_j} - \text{mean}_j^2
+$$
+
+**Dispersion**:
+
+$$
+\text{disp}_j = \frac{\text{var}_j}{\text{mean}_j}
+$$
+
+**Normalized dispersion (scanpy 'seurat' flavor)**: bin all features into $K$ mean-bins (e.g. $K=20$) and z-score the dispersion **within each bin**, avoiding a bias toward high-mean features:
+
+$$
+\text{ndisp}_j = \frac{\text{disp}_j - \mu_{b(j)}}{\sigma_{b(j)}}
+$$
+
+where $b(j)$ is feature $j$'s mean-bin and $\mu_{b},\sigma_{b}$ are the mean and std of dispersion within that bin. The top-$n$ features by $\text{ndisp}$ are the HVF.
+
+**Why store only the three accumulators**: `mean/var/dispersion` can be reconstructed exactly from $(\text{hvf\_n\_cov},\text{hvf\_sum},\text{hvf\_sum\_sq})$, and those three are additive — so after merging several `.h5ad` files (e.g. `AnnDataCollection.from_files(..., var_agg='sum')`) the HVF can be recomputed correctly on the **combined cells**. **Note**: `mean/var/dispersion` themselves are **not additive** — do not sum them directly; in particular the `normalized dispersion` depends on the binning over all features and must be computed **last**, once. Features covered by fewer than a threshold of cells (e.g. `min_cells`) are marked ineligible during selection.
+
 
