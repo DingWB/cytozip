@@ -659,6 +659,33 @@ def _build_parser():
                    help='conda env providing picard/samtools for --name_sorted '
                         '(e.g. yap); bare name or full env prefix path')
 
+    # ---- name_sort_bam_to_deduped -------------------------------------------
+    p = sub.add_parser('name_sort_bam_to_deduped',
+                       help='Coordinate-sort + PCR-deduplicate a name-sorted BAM '
+                            '(samtools sort + picard MarkDuplicates + index)',
+                       formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True,
+                   help='input name-sorted BAM (e.g. *.all_reads.name_sort.bam)')
+    p.add_argument('-O', '--output', default=None,
+                   help='output deduplicated BAM path (default: <stem>.deduped.bam)')
+    p.add_argument('--stats', default=None,
+                   help='picard MarkDuplicates metrics file (default: <output>.matrix.txt)')
+    p.add_argument('--no_remove_duplicates', action='store_true',
+                   help='only flag duplicates instead of physically removing them')
+    p.add_argument('--tmp_dir', default=None,
+                   help='temp directory for picard (default: <output_dir>/temp)')
+    p.add_argument('--sort_threads', type=int, default=1,
+                   help='threads for samtools sort (-@)')
+    p.add_argument('--sort_mem_mb', type=int, default=1000,
+                   help='per-thread memory for samtools sort in MB (-m)')
+    p.add_argument('--no_index', action='store_true',
+                   help='skip building the .bai index for the deduped BAM')
+    p.add_argument('--keep_pos_sort', action='store_true',
+                   help='keep the intermediate coordinate-sorted BAM')
+    p.add_argument('--env', default=None,
+                   help='conda env providing samtools/picard '
+                        '(e.g. yap); bare name or full env prefix path')
+
     # ---- cz_to_anndata -------------------------------------------------------
     p = sub.add_parser('cz_to_anndata', help='Aggregate many single-cell .cz files over a feature BED into AnnData h5ad', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, nargs='+',
@@ -1035,6 +1062,18 @@ def main():
                   save_count_df=args.save_count_df,
                   name_sorted=args.name_sorted,
                   env=args.env)
+
+    elif cmd == 'name_sort_bam_to_deduped':
+        from .bam import name_sort_bam_to_deduped
+        name_sort_bam_to_deduped(bam_path=args.input, output=args.output,
+                                 stats=args.stats,
+                                 remove_duplicates=not args.no_remove_duplicates,
+                                 tmp_dir=args.tmp_dir,
+                                 sort_threads=args.sort_threads,
+                                 sort_mem_mb=args.sort_mem_mb,
+                                 index=not args.no_index,
+                                 keep_pos_sort=args.keep_pos_sort,
+                                 env=args.env)
 
     elif cmd == 'cz_to_anndata':
         from .features import cz_to_anndata
