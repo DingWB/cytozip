@@ -35,7 +35,6 @@ Streaming layout of the produced ``.cz``:
 from __future__ import annotations
 
 import os
-import shlex
 import struct
 import subprocess
 import sys
@@ -117,30 +116,157 @@ def _strip_indels(read_bases: str) -> str:
     return "".join(out)
 
 
-def _convert_bam_strandness(in_bam_path: str, out_bam_path: str) -> None:
-    """Rewrite a bismark/hisat-3n BAM so `read.is_forward` matches the
-    conversion type (XG/YZ tag). Required for hisat-3n PE / Biskarp PE.
+def _is_read_ct_conversion_hisat3n(read):
+    """hisat-3n: YZ tag ``+`` marks a C->T (Watson/OT) conversion read."""
+    return read.get_tag("YZ") == "+"
+
+
+def _is_read_ct_conversion_bismark(read):
+    """bismark: XG tag ``CT`` marks a C->T (Watson/OT) conversion read."""
+    return read.get_tag("XG") == "CT"
+
+
+def _determine_ct_func(bam_path):
+    """Pick the conversion-type test from the first read's tags.
+
+    hisat-3n BAMs carry a ``YZ`` tag; bismark BAMs carry an ``XG`` tag.
+    A BAM lacking both cannot be strand-corrected (it is not a
+    bismark/hisat-3n bisulfite BAM).
     """
     import pysam
+    with pysam.AlignmentFile(bam_path) as f:
+        read = next(iter(f))
+    if read.has_tag("YZ"):
+        return _is_read_ct_conversion_hisat3n
+    if read.has_tag("XG"):
+        return _is_read_ct_conversion_bismark
+    raise ValueError(
+        "BAM reads lack a conversion-type tag (XG by bismark or YZ by "
+        "hisat-3n). convert_bam_strandness can only process bismark or "
+        "hisat-3n bisulfite BAMs."
+    )
+
+
+def _convert_bam_strandness(in_bam_path: str, out_bam_path: str,
+                            index: bool = True) -> None:
+    """Rewrite a bismark/hisat-3n BAM so ``read.is_forward`` matches the
+    bisulfite conversion type (XG/YZ tag), not the alignment orientation.
+
+    Ported from ALLCools ``_bam_to_allc._convert_bam_strandness``.
+
+    Why this is needed
+    ------------------
+    Pileup-based methylation calling (both the htslib and ``samtools
+    mpileup`` backends) infers strand from the read FLAG:
+
+    * ref ``C`` sites are counted from forward reads (``.`` / ``T``),
+    * ref ``G`` sites are counted from reverse reads (``,`` / ``a``).
+
+    For **bismark SE**, the aligner already orients C->T reads to the
+    forward strand and G->A reads to the reverse strand, so the FLAG is
+    correct. For **hisat-3n PE / bismark PE**, R1 and R2 keep their
+    original orientation, so both C->T and G->A reads appear on either
+    strand and the FLAG no longer encodes the conversion type. Counting
+    then assigns coverage to the wrong-strand cytosines (e.g. the lambda
+    spike-in shows ~50% methylation instead of the conversion-error rate).
+
+    This function forces, per read (and its mate):
+
+    * C->T conversion (``YZ == '+'`` / ``XG == 'CT'``) -> ``is_forward = True``
+    * G->A conversion (``YZ == '-'`` / ``XG == 'GA'``) -> ``is_forward = False``
+
+    so downstream base counting stays unchanged and strand-correct.
+
+    Parameters
+    ----------
+    in_bam_path, out_bam_path : str
+        Input / output BAM paths. ``read.is_forward`` is only flipped, so
+        coordinate sort order is preserved.
+    index : bool, default True
+        Build the ``.bai`` for ``out_bam_path`` via pysam (avoids a hard
+        dependency on ``samtools`` being on ``$PATH``).
+    """
+    import pysam
+    is_ct_func = _determine_ct_func(in_bam_path)
     with pysam.AlignmentFile(in_bam_path) as in_bam, \
             pysam.AlignmentFile(out_bam_path, header=in_bam.header, mode="wb") as out_bam:
-        is_ct_func = None
         for read in in_bam:
-            if is_ct_func is None:
-                if read.has_tag("YZ"):
-                    is_ct_func = lambda r: r.get_tag("YZ") == "+"
-                elif read.has_tag("XG"):
-                    is_ct_func = lambda r: r.get_tag("XG") == "CT"
-                else:
-                    raise ValueError(
-                        "BAM reads lack conversion-type tag (XG/YZ). "
-                        "Only bismark/hisat-3n BAMs are supported."
-                    )
-            ct = is_ct_func(read)
-            read.is_forward = ct
-            if read.is_paired:
-                read.mate_is_forward = ct
+            if is_ct_func(read):
+                read.is_forward = True
+                if read.is_paired:
+                    read.mate_is_forward = True
+            else:
+                read.is_forward = False
+                if read.is_paired:
+                    read.mate_is_forward = False
             out_bam.write(read)
+    if index:
+        pysam.index(out_bam_path)
+
+
+def _start_mpileup(samtools_exe, genome, min_base_quality, min_mapq,
+                   bam_path, strand_flip=False):
+    """Start ``samtools mpileup`` and return ``(proc, text_stdout, feeder)``.
+
+    When ``strand_flip`` is True the input BAM is **streamed** to mpileup's
+    stdin with each read's FLAG rewritten to match its bisulfite conversion
+    tag (XG/YZ) — the same strand correction as
+    :func:`_convert_bam_strandness`, but via a pipe so **no temporary BAM is
+    written** (and no ``samtools index`` is needed). Otherwise mpileup reads
+    ``bam_path`` directly.
+
+    The returned stdout is a latin-1 text stream: mpileup pileup strings can
+    contain bytes > 127 (the char after a ``^`` read-start marker encodes
+    MAPQ as ``chr(mapq + 33)``), which would crash a utf-8/locale decoder.
+    Base counting only inspects ASCII ``.`` / ``,`` / ``T`` / ``a``.
+    """
+    import io
+    cmd = [samtools_exe, "mpileup",
+           "-Q", str(min_base_quality), "-q", str(min_mapq),
+           "-B", "-f", genome]
+    feeder = None
+    if strand_flip:
+        import threading
+        import pysam
+        is_ct_func = _determine_ct_func(bam_path)
+        proc = subprocess.Popen(
+            cmd + ["-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL)
+        exc_holder: dict = {}
+
+        def _feed():
+            try:
+                with pysam.AlignmentFile(bam_path) as in_bam:
+                    out = pysam.AlignmentFile(proc.stdin, "wb",
+                                              template=in_bam)
+                    for read in in_bam:
+                        if is_ct_func(read):
+                            read.is_forward = True
+                            if read.is_paired:
+                                read.mate_is_forward = True
+                        else:
+                            read.is_forward = False
+                            if read.is_paired:
+                                read.mate_is_forward = False
+                        out.write(read)
+                    out.close()
+            except Exception as exc:  # pragma: no cover - surfaced by caller
+                exc_holder["exc"] = exc
+            finally:
+                try:
+                    proc.stdin.close()
+                except Exception:
+                    pass
+
+        feeder = threading.Thread(target=_feed, daemon=True)
+        feeder.cz_exc = exc_holder  # type: ignore[attr-defined]
+        feeder.start()
+    else:
+        proc = subprocess.Popen(
+            cmd + [bam_path], stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL)
+    text = io.TextIOWrapper(proc.stdout, encoding="latin-1", newline="")
+    return proc, text, feeder
 
 
 # ---------------------------------------------------------------------------
@@ -563,7 +689,7 @@ def bam_to_cz(
     min_mapq: int = 10,
     min_base_quality: int = 20,
     batch_size: int = 5000,
-    convert_bam_strandness: bool = False,
+    convert_bam_strandness: bool = True,
     save_count_df: bool = False,
     name_sorted: bool = False,
     env: Optional[str] = None,
@@ -601,8 +727,21 @@ def bam_to_cz(
     batch_size : int
         Records per on-disk chunk (same semantics as ``allc2cz``).
     convert_bam_strandness : bool
-        If True, rewrite the BAM so ``read.is_forward`` matches the
-        conversion type (XG/YZ tag).
+        If True (**default**, matching ALLCools ``bam_to_allc``), count
+        methylation using the strand implied by the bisulfite conversion
+        tag (XG for bismark, YZ for hisat-3n) instead of the alignment
+        orientation. **Required for hisat-3n PE / bismark PE data**, where
+        R1/R2 keep their original orientation so the FLAG strand no longer
+        encodes the conversion type; without it ~half of the reads are
+        counted on the wrong-strand cytosines (e.g. the lambda spike-in
+        reads ~50% methylation instead of the conversion-error rate). This
+        never writes a temporary BAM: the htslib backend derives the
+        strand in-process from each read's XG/YZ tag, and the ``samtools
+        mpileup`` fallback backend **streams** strand-flipped reads to
+        mpileup via a pipe (see :func:`_start_mpileup`). The input must be
+        a bismark/hisat-3n BAM carrying an ``XG``/``YZ`` tag, otherwise a
+        ``ValueError`` is raised; pass ``convert_bam_strandness=False`` for
+        plain (already strand-correct) BAMs such as bismark SE.
     save_count_df : bool
         If True, write a ``<output>.count.csv`` with total mC / cov per context.
 
@@ -650,12 +789,33 @@ def bam_to_cz(
         )
     fai_df = _read_faidx(fai_path)
 
-    if convert_bam_strandness:
-        temp_bam = f"{bam_path}.strand.tmp.bam"
-        _convert_bam_strandness(bam_path, temp_bam)
-        bam_path = temp_bam
+    # ---- backend selection (needed before strand handling) ----------------
+    #   1. htslib (in-process cytozip._bam_pileup, ~10-20x faster than the
+    #      mpileup subprocess, byte-equivalent to ALLCools). Default when
+    #      the optional extension was built.
+    #   2. ``samtools mpileup`` subprocess. Fallback when htslib is
+    #      unavailable, and forced via ``CYTOZIP_BAM_BACKEND_MPILEUP=1``.
+    force_mpileup = bool(int(os.environ.get(
+        "CYTOZIP_BAM_BACKEND_MPILEUP", "0")))
+    _PileupCounter = None
+    if not force_mpileup:
+        try:
+            from ._bam_pileup import PileupCounter as _PileupCounter
+        except ImportError:
+            _PileupCounter = None
+    use_htslib = (_PileupCounter is not None) and not force_mpileup
+    use_mpileup = not use_htslib
 
-    if not os.path.exists(bam_path + ".bai"):
+    # ---- strand correction (hisat-3n PE / bismark PE) ---------------------
+    # No temporary BAM is ever written. The htslib backend derives the
+    # effective strand from the XG/YZ conversion tag in-process; the
+    # mpileup subprocess backend streams strand-flipped reads via a pipe.
+    strand_via_ext = convert_bam_strandness and use_htslib
+    strand_via_pipe = convert_bam_strandness and use_mpileup
+
+    # Only the htslib backend needs a .bai (it does indexed per-chrom
+    # queries). The mpileup backend reads sequentially / from a pipe.
+    if use_htslib and not os.path.exists(bam_path + ".bai"):
         subprocess.check_call([samtools_exe, "index", bam_path])
 
     if output is None:
@@ -683,32 +843,14 @@ def bam_to_cz(
     )
     fmt_struct = struct.Struct("<" + "".join(formats))
 
-    mpileup_cmd = (
-        f"{samtools_exe} mpileup -Q {min_base_quality} -q {min_mapq} -B "
-        f"-f {genome} {bam_path}"
-    )
-    # Backend selection. Two options:
-    #
-    #   1. htslib (in-process via cytozip._bam_pileup, ~10-20x faster
-    #      than mpileup subprocess, byte-equivalent to ALLCools).
-    #      Default if the optional ``_bam_pileup`` extension was built.
-    #   2. ``samtools mpileup`` subprocess (the reference: matches
-    #      ALLCools ``bam_to_allc`` modulo u8 truncation). Fallback when
-    #      htslib is unavailable, and forced via
-    #      ``CYTOZIP_BAM_BACKEND_MPILEUP=1``.
-    force_mpileup = bool(int(os.environ.get(
-        "CYTOZIP_BAM_BACKEND_MPILEUP", "0")))
-    _PileupCounter = None
-    if not force_mpileup:
-        try:
-            from ._bam_pileup import PileupCounter as _PileupCounter
-        except ImportError:
-            _PileupCounter = None
-    use_htslib = (_PileupCounter is not None) and not force_mpileup
-    use_mpileup = not use_htslib
-    if use_htslib:
-        pipes = None
-    else:
+    # Backend was selected above (use_htslib / use_mpileup). Only launch the
+    # ``samtools mpileup`` subprocess when the htslib backend is not used;
+    # when strand-correcting, strand-flipped reads are streamed to mpileup
+    # through a pipe (no temp BAM).
+    mpileup_proc = None
+    mpileup_out = None      # latin-1 text stream over mpileup stdout
+    mpileup_feeder = None   # background thread streaming strand-flipped reads
+    if not use_htslib:
         reason = ("CYTOZIP_BAM_BACKEND_MPILEUP=1 set" if force_mpileup
                   else "htslib extension (cytozip._bam_pileup) unavailable")
         logger.info(
@@ -716,12 +858,9 @@ def bam_to_cz(
             f"is ~10-20x slower than the in-process htslib backend; build "
             f"the optional `_bam_pileup` extension for speed."
         )
-        pipes = subprocess.Popen(
-            shlex.split(mpileup_cmd),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
+        mpileup_proc, mpileup_out, mpileup_feeder = _start_mpileup(
+            samtools_exe, genome, min_base_quality, min_mapq,
+            bam_path, strand_flip=strand_via_pipe)
     cov_dict: dict = {}
     mc_dict: dict = {}
     total_line = 0  # set from nonlocal_state after the consume loop
@@ -921,6 +1060,7 @@ def bam_to_cz(
                 genome.encode() if isinstance(genome, str) else genome,
                 min_mapq=min_mapq,
                 min_base_quality=min_base_quality,
+                convert_bam_strandness=strand_via_ext,
             )
             for chrom in pc.references:
                 if chrom not in fai_df.index:
@@ -949,7 +1089,7 @@ def bam_to_cz(
                         cov_i - mc_i,
                     )
         elif use_mpileup:
-            for line in pipes.stdout:
+            for line in mpileup_out:
                 fields = line.rstrip("\n").split("\t")
                 if len(fields) < 5:
                     continue
@@ -983,17 +1123,22 @@ def bam_to_cz(
             _flush(nonlocal_state["cur_chrom"])
         total_line = nonlocal_state["total_line"]
     finally:
-        if pipes is not None:
-            pipes.stdout.close()
+        if mpileup_proc is not None:
+            try:
+                mpileup_out.close()   # closes mpileup stdout
+            except Exception:
+                pass
+            if mpileup_feeder is not None:
+                mpileup_feeder.join()
+                _feeder_exc = getattr(
+                    mpileup_feeder, "cz_exc", {}).get("exc")
+                if _feeder_exc is not None:
+                    logger.warning(
+                        f"strand-flip feeder thread failed: {_feeder_exc!r}")
+            mpileup_proc.wait()
         writer.close()
         if ref_pos_map is not None:
             ref_pos_map.close()
-        if convert_bam_strandness:
-            try:
-                os.remove(bam_path)
-                os.remove(bam_path + ".bai")
-            except OSError:
-                pass
 
     count_df = pd.DataFrame({"mc": mc_dict, "cov": cov_dict})
     if not count_df.empty:

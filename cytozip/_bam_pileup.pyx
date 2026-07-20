@@ -103,6 +103,16 @@ cdef extern from "htslib/sam.h":
     bam1_t *bam_init1() nogil
     void bam_destroy1(bam1_t *b) nogil
 
+    # Read one alignment (used once to sniff the conversion-type tag).
+    int sam_read1(htsFile *fp, sam_hdr_t *h, bam1_t *b) nogil
+
+    # Aux (optional field) accessors for the conversion-type tag.
+    #   hisat-3n: YZ:A:+ / YZ:A:-   (single char, bam_aux2A)
+    #   bismark : XG:Z:CT / XG:Z:GA (string,     bam_aux2Z)
+    uint8_t *bam_aux_get(const bam1_t *b, const char *tag) nogil
+    char bam_aux2A(const uint8_t *s) nogil
+    char *bam_aux2Z(const uint8_t *s) nogil
+
     # Pileup C API (multi-input variant; we use n=1 + overlap detection).
     ctypedef int (*bam_plp_auto_f)(void *data, bam1_t *b) nogil
 
@@ -160,6 +170,41 @@ cdef int8_t _BASE_C = 2
 cdef int8_t _BASE_G = 4
 cdef int8_t _BASE_T = 8
 
+# Conversion-type tag names (C string literals usable inside nogil code).
+cdef const char *_TAG_YZ = "YZ"
+cdef const char *_TAG_XG = "XG"
+
+# Strand-inference modes for methylation counting:
+#   0 = use the read FLAG (BAM_FREVERSE) directly (default / bismark SE).
+#   1 = hisat-3n YZ tag: '+' -> C->T -> forward, '-' -> G->A -> reverse.
+#   2 = bismark  XG tag: 'CT' -> forward, 'GA' -> reverse.
+# Modes 1/2 replace the on-disk BAM rewrite done by
+# ``cytozip.bam._convert_bam_strandness`` for hisat-3n PE / bismark PE.
+
+
+cdef inline int _read_is_forward(bam1_t *b, int strand_mode) noexcept nogil:
+    """Return 1 if *b* should be counted as a forward (+) strand read.
+
+    For strand_mode 1/2 the effective strand comes from the bisulfite
+    conversion tag (YZ/XG) instead of the alignment FLAG, so R1/R2 of a
+    hisat-3n/bismark PE pair are counted on the correct-strand cytosines
+    without physically rewriting the BAM. Falls back to the FLAG when the
+    tag is absent on a given read.
+    """
+    cdef uint8_t *aux
+    cdef char *z
+    if strand_mode == 1:
+        aux = bam_aux_get(b, _TAG_YZ)
+        if aux != NULL:
+            return 1 if bam_aux2A(aux) == b'+' else 0
+    elif strand_mode == 2:
+        aux = bam_aux_get(b, _TAG_XG)
+        if aux != NULL:
+            z = bam_aux2Z(aux)
+            if z != NULL:
+                return 1 if z[0] == b'C' else 0
+    return 1 if (b.core.flag & 16) == 0 else 0
+
 
 # ---------------------------------------------------------------------------
 # State passed to mplp_func via void*.
@@ -215,12 +260,13 @@ cdef class PileupCounter:
     cdef int min_mapq
     cdef int min_base_quality
     cdef int max_depth
+    cdef int _strand_mode
     cdef bytes _bam_path
     cdef bytes _fasta_path
 
     def __cinit__(self, bam_path, fasta_path,
                   int min_mapq=10, int min_base_quality=20,
-                  int max_depth=8000):
+                  int max_depth=8000, convert_bam_strandness=False):
         self.fp = NULL
         self.hdr = NULL
         self.idx = NULL
@@ -228,6 +274,7 @@ cdef class PileupCounter:
         self.min_mapq = min_mapq
         self.min_base_quality = min_base_quality
         self.max_depth = max_depth
+        self._strand_mode = 0
 
         self._bam_path = bam_path.encode("utf-8") \
             if isinstance(bam_path, str) else bam_path
@@ -252,6 +299,27 @@ cdef class PileupCounter:
                 f"Failed to load FASTA index for {fasta_path}; "
                 "run `samtools faidx <fa>` first."
             )
+
+        # If strand correction is requested, sniff the conversion-type tag
+        # from the first alignment record (hisat-3n YZ vs bismark XG).
+        # Reading one record advances the file offset, but iter_chrom uses
+        # sam_itr_queryi (index seek), so this is harmless.
+        cdef bam1_t *det_read
+        if convert_bam_strandness:
+            det_read = bam_init1()
+            if sam_read1(self.fp, self.hdr, det_read) >= 0:
+                if bam_aux_get(det_read, _TAG_YZ) != NULL:
+                    self._strand_mode = 1
+                elif bam_aux_get(det_read, _TAG_XG) != NULL:
+                    self._strand_mode = 2
+                else:
+                    bam_destroy1(det_read)
+                    raise ValueError(
+                        "convert_bam_strandness=True but BAM reads lack an "
+                        "XG (bismark) or YZ (hisat-3n) conversion-type tag. "
+                        "Only bismark/hisat-3n bisulfite BAMs are supported."
+                    )
+            bam_destroy1(det_read)
 
     def __dealloc__(self):
         if self.fai != NULL:
@@ -368,6 +436,8 @@ cdef class PileupCounter:
         cdef bint is_C, is_G
         cdef int b_enc
         cdef bint base_unconverted, base_converted
+        cdef int fwd
+        cdef int strand_mode = self._strand_mode
 
         with nogil:
             while bam_mplp64_auto(mplp, &plp_tid, &plp_pos,
@@ -396,6 +466,10 @@ cdef class PileupCounter:
                     seq_data = cz_bam_get_seq(p.b)
                     b_enc = cz_bam_seqi(seq_data, p.qpos)
 
+                    # Effective strand: from the conversion tag (YZ/XG)
+                    # when strand_mode != 0, else from the read FLAG.
+                    fwd = _read_is_forward(p.b, strand_mode)
+
                     if is_C:
                         # Forward strand. Reads aligning to '+' strand
                         # of a C ref base contribute on uppercase channel.
@@ -403,7 +477,7 @@ cdef class PileupCounter:
                         # for mismatch when on forward strand.
                         # Forward strand reads have flag 16 (BAM_FREVERSE)
                         # cleared. mpileup considers BAM_FREVERSE for case.
-                        if (p.b.core.flag & 16) == 0:
+                        if fwd:
                             # Forward read on a C ref site:
                             #   read base == C → mC (unconverted, methylated)
                             #   read base == T → converted (unmethylated)
@@ -423,7 +497,7 @@ cdef class PileupCounter:
                         # for ref-match (lowercase, reverse read). ALLCools
                         # counts ',' (unconverted, methylated G) and 'a'
                         # (converted G→A on the bottom strand).
-                        if (p.b.core.flag & 16) != 0:
+                        if not fwd:
                             # Reverse read on G ref site:
                             #   read base == G → mC (unconverted)
                             #   read base == A → converted
