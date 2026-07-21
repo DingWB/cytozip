@@ -43,4 +43,4 @@ pip uninstall -y cytozip && pip install git+http://github.com/DingWB/cytozip
 
 ## Example dataset
 
-[https://figshare.com/articles/dataset/cytozip_example_data/25374073](https://figshare.com/articles/dataset/cytozip_example_data/25374073)
+[https://figshare.com/articles/dataset/cytozip_example_data/32095567](https://figshare.com/articles/dataset/cytozip_example_data/32095567)
