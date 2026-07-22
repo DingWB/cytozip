@@ -88,6 +88,19 @@ def _csv_str(s):
     return s.split(',')
 
 
+def _str2bool(s):
+    """Parse 'true'/'false' (and common synonyms) → bool."""
+    if isinstance(s, bool):
+        return s
+    v = str(s).strip().lower()
+    if v in ('true', 't', 'yes', 'y', '1'):
+        return True
+    if v in ('false', 'f', 'no', 'n', '0'):
+        return False
+    import argparse
+    raise argparse.ArgumentTypeError(f"expected a boolean value, got {s!r}")
+
+
 def _build_parser():
     import argparse
 
@@ -243,10 +256,11 @@ def _build_parser():
     p.add_argument('-j', '--jobs', type=int, default=12, help='number of parallel processes (CPUs)')
     p.add_argument('--keep_temp', action='store_true', help='keep temp directory')
     p.add_argument('-s', '--chrom_size', default=None,
-                   help='path to a .fai index or a single-column text file listing '
-                        'chromosome names; only these chromosomes are extracted and '
-                        'the reference .cz is built in this exact order (default: all '
-                        'sequences in the genome FASTA)')
+                   help="Path to a `.fai` index file or a plain text file whose first "
+                        "(tab-separated, no header) column lists chromosome names. When "
+                        "provided, only these chromosomes are extracted, and the merged "
+                        "reference `.cz` stores chunks in exactly this order. `None` "
+                        "(default) processes every sequence in the genome fasta.")
     p.add_argument('--no_delta', action='store_true',
                    help='disable DELTA encoding on the pos column (default: on, '
                         'gives ~3x smaller reference files with mild query overhead)')
@@ -637,10 +651,19 @@ def _build_parser():
     p.add_argument('-O', '--output', default=None, help='output .cz path (default: <bam_stem>.cz)')
     p.add_argument('--num_upstr_bases', type=int, default=0, help='bases upstream of C in context (0 for BS-seq, 1 for NOMe)')
     p.add_argument('--num_downstr_bases', type=int, default=2, help='bases downstream of C in context')
-    p.add_argument('--min_mapq', type=int, default=10, help='min MAPQ passed to samtools mpileup')
-    p.add_argument('--min_base_quality', type=int, default=20, help='min base quality passed to samtools mpileup')
+    p.add_argument('--min_mapq', type=int, default=10, help='min read MAPQ (applied by the htslib backend, or passed to samtools mpileup)')
+    p.add_argument('--min_base_quality', type=int, default=20, help='min base quality (applied by the htslib backend, or passed to samtools mpileup)')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per batch (one on-disk chunk)')
-    p.add_argument('--convert_bam_strandness', action='store_true', help='rewrite BAM so is_forward matches XG/YZ (hisat-3n PE)')
+    p.add_argument('--convert_bam_strandness', type=_str2bool, default=True,
+                   metavar='BOOL',
+                   help='count methylation on the strand implied by the '
+                        'bisulfite-conversion tag (XG for bismark, YZ for '
+                        'hisat-3n) instead of the alignment orientation. '
+                        'Required for hisat-3n / bismark PE data; no '
+                        'temporary BAM is written (strand is derived '
+                        'in-process by the htslib backend, or streamed via a '
+                        'pipe to the mpileup fallback). Default True; pass '
+                        '"false" for plain strand-correct BAMs (e.g. bismark SE)')
     p.add_argument('--save_count_df', action='store_true', help='write <output>.count.csv context summary')
     p.add_argument('--mode', choices=['full', 'pos_mc_cov', 'mc_cov'], default='mc_cov',
                    help='storage layout: full=[pos,strand,context,mc,cov]; '
@@ -657,33 +680,6 @@ def _build_parser():
                         'MarkDuplicates it first (via name_sort_bam_to_deduped)')
     p.add_argument('--env', default=None,
                    help='conda env providing picard/samtools for --name_sorted '
-                        '(e.g. yap); bare name or full env prefix path')
-
-    # ---- name_sort_bam_to_deduped -------------------------------------------
-    p = sub.add_parser('name_sort_bam_to_deduped',
-                       help='Coordinate-sort + PCR-deduplicate a name-sorted BAM '
-                            '(samtools sort + picard MarkDuplicates + index)',
-                       formatter_class=_fmt)
-    p.add_argument('-I', '--input', required=True,
-                   help='input name-sorted BAM (e.g. *.all_reads.name_sort.bam)')
-    p.add_argument('-O', '--output', default=None,
-                   help='output deduplicated BAM path (default: <stem>.deduped.bam)')
-    p.add_argument('--stats', default=None,
-                   help='picard MarkDuplicates metrics file (default: <output>.matrix.txt)')
-    p.add_argument('--no_remove_duplicates', action='store_true',
-                   help='only flag duplicates instead of physically removing them')
-    p.add_argument('--tmp_dir', default=None,
-                   help='temp directory for picard (default: <output_dir>/temp)')
-    p.add_argument('--sort_threads', type=int, default=1,
-                   help='threads for samtools sort (-@)')
-    p.add_argument('--sort_mem_mb', type=int, default=1000,
-                   help='per-thread memory for samtools sort in MB (-m)')
-    p.add_argument('--no_index', action='store_true',
-                   help='skip building the .bai index for the deduped BAM')
-    p.add_argument('--keep_pos_sort', action='store_true',
-                   help='keep the intermediate coordinate-sorted BAM')
-    p.add_argument('--env', default=None,
-                   help='conda env providing samtools/picard '
                         '(e.g. yap); bare name or full env prefix path')
 
     # ---- cz_to_anndata -------------------------------------------------------

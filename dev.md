@@ -396,11 +396,14 @@ figshare upload -i cz/ --title cytozip_example_data -d "cytzip example datasets"
 
 ## upload to conda
 ```shell
-# Fork https://github.com/bioconda/bioconda-recipes，then：
-git clone --depth 1 https://github.com/DingWB/bioconda-recipes
+# 1. Fork https://github.com/bioconda/bioconda-recipes
+git clone https://github.com/DingWB/bioconda-recipes.git
 cd bioconda-recipes
-git checkout -b add-cytozip
-mkdir recipes/cytozip
+git checkout -b add-cytozip # create a new branch
+
+
+# 2. add recipe
+mkdir -p recipes/cytozip
 cp /home/x-wding2/Projects/Github/cytozip/conda-recipe/meta.yaml recipes/cytozip/
 
 # Calculate real sha256（release the first version to PyPI）：
@@ -409,228 +412,6 @@ curl -L -o /tmp/cytozip.tar.gz \
   https://pypi.io/packages/source/c/cytozip/cytozip-${VERSION}.tar.gz
 sha256sum /tmp/cytozip.tar.gz
 # fill in sha256 to recipes/cytozip/meta.yaml
-
-git add recipes/cytozip/meta.yaml
-git commit -m "Add cytozip"
-git push origin add-cytozip
-# GitHub  PR to: bioconda/bioconda-recipes:master
-```
-
-## Package Rename Candidates
-
-The name "cytozip" is too narrow — the package is not just a compression tool but a full single-cell DNA methylation analysis framework (DMR, clustering, motif analysis, etc.). Candidate names for publication:
-
-| Name | Meaning | Pros |
-|------|---------|------|
-| **mCyte** | **m**(ethyl) + **Cyte**(cytosine/cell) | Short, memorable, "m" prefix well-known in epigenetics (5mC) |
-| **EpiCyte** | **Epi**(genetic) + **Cyte**(cytosine/cell) | Broader scope, extensible to other epigenomic analyses |
-| **CytoMine** | **Cyto**(sine) + **Mine**(data mining) | Emphasizes mining insights from massive sc-methylation data |
-
-Top recommendations: **mCyte** (concise, domain-specific) or **MESA**.
----
-
-## Roadmap: Submission Plan
-Strategic to-do list for scaling cytozip into a publication-ready framework supporting single-cell DNA methylation + methylation array data, with an online portal and expanded analysis features.
-
-### 1. Paper Positioning
-
-- [ ] Decide main narrative (recommended: *"A unified, cloud-native data format and analysis ecosystem for population-scale methylomes"*).
-- [ ] Benchmark vs. ALLCools / methylpy / bsseq / tabix+bgzip / TileDB / Zarr / Parquet on four axes: compression ratio, random-access latency, region query, cross-sample join.
-- [ ] Prepare at least one flagship biological application showcasing interactive-speed analysis over millions of cells.
-- [ ] Unify sc-methylation + Illumina array (450K/EPIC/EPICv2) under the same format — strong differentiator.
-
-### 2. Format / Algorithm Layer
-
-- [ ] Freeze the **CZ format spec** — publish `docs/spec.md` formalizing the existing `CZIP` magic (4B) + version float (4B) already in the header. Define a policy to actually *use* the version field for backward-compatible reads on future header changes (prior on-disk changes broke older files — don't repeat).
-- [ ] Add array-data payload: dense matrix block + per-column zstd (TileDB-style tiles).
-- [ ] Implement importers: `idat2cz`, `sesame2cz`, `minfi2cz`.
-- [ ] Extend existing `catcz` output (already: many cells → one `.cz` with shared header + per-cell chunk + `chunk_key2offset` index) with two additions for cohort-scale use:
-    - Embed cell-level **obs metadata** (Arrow IPC / Parquet footer) so `reader.obs` returns a `pandas.DataFrame` — no external `obs.tsv` to keep in sync.
-    - Build a **group inverted index** (e.g. `cluster → [cell_id, ...]`) to coalesce remote range reads for queries like "all Oligo cells at chr9:60610139-60610151".
-- [ ] Add codec variants: RLE (long methylated runs), FOR (frame-of-reference for mc/cov), cross-block zstd dict for reference-aligned data.
-- [ ] Benchmark each codec's gain in the paper table.
-- [ ] Export C header + shared library from Cython core for R / Julia / Rust bindings.
-
-### 3. Analysis Features
-
-- [x] `call_dmr`: port DSS / DMRfind to run natively on `.cz` streams (zero decompress to numpy) — target ≥10× speedup vs. methylpy/ALLCools. *(Done as RMS-permutation caller; see `cytozip/dmr.py` section below.)*
-- [ ] `call_peak`: sliding-window + Poisson enrichment for 5hmC / mCH, input `.cz`.
-- [ ] Clustering: do NOT rewrite; export `AnnData` / `MuData` compatible objects for scanpy / ALLCools. Sell the I/O + feature extraction speed.
-- [ ] Unified API:
-  - `cz.pileup(region) -> array`
-  - `cz.call_dmr(groups, region)`
-  - `cz.to_anndata(features="100kb" | "gene" | "peaks")`
-- [ ] Provide Snakemake / Nextflow wrappers.
-
-### 4. Portal & Ecosystem
-
-- [ ] Backend: FastAPI + `.cz` HTTP-range server — stream directly from S3/GCS without full download.
-- [ ] Frontend: React + igv.js / higlass for tracks (no custom genome browser).
-- [ ] Flagship datasets: BICAN / HMBA / mouse_dev cohorts as paper Figure 4 material.
-- [ ] `cz.open("s3://bucket/file.cz")` and `https://...` support, fetching only queried blocks.
-- [ ] `czserve` CLI for local portal deployment.
-- [ ] PyPI + bioconda release; cibuildwheel prebuilt wheels for linux/mac/arm64.
-- [ ] Thin R package `cytozipR` (reticulate or C-API bindings).
-
-### 5. Engineering / Pre-submission Checklist
-
-- [ ] Versioned format spec document (`docs/spec.md`).
-- [ ] Bump version field + add version-aware read branches before any future header change (magic + version bytes already present).
-- [ ] Unit-test coverage >80%, CI on linux/mac/windows.
-- [ ] Reproducible benchmark suite under `benchmarks/`, archived with Zenodo DOI.
-- [ ] Docs on readthedocs with tutorials.
-- [ ] Colab-runnable demo notebooks.
-- [ ] Docker image.
-- [ ] bioRxiv preprint before NM submission.
-
-### 6. High-Level Timeline
-
-1. Freeze the format spec (document existing magic + version fields, define version-bump policy) — ~2 weeks.
-2. Array support + obs/group-index extension to catcz output — ~1–2 months.
-3. Native `call_dmr` + benchmark — ~1 month.
-4. Portal MVP (FastAPI + S3 range read + one flagship dataset) — ~1–2 months.
-5. bioRxiv → Nature Methods submission.
-
----
-
-## New modules (this iteration)
-
-### `cytozip/bam.py` — `bam_to_cz`
-Port of ALLCools `_bam_to_allc.bam_to_allc` (original author: Yupeng He) that writes
-directly into `.cz` instead of ALLC `tsv.gz` + tabix. Single pass over
-`samtools mpileup` output; emits `(pos, strand, context, mc, cov)` records
-(or `(pos, mc, cov)` when `--slim` is used). `pos` column is DELTA-encoded;
-`sort_col='pos'` gives O(log N) region queries from CLI.
-
-CLI: `czip bam_to_cz -I sample.bam -r ref.fa -O sample.cz [--slim] [--convert-strandness]`
-
-### `cytozip/features.py` — `cz_to_anndata` / `parse_features`
-Build a cell × feature `AnnData` over a BED / BED.gz / BED.bgz feature set.
-Inputs may be:
-1. A list of single-cell `.cz` files,
-2. A directory of `.cz` files,
-3. One `catcz`-merged `.cz` with `chunk_dims=[cell_id, chrom]` (the cell id
-   chunk_key prefix is auto-detected).
-
-Features grouped by chrom for I/O locality; per-region aggregation uses
-`Reader.query()` which engages the Cython `c_query_regions` path. Output
-has `X = mc/cov` (float32) plus integer CSR layers `mc` and `cov`.
-
-CLI: `czip cz_to_anndata -I cell*.cz -f gene_2kb.bed.bgz -O out.h5ad`
-
-## Rename: `chunksize` → `batch_size`
-Post-`chunk_dims` rename, the term "chunk" now refers exclusively to the
-on-disk file structure. The old `chunksize` parameter (rows flushed per
-write) was overloaded and is now `batch_size` everywhere. The on-disk field
-`chunk_size` (byte size of a chunk) is unchanged.
-
-Affected:
-- Python: `Writer.tocz`, `Writer.catcz`, `allc2cz`, `WriteC`, `extractCG`,
-  `merge_cz`, `bam_to_cz`, cz_accel.c_write_c_records.
-- CLI: `-c / --batch-size` (was `--chunksize`).
-
-## Update: `bam_to_cz` storage modes + `cz_to_anndata` numpy fast path
-
-### `bam_to_cz(mode=...)`
-Three on-disk layouts selectable via ``mode``:
-
-| mode | columns | size / site | notes |
-|---|---|---|---|
-| ``full`` (default) | ``[pos, strand, context, mc, cov]`` | ~13 B post-DEFLATE | self-contained |
-| ``pos_mc_cov``     | ``[pos, mc, cov]``                  | ~5 B  post-DEFLATE | needs ref for context |
-| ``mc_cov``         | ``[mc, cov]``                       | ~2-4 B post-DEFLATE | **requires ``reference``**; output positions are aligned 1:1 against the reference (missing sites filled with ``(0, 0)``) |
-
-The legacy ``--slim`` flag is an alias for ``--mode pos_mc_cov``.
-
-### `cz_to_anndata` numpy fast path
-The per-region aggregation loop now uses
-``Reader.fetch_chunk_bytes`` + ``np.frombuffer`` + ``np.searchsorted`` on
-cumulative mc/cov arrays (same pattern as ``allc2cz``'s vectorised
-reference-alignment branch). For typical cell × feature matrices this
-is ~50-100x faster than the previous ``Reader.query`` Python loop.
-
-`cz_to_anndata` also gained a ``reference=`` parameter that provides
-positions for ``mc_cov``-only cells. The chrom axis of the dim tuple is
-auto-detected (robust to catcz ordering).
-
-## `cytozip/dmr.py` — native DMR caller
-
-Permutation-RMS DMR caller (ALLCools / methylpy style) that operates
-directly on `.cz` streams. CG and non-CG (CH/CA/CT) entry points share a
-chunked, multiprocessing + OpenMP pipeline:
-
-* `call_dmr` — CG, per-site test on raw mc/cov.
-* `call_dmr_ch` — non-CG, pools mc/cov into ``bin_size`` bins and applies
-  per-cell global mCH rescaling pre-pass, plus log2fc + |Δrate| filters.
-* `call_dmr_one_vs_rest` — batch one-vs-rest over a folder of pseudobulk
-  `.cz`, optionally stratified by a sample-class TSV; auto-merges all
-  per-sample TSVs into a single long-format `merged_dmr.tsv`/`.parquet`
-  with derived metrics (`delta_meth` / `delta_rate`, `direction`,
-  `log2fc`, `length`, `region_id`) and per-(sname, class) BH-FDR
-  (`q_min`).
-* `merge_dmr_results` — standalone merge (called by the wrapper).
-* `consensus_dmr` — collapse overlapping DMRs across samples into a
-  consensus interval table.
-
-Performance / correctness knobs:
-
-* Cython kernel `dmr_accel.rms_run_sites` (OpenMP `prange dynamic, 16`,
-  GIL released; expects `int64` C-contiguous mc/cov + `intp` site index).
-* `delta_prefilter` (default on): drops sites whose group-mean |Δfrac|
-  falls below `frac_delta_cutoff`/`abs_delta_cutoff` before permutation.
-* `use_fisher_1v1` (CG, default on): exact Fisher fallback for 1-vs-1
-  comparisons (no permutation noise).
-* Per-worker `_READER_CACHE` / `_close_cached_readers` keeps `.cz`
-  readers warm across chunks; the CH one-vs-rest global-rate pre-pass
-  closes parent-side readers before the per-comparison fan-out.
-* `_reader_np_dtype(reader)` caches the structured numpy dtype on the
-  reader so it isn't rebuilt per chunk.
-* Adaptive permutation early-stop (`min_pvalue`, ALLCools-compatible).
-* Auto-bumps CH `max_dist` to `bin_size` (with warning) when the
-  user-supplied gap would never bridge two adjacent bins.
-
-Validation: `tests/test_dmr_vs_allcools.py` cross-checks against
-ALLCools' RMS implementation on the same sites — currently sign
-agreement = 1.0, |Δfrac| max diff ≈ 5.6e-17, Pearson r(-log10 p) ≈ 0.77.
-
-CLI:
-
-```
-czip call_dmr -a A.txt -b B.txt -r ref.cz -O out.dmr.tsv -s CGN.cz \
-  [--no-delta_prefilter] [--no-fisher_1v1] [-j N]
-
-czip call_dmr_ch -a A.txt -b B.txt -r ref.cz -O out.dmr.tsv -s CHN.cz \
-  --bin_size 5000 [--no-delta_prefilter] [-j N]
-
-czip call_dmr_one_vs_rest -d pseudobulk_dir -r ref.cz -O outdir \
-  --method {cg,ch} [-c class_table.tsv] \
-  [--no-delta_prefilter] [--no-fisher_1v1] \
-  [--no-merge] [--no-fdr] [--output_format {tsv,parquet}] [-j N]
-```
-
-Python API extras on `call_dmr_one_vs_rest`: `auto_merge=True` and
-`merge_kwargs={'add_fdr': ..., 'output_format': ...}` to control the
-final merge step.
-
-
-# Upload onto conda
-## Step1: publish onto pypi
-```shell
-curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.5.tar.gz | sha256sum
-# or curl -sL https://files.pythonhosted.org/packages/ae/e1/11a583a1910a47894b06553d6697af3acac357a07ee94bbbeb17a0963930/cytozip-0.3.tar.gz | sha256sum
-# put sha256 in meta.yaml for the first time
-```
-
-## Step2
-```shell
-# 1. Fork https://github.com/bioconda/bioconda-recipes
-git clone https://github.com/DingWB/bioconda-recipes.git
-cd bioconda-recipes
-git checkout -b add-cytozip # create a new branch
-
-# 2. add recipe
-mkdir -p recipes/cytozip
-cp /home/x-wding2/Projects/Github/cytozip/conda-recipe/meta.yaml recipes/cytozip/
 
 # test before PR
 # mamba create -n bioconda-build -c conda-forge -c bioconda conda-build boa conda-verify
@@ -646,3 +427,6 @@ git push origin add-cytozip
 # PR to bioconda/bioconda-recipes:master, and finally:
 conda install -c bioconda cytozip
 ```
+
+## To-Do List
+- Peak calling using umc
