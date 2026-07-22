@@ -4210,7 +4210,7 @@ class Writer:
 			(int) or a column name (str). The selected columns must use an
 			integer struct format (``B/H/I/Q`` or signed counterparts).
 			Decoding requires one ``np.cumsum`` per delta column per block at
-			read time (~25–30 µs per 65 KB block) and is transparent to
+			read time (~25-30 µs per 65 KB block) and is transparent to
 			callers — :meth:`Reader.chunk2numpy` and ``view`` see the
 			reconstructed absolute values.
 
@@ -4329,10 +4329,13 @@ class Writer:
 		if sort_col is None or sort_col is False or sort_col == 'none':
 			return None
 		if isinstance(sort_col, str):
-			if sort_col not in self.columns:
+			if sort_col in self.columns:
+				idx = self.columns.index(sort_col)
+			elif sort_col.lstrip('-').isdigit():
+				idx = int(sort_col)
+			else:
 				raise ValueError(
 					f"sort_col={sort_col!r} not in columns {self.columns}")
-			idx = self.columns.index(sort_col)
 		else:
 			idx = int(sort_col)
 		if idx < 0 or idx >= len(self.formats):
@@ -4355,6 +4358,11 @@ class Writer:
 		Accepts ``None`` / empty, a list of column names, a list of int
 		indices, or a mixed list. Validates that each referenced column has
 		an integer format (DELTA only applies to integer columns).
+
+		A string entry is first matched against the column names; if it is
+		not a column name but a plain (optionally signed) integer literal
+		(e.g. the ``'1'`` produced by the CLI's comma-separated parser), it
+		is interpreted as a 0-based column index.
 		"""
 		if delta_cols is None:
 			return ()
@@ -4363,9 +4371,12 @@ class Writer:
 		idxs = []
 		for c in delta_cols:
 			if isinstance(c, str):
-				if c not in self.columns:
+				if c in self.columns:
+					idx = self.columns.index(c)
+				elif c.lstrip('-').isdigit():
+					idx = int(c)
+				else:
 					raise ValueError(f"delta_cols entry {c!r} not in columns {self.columns}")
-				idx = self.columns.index(c)
 			else:
 				idx = int(c)
 			if idx < 0 or idx >= len(self.formats):
