@@ -3238,8 +3238,6 @@ class Reader:
 				try:
 					record = next(records)
 				except StopIteration:
-					sys.stdout.close()
-					self.close()
 					return
 				while True:
 					try:
@@ -3252,12 +3250,10 @@ class Reader:
 							sys.stdout.write('\t'.join([str(d) for d in dims] +
 													   self._byte2str(row)) + '\n')
 						except BrokenPipeError:
-							self.close()
 							return
 					except ValueError:  # len(record) ==3: #"primary_id_&_dim:", primary_id, dim
 						flag, primary_id, dim = record
 				sys.stdout.flush()
-				self.close()
 			else:
 				return self._query_iter(regions, s, e)
 		else:
@@ -3273,7 +3269,6 @@ class Reader:
 					flag, primary_id, dim = next(ref_records)
 				except StopIteration:
 					sys.stdout.flush()
-					self.close()
 					ref_reader.close()
 					return
 				records = self._fetchByStartID(dim, n=primary_id)
@@ -3289,14 +3284,13 @@ class Reader:
 						try:
 							sys.stdout.write('\t'.join([str(d) for d in dims] + rows) + '\n')
 						except BrokenPipeError:
-							self.close()
 							ref_reader.close()
 							return
 					except ValueError:  # len(record) ==3: #"primary_id_&_dim:", primary_id, dim
 						flag, primary_id, dim = ref_record  # next block or next dim
 						records = self._fetchByStartID(dim, n=primary_id)
 				sys.stdout.flush()
-				self.close()
+				ref_reader.close()
 			else:
 				return self._query_iter_ref(regions, s, e, ref_reader)
 			ref_reader.close()
@@ -4207,7 +4201,7 @@ class Writer:
 			``ID`` / ``ID_start`` / ``ID_end`` in a coordinate index) as
 			deltas lets DEFLATE compress the small residuals far more tightly
 			than absolute integers. Each entry can be either a column index
-			(int) or a column name (str). The selected columns must use an
+			(int) or a column name (str) in parameter columns. The selected columns must use an
 			integer struct format (``B/H/I/Q`` or signed counterparts).
 			Decoding requires one ``np.cumsum`` per delta column per block at
 			read time (~25-30 µs per 65 KB block) and is transparent to

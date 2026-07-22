@@ -130,7 +130,7 @@ def _build_parser():
     p.add_argument('-m', '--message', default='', help='message stored in header')
     p.add_argument('-l', '--level', type=int, default=6, help='compression level')
     p.add_argument('--delta_cols', type=_csv_str, default=None,
-                   help='comma-separated integer column names/indices to store '
+                   help='comma-separated column names or indices (from parameter --columns) to store '
                         'as in-block deltas (shrinks strictly-monotonic '
                         'columns like pos; trades some query speed for size)')
 
