@@ -1820,12 +1820,25 @@ class Reader:
 		dims : tuple
 			chunk_key key identifying the chunk (e.g., ``('chr1',)``).
 		reformat : bool, default True
-			If True (default), decode bytes-typed columns (``s`` / ``c``
-			formats — e.g. ``strand`` / ``context``) into NumPy unicode
-			arrays so the returned DataFrame is directly printable and
-			comparable with Python strings. If False, those columns are
-			kept as opaque ``|V{n}`` bytes views (zero-copy, but pandas
-			cannot print or compare them).
+			Controls how byte-typed string columns (struct formats ``s`` /
+			``c`` — e.g. ``strand``, ``context``) are represented in the
+			returned DataFrame. Numeric columns are unaffected.
+
+			* ``True`` (default): decode those columns from raw bytes into
+			  NumPy Unicode strings (``np.char.decode(..., 'utf-8')``). The
+			  DataFrame then shows readable values like ``'CGN'`` / ``'+'``
+			  and supports printing, string comparison
+			  (``df['context'] == 'CGN'``) and ``to_csv``. This is what you
+			  want for analysis / inspection.
+			* ``False``: keep those columns as opaque ``|V{n}`` byte views
+			  (zero-copy, slightly faster / less memory). pandas cannot
+			  print or compare them — you get raw ``b'...'`` blobs. Only
+			  useful when feeding the DataFrame straight back into another
+			  binary path where the decode would be wasted.
+
+			Files with no string columns (e.g. numeric ``mc`` / ``cov``)
+			are unaffected either way — the decode branch only touches
+			``s`` / ``c`` columns.
 		index : str, ``Reader``, dict or None, default None
 			Optional 1-D context index (e.g. CG / CH) restricting the
 			rows returned. See :meth:`chunk2numpy` for accepted forms.
@@ -1967,18 +1980,41 @@ class Reader:
 
 		Parameters
 		----------
-		reference, index, reformat, drop_zero_cov, cov_col
-			Forwarded to :meth:`chunk2df` for every chunk (see there).
-			A ``reference`` path is opened **once** and reused.
+		reference : str, ``Reader`` or None, default None
+			Row-aligned reference ``.cz`` whose columns (e.g.
+			``pos`` / ``strand`` / ``context``) are **prepended** to every
+			row. A path is opened **once** here and reused across all
+			chunks. Forwarded to :meth:`chunk2df` (see there for id-join /
+			row-align semantics).
+		index : str, ``Reader``, dict or None, default None
+			Optional 1-D context index (e.g. CG / CH) restricting the rows
+			returned. A str path is opened once and reused across chunks.
+			Forwarded to :meth:`chunk2df`.
 		where : dict, optional
 			Filter chunks by chunk-key values, e.g. ``{'chrom': 'chr1'}``.
 			Cannot be combined with ``chunk_order``.
 		chunk_order : None, str, list or tuple
 			Explicit chunk order / subset (same semantics as
-			:meth:`to_bgzip`). ``None`` uses all chunks in natural order.
+			:meth:`to_bgzip`). ``None`` (default) uses all chunks in
+			natural order; a comma-separated string (``"chr1,chr2"``) or a
+			list of chunk-key tuples is also accepted.
 		add_dims : bool, default True
-			Prepend the chunk-key columns (e.g. ``chrom``) — the columns
-			:meth:`chunk2df` alone does not include.
+			Prepend the chunk-key columns (e.g. ``chrom``). These identify
+			which chunk each row came from and are **not** included by
+			:meth:`chunk2df` alone.
+		reformat : bool, default True
+			Decode byte-typed string columns (``strand`` / ``context``)
+			into readable strings. Forwarded to :meth:`chunk2df` (see
+			there for the full explanation).
+		drop_zero_cov : bool, default True
+			If True and the ``cov_col`` column exists, drop rows whose
+			coverage is 0 (keep only ``> 0``) to save memory / size. No
+			effect on files without that column. Forwarded to
+			:meth:`chunk2df`.
+		cov_col : str, default ``'cov'``
+			Name of the coverage column used by ``drop_zero_cov``. Set this
+			when the file names its coverage column differently. Forwarded
+			to :meth:`chunk2df`.
 		"""
 		if chunk_order is not None and where is not None:
 			raise ValueError("Pass either `chunk_order` or `where`, not both.")
