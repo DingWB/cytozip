@@ -482,18 +482,6 @@ class _LazyRefPositions:
         self._reader.close()
 
 
-def _load_reference_positions(reference):
-    """Return a lazy per-chrom position loader from a reference .cz.
-
-    The previous implementation preloaded the entire genome as an
-    ``{chrom: int64-array}`` dict, which costs ~9 GB on mm10. This
-    function now returns a :class:`_LazyRefPositions` that loads each
-    chromosome on first access (uint32) and lets the caller :meth:`drop`
-    it after flushing.
-    """
-    return _LazyRefPositions(reference)
-
-
 # ---------------------------------------------------------------------------
 # Pre-processing: name-sorted BAM -> position-sorted + deduplicated BAM
 # ---------------------------------------------------------------------------
@@ -877,7 +865,7 @@ def bam_to_cz(
     formats, columns, sort_col, delta_cols = _layout_for_mode(mode, count_fmt)
     ref_pos_map = None
     if mode == "mc_cov":
-        ref_pos_map = _load_reference_positions(reference)
+        ref_pos_map = _LazyRefPositions(reference)
         writer_message = os.path.basename(reference)
     else:
         writer_message = os.path.basename(genome)

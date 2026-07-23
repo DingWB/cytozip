@@ -736,49 +736,12 @@ class RemoteFile:
 		return self._size
 
 
-
-
 def _resolve_ref_path(reference):
 	"""Normalize a .cz reference path: pass HTTP(S) URLs through unchanged,
 	otherwise expand ~ and resolve to an absolute filesystem path."""
 	if isinstance(reference, str) and reference.startswith(('http://', 'https://')):
 		return reference
 	return os.path.abspath(os.path.expanduser(reference))
-
-
-def _read_remote_range(reader, start, length):
-	"""Issue a single, thread-safe HTTP/fsspec range read that does NOT
-	mutate ``reader._handle`` state (which would race under concurrent use).
-
-	Used by :meth:`Reader._iter_chunks_bytes_remote`.
-	"""
-	end = start + length - 1
-	# RemoteFile: reuse its session + URL, build a fresh Range request.
-	rf = reader._handle
-	if isinstance(rf, RemoteFile):
-		headers = rf._range_headers_template.copy()
-		headers['Range'] = 'bytes=%d-%d' % (start, end)
-		resp = rf._session.get(rf.url, headers=headers, allow_redirects=True)
-		resp.raise_for_status()
-		# If server returned 200 (no range support), slice the full body.
-		cr = resp.headers.get('Content-Range', '')
-		if cr.startswith('bytes '):
-			return resp.content
-		return resp.content[start:start + length]
-	# fsspec backend: filesystem.cat_file supports range reads natively.
-	of = getattr(reader, '_fsspec_handle', None)
-	if of is not None:
-		try:
-			return of.fs.cat_file(of.path, start=start, end=end + 1)
-		except Exception:
-			# Fallback to a fresh open + seek+read on a copy of the file.
-			with of.fs.open(of.path, 'rb') as fh:
-				fh.seek(start)
-				return fh.read(length)
-	# Last-resort: serial fallback via the reader's own handle (NOT
-	# thread-safe; should not be reached for the remote/concurrent path).
-	rf.seek(start)
-	return rf.read(length)
 
 
 # ==========================================================
@@ -1845,12 +1808,12 @@ class Reader:
 				except Exception:
 					pass
 
-	def chunk2df(self, dims, reformat=True, index=None):
+	def chunk2df(self, dims, reformat=True, index=None, reference=None,
+				 drop_zero_cov=True, cov_col='cov'):
 		"""Read an entire chunk into a pandas DataFrame.
 
-		Thin wrapper around :meth:`chunk2numpy`: builds the structured
-		ndarray once via the C/numpy fast path, then materializes a
-		zero-copy DataFrame on top of it.
+		Builds the structured ndarray once via the C/numpy fast path,
+		then materializes a (mostly zero-copy) DataFrame on top of it.
 
 		Parameters
 		----------
@@ -1862,28 +1825,229 @@ class Reader:
 			arrays so the returned DataFrame is directly printable and
 			comparable with Python strings. If False, those columns are
 			kept as opaque ``|V{n}`` bytes views (zero-copy, but pandas
-			cannot print or compare them — only useful when piping the
-			DataFrame straight back into another binary path).
+			cannot print or compare them).
 		index : str, ``Reader``, dict or None, default None
 			Optional 1-D context index (e.g. CG / CH) restricting the
 			rows returned. See :meth:`chunk2numpy` for accepted forms.
+		reference : str, ``Reader`` or None, default None
+			Row-aligned reference ``.cz`` whose columns (e.g.
+			``pos`` / ``strand`` / ``context``) are **prepended** to the
+			returned DataFrame. Needed for ``mc_cov`` cells that store
+			only ``mc`` / ``cov`` and no coordinates. When *self* is a
+			1-D context index (columns ``['ID']``), the reference rows are
+			gathered by those IDs instead of row-aligned.
+		drop_zero_cov : bool, default True
+			If True and the ``cov_col`` column is present, drop rows whose
+			coverage is 0 (keeps only ``> 0``), reducing memory and
+			size. No effect on files without that column
+			(e.g. methylation-array beta files).
+		cov_col : str, default ``'cov'``
+			Name of the coverage column used by ``drop_zero_cov``. Set
+			this when the file uses a custom coverage column name.
 		"""
-		arr = self.chunk2numpy(dims, reformat=False, index=index)
-		cols = self.header['columns']
-		if arr.size == 0:
-			return pd.DataFrame(
-				{c: pd.Series(dtype=object) for c in cols},
-				columns=cols)
-		fmts = self.header['formats']
-		data = {}
-		for i, (col, fmt) in enumerate(zip(cols, fmts)):
-			field = arr[f'f{i}']
-			if reformat and fmt[-1] in ('s', 'c'):
-				n = struct.calcsize(fmt)
-				data[col] = np.char.decode(field.view(f'|S{n}'), 'utf-8')
+		if isinstance(dims, str):
+			dims = tuple([dims])
+		self_cols = self.header['columns']
+		self_fmts = self.header['formats']
+
+		# ---- Resolve reference reader (path or Reader) ------------------
+		ref_reader = None
+		close_ref = False
+		id_join = False
+		if reference is not None:
+			if isinstance(reference, Reader):
+				ref_reader = reference
 			else:
-				data[col] = field
-		return pd.DataFrame(data, columns=cols, copy=False)
+				ref_reader = Reader(_resolve_ref_path(reference))
+				close_ref = True
+			# `self` is a 1-D context index -> gather ref rows by ID.
+			if self_cols == ['ID'] and self_fmts == ['I']:
+				id_join = True
+		try:
+			self_dtype = _build_record_dtype(self_fmts)
+			raw = self.fetch_chunk_bytes(dims)
+			arr = (np.frombuffer(raw, dtype=self_dtype) if raw
+				   else np.empty(0, dtype=self_dtype))
+
+			ref_cols = ref_fmts = None
+			ref_arr = None
+			if ref_reader is not None:
+				ref_cols = ref_reader.header['columns']
+				ref_fmts = ref_reader.header['formats']
+				ref_raw = ref_reader.fetch_chunk_bytes(dims)
+				ref_dtype = _build_record_dtype(ref_fmts)
+				ref_arr = (np.frombuffer(ref_raw, dtype=ref_dtype) if ref_raw
+						   else np.empty(0, dtype=ref_dtype))
+				if id_join:
+					ids = arr['f0'].astype(np.int64) - 1
+					if ids.size and (ids.min() < 0 or ids.max() >= ref_arr.size):
+						raise ValueError(
+							f"index ID out of range for chunk {dims}: ref has "
+							f"{ref_arr.size} rows")
+					ref_arr = ref_arr[ids]
+				elif len(ref_arr) != len(arr):
+					raise ValueError(
+						f"reference not row-aligned for chunk {dims}: cell has "
+						f"{len(arr)} rows, ref has {len(ref_arr)}")
+
+			selected = False
+			# ---- Context-index filter (gather self + ref together) -----
+			if index is not None and not id_join:
+				ctx_ids = self._resolve_index_ids(index, dims)
+				if ctx_ids is None:
+					ctx_ids = np.empty(0, dtype=np.int64)
+				n_rows = (len(arr) if ref_arr is None
+						  else min(len(arr), len(ref_arr)))
+				if ctx_ids.size and (ctx_ids.min() < 1 or ctx_ids.max() > n_rows):
+					raise ValueError(
+						f"index ID out of range for chunk {dims}: rows={n_rows}")
+				gather = ctx_ids - 1
+				arr = arr[gather]
+				if ref_arr is not None:
+					ref_arr = ref_arr[gather]
+				selected = True
+
+			# ---- Drop cov==0 rows --------------------------------------
+			if drop_zero_cov and cov_col in self_cols:
+				ci = self_cols.index(cov_col)
+				mask = arr[f'f{ci}'] > 0
+				if not mask.all():
+					arr = arr[mask]
+					if ref_arr is not None:
+						ref_arr = ref_arr[mask]
+					selected = True
+
+			# frombuffer views are read-only; own the memory when no
+			# fancy-index already produced an owned copy.
+			if not selected:
+				arr = arr.copy()
+				if ref_arr is not None and ref_arr.base is not None:
+					ref_arr = ref_arr.copy()
+
+			# ---- Build DataFrame: ref columns first, then self ---------
+			data = {}
+			out_cols = []
+			if ref_arr is not None:
+				for i, (col, fmt) in enumerate(zip(ref_cols, ref_fmts)):
+					field = ref_arr[f'f{i}']
+					if reformat and fmt[-1] in ('s', 'c'):
+						n = struct.calcsize(fmt)
+						data[col] = np.char.decode(field.view(f'|S{n}'), 'utf-8')
+					else:
+						data[col] = field
+					out_cols.append(col)
+			for i, (col, fmt) in enumerate(zip(self_cols, self_fmts)):
+				field = arr[f'f{i}']
+				if reformat and fmt[-1] in ('s', 'c'):
+					n = struct.calcsize(fmt)
+					data[col] = np.char.decode(field.view(f'|S{n}'), 'utf-8')
+				else:
+					data[col] = field
+				out_cols.append(col)
+			return pd.DataFrame(data, columns=out_cols, copy=False)
+		finally:
+			if close_ref:
+				ref_reader.close()
+
+	def to_df(self, reference=None, index=None, where=None, chunk_order=None,
+			  add_dims=True, reformat=True, drop_zero_cov=True, cov_col='cov'):
+		"""Read the whole ``.cz`` file into a single pandas DataFrame.
+
+		Concatenates every (or a filtered subset of) chunk. Memory-
+		efficient: per-column arrays are accumulated across chunks and
+		joined with a **single** ``np.concatenate`` per column at the end
+		(no intermediate per-chunk DataFrames, no ``pd.concat`` copy).
+
+		.. warning::
+			Materialising a whole file is memory-heavy — a single human
+			chromosome reference has ~1e8 rows. For large files restrict
+			with ``where`` / ``chunk_order`` / ``index``, keep
+			``drop_zero_cov=True``, or iterate per chunk with
+			:meth:`chunk2df` instead.
+
+		Parameters
+		----------
+		reference, index, reformat, drop_zero_cov, cov_col
+			Forwarded to :meth:`chunk2df` for every chunk (see there).
+			A ``reference`` path is opened **once** and reused.
+		where : dict, optional
+			Filter chunks by chunk-key values, e.g. ``{'chrom': 'chr1'}``.
+			Cannot be combined with ``chunk_order``.
+		chunk_order : None, str, list or tuple
+			Explicit chunk order / subset (same semantics as
+			:meth:`to_bgzip`). ``None`` uses all chunks in natural order.
+		add_dims : bool, default True
+			Prepend the chunk-key columns (e.g. ``chrom``) — the columns
+			:meth:`chunk2df` alone does not include.
+		"""
+		if chunk_order is not None and where is not None:
+			raise ValueError("Pass either `chunk_order` or `where`, not both.")
+		if chunk_order is None:
+			chunk_info = self.chunk_info.copy()
+			if where is not None:
+				for d, v in where.items():
+					chunk_info = chunk_info.loc[chunk_info[d] == v]
+			dims_list = chunk_info.index.tolist()
+		elif isinstance(chunk_order, str):
+			dims_list = [tuple([d]) for d in chunk_order.split(',')]
+		elif isinstance(chunk_order, (list, tuple)):
+			if chunk_order and isinstance(chunk_order[0], str):
+				dims_list = [tuple([d]) for d in chunk_order]
+			else:
+				dims_list = list(chunk_order)
+		else:
+			raise ValueError("chunk_order format not recognized")
+
+		# Open reference / index once (path -> Reader) and reuse across
+		# chunks so we don't re-open + re-parse them per chunk.
+		close_ref = False
+		ref_reader = reference
+		if reference is not None and not isinstance(reference, Reader):
+			ref_reader = Reader(_resolve_ref_path(reference))
+			close_ref = True
+		close_index = False
+		index_obj = index
+		if index is not None and isinstance(index, str):
+			index_obj = Reader(index)
+			close_index = True
+
+		chunk_dims = self.header['chunk_dims']
+		ref_cols = list(ref_reader.header['columns']) if ref_reader is not None else []
+		data_cols = ref_cols + list(self.header['columns'])
+		try:
+			col_parts = {c: [] for c in data_cols}
+			dim_parts = [[] for _ in chunk_dims] if add_dims else None
+			for d in dims_list:
+				if d not in self.chunk_key2offset:
+					continue
+				df = self.chunk2df(d, reformat=reformat, index=index_obj,
+								   reference=ref_reader,
+								   drop_zero_cov=drop_zero_cov, cov_col=cov_col)
+				m = len(df)
+				if m == 0:
+					continue
+				for c in data_cols:
+					col_parts[c].append(df[c].to_numpy())
+				if add_dims:
+					for j in range(len(chunk_dims)):
+						dim_parts[j].append(np.full(m, d[j]))
+			# Assemble one DataFrame via a single concat per column.
+			data = {}
+			if add_dims:
+				for j, name in enumerate(chunk_dims):
+					data[name] = (np.concatenate(dim_parts[j]) if dim_parts[j]
+								  else np.array([], dtype=object))
+			for c in data_cols:
+				data[c] = (np.concatenate(col_parts[c]) if col_parts[c]
+						   else np.array([]))
+			final_cols = (list(chunk_dims) if add_dims else []) + data_cols
+			return pd.DataFrame(data, columns=final_cols, copy=False)
+		finally:
+			if close_ref:
+				ref_reader.close()
+			if close_index:
+				index_obj.close()
+
 
 	def _load_block(self, start_offset=None):
 		"""Load and decompress a single block into ``self._buffer``.
@@ -1946,10 +2110,6 @@ class Reader:
 	def _byte2real(self, values):
 		"""Record tuple → list with bytes fields decoded; numerics kept native."""
 		return self._decode_record(values, stringify_numeric=False)
-
-	def _empty_generator(self):
-		while True:
-			yield []
 
 	def view(self, show_dims=None, header=True, chunk_order=None,
 			 where=None, reference=None, index=None):
@@ -2497,21 +2657,6 @@ class Reader:
 			self._within_block_offset = within_block_offset
 			yield self.read(self._unit_size)
 
-	def _records_by_ids(self, dim=None, reference=None, IDs=None):
-		if reference is None:
-			for record in self._getRecordsByIds(dim, IDs):
-				yield self._byte2real(self._struct_obj.unpack(record))
-		else:
-			ref_reader = Reader(_resolve_ref_path(reference))
-			ref_records = ref_reader._getRecordsByIds(dim=dim, IDs=IDs)
-			records = self._getRecordsByIds(dim=dim, IDs=IDs)
-			for ref_record, record in zip(ref_records, records):
-				yield ref_reader._byte2real(ref_reader._struct_obj.unpack(
-					ref_record
-				)) + self._byte2real(self._struct_obj.unpack(
-					record
-				))
-			ref_reader.close()
 
 	def _id_to_block_pos(self, id_, delta, records_per_block=None):
 		"""Map a 1-based primary ID to (block_index, within_block_byte_offset).
@@ -2562,82 +2707,6 @@ class Reader:
 			# Read all records in this range (inclusive)
 			yield [self.read(self._unit_size) for i in range(id_start, id_end + 1)]
 			prev_id_end = id_end
-
-	def _records_by_id_regions(self, dim=None, reference=None, IDs=None):
-		"""
-		Get .cz content for a given dim and IDs
-		Parameters
-		----------
-		dim : tuple
-		reference : path
-		IDs : list or np.ndarray
-			every element of IDs is a list or tuple with length=2, id_start and id_end
-
-		Returns
-		-------
-		generator
-		"""
-		self._load_chunk(self.chunk_key2offset[dim], jump=False)
-		if reference is None:
-			for records in self._getRecordsByIdRegions(dim, IDs):
-				yield np.array([self._byte2real(self._struct_obj.unpack(
-					record)) for record in records])
-		else:
-			ref_reader = Reader(_resolve_ref_path(reference))
-			ref_records = ref_reader._getRecordsByIdRegions(dim=dim, IDs=IDs)
-			records = self._getRecordsByIdRegions(dim=dim, IDs=IDs)
-			for ref_records, records in zip(ref_records, records):
-				ref_record = np.array([ref_reader._byte2real(ref_reader._struct_obj.unpack(
-					record)) for record in ref_records])
-				record = np.array([self._byte2real(self._struct_obj.unpack(
-					record)) for record in records])
-				yield np.hstack((ref_record, record))
-			ref_reader.close()
-
-	def subset(self, dim, index=None, IDs=None, reference=None, printout=True):
-		if isinstance(dim, str):
-			dim = tuple([dim])
-		if index is None and IDs is None:
-			raise ValueError("Please provide either index or IDs")
-		if not index is None:
-			index_reader = Reader(index)
-			IDs = index_reader.get_ids_from_index(dim)
-			index_reader.close()
-		if not reference is None:
-			ref_reader = Reader(_resolve_ref_path(reference))
-			ref_header = ref_reader.header['columns']
-			ref_reader.close()
-		else:
-			ref_header = []
-		header = self.header['chunk_dims'] + ref_header + self.header['columns']
-		if len(IDs.shape) == 1:
-			if printout:
-				sys.stdout.write('\t'.join(header) + '\n')
-				try:
-					for record in self._records_by_ids(dim, reference, IDs):
-						sys.stdout.write('\t'.join(list(dim) + list(map(str, record))) + '\n')
-					# print(list(dim)+list(map(str,record)))
-				except:
-					sys.stdout.close()
-					self.close()
-					return
-				sys.stdout.close()
-			else:  # each element is one record
-				yield from self._records_by_ids(dim, reference, IDs)
-		else:
-			if printout:
-				sys.stdout.write('\t'.join(header) + '\n')
-				try:
-					for data in self._records_by_id_regions(dim, reference, IDs):
-						for row in data:
-							sys.stdout.write('\t'.join(list(dim) + list(map(str, row))) + '\n')
-				except:
-					sys.stdout.close()
-					self.close()
-					return
-				sys.stdout.close()
-			else:  # each element is a data array (multiple records)
-				yield from self._records_by_id_regions(dim, reference, IDs)
 
 
 	def __fetch__(self, chunk_key, s=None, e=None):
@@ -2754,133 +2823,6 @@ class Reader:
 			raw = b"".join(chunks)
 		return raw
 
-	def iter_chunks_bytes(self, dims=None, prefetch=1):
-		"""Iterate ``(dim, raw_bytes)`` pairs with background I/O prefetch.
-
-		While the consumer processes chunk N, a background thread reads
-		the compressed bytes of chunks N+1 .. N+prefetch from disk. The
-		main thread still does the (multi-threaded) decompression so the
-		GIL is released by libdeflate during inflate, overlapping nicely
-		with the next chunk's read.
-
-		Parameters
-		----------
-		dims : iterable of chunk_key tuples, optional
-			Chunks to iterate. Defaults to all chunks in file order.
-		prefetch : int
-			Number of chunks to read ahead (1 is usually enough). Set to
-			0 to disable prefetching (useful for benchmarking).
-
-		Yields
-		------
-		(dim, bytes)
-		"""
-		if dims is None:
-			dims = list(self.chunk_key2offset.keys())
-		else:
-			dims = list(dims)
-		if prefetch <= 0 or _c_parse_blocks_buffer is None or len(dims) < 2:
-			# Fallback: synchronous fetch.
-			for d in dims:
-				yield d, self.fetch_chunk_bytes(d)
-			return
-
-		# Remote-aware concurrent path.  When the underlying handle is
-		# a RemoteFile / fsspec object, the bottleneck is HTTP latency,
-		# so we issue ``prefetch`` concurrent range requests via a
-		# thread pool (sharing the session's connection pool).  Local
-		# files keep the simpler single-bg-thread path because OS-level
-		# read-ahead already hides latency.
-		if self._is_remote and prefetch > 1:
-			yield from self._iter_chunks_bytes_remote(dims, prefetch)
-			return
-
-		import queue
-		import threading
-
-		# Items put on q: (dim, raw_compressed_bytes_or_None,
-		#                  block_vos, chunk_size_minus10) or sentinel.
-		q: "queue.Queue" = queue.Queue(maxsize=max(1, prefetch))
-		_SENTINEL = object()
-
-		def _prefetcher():
-			try:
-				for d in dims:
-					# _load_chunk seeks + reads chunk header / VO table.
-					if not self._load_chunk(self.chunk_key2offset[d], jump=False):
-						q.put((d, None, None, 0))
-						continue
-					payload_size = self._chunk_size - 10
-					self._handle.seek(self._chunk_start_offset + 10)
-					raw = self._handle.read(payload_size)
-					q.put((d, raw,
-					       list(self._chunk_block_1st_record_virtual_offsets),
-					       payload_size))
-			except Exception as exc:  # propagate to consumer
-				q.put((None, exc, None, 0))
-			finally:
-				q.put(_SENTINEL)
-
-		t = threading.Thread(target=_prefetcher, daemon=True)
-		t.start()
-		try:
-			while True:
-				item = q.get()
-				if item is _SENTINEL:
-					return
-				d, raw, _vos, _payload = item
-				if d is None:
-					raise raw  # exception object
-				if not raw:
-					yield d, b""
-					continue
-				yield d, _c_parse_blocks_buffer(
-					raw, self._delta_np_dtype,
-					self._delta_col_names or None,
-				)
-		finally:
-			t.join(timeout=1.0)
-
-	def _iter_chunks_bytes_remote(self, dims, max_workers):
-		"""Concurrent HTTP range-request prefetch for remote .cz.
-
-		Issues up to ``max_workers`` concurrent GETs against the
-		underlying ``RemoteFile`` / fsspec backend, then yields
-		``(dim, raw_bytes)`` in input order.  ``requests.Session`` and
-		fsspec backends are thread-safe under read-only usage; the
-		connection pool naturally serializes per-connection state.
-		"""
-		import concurrent.futures as _cf
-
-		raw_idx = getattr(self, '_raw_chunk_index', None)
-
-		def _fetch_one(d):
-			# Get start + size from the chunk index without mutating
-			# any per-instance handle state (which would race).
-			info = raw_idx.get(d) if raw_idx else None
-			if info is None:
-				start = self.chunk_key2offset[d]
-				# Fallback: read 10-byte chunk header to get chunk_size.
-				hdr = _read_remote_range(self, start + 2, 8)
-				csize = _struct_Q.unpack(hdr)[0]
-			else:
-				start = info['start']
-				csize = info['size']
-			payload_size = csize - 10
-			if payload_size <= 0:
-				return d, b""
-			raw = _read_remote_range(self, start + 10, payload_size)
-			return d, _c_parse_blocks_buffer(
-				raw, self._delta_np_dtype,
-				self._delta_col_names or None,
-			)
-
-		with _cf.ThreadPoolExecutor(max_workers=max_workers) as ex:
-			# Submit all up front; results yielded in input order via
-			# a future-by-dim map.
-			fut_by_dim = {d: ex.submit(_fetch_one, d) for d in dims}
-			for d in dims:
-				yield fut_by_dim[d].result()
 
 	@classmethod
 	def from_url(cls, url, cache_size=2 * 1024 * 1024, session=None):
@@ -2934,55 +2876,27 @@ class Reader:
 		for record in self.__fetch__(dim):
 			yield self._byte2real(record)  # all columns of each row
 
-	def _batch_fetch(self, dims, batch_size=5000):
-		i = 0
-		data = []
-		for row in self.fetch(dims):
-			data.append(row)
-			if i >= batch_size:
-				yield data
-				data, i = [], 0
-			i += 1
-		if len(data) > 0:
-			yield data
 
 	def _fetchByStartID(self, dims, n=None):  # n is 1-based, n >=1
 		if isinstance(dims, str):
 			dims = tuple([dims])
 		self._load_chunk(self.chunk_key2offset[dims], jump=False)
 		if not n is None:  # seek to the position of the n rows
-			# Delta files are written record-aligned (each block holds exactly
-			# records_per_block complete records); non-delta files pack records
-			# contiguously across block boundaries.
-			if self._delta_cols:
-				records_per_block = _BLOCK_MAX_LEN // self._unit_size
-				block_index = (n - 1) // records_per_block
-				within_block_offset = ((n - 1) % records_per_block) * self._unit_size
-			else:
-				block_index = ((n - 1) * self._unit_size) // (_BLOCK_MAX_LEN)
-				within_block_offset = ((n - 1) * self._unit_size) % (_BLOCK_MAX_LEN)
+			# Delta files are record-aligned (each block holds exactly
+			# records_per_block complete records); non-delta files pack
+			# records contiguously across block boundaries.
+			delta = bool(self._delta_cols)
+			records_per_block = (_BLOCK_MAX_LEN // self._unit_size
+			                     if delta else None)
+			block_index, within_block_offset = self._id_to_block_pos(
+				n, delta, records_per_block)
 			first_record_vos = self._chunk_block_1st_record_virtual_offsets[block_index]
 			block_start_offset = (first_record_vos >> _VO_OFFSET_BITS)
 			virtual_start_offset = (block_start_offset << _VO_OFFSET_BITS) | within_block_offset
 			self.seek(virtual_start_offset)  # load_block is inside sek
 		while True:
-			# yield self._read_1record()
 			yield self._struct_obj.unpack(self.read(self._unit_size))
 
-	def _read_1record(self):
-		# accelerated single-record read
-		if _c_read_1record is not None:
-			rec, self._block_raw_length, self._buffer, self._within_block_offset = _c_read_1record(
-				self._handle, self._block_raw_length, self._buffer,
-				self._within_block_offset, self.fmts, self._unit_size,
-				self._delta_np_dtype, self._delta_col_names or None
-			)
-			return rec
-		# fallback
-		tmp = self._buffer[
-			  self._within_block_offset:self._within_block_offset + self._unit_size]
-		self._within_block_offset += self._unit_size
-		return self._struct_obj.unpack(tmp)
 
 	def _query_regions(self, regions, s, e):
 		prev_dim = None
@@ -3047,68 +2961,6 @@ class Reader:
 				record = self._struct_obj.unpack(self.read(self._unit_size))
 		# start_block_index_tmp = start_block_index
 
-	def pos2id(self, dim, positions, col_to_query=0):  # return IDs (primary_id)
-		self._load_chunk(self.chunk_key2offset[dim], jump=False)
-		# Try accelerated implementation if available
-		if _c_pos2id is not None:
-			res = _c_pos2id(self._handle,
-			                 self._chunk_block_1st_record_virtual_offsets,
-			                 self.fmts, self._unit_size, positions, col_to_query,
-			                 self._chunk_block_first_coords or None,
-			                 self._delta_np_dtype, self._delta_col_names or None)
-			for r in res:
-				yield r
-			return
-		# fallback python implementation
-		vos = self._chunk_block_1st_record_virtual_offsets
-		fc = self._chunk_block_first_coords
-		start_block_index = 0
-		for start, end in positions:
-			if fc:
-				# Pure in-memory O(log N) bisect on preloaded first_coords.
-				start_block_index = max(bisect.bisect_right(fc, start) - 1, 0)
-			else:
-				# Legacy seek+inflate bisect for files without sort_col.
-				lo, hi = start_block_index, len(vos)
-				while lo < hi:
-					mid = (lo + hi) // 2
-					val = self._seek_and_read_1record(vos[mid])[col_to_query]
-					if val is None or val <= start:
-						lo = mid + 1
-					else:
-						hi = mid
-				start_block_index = max(lo - 1, 0)
-			virtual_offset = vos[start_block_index]
-			self.seek(virtual_offset)
-			block_start_offset = self._block_start_offset
-			record = self._struct_obj.unpack(self.read(self._unit_size))
-			while record[col_to_query] < start:
-				try:
-					record = self._struct_obj.unpack(self.read(self._unit_size))
-				except:
-					break
-			if record[col_to_query] < start:
-				yield None
-				continue
-			if self._block_start_offset > block_start_offset:
-				start_block_index += 1
-			# Record-aligned blocks (delta files) need record-count arithmetic.
-			if self._delta_col_names:
-				records_per_block = _BLOCK_MAX_LEN // self._unit_size
-				primary_id = (records_per_block * start_block_index
-							  + self._within_block_offset // self._unit_size)
-			else:
-				primary_id = int((_BLOCK_MAX_LEN * start_block_index +
-					                  self._within_block_offset) / self._unit_size)
-			id_start = primary_id
-			while record[col_to_query] < end:
-				try:
-					record = self._struct_obj.unpack(self.read(self._unit_size))
-					primary_id += 1
-				except:
-					break
-			id_end = primary_id  # ID for end position,should be included
-			yield [id_start, id_end]
 
 	def query(self, chunk_key=None, start=None, end=None, regions=None,
 			  query_col=[0], reference=None, printout=True):
@@ -3433,44 +3285,6 @@ class Reader:
 				result += data
 		return result
 
-	def readline(self):
-		"""Read a single line for the BGZF file."""
-		# accelerated path
-		if _c_readline is not None:
-			data, self._block_raw_length, self._buffer, self._within_block_offset = _c_readline(
-				self._handle, self._block_raw_length, self._buffer,
-				self._within_block_offset, getattr(self, '_newline', b'\n'),
-				self._delta_np_dtype, self._delta_col_names or None
-			)
-			return data
-		# fallback
-		result = b""
-		while self._block_raw_length:
-			i = self._buffer.find(self._newline, self._within_block_offset)
-			# Three cases to consider,
-			if i == -1:
-				# No newline, need to read in more data
-				data = self._buffer[self._within_block_offset:]
-				self._load_block()  # will reset offsets
-				result += data
-			elif i + 1 == len(self._buffer):
-				# Found new line, but right at end of block (SPECIAL)
-				data = self._buffer[self._within_block_offset:]
-				# Must now load the next block to ensure tell() works
-				self._load_block()  # will reset offsets
-				if not data:
-					raise ValueError("Must be at least 1 byte")
-				result += data
-				break
-			else:
-				# Found new line, not at end of block (easy case, no IO)
-				data = self._buffer[self._within_block_offset: i + 1]
-				self._within_block_offset = i + 1
-				# assert data.endswith(self._newline)
-				result += data
-				break
-
-		return result
 
 	def advise_sequential(self):
 		"""Hint the kernel that this file will be read sequentially.
@@ -3571,17 +3385,6 @@ class Reader:
 			raise RuntimeError("cannot unpickle Reader without 'input' path")
 		self.__init__(input_path, max_cache=state.get('max_cache', 100))
 
-	def _seekable(self):
-		"""Return True indicating the BGZF supports random access."""
-		return True
-
-	def _isatty(self):
-		"""Return True if connected to a TTY device."""
-		return False
-
-	def _fileno(self):
-		"""Return integer file descriptor."""
-		return self._handle.fileno()
 
 	# ------------------------------------------------------------------
 	# Iteration dunders — pure-additive wrappers around fetch().
@@ -4064,8 +3867,6 @@ def _align_cz_to_dataframe(ref, r1, r2, common_keys, chunk_dims,
 		data[name] = (np.concatenate(col_parts[i]) if col_parts[i]
 					  else np.array([]))
 	return pd.DataFrame(data)
-
-
 
 
 # ==========================================================
@@ -4613,7 +4414,6 @@ class Writer:
 		t.join()
 		self._pipeline_thread = None
 
-
 	def _write_chunk_tail(self):
 		"""Write the chunk tail after all blocks.
 
@@ -4728,7 +4528,6 @@ class Writer:
 			mv.release()
 			del self._buffer[:n_full * block]
 			self._write_blocks_batch(pending)
-
 
 	def _parse_input_no_ref(self, input_handle):
 		"""Generator that parses input data (DataFrame or file) into

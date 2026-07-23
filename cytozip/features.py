@@ -906,8 +906,8 @@ def _pool_get_ref_pos_map(hint_path=None):
         raise ValueError(
             "Cell .cz has no 'pos' column; pass reference= to "
             "provide the coordinate reference.")
-    from .bam import _load_reference_positions
-    _WORKER_STATE["ref_pos_map"] = _load_reference_positions(ref_path)
+    from .bam import _LazyRefPositions
+    _WORKER_STATE["ref_pos_map"] = _LazyRefPositions(ref_path)
     return _WORKER_STATE["ref_pos_map"]
 
 
@@ -1239,8 +1239,8 @@ def cz_to_anndata(
                 "provide the coordinate reference."
             )
         # Local import to avoid circular deps at module load time.
-        from .bam import _load_reference_positions
-        ref_pos_map_cache["map"] = _load_reference_positions(ref_path)
+        from .bam import _LazyRefPositions
+        ref_pos_map_cache["map"] = _LazyRefPositions(ref_path)
         ref_pos_map_cache["loaded"] = True
         return ref_pos_map_cache["map"]
 
