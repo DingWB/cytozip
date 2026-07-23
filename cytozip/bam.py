@@ -341,6 +341,11 @@ class _LazyRefPositions:
     def __contains__(self, chrom):
         return chrom in self._chrom2dim
 
+    @property
+    def chroms(self):
+        """Set of chromosome names present in the reference .cz."""
+        return set(self._chrom2dim)
+
     def get(self, chrom):
         """Return uint32 position array for *chrom* (loads on first call).
 
@@ -674,6 +679,39 @@ def name_sort_bam_to_deduped(
     return output
 
 
+def _parse_chrom_whitelist(chroms):
+    """Normalize a ``chroms`` argument into a set of chromosome names or None.
+
+    Accepts:
+
+    * ``None`` -> ``None`` (no restriction; every contig is piled up).
+    * list / tuple / set of names -> a set of ``str``.
+    * a path to a chrom-size / ``.fai`` file -> the first
+      (tab/whitespace-separated) column of each non-empty line.
+    * a comma-separated string ``'chr1,chr2'`` -> the listed names.
+    * a single chromosome name -> ``{name}``.
+    """
+    if chroms is None:
+        return None
+    if isinstance(chroms, (list, tuple, set)):
+        return {str(c) for c in chroms}
+    if isinstance(chroms, str):
+        path = os.path.abspath(os.path.expanduser(chroms))
+        if os.path.exists(path):
+            names = set()
+            with open(path) as fh:
+                for line in fh:
+                    line = line.strip()
+                    if line:
+                        names.add(line.split()[0])
+            return names
+        if "," in chroms:
+            return {c for c in chroms.split(",") if c}
+        return {chroms}
+    raise TypeError(
+        f"chroms must be None, a list/tuple/set, or a str; got {type(chroms)}")
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -693,6 +731,7 @@ def bam_to_cz(
     save_count_df: bool = False,
     name_sorted: bool = False,
     env: Optional[str] = None,
+    chroms=None,
 ) -> Optional[pd.DataFrame]:
     """Convert a position-sorted BAM to a ``.cz`` methylation file.
 
@@ -757,6 +796,17 @@ def bam_to_cz(
         ``name_sorted`` pre-processing step (e.g. ``env="yap"`` when running
         from an env without picard). Ignored unless ``name_sorted=True``.
         See :func:`name_sort_bam_to_deduped`.
+    chroms : None, list, or str, optional
+        Restrict the pileup to a whitelist of chromosomes. Accepts a list of
+        names, a comma-separated string (``'chr1,chr2'``), or a path to a
+        chrom-size / ``.fai`` file (first column). This mirrors ALLCools
+        ``bam_to_allc(..., chrom_size=...)``, which limits ``samtools
+        mpileup`` to the listed chroms; without it every contig in the
+        genome fasta (including alt/decoy/unplaced) is piled up and counted,
+        inflating the returned ``count_df``. In ``mode='mc_cov'`` the pileup
+        is **always** limited to the reference's chromosomes regardless of
+        this argument (sites on other chroms are discarded at write time
+        anyway); passing ``chroms`` then further narrows that set.
 
     Returns
     -------
@@ -779,7 +829,7 @@ def bam_to_cz(
     # Resolve samtools once (optionally from a specific conda env) so both
     # the .bai indexing and the mpileup fallback use the same binary.
     samtools_exe = _resolve_env_bin("samtools", env)
-
+    genome=os.path.expanduser(genome)
     if not os.path.exists(genome):
         raise FileNotFoundError(f"Reference fasta not found: {genome}")
     fai_path = genome + ".fai"
@@ -831,6 +881,18 @@ def bam_to_cz(
         writer_message = os.path.basename(reference)
     else:
         writer_message = os.path.basename(genome)
+
+    # Chromosome whitelist for the pileup. ALLCools restricts mpileup to the
+    # chroms in its chrom_size file; without a restriction we also pile up
+    # alt/decoy/unplaced contigs, which inflates the returned count_df.
+    allowed_chroms = _parse_chrom_whitelist(chroms)
+    if mode == "mc_cov" and ref_pos_map is not None:
+        # Sites on chroms absent from the reference are discarded at write
+        # time anyway, so skip them during pileup too (faster, and keeps the
+        # returned count_df consistent with what is actually written).
+        ref_chroms = ref_pos_map.chroms
+        allowed_chroms = (ref_chroms if allowed_chroms is None
+                          else (allowed_chroms & ref_chroms))
 
     writer = Writer(
         output,
@@ -1065,6 +1127,8 @@ def bam_to_cz(
             for chrom in pc.references:
                 if chrom not in fai_df.index:
                     continue
+                if allowed_chroms is not None and chrom not in allowed_chroms:
+                    continue
                 if chrom != nonlocal_state["cur_chrom"]:
                     if nonlocal_state["cur_chrom"]:
                         nonlocal_state["seq"] = None
@@ -1092,6 +1156,8 @@ def bam_to_cz(
             for line in mpileup_out:
                 fields = line.rstrip("\n").split("\t")
                 if len(fields) < 5:
+                    continue
+                if allowed_chroms is not None and fields[0] not in allowed_chroms:
                     continue
                 ref_base = fields[2].upper()
                 if ref_base not in _MC_SITES:

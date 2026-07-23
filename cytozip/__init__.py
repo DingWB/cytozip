@@ -681,6 +681,14 @@ def _build_parser():
     p.add_argument('--env', default=None,
                    help='conda env providing picard/samtools for --name_sorted '
                         '(e.g. yap); bare name or full env prefix path')
+    p.add_argument('--chroms', default=None,
+                   help='restrict the pileup to these chromosomes: '
+                        'comma-separated list (chr1,chr2,...) or a path to a '
+                        'chrom-size / .fai file (first column). Mirrors '
+                        'ALLCools bam_to_allc --chrom_size; without it every '
+                        'contig in the genome fasta (alt/decoy/unplaced) is '
+                        'piled up and counted. In --mode mc_cov the pileup is '
+                        'always limited to the reference chroms regardless.')
 
     # ---- cz_to_anndata -------------------------------------------------------
     p = sub.add_parser('cz_to_anndata', help='Aggregate many single-cell .cz files over a feature BED into AnnData h5ad', formatter_class=_fmt)
@@ -1057,7 +1065,8 @@ def main():
                   convert_bam_strandness=args.convert_bam_strandness,
                   save_count_df=args.save_count_df,
                   name_sorted=args.name_sorted,
-                  env=args.env)
+                  env=args.env,
+                  chroms=args.chroms)
 
     elif cmd == 'name_sort_bam_to_deduped':
         from .bam import name_sort_bam_to_deduped
