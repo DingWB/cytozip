@@ -25,9 +25,14 @@ Chunk ZIP
 
 .. toctree::
    :maxdepth: 2
-   :caption: Reference
+   :caption: Benchmark
 
    notebooks/benchmark
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
    modules
 
 Credits and Thanks
