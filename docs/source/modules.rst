@@ -5,4 +5,3 @@ cytozip
    :maxdepth: 4
 
    cytozip
-   setup

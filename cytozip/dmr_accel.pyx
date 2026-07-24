@@ -13,8 +13,10 @@ parallelized with OpenMP ``prange``.
 
 Public entry point
 ------------------
-``rms_run_sites(mc, cov, idx, group_a_n, n_permute, min_pvalue,
-                max_row_count, max_total_count, n_threads=0)``
+::
+
+    rms_run_sites(mc, cov, idx, group_a_n, n_permute, min_pvalue,
+                  max_row_count, max_total_count, n_threads=0)
 
 * ``mc``, ``cov`` : 2-D ``int64`` arrays of shape ``(n_cells, n_sites)``.
   The first ``group_a_n`` rows are group A, the rest group B.

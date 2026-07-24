@@ -15,7 +15,6 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../"))
 print(sys.path)
-from recommonmark.parser import CommonMarkParser
 
 from cytozip import __version__
 
@@ -48,10 +47,15 @@ extensions = [
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
-from recommonmark.parser import CommonMarkParser
-
-source_parsers = {".md": CommonMarkParser}
-source_suffix = {".rst": "restructuredtext", ".md": "restructuredtext"}
+# Parse .md files as Markdown (via recommonmark) and .rst as
+# reStructuredText. Do NOT map .md to "restructuredtext": that forces the
+# RST parser onto Markdown files, which produces spurious "Unexpected
+# indentation" / "Inline literal start-string without end-string" errors on
+# every fenced code block and `inline code` span.
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
 
 master_doc = "index"
 
@@ -64,6 +68,10 @@ pygments_style = "sphinx"
 todo_include_todos = False
 
 autosectionlabel_prefix_document = True
+# autosectionlabel would otherwise emit "duplicate label" warnings when two
+# notebooks/docs share a heading text (e.g. "Advanced features"). Restrict
+# it to top-level headings so cross-document collisions are rare.
+autosectionlabel_maxdepth = 1
 nbsphinx_allow_errors = True
 
 # -- Options for HTML output -------------------------------------------------

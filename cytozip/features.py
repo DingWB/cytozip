@@ -120,8 +120,7 @@ def parse_gtf(
     returns a DataFrame whose 4th column (``name``) is unique so it can
     be passed straight to :func:`cz_to_anndata` as ``features=``.
 
-    Handling of duplicate ``gene_name``
-    -----------------------------------
+    Handling of duplicate ``gene_name``:
     GENCODE / Ensembl annotations frequently map a single ``gene_name``
     symbol to multiple distinct ``gene_id`` records (small RNAs like
     ``Y_RNA`` / ``Metazoa_SRP`` / ``5S_rRNA`` / ``Mir*`` reuse a symbol

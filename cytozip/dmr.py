@@ -424,7 +424,7 @@ def call_dmr(group_a, group_b, reference, output,
     p_value_cutoff : float
         Per-site p-value cutoff for calling a DMS.
     frac_delta_cutoff : float
-        Minimum |mean_frac_A - mean_frac_B| to call a DMS.
+        Minimum ``|mean_frac_A - mean_frac_B|`` to call a DMS.
     min_cov : int
         Minimum per-cell coverage at a site for that cell to contribute.
     min_samples_per_group : int
@@ -1178,25 +1178,21 @@ def call_dmr_ch(group_a, group_b, reference, output,
         :func:`_compute_normalization_scale` for full formulas and
         references.  Accepted values:
 
-        =================  =============================================
-        ``False`` / ``'none'``  No normalization.
-        ``True`` / ``'median'`` ``t = median(g_i)``;  ``s_i = t/g_i``
-                            (default; robust, matches Lister 2013 / Mo
-                            2015 / Luo 2017 / ALLCools convention).
-        ``'mean'``          ``t = mean(g_i)``; lower variance but
-                            sensitive to outlier cells.
-        ``'trimmed_mean'``  ``t`` = central 80% trimmed mean (TMM-style;
-                            Robinson & Oshlack 2010).
-        ``'gmean'``         ``t`` = geometric mean (DESeq2-style;
-                            Anders & Huber 2010).  Better when global
-                            rates span >1 order of magnitude.
-        ``'posterior'``     Empirical-Bayes shrinkage of ``g_i`` toward
-                            median target with strength
-                            ``kappa = 1% * median(cov_total)`` (scMET /
-                            ALLCools-style; Kapourani et al. 2021).
-                            Most robust when many cells have low total
-                            coverage.
-        =================  =============================================
+        - ``False`` / ``'none'`` -- No normalization.
+        - ``True`` / ``'median'`` -- ``t = median(g_i)``; ``s_i = t/g_i``
+          (default; robust, matches Lister 2013 / Mo 2015 / Luo 2017 /
+          ALLCools convention).
+        - ``'mean'`` -- ``t = mean(g_i)``; lower variance but sensitive to
+          outlier cells.
+        - ``'trimmed_mean'`` -- ``t`` = central 80% trimmed mean (TMM-style;
+          Robinson & Oshlack 2010).
+        - ``'gmean'`` -- ``t`` = geometric mean (DESeq2-style; Anders &
+          Huber 2010).  Better when global rates span >1 order of
+          magnitude.
+        - ``'posterior'`` -- Empirical-Bayes shrinkage of ``g_i`` toward
+          median target with strength ``kappa = 1% * median(cov_total)``
+          (scMET / ALLCools-style; Kapourani et al. 2021).  Most robust
+          when many cells have low total coverage.
 
         Default ``'median'`` is recommended; switch to ``'posterior'``
         if you have many cells with very low total CHN coverage, or to
