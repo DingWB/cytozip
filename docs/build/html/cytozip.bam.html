@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.bam module &mdash; cytozip 0.3.5.dev0 documentation</title>
+  <title>cytozip.bam module &mdash; cytozip 0.3.6.dev3 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
@@ -15,7 +15,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=e01d351f"></script>
+      <script src="_static/documentation_options.js?v=ad53049a"></script>
       <script src="_static/doctools.js?v=9a2dae69"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/js/rtd_search_config.js"></script>
@@ -49,15 +49,25 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="notebooks/1.quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Installation">1. Installation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/1.quick_start.html#conda">conda</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/1.quick_start.html#pip">pip</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#pip">pip</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#2.-Build-reference-cz-file-from-a-reference-genome-fasta-file">2. Build reference cz file from a reference genome fasta file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#3.-Call-methylation-from-bam-file-and-save-as-.cz-format">3. Call methylation from bam file and save as .cz format</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#2.1-Download-example-bam-files">2.1 Download example bam files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#2.2-Call-DNA-methylation-using-cytozip">2.2 Call DNA methylation using cytozip</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#4.-Convert-allc/bed/stdin-to-.cz">4. Convert allc/bed/stdin to .cz</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#4.1-convert-stream-input-to-cz-with-pipe">4.1 convert stream input to cz with pipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#4.2-allc-to-cz-with-reference-cz-as-input">4.2 allc to cz with reference cz as input</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#5.-Python-API">5. Python API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
 </ul>
 </li>
 </ul>
@@ -153,7 +163,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="benchmark.html">Benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/benchmark.html">1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="notebooks/benchmark.html#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">cytozip</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="cytozip.html">cytozip package</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="cytozip.html#submodules">Submodules</a><ul class="current">
@@ -182,6 +193,7 @@
 <li class="toctree-l4 current"><a class="current reference internal" href="#">cytozip.bam module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.bam.name_sort_bam_to_deduped"><code class="docutils literal notranslate"><span class="pre">name_sort_bam_to_deduped()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.cz.html">cytozip.cz module</a><ul>
@@ -197,8 +209,6 @@
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.iter_chunks_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.iter_chunks_bytes()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
@@ -207,14 +217,13 @@
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.to_df"><code class="docutils literal notranslate"><span class="pre">Reader.to_df()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
 </ul>
 </li>
@@ -263,6 +272,7 @@
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tocz_int_slab"><code class="docutils literal notranslate"><span class="pre">c_parse_tocz_int_slab()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
@@ -409,12 +419,14 @@ only when pos is stored</p></li>
 </section>
 <dl class="py function">
 <dt class="sig sig-object py" id="cytozip.bam.bam_to_cz">
-<span class="sig-prename descclassname"><span class="pre">cytozip.bam.</span></span><span class="sig-name descname"><span class="pre">bam_to_cz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bam_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">genome</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'mc_cov'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_fmt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'B'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_upstr_bases</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_downstr_bases</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_mapq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_base_quality</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">convert_bam_strandness</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_count_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/cytozip/bam.html#bam_to_cz"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.bam.bam_to_cz" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">cytozip.bam.</span></span><span class="sig-name descname"><span class="pre">bam_to_cz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bam_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">genome</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'mc_cov'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_fmt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'B'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_upstr_bases</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_downstr_bases</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_mapq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_base_quality</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">convert_bam_strandness</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_count_df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_sorted</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chroms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/cytozip/bam.html#bam_to_cz"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.bam.bam_to_cz" title="Link to this definition"></a></dt>
 <dd><p>Convert a position-sorted BAM to a <code class="docutils literal notranslate"><span class="pre">.cz</span></code> methylation file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>bam_path</strong> (<em>str</em>) – Position-sorted BAM (requires <code class="docutils literal notranslate"><span class="pre">.bai</span></code>; we will build it if missing).</p></li>
+<li><p><strong>bam_path</strong> (<em>str</em>) – Position-sorted BAM (requires <code class="docutils literal notranslate"><span class="pre">.bai</span></code>; we will build it if missing).
+If <code class="docutils literal notranslate"><span class="pre">name_sorted=True</span></code>, a name-sorted BAM is accepted instead and
+is first coordinate-sorted + PCR-deduplicated (see <code class="docutils literal notranslate"><span class="pre">name_sorted</span></code>).</p></li>
 <li><p><strong>genome</strong> (<em>str</em>) – Indexed reference fasta (<code class="docutils literal notranslate"><span class="pre">.fai</span></code> required).</p></li>
 <li><p><strong>output</strong> (<em>str</em><em>, </em><em>optional</em>) – Output <code class="docutils literal notranslate"><span class="pre">.cz</span></code> path. Defaults to <code class="docutils literal notranslate"><span class="pre">&lt;bam_stem&gt;.cz</span></code> next to the BAM.</p></li>
 <li><p><strong>mode</strong> (<em>{&quot;full&quot;</em><em>, </em><em>&quot;pos_mc_cov&quot;</em><em>, </em><em>&quot;mc_cov&quot;}</em>) – Storage layout. See module docstring.</p></li>
@@ -432,9 +444,42 @@ with this reference’s positions; missing sites are filled with
 <li><p><strong>min_mapq</strong> (<em>int</em>) – Passed straight to <code class="docutils literal notranslate"><span class="pre">samtools</span> <span class="pre">mpileup</span></code>.</p></li>
 <li><p><strong>min_base_quality</strong> (<em>int</em>) – Passed straight to <code class="docutils literal notranslate"><span class="pre">samtools</span> <span class="pre">mpileup</span></code>.</p></li>
 <li><p><strong>batch_size</strong> (<em>int</em>) – Records per on-disk chunk (same semantics as <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code>).</p></li>
-<li><p><strong>convert_bam_strandness</strong> (<em>bool</em>) – If True, rewrite the BAM so <code class="docutils literal notranslate"><span class="pre">read.is_forward</span></code> matches the
-conversion type (XG/YZ tag).</p></li>
+<li><p><strong>convert_bam_strandness</strong> (<em>bool</em>) – If True (<strong>default</strong>, matching ALLCools <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code>), count
+methylation using the strand implied by the bisulfite conversion
+tag (XG for bismark, YZ for hisat-3n) instead of the alignment
+orientation. <strong>Required for hisat-3n PE / bismark PE data</strong>, where
+R1/R2 keep their original orientation so the FLAG strand no longer
+encodes the conversion type; without it ~half of the reads are
+counted on the wrong-strand cytosines (e.g. the lambda spike-in
+reads ~50% methylation instead of the conversion-error rate). This
+never writes a temporary BAM: the htslib backend derives the
+strand in-process from each read’s XG/YZ tag, and the <code class="docutils literal notranslate"><span class="pre">samtools</span>
+<span class="pre">mpileup</span></code> fallback backend <strong>streams</strong> strand-flipped reads to
+mpileup via a pipe (see <code class="xref py py-func docutils literal notranslate"><span class="pre">_start_mpileup()</span></code>). The input must be
+a bismark/hisat-3n BAM carrying an <code class="docutils literal notranslate"><span class="pre">XG</span></code>/<code class="docutils literal notranslate"><span class="pre">YZ</span></code> tag, otherwise a
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code> is raised; pass <code class="docutils literal notranslate"><span class="pre">convert_bam_strandness=False</span></code> for
+plain (already strand-correct) BAMs such as bismark SE.</p></li>
 <li><p><strong>save_count_df</strong> (<em>bool</em>) – If True, write a <code class="docutils literal notranslate"><span class="pre">&lt;output&gt;.count.csv</span></code> with total mC / cov per context.</p></li>
+<li><p><strong>name_sorted</strong> (<em>bool</em>) – If True, <code class="docutils literal notranslate"><span class="pre">bam_path</span></code> is a <strong>name-sorted</strong> BAM (e.g. the hisat-3n
+<code class="docutils literal notranslate"><span class="pre">*.all_reads.name_sort.bam</span></code>). It is first passed through
+<a class="reference internal" href="#cytozip.bam.name_sort_bam_to_deduped" title="cytozip.bam.name_sort_bam_to_deduped"><code class="xref py py-func docutils literal notranslate"><span class="pre">name_sort_bam_to_deduped()</span></code></a> (coordinate-sort + picard
+MarkDuplicates) to produce the position-sorted, deduplicated BAM
+that <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> requires. The generated deduped BAM is used as
+the actual input.</p></li>
+<li><p><strong>env</strong> (<em>str</em><em>, </em><em>optional</em>) – Conda env that provides <code class="docutils literal notranslate"><span class="pre">picard</span></code> / <code class="docutils literal notranslate"><span class="pre">samtools</span></code> for the
+<code class="docutils literal notranslate"><span class="pre">name_sorted</span></code> pre-processing step (e.g. <code class="docutils literal notranslate"><span class="pre">env=&quot;yap&quot;</span></code> when running
+from an env without picard). Ignored unless <code class="docutils literal notranslate"><span class="pre">name_sorted=True</span></code>.
+See <a class="reference internal" href="#cytozip.bam.name_sort_bam_to_deduped" title="cytozip.bam.name_sort_bam_to_deduped"><code class="xref py py-func docutils literal notranslate"><span class="pre">name_sort_bam_to_deduped()</span></code></a>.</p></li>
+<li><p><strong>chroms</strong> (<em>None</em><em>, </em><em>list</em><em>, or </em><em>str</em><em>, </em><em>optional</em>) – Restrict the pileup to a whitelist of chromosomes. Accepts a list of
+names, a comma-separated string (<code class="docutils literal notranslate"><span class="pre">'chr1,chr2'</span></code>), or a path to a
+chrom-size / <code class="docutils literal notranslate"><span class="pre">.fai</span></code> file (first column). This mirrors ALLCools
+<code class="docutils literal notranslate"><span class="pre">bam_to_allc(...,</span> <span class="pre">chrom_size=...)</span></code>, which limits <code class="docutils literal notranslate"><span class="pre">samtools</span>
+<span class="pre">mpileup</span></code> to the listed chroms; without it every contig in the
+genome fasta (including alt/decoy/unplaced) is piled up and counted,
+inflating the returned <code class="docutils literal notranslate"><span class="pre">count_df</span></code>. In <code class="docutils literal notranslate"><span class="pre">mode='mc_cov'</span></code> the pileup
+is <strong>always</strong> limited to the reference’s chromosomes regardless of
+this argument (sites on other chroms are discarded at write time
+anyway); passing <code class="docutils literal notranslate"><span class="pre">chroms</span></code> then further narrows that set.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -442,6 +487,57 @@ conversion type (XG/YZ tag).</p></li>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>pd.DataFrame or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.bam.name_sort_bam_to_deduped">
+<span class="sig-prename descclassname"><span class="pre">cytozip.bam.</span></span><span class="sig-name descname"><span class="pre">name_sort_bam_to_deduped</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bam_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove_duplicates</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmp_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_threads</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_mem_mb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_pos_sort</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/cytozip/bam.html#name_sort_bam_to_deduped"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.bam.name_sort_bam_to_deduped" title="Link to this definition"></a></dt>
+<dd><p>Turn a name-sorted BAM into a position-sorted, deduplicated BAM.</p>
+<p><code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> requires a <strong>position-sorted</strong> BAM with a <code class="docutils literal notranslate"><span class="pre">.bai</span></code> index.
+The hisat-3n / snmC pipeline (see cemba_data <code class="docutils literal notranslate"><span class="pre">hisat3n.smk</span></code>) produces a
+name-sorted BAM (<code class="docutils literal notranslate"><span class="pre">*.all_reads.name_sort.bam</span></code>), which must first be
+coordinate-sorted and PCR-deduplicated before it can be fed to
+<code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code>. This helper reproduces those two Snakemake rules
+(<code class="docutils literal notranslate"><span class="pre">sort_bam_by_pos</span></code> + <code class="docutils literal notranslate"><span class="pre">dedup</span></code>):</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">samtools</span> <span class="pre">sort</span> <span class="pre">-O</span> <span class="pre">BAM</span></code> (name order -&gt; coordinate order)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">picard</span> <span class="pre">MarkDuplicates</span> <span class="pre">-REMOVE_DUPLICATES</span> <span class="pre">true</span></code> (drop PCR dups)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">samtools</span> <span class="pre">index</span></code> (optional, produces the <code class="docutils literal notranslate"><span class="pre">.bai</span></code> needed by
+<code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code>)</p></li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bam_path</strong> (<em>str</em>) – Input name-sorted BAM (e.g. <code class="docutils literal notranslate"><span class="pre">*.hisat3n_dna.all_reads.name_sort.bam</span></code>).</p></li>
+<li><p><strong>output</strong> (<em>str</em><em>, </em><em>optional</em>) – Output deduplicated BAM path. Defaults to
+<code class="docutils literal notranslate"><span class="pre">&lt;stem&gt;.deduped.bam</span></code> next to the input, where <code class="docutils literal notranslate"><span class="pre">&lt;stem&gt;</span></code> strips a
+trailing <code class="docutils literal notranslate"><span class="pre">.name_sort</span></code> if present.</p></li>
+<li><p><strong>stats</strong> (<em>str</em><em>, </em><em>optional</em>) – Path for the picard MarkDuplicates metrics file. Defaults to
+<code class="docutils literal notranslate"><span class="pre">&lt;output&gt;.matrix.txt</span></code>.</p></li>
+<li><p><strong>remove_duplicates</strong> (<em>bool</em>) – If True (default), pass <code class="docutils literal notranslate"><span class="pre">-REMOVE_DUPLICATES</span> <span class="pre">true</span></code> so duplicates are
+physically removed. If False, duplicates are only flagged.</p></li>
+<li><p><strong>tmp_dir</strong> (<em>str</em><em>, </em><em>optional</em>) – Temp directory for picard. Defaults to <code class="docutils literal notranslate"><span class="pre">&lt;output_dir&gt;/temp</span></code>
+(created if missing).</p></li>
+<li><p><strong>sort_threads</strong> (<em>int</em>) – Threads for <code class="docutils literal notranslate"><span class="pre">samtools</span> <span class="pre">sort</span></code> (<code class="docutils literal notranslate"><span class="pre">-&#64;</span></code>).</p></li>
+<li><p><strong>sort_mem_mb</strong> (<em>int</em>) – Per-thread memory for <code class="docutils literal notranslate"><span class="pre">samtools</span> <span class="pre">sort</span></code> in MB (<code class="docutils literal notranslate"><span class="pre">-m</span></code>).</p></li>
+<li><p><strong>index</strong> (<em>bool</em>) – If True (default), build the <code class="docutils literal notranslate"><span class="pre">.bai</span></code> index for the deduped BAM.</p></li>
+<li><p><strong>keep_pos_sort</strong> (<em>bool</em>) – If True, keep the intermediate coordinate-sorted BAM. By default it
+is deleted after deduplication.</p></li>
+<li><p><strong>env</strong> (<em>str</em><em>, </em><em>optional</em>) – Conda env that provides <code class="docutils literal notranslate"><span class="pre">samtools</span></code> / <code class="docutils literal notranslate"><span class="pre">picard</span></code>. Useful when the
+current env lacks <code class="docutils literal notranslate"><span class="pre">picard</span></code> (e.g. run cytozip from <code class="docutils literal notranslate"><span class="pre">m3c</span></code> but pull
+<code class="docutils literal notranslate"><span class="pre">picard</span></code> from <code class="docutils literal notranslate"><span class="pre">yap</span></code> via <code class="docutils literal notranslate"><span class="pre">env=&quot;yap&quot;</span></code>). May be a bare env name
+(resolved against sibling env dirs of the current interpreter and
+the standard <code class="docutils literal notranslate"><span class="pre">envs/</span></code> layout) or a full env prefix path. <code class="docutils literal notranslate"><span class="pre">None</span></code>
+(default) resolves both tools on <code class="docutils literal notranslate"><span class="pre">$PATH</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Path to the deduplicated BAM.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
 </dd>
 </dl>
 </dd></dl>

@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quick Start Guide &mdash; cytozip 0.3.5.dev0 documentation</title>
+  <title>Quick Start Guide &mdash; cytozip 0.3.6.dev3 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
@@ -16,7 +16,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=e01d351f"></script>
+      <script src="../_static/documentation_options.js?v=ad53049a"></script>
       <script src="../_static/doctools.js?v=9a2dae69"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/js/rtd_search_config.js"></script>
@@ -58,9 +58,19 @@
 <li class="toctree-l3"><a class="reference internal" href="#pip">pip</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#2.-Build-reference-cz-file-from-a-reference-genome-fasta-file">2. Build reference cz file from a reference genome fasta file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#3.-Call-methylation-from-bam-file-and-save-as-.cz-format">3. Call methylation from bam file and save as .cz format</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#2.1-Download-example-bam-files">2.1 Download example bam files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#2.2-Call-DNA-methylation-using-cytozip">2.2 Call DNA methylation using cytozip</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#4.-Convert-allc/bed/stdin-to-.cz">4. Convert allc/bed/stdin to .cz</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#4.1-convert-stream-input-to-cz-with-pipe">4.1 convert stream input to cz with pipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#4.2-allc-to-cz-with-reference-cz-as-input">4.2 allc to cz with reference cz as input</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#5.-Python-API">5. Python API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
 </ul>
 </li>
 </ul>
@@ -156,7 +166,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../benchmark.html">Benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html">1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark.html#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../modules.html">cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../cytozip.html">cytozip package</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../cytozip.html#submodules">Submodules</a><ul>
@@ -185,6 +196,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../cytozip.bam.html">cytozip.bam module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.bam.html#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.bam.html#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.bam.html#cytozip.bam.name_sort_bam_to_deduped"><code class="docutils literal notranslate"><span class="pre">name_sort_bam_to_deduped()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../cytozip.cz.html">cytozip.cz module</a><ul>
@@ -200,8 +212,6 @@
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.iter_chunks_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.iter_chunks_bytes()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
@@ -210,14 +220,13 @@
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.to_df"><code class="docutils literal notranslate"><span class="pre">Reader.to_df()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
 </ul>
 </li>
@@ -266,6 +275,7 @@
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tocz_int_slab"><code class="docutils literal notranslate"><span class="pre">c_parse_tocz_int_slab()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
@@ -368,7 +378,7 @@
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
       <li class="breadcrumb-item active">Quick Start Guide</li>
       <li class="wy-breadcrumbs-aside">
-              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/notebooks/1.quick_start.ipynb" class="fa fa-github"> Edit on GitHub</a>
+              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/notebooks/quick_start.ipynb" class="fa fa-github"> Edit on GitHub</a>
       </li>
   </ul>
   <hr/>
@@ -378,15 +388,15 @@
              
   <section id="Quick-Start-Guide">
 <h1>Quick Start Guide<a class="headerlink" href="#Quick-Start-Guide" title="Link to this heading"></a></h1>
-<p>github link: <a class="reference external" href="https://github.com/DingWB/czip">czip</a></p>
+<p>github link: <a class="reference external" href="https://github.com/DingWB/cytozip">cytozip</a></p>
 <section id="1.-Installation">
 <h2>1. Installation<a class="headerlink" href="#1.-Installation" title="Link to this heading"></a></h2>
 <section id="conda">
 <h3>conda<a class="headerlink" href="#conda" title="Link to this heading"></a></h3>
 <p><a class="reference external" href="https://anaconda.org/bioconda/cytozip">https://anaconda.org/bioconda/cytozip</a></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>mamba<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>bioconda<span class="w"> </span>cytozip
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>bioconda<span class="w"> </span>cytozip
 <span class="c1"># or</span>
-conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>bioconda<span class="w"> </span>cytozip
+mamba<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>bioconda<span class="w"> </span>cytozip
 </pre></div>
 </div>
 </section>
@@ -405,7 +415,7 @@ pip<span class="w"> </span>uninstall<span class="w"> </span>-y<span class="w"> <
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Make sure czip is installed: pip install cytozip</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Make sure czip is installed:</span>
 <span class="o">!</span>which<span class="w"> </span>czip
 </pre></div>
 </div>
@@ -419,19 +429,172 @@ pip<span class="w"> </span>uninstall<span class="w"> </span>-y<span class="w"> <
 </pre></div></div>
 </div>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>czip<span class="w"> </span>--help
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~/Projects/test_cytozip&quot;</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
 </section>
 </section>
-<section id="1.-Convert-allc/bed/stdin-to-.cz">
-<h2>1. Convert allc/bed/stdin to .cz<a class="headerlink" href="#1.-Convert-allc/bed/stdin-to-.cz" title="Link to this heading"></a></h2>
+<section id="2.-Build-reference-cz-file-from-a-reference-genome-fasta-file">
+<h2>2. Build reference cz file from a reference genome fasta file<a class="headerlink" href="#2.-Build-reference-cz-file-from-a-reference-genome-fasta-file" title="Link to this heading"></a></h2>
+<p>The reference holds the genome-wide (chrom, pos, strand, context) axis. Per-cell .cz then store only mc/cov and reuse the reference’s positions, cutting per-cell size by ~5×.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>build_ref<span class="w"> </span>--genome<span class="w"> </span>~/Ref/hg38/hg38_ucsc_with_chrL.fa<span class="w"> </span><span class="se">\ </span>#<span class="w"> </span>reference<span class="w"> </span>genome
+    <span class="o">--</span><span class="n">output</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">hg38</span><span class="o">/</span><span class="n">hg38_with_chrL</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">cz</span>  \ <span class="c1"># output reference cz file</span>
+    <span class="o">--</span><span class="n">jobs</span> <span class="mi">24</span> \ <span class="c1"># number of CPU</span>
+    <span class="o">--</span><span class="n">chroms</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">hg38</span><span class="o">/</span><span class="n">hg38_ucsc_with_chrL</span><span class="o">.</span><span class="n">main</span><span class="o">.</span><span class="n">chrom</span><span class="o">.</span><span class="n">sizes</span> \ <span class="c1"># restrited to main chromosomes (optional)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-07-22 11:34:57.492</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr1</span>
+<span class="ansi-green-fg">2026-07-22 11:34:58.126</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr10</span>
+<span class="ansi-green-fg">2026-07-22 11:34:58.860</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr11</span>
+<span class="ansi-green-fg">2026-07-22 11:34:59.571</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr12</span>
+<span class="ansi-green-fg">2026-07-22 11:35:00.213</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr13</span>
+<span class="ansi-green-fg">2026-07-22 11:35:00.779</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr14</span>
+<span class="ansi-green-fg">2026-07-22 11:35:01.325</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr15</span>
+<span class="ansi-green-fg">2026-07-22 11:35:01.821</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr16</span>
+<span class="ansi-green-fg">2026-07-22 11:35:02.279</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr17</span>
+<span class="ansi-green-fg">2026-07-22 11:35:02.756</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr18</span>
+<span class="ansi-green-fg">2026-07-22 11:35:03.066</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr19</span>
+<span class="ansi-green-fg">2026-07-22 11:35:04.575</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr2</span>
+<span class="ansi-green-fg">2026-07-22 11:35:04.794</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr20</span>
+<span class="ansi-green-fg">2026-07-22 11:35:05.038</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr21</span>
+<span class="ansi-green-fg">2026-07-22 11:35:05.320</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr22</span>
+<span class="ansi-green-fg">2026-07-22 11:35:06.516</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr3</span>
+<span class="ansi-green-fg">2026-07-22 11:35:07.538</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr4</span>
+<span class="ansi-green-fg">2026-07-22 11:35:08.498</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr5</span>
+<span class="ansi-green-fg">2026-07-22 11:35:09.411</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr6</span>
+<span class="ansi-green-fg">2026-07-22 11:35:10.258</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr7</span>
+<span class="ansi-green-fg">2026-07-22 11:35:11.095</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr8</span>
+<span class="ansi-green-fg">2026-07-22 11:35:11.841</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chr9</span>
+<span class="ansi-green-fg">2026-07-22 11:35:12.155</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chrM</span>
+<span class="ansi-green-fg">2026-07-22 11:36:35.493</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chrX</span>
+<span class="ansi-green-fg">2026-07-22 11:36:35.493</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chrL</span>
+<span class="ansi-green-fg">2026-07-22 11:36:35.493</span> | <span class="ansi-blue-intense-fg ansi-bold">DEBUG   </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">WriteC</span>:<span class="ansi-cyan-fg">66</span> - <span class="ansi-blue-intense-fg ansi-bold">chrY</span>
+
+real    2m3.596s
+user    3m51.014s
+sys     0m12.793s
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>czip<span class="w"> </span>header<span class="w"> </span>-I<span class="w"> </span>~/Ref/hg38/hg38_with_chrL.allc.cz
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+magic  :  b&#39;CZIP&#39;
+version  :  0.35
+total_size  :  1430352768
+message  :  /home/x-wding2/Ref/hg38/hg38_ucsc_with_chrL.fa
+formats  :  [&#39;Q&#39;, &#39;c&#39;, &#39;3s&#39;]
+columns  :  [&#39;pos&#39;, &#39;strand&#39;, &#39;context&#39;]
+sort_col  :  0
+delta_cols  :  [0]
+chunk_dims  :  [&#39;chrom&#39;]
+header_size  :  102
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>view<span class="w"> </span>-I<span class="w"> </span>~/Ref/hg38/hg38_with_chrL.allc.cz<span class="w"> </span>--show_dims<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+chrom   pos     strand  context
+chr1    10004   +       CCC
+chr1    10005   +       CCT
+chr1    10006   +       CTA
+chr1    10010   +       CCC
+chr1    10011   +       CCT
+chr1    10012   +       CTA
+chr1    10016   +       CCC
+chr1    10017   +       CCT
+chr1    10018   +       CTA
+</pre></div></div>
+</div>
+</section>
+<section id="3.-Call-methylation-from-bam-file-and-save-as-.cz-format">
+<h2>3. Call methylation from bam file and save as .cz format<a class="headerlink" href="#3.-Call-methylation-from-bam-file-and-save-as-.cz-format" title="Link to this heading"></a></h2>
+<section id="2.1-Download-example-bam-files">
+<h3>2.1 Download example bam files<a class="headerlink" href="#2.1-Download-example-bam-files" title="Link to this heading"></a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Download example bam files from figshare with your browser: https://figshare.com/ndownloader/files/63998524</span>
+<span class="c1"># or download with command line using pyfigshare:</span>
+pip<span class="w"> </span>install<span class="w"> </span>pyfigshare<span class="w"> </span><span class="c1"># https://github.com/DingWB/pyfigshare</span>
+figshare<span class="w"> </span>download<span class="w"> </span><span class="m">32095567</span><span class="w"> </span>--file_id<span class="w"> </span><span class="m">66902144</span>,66902129,66902816,66902822<span class="w"> </span>--outdir<span class="w"> </span>cytozip_example_data
+</pre></div>
+</div>
+</section>
+<section id="2.2-Call-DNA-methylation-using-cytozip">
+<h3>2.2 Call DNA methylation using cytozip<a class="headerlink" href="#2.2-Call-DNA-methylation-using-cytozip" title="Link to this heading"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>bam_to_cz<span class="w"> </span>--input<span class="w"> </span>cytozip_example_data/hg38_bam/UWA7648_CX1819_NAC_1_P10-1-K18-A10.bam<span class="w"> </span><span class="err">\</span>
+               <span class="o">--</span><span class="n">genome</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">hg38</span><span class="o">/</span><span class="n">hg38_ucsc_with_chrL</span><span class="o">.</span><span class="n">fa</span> \
+               <span class="o">--</span><span class="n">output</span> <span class="n">cytozip_example_data</span><span class="o">/</span><span class="n">hg38_bam</span><span class="o">/</span><span class="n">UWA7648_CX1819_NAC_1_P10</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="n">K18</span><span class="o">-</span><span class="n">A10</span><span class="o">.</span><span class="n">cz</span> \
+               <span class="o">--</span><span class="n">reference</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">hg38</span><span class="o">/</span><span class="n">hg38_with_chrL</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">cz</span> \
+               <span class="o">--</span><span class="n">chroms</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">hg38</span><span class="o">/</span><span class="n">hg38_ucsc_with_chrL</span><span class="o">.</span><span class="n">main</span><span class="o">.</span><span class="n">chrom</span><span class="o">.</span><span class="n">sizes</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[W::hts_idx_load3] The index file is older than the data file: cytozip_example_data/hg38_bam/UWA7648_CX1819_NAC_1_P10-1-K18-A10.bam.bai
+
+real    1m33.907s
+user    1m21.110s
+sys     0m9.285s
+</pre></div></div>
+</div>
+<p>Python API</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cytozip.bam</span><span class="w"> </span><span class="kn">import</span> <span class="n">bam_to_cz</span>
+<span class="n">bam_to_cz</span><span class="p">(</span><span class="n">bam_path</span><span class="o">=</span><span class="s2">&quot;cytozip_example_data/hg38_bam/UWA7648_CX1819_NAC_1_P10-1-K18-A10.bam&quot;</span><span class="p">,</span> \
+                  <span class="n">genome</span><span class="o">=</span><span class="s2">&quot;~/Ref/hg38/hg38_ucsc_with_chrL.fa&quot;</span><span class="p">,</span> \
+                  <span class="n">output</span><span class="o">=</span><span class="s2">&quot;cytozip_example_data/hg38_bam/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz&quot;</span><span class="p">,</span> \
+                  <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;~/Ref/hg38/hg38_with_chrL.allc.cz&quot;</span><span class="p">,</span>
+                  <span class="n">chroms</span><span class="o">=</span><span class="s2">&quot;~/Ref/hg38/hg38_ucsc_with_chrL.main.chrom.sizes&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="4.-Convert-allc/bed/stdin-to-.cz">
+<h2>4. Convert allc/bed/stdin to .cz<a class="headerlink" href="#4.-Convert-allc/bed/stdin-to-.cz" title="Link to this heading"></a></h2>
+<section id="4.1-convert-stream-input-to-cz-with-pipe">
+<h3>4.1 convert stream input to cz with pipe<a class="headerlink" href="#4.1-convert-stream-input-to-cz-with-pipe" title="Link to this heading"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>tocz<span class="w"> </span>-h
@@ -444,9 +607,9 @@ pip<span class="w"> </span>uninstall<span class="w"> </span>-y<span class="w"> <
 <div class="output_area docutils container">
 <div class="highlight"><pre>
 usage: czip tocz [-h] -O OUTPUT [-I INPUT] [-F FORMATS] [-C COLUMNS]
-                 [-D DIMENSIONS] [-u USECOLS] [-d DIM_COLS] [-s SEP]
-                 [-c CHUNKSIZE] [--header HEADER] [--skiprows SKIPROWS]
-                 [-m MESSAGE] [-l LEVEL]
+                 [-D CHUNK_DIMS] [-u USECOLS] [-d KEY_COLS] [-s SEP]
+                 [-c BATCH_SIZE] [--header HEADER] [--skiprows SKIPROWS]
+                 [-m MESSAGE] [-l LEVEL] [--delta_cols DELTA_COLS]
 
 options:
   -h, --help            show this help message and exit
@@ -458,15 +621,16 @@ options:
                         column formats, comma-separated (default: [&#39;B&#39;, &#39;B&#39;])
   -C COLUMNS, --columns COLUMNS
                         column names, comma-separated (default: [&#39;mc&#39;, &#39;cov&#39;])
-  -D DIMENSIONS, --dimensions DIMENSIONS
-                        dimension names, comma-separated (default: [&#39;chrom&#39;])
+  -D CHUNK_DIMS, --chunk_dims CHUNK_DIMS
+                        chunk-key (dimension) names, comma-separated (default:
+                        [&#39;chrom&#39;])
   -u USECOLS, --usecols USECOLS
                         column indices to pack, comma-separated (default: [4,
                         5])
-  -d DIM_COLS, --dim-cols DIM_COLS
-                        dimension column indices (default: [0])
+  -d KEY_COLS, --key_cols KEY_COLS
+                        chunk-key column indices (default: [0])
   -s SEP, --sep SEP     separator (default: )
-  -c CHUNKSIZE, --chunksize CHUNKSIZE
+  -c BATCH_SIZE, --batch_size BATCH_SIZE
                         rows per chunk (default: 5000)
   --header HEADER       header row (default: None)
   --skiprows SKIPROWS   rows to skip (default: 0)
@@ -474,10 +638,82 @@ options:
                         message stored in header (default: )
   -l LEVEL, --level LEVEL
                         compression level (default: 6)
+  --delta_cols DELTA_COLS
+                        comma-separated integer column names/indices to store
+                        as in-block deltas (shrinks strictly-monotonic columns
+                        like pos; trades some query speed for size) (default:
+                        None)
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>zcat<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.allc.tsv.gz<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+chr1    14932   -       CTT     0       1       1
+chr1    14933   -       CCT     0       1       1
+chr1    14935   -       CAC     1       1       1
+chr1    14938   -       CAG     1       1       1
+chr1    14939   -       CCA     0       1       1
+chr1    14944   -       CTG     0       1       1
+chr1    14945   -       CCT     0       1       1
+chr1    14946   -       CCC     0       1       1
+chr1    14948   -       CGC     1       1       1
+chr1    14949   -       CCG     0       1       1
+
+gzip: stdout: Broken pipe
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># write chrom, position, mc and cov into .cz file with DEFLATE compress</span>
+<span class="o">!</span><span class="w"> </span>zcat<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.allc.tsv.gz<span class="w"> </span><span class="p">|</span><span class="w"> </span>czip<span class="w"> </span>tocz<span class="w"> </span><span class="err">\</span>
+        <span class="o">--</span><span class="n">output</span> <span class="n">cytozip_example_data</span><span class="o">/</span><span class="n">hg38_allc</span><span class="o">/</span><span class="n">UWA7648_CX1819_NAC_1_P10</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="n">K18</span><span class="o">-</span><span class="n">A10</span><span class="o">.</span><span class="n">cz</span> \
+        <span class="o">--</span><span class="n">formats</span> <span class="n">Q</span><span class="p">,</span><span class="n">B</span><span class="p">,</span><span class="n">B</span> <span class="o">--</span><span class="n">usecols</span> <span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span> <span class="o">--</span><span class="n">columns</span> <span class="n">pos</span><span class="p">,</span><span class="n">mc</span><span class="p">,</span><span class="n">cov</span> \
+        <span class="o">--</span><span class="n">delta_cols</span> <span class="n">pos</span> <span class="c1"># file size would be smaller with DEFLATE compress: 47M vs 29M</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>view<span class="w"> </span>-I<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz<span class="w"> </span>--show_dims<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+chrom   pos     mc      cov
+chr1    14932   0       1
+chr1    14933   0       1
+chr1    14935   1       1
+chr1    14938   1       1
+chr1    14939   0       1
+chr1    14944   0       1
+chr1    14945   0       1
+chr1    14946   0       1
+chr1    14948   1       1
+</pre></div></div>
+</div>
+</section>
+<section id="4.2-allc-to-cz-with-reference-cz-as-input">
+<h3>4.2 allc to cz with reference cz as input<a class="headerlink" href="#4.2-allc-to-cz-with-reference-cz-as-input" title="Link to this heading"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>allc2cz<span class="w"> </span>-h
@@ -489,78 +725,468 @@ options:
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-usage: czip allc2cz [-h] -I INPUT -O OUTFILE [-r REFERENCE]
-                    [--missing-value MISSING_VALUE] [-F FORMATS] [-C COLUMNS]
-                    [-D DIMENSIONS] [-u USECOLS] [--pr PR] [--pa PA] [-s SEP]
-                    [--path-to-chrom PATH_TO_CHROM] [-c CHUNKSIZE]
+usage: czip allc2cz [-h] -I INPUT -O OUTPUT [-r REFERENCE]
+                    [--missing_value MISSING_VALUE] [-F FORMATS] [-C COLUMNS]
+                    [-D CHUNK_DIMS] [-u USECOLS] [--ref_pos_col REF_POS_COL]
+                    [--allc_pos_col ALLC_POS_COL] [-s SEP]
+                    [--chrom_order CHROM_ORDER] [-c BATCH_SIZE]
+                    [--sort_col SORT_COL] [--delta_cols DELTA_COLS] [-j JOBS]
+                    [--pattern PATTERN] [--no_skip_existing]
 
 options:
   -h, --help            show this help message and exit
   -I INPUT, --input INPUT
-                        input allc.tsv.gz (default: None)
-  -O OUTFILE, --outfile OUTFILE
-                        output .cz file (default: None)
+                        input allc.tsv.gz, OR a directory containing many
+                        allc.tsv.gz (batch mode: --output must be a directory)
+                        (default: None)
+  -O OUTPUT, --output OUTPUT
+                        output .cz file (single-file), or output directory
+                        (batch mode) (default: None)
   -r REFERENCE, --reference REFERENCE
                         reference .cz file (default: None)
-  --missing-value MISSING_VALUE
+  --missing_value MISSING_VALUE
                         missing value fill (default: [0, 0])
   -F FORMATS, --formats FORMATS
                         column formats (default: [&#39;B&#39;, &#39;B&#39;])
   -C COLUMNS, --columns COLUMNS
                         column names (default: [&#39;mc&#39;, &#39;cov&#39;])
-  -D DIMENSIONS, --dimensions DIMENSIONS
-                        dimension names (default: [&#39;chrom&#39;])
+  -D CHUNK_DIMS, --chunk_dims CHUNK_DIMS
+                        chunk-key names (default: [&#39;chrom&#39;])
   -u USECOLS, --usecols USECOLS
                         column indices to pack (default: [4, 5])
-  --pr PR               position column index in reference (default: 0)
-  --pa PA               position column index in input (default: 1)
+  --ref_pos_col REF_POS_COL
+                        position column index in reference (default: 0)
+  --allc_pos_col ALLC_POS_COL
+                        position column index in input (default: 1)
   -s SEP, --sep SEP     separator (default: )
-  --path-to-chrom PATH_TO_CHROM
+  --chrom_order CHROM_ORDER
                         chrom order file (default: None)
-  -c CHUNKSIZE, --chunksize CHUNKSIZE
+  -c BATCH_SIZE, --batch_size BATCH_SIZE
                         rows per chunk (default: 5000)
+  --sort_col SORT_COL   column name or index to index via per-block
+                        first_coords (enables in-memory bisect for region
+                        queries). Auto-enabled on &#34;pos&#34; when no reference is
+                        used. (default: None)
+  --delta_cols DELTA_COLS
+                        comma-separated integer column names/indices to store
+                        as in-block deltas (default: None)
+  -j JOBS, --jobs JOBS  number of parallel workers in batch mode (input is a
+                        directory). Reference is decoded once and shared via
+                        fork copy-on-write, so memory cost is paid only once.
+                        (default: 1)
+  --pattern PATTERN     glob pattern for batch mode file discovery (default:
+                        *.allc.tsv.gz)
+  --no_skip_existing    in batch mode, do NOT skip files whose output already
+                        exists (default: False)
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>rm<span class="w"> </span>-f<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz
+<span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>allc2cz<span class="w"> </span>--input<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.allc.tsv.gz<span class="w"> </span><span class="err">\</span>
+                    <span class="o">--</span><span class="n">output</span> <span class="n">cytozip_example_data</span><span class="o">/</span><span class="n">hg38_allc</span><span class="o">/</span><span class="n">UWA7648_CX1819_NAC_1_P10</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="n">K18</span><span class="o">-</span><span class="n">A10</span><span class="o">.</span><span class="n">cz</span> \
+                    <span class="o">--</span><span class="n">reference</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">hg38</span><span class="o">/</span><span class="n">hg38_with_chrL</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">cz</span> \
+                    <span class="o">--</span><span class="n">formats</span> <span class="s2">&quot;B,B&quot;</span> <span class="c1"># for single cell, B is fine (max is 255), please change to H for pseudobulk data</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-07-22 14:30:42.028</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">allc2cz</span>:<span class="ansi-cyan-fg">348</span> - <span class="ansi-bold">/anvil/projects/x-mcb130189/Wubin/test_cytozip/cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.allc.tsv.gz</span>
+
+real    0m42.276s
+user    0m35.840s
+sys     0m4.946s
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>ls<span class="w"> </span>cytozip_example_data/hg38_allc<span class="w"> </span>-sh
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+total 121M
+ 97M UWA7648_CX1819_NAC_1_P10-1-K18-A10.allc.tsv.gz
+2.0M UWA7648_CX1819_NAC_1_P10-1-K18-A10.allc.tsv.gz.tbi
+ 22M UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># view</span>
+<span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>view<span class="w"> </span>-I<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz<span class="w"> </span>--show_dims<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+chrom   mc      cov
+chr1    0       0
+chr1    0       0
+chr1    0       0
+chr1    0       0
+chr1    0       0
+chr1    0       0
+chr1    0       0
+chr1    0       0
+chr1    0       0
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># view cz file with coordinates (reference cz)</span>
+<span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>view<span class="w"> </span>-I<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz<span class="w"> </span><span class="err">\</span>
+            <span class="o">--</span><span class="n">show_dims</span> <span class="mi">0</span> \
+            <span class="o">-</span><span class="n">r</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">hg38</span><span class="o">/</span><span class="n">hg38_with_chrL</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">cz</span> <span class="o">|</span> <span class="n">head</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+chrom   pos     strand  context mc      cov
+chr1    10004   +       CCC     0       0
+chr1    10005   +       CCT     0       0
+chr1    10006   +       CTA     0       0
+chr1    10010   +       CCC     0       0
+chr1    10011   +       CCT     0       0
+chr1    10012   +       CTA     0       0
+chr1    10016   +       CCC     0       0
+chr1    10017   +       CCT     0       0
+chr1    10018   +       CTA     0       0
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># query cz file</span>
+<span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>query<span class="w"> </span>-I<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz<span class="w"> </span><span class="err">\</span>
+            <span class="o">--</span><span class="n">chunk_key</span> <span class="n">chr1</span> <span class="o">--</span><span class="n">start</span> <span class="mi">14932</span> <span class="o">--</span><span class="n">end</span> <span class="mi">14949</span> \
+            <span class="o">-</span><span class="n">r</span> <span class="o">~/</span><span class="n">Ref</span><span class="o">/</span><span class="n">hg38</span><span class="o">/</span><span class="n">hg38_with_chrL</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">cz</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+chrom   pos     strand  context mc      cov
+chr1    14932   -       CTT     0       1
+chr1    14933   -       CCT     0       1
+chr1    14935   -       CAC     1       1
+chr1    14936   +       CTG     0       0
+chr1    14938   -       CAG     1       1
+chr1    14939   -       CCA     0       1
+chr1    14940   +       CCC     0       0
+chr1    14941   +       CCA     0       0
+chr1    14942   +       CAG     0       0
+chr1    14944   -       CTG     0       1
+chr1    14945   -       CCT     0       1
+chr1    14946   -       CCC     0       1
+chr1    14947   +       CGG     0       0
+chr1    14948   -       CGC     1       1
+chr1    14949   -       CCG     0       1
+
+real    0m0.251s
+user    0m0.136s
+sys     0m0.097s
 </pre></div></div>
 </div>
 </section>
-<section id="2.-Python-API-(Quick-Overview)">
-<h2>2. Python API (Quick Overview)<a class="headerlink" href="#2.-Python-API-(Quick-Overview)" title="Link to this heading"></a></h2>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</section>
+<section id="5.-Python-API">
+<h2>5. Python API<a class="headerlink" href="#5.-Python-API" title="Link to this heading"></a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">czip</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="kn">import</span> <span class="n">Reader</span>
+<span class="n">reader</span><span class="o">=</span><span class="n">Reader</span><span class="p">(</span><span class="s2">&quot;cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">)</span>
+<span class="n">df_chunks</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">summary_chunks</span><span class="p">(</span><span class="n">printout</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df_chunks</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{&#39;magic&#39;: b&#39;CZIP&#39;, &#39;version&#39;: 0.36, &#39;total_size&#39;: 22810155, &#39;message&#39;: &#39;hg38_with_chrL.allc.cz&#39;, &#39;formats&#39;: [&#39;B&#39;, &#39;B&#39;], &#39;columns&#39;: [&#39;mc&#39;, &#39;cov&#39;], &#39;sort_col&#39;: None, &#39;delta_cols&#39;: [], &#39;chunk_dims&#39;: [&#39;chrom&#39;], &#39;header_size&#39;: 61}
+           chrom  chunk_start_offset  chunk_size  chunk_tail_offset  \
+chunk_dims
+(chr1,)     chr1                  61     1906076            1912030
+(chr2,)     chr2             1912030     1912984            3830947
+(chr3,)     chr3             3830947     1541226            5376994
+(chr4,)     chr4             5376994     1443646            6825093
+(chr5,)     chr5             6825093     1404376            8233866
 
-<span class="c1"># Read a .cz file using Python API</span>
-<span class="n">reader</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="s2">&quot;test1.cz&quot;</span><span class="p">)</span>
-<span class="n">reader</span><span class="o">.</span><span class="n">print_header</span><span class="p">()</span>
+            chunk_nblocks  chunk_nrows
+chunk_dims
+(chr1,)               734     96166571
+(chr2,)               739     96769083
+(chr3,)               600     78577742
+(chr4,)               554     72568001
+(chr5,)               547     71611274
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span>
 </pre></div>
 </div>
 </div>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Fetch records for a chunk (dimension)</span>
-<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch</span><span class="p">((</span><span class="s2">&quot;chr1&quot;</span><span class="p">,)):</span>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+{(&#39;chr1&#39;,): 61,
+ (&#39;chr2&#39;,): 1912030,
+ (&#39;chr3&#39;,): 3830947,
+ (&#39;chr4&#39;,): 5376994,
+ (&#39;chr5&#39;,): 6825093,
+ (&#39;chr6&#39;,): 8233866,
+ (&#39;chr7&#39;,): 9558673,
+ (&#39;chr8&#39;,): 10822796,
+ (&#39;chr9&#39;,): 11951699,
+ (&#39;chr10&#39;,): 12908810,
+ (&#39;chr11&#39;,): 14011574,
+ (&#39;chr12&#39;,): 15114383,
+ (&#39;chr13&#39;,): 16196205,
+ (&#39;chr14&#39;,): 17003787,
+ (&#39;chr15&#39;,): 17696549,
+ (&#39;chr16&#39;,): 18349412,
+ (&#39;chr17&#39;,): 19030001,
+ (&#39;chr18&#39;,): 19690263,
+ (&#39;chr19&#39;,): 20347873,
+ (&#39;chr20&#39;,): 20822410,
+ (&#39;chr21&#39;,): 21390273,
+ (&#39;chr22&#39;,): 21689571,
+ (&#39;chrX&#39;,): 22001315,
+ (&#39;chrY&#39;,): 22701140,
+ (&#39;chrM&#39;,): 22800785,
+ (&#39;chrL&#39;,): 22801381}
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">data</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;chr1&#39;</span><span class="p">,))</span>
+<span class="n">data</span><span class="p">[</span><span class="s1">&#39;f0&#39;</span><span class="p">],</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;f1&#39;</span><span class="p">]</span> <span class="c1"># mc and cov</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+(array([0, 0, 0, ..., 0, 0, 0], dtype=uint8),
+ array([0, 0, 0, ..., 0, 0, 0], dtype=uint8))
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">chunk2df</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;chr1&#39;</span><span class="p">,))</span>
+<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>mc</th>
+      <th>cov</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">r</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">chunk_key</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;chr1&#39;</span><span class="p">,),</span><span class="n">start</span><span class="o">=</span><span class="mi">14932</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="mi">14949</span><span class="p">,</span><span class="n">printout</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;~/Ref/hg38/hg38_with_chrL.allc.cz&quot;</span><span class="p">)</span>
+<span class="c1">#r.__next__()</span>
+<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">r</span><span class="p">:</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;chr1&#39;, &#39;14932&#39;, &#39;-&#39;, &#39;CTT&#39;, &#39;0&#39;, &#39;1&#39;]
+[&#39;chr1&#39;, &#39;14933&#39;, &#39;-&#39;, &#39;CCT&#39;, &#39;0&#39;, &#39;1&#39;]
+[&#39;chr1&#39;, &#39;14935&#39;, &#39;-&#39;, &#39;CAC&#39;, &#39;1&#39;, &#39;1&#39;]
+[&#39;chr1&#39;, &#39;14936&#39;, &#39;+&#39;, &#39;CTG&#39;, &#39;0&#39;, &#39;0&#39;]
+[&#39;chr1&#39;, &#39;14938&#39;, &#39;-&#39;, &#39;CAG&#39;, &#39;1&#39;, &#39;1&#39;]
+[&#39;chr1&#39;, &#39;14939&#39;, &#39;-&#39;, &#39;CCA&#39;, &#39;0&#39;, &#39;1&#39;]
+[&#39;chr1&#39;, &#39;14940&#39;, &#39;+&#39;, &#39;CCC&#39;, &#39;0&#39;, &#39;0&#39;]
+[&#39;chr1&#39;, &#39;14941&#39;, &#39;+&#39;, &#39;CCA&#39;, &#39;0&#39;, &#39;0&#39;]
+[&#39;chr1&#39;, &#39;14942&#39;, &#39;+&#39;, &#39;CAG&#39;, &#39;0&#39;, &#39;0&#39;]
+[&#39;chr1&#39;, &#39;14944&#39;, &#39;-&#39;, &#39;CTG&#39;, &#39;0&#39;, &#39;1&#39;]
+[&#39;chr1&#39;, &#39;14945&#39;, &#39;-&#39;, &#39;CCT&#39;, &#39;0&#39;, &#39;1&#39;]
+[&#39;chr1&#39;, &#39;14946&#39;, &#39;-&#39;, &#39;CCC&#39;, &#39;0&#39;, &#39;1&#39;]
+[&#39;chr1&#39;, &#39;14947&#39;, &#39;+&#39;, &#39;CGG&#39;, &#39;0&#39;, &#39;0&#39;]
+[&#39;chr1&#39;, &#39;14948&#39;, &#39;-&#39;, &#39;CGC&#39;, &#39;1&#39;, &#39;1&#39;]
+[&#39;chr1&#39;, &#39;14949&#39;, &#39;-&#39;, &#39;CCG&#39;, &#39;0&#39;, &#39;1&#39;]
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Query by coordinate range</span>
-<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">chunk_key</span><span class="o">=</span><span class="s2">&quot;chr8&quot;</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">3002101</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mi">3002103</span><span class="p">,</span> <span class="n">printout</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
-<span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">data</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">query_numpy</span><span class="p">(</span><span class="n">chunk_key</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;chr1&#39;</span><span class="p">,),</span><span class="n">start</span><span class="o">=</span><span class="mi">14932</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="mi">14949</span><span class="p">,</span>
+                    <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;~/Ref/hg38/hg38_with_chrL.allc.cz&quot;</span><span class="p">)</span>
+<span class="n">data</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+(array([14932, 14933, 14935, 14936, 14938, 14939, 14940, 14941, 14942,
+        14944, 14945, 14946, 14947, 14948, 14949], dtype=uint64),
+ array([(0, 1), (0, 1), (1, 1), (0, 0), (1, 1), (0, 1), (0, 0), (0, 0),
+        (0, 0), (0, 1), (0, 1), (0, 1), (0, 0), (1, 1), (0, 1)],
+       dtype=[(&#39;f0&#39;, &#39;u1&#39;), (&#39;f1&#39;, &#39;u1&#39;)]))
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 </section>
-<section id="3.-Remote-Reading-(from-URL)">
-<h2>3. Remote Reading (from URL)<a class="headerlink" href="#3.-Remote-Reading-(from-URL)" title="Link to this heading"></a></h2>
+<section id="6.-Remote-Reading-(from-URL)">
+<h2>6. Remote Reading (from URL)<a class="headerlink" href="#6.-Remote-Reading-(from-URL)" title="Link to this heading"></a></h2>
 <p>czip supports reading .cz files directly from HTTP/HTTPS URLs without downloading the entire file. This uses HTTP Range requests and a chunk index for O(1) lookup.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>query<span class="w"> </span>-I<span class="w"> </span>https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz<span class="w"> </span><span class="err">\</span>
+            <span class="o">--</span><span class="n">chunk_key</span> <span class="n">chr1</span> <span class="o">--</span><span class="n">start</span> <span class="mi">14932</span> <span class="o">--</span><span class="n">end</span> <span class="mi">14949</span> \
+            <span class="o">-</span><span class="n">r</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">neomorph</span><span class="o">.</span><span class="n">salk</span><span class="o">.</span><span class="n">edu</span><span class="o">/</span><span class="n">ftp</span><span class="o">/</span><span class="n">bican</span><span class="o">/</span><span class="n">hg38_with_chrL</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">cz</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+chrom   pos     strand  context mc      cov
+chr1    14932   -       CTT     0       1
+chr1    14933   -       CCT     0       1
+chr1    14935   -       CAC     1       1
+chr1    14936   +       CTG     0       0
+chr1    14938   -       CAG     1       1
+chr1    14939   -       CCA     0       1
+chr1    14940   +       CCC     0       0
+chr1    14941   +       CCA     0       0
+chr1    14942   +       CAG     0       0
+chr1    14944   -       CTG     0       1
+chr1    14945   -       CCT     0       1
+chr1    14946   -       CCC     0       1
+chr1    14947   +       CGG     0       0
+chr1    14948   -       CGC     1       1
+chr1    14949   -       CCG     0       1
+
+real    0m3.682s
+user    0m0.264s
+sys     0m0.177s
+</pre></div></div>
+</div>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>

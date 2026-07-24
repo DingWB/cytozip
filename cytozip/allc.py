@@ -128,7 +128,7 @@ def WriteC(record, outdir, batch_size=5000, delta_cols=None):
 class AllC:
     def __init__(self, genome=None, output="hg38_allc.cz",
                  pattern="C", jobs=12, keep_temp=False, delta=True,
-                 chrom_size=None):
+                 chroms=None):
         """
         Extract position of specific pattern in the reference genome, for example C.
             Example: python ~/Scripts/python/tbmate.py AllC -g ~/genome/hg38/hg38.fa --jobs 10 run
@@ -158,7 +158,7 @@ class AllC:
             ~4-5x tighter than raw 8-byte ``Q`` values after DEFLATE. Set
             to False for the fastest query path at the cost of ~2-3x larger
             files.
-        chrom_size: path, optional
+        chroms: path, optional
             Path to a ``.fai`` index file or a plain text file whose first
             (tab-separated, no header) column lists chromosome names. When
             provided, only these chromosomes are extracted, and the merged
@@ -178,15 +178,15 @@ class AllC:
         # Optional chromosome whitelist / ordering. Works for both a
         # samtools ``.fai`` index and a plain single-column text file since
         # in both cases the chromosome name is the first tab-separated field.
-        if chrom_size is not None:
-            chrom_size = os.path.abspath(os.path.expanduser(chrom_size))
-            chrom_df = pd.read_csv(chrom_size, sep='\t', header=None, usecols=[0])
+        if chroms is not None:
+            chroms = os.path.abspath(os.path.expanduser(chroms))
+            chrom_df = pd.read_csv(chroms, sep='\t', header=None, usecols=[0])
             self.chroms = chrom_df.iloc[:, 0].astype(str).tolist()
             self.chrom_set = set(self.chroms)
         else:
             self.chroms = None
             self.chrom_set = None
-        self.chrom_size = chrom_size
+        self.chroms_path = chroms
         # DELTA-encode the strictly-monotonic ``pos`` column by default.
         # Positions in a reference .cz are sorted and closely spaced (~3-10 bp
         # for CGN/CHN), so per-block deltas compress ~4-5x tighter than raw
@@ -202,7 +202,7 @@ class AllC:
         Dispatches one :func:`WriteC` task per fasta record to a
         multiprocessing pool, writing a per-chromosome ``.cz`` file into
         ``self.outdir``. Records absent from ``self.chrom_set`` (when a
-        ``chrom_size`` whitelist was given) are skipped.
+        ``chroms`` whitelist was given) are skipped.
         """
         pool = multiprocessing.Pool(self.jobs)
         tasks = []
@@ -220,7 +220,7 @@ class AllC:
     def merge(self):
         """Concatenate the per-chromosome temp ``.cz`` files into ``self.output``.
 
-        When a ``chrom_size`` list was provided, chunks are merged in that
+        When a ``chroms`` list was provided, chunks are merged in that
         exact order; otherwise :meth:`cytozip.cz.Writer.catcz` falls back to
         its default ``sorted()`` ordering.
         """

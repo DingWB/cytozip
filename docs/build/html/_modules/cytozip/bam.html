@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.bam &mdash; cytozip 0.3.5.dev0 documentation</title>
+  <title>cytozip.bam &mdash; cytozip 0.3.6.dev3 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
@@ -14,7 +14,7 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=e01d351f"></script>
+      <script src="../../_static/documentation_options.js?v=ad53049a"></script>
       <script src="../../_static/doctools.js?v=9a2dae69"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/js/rtd_search_config.js"></script>
@@ -46,15 +46,25 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../notebooks/1.quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Installation">1. Installation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#conda">conda</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#pip">pip</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#pip">pip</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#2.-Build-reference-cz-file-from-a-reference-genome-fasta-file">2. Build reference cz file from a reference genome fasta file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#3.-Call-methylation-from-bam-file-and-save-as-.cz-format">3. Call methylation from bam file and save as .cz format</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#2.1-Download-example-bam-files">2.1 Download example bam files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#2.2-Call-DNA-methylation-using-cytozip">2.2 Call DNA methylation using cytozip</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#4.-Convert-allc/bed/stdin-to-.cz">4. Convert allc/bed/stdin to .cz</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#4.1-convert-stream-input-to-cz-with-pipe">4.1 convert stream input to cz with pipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#4.2-allc-to-cz-with-reference-cz-as-input">4.2 allc to cz with reference cz as input</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#5.-Python-API">5. Python API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
 </ul>
 </li>
 </ul>
@@ -150,7 +160,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../benchmark.html">Benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/benchmark.html">1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/benchmark.html#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../modules.html">cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../cytozip.html">cytozip package</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#submodules">Submodules</a><ul>
@@ -179,6 +190,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.bam.html">cytozip.bam module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#cytozip.bam.name_sort_bam_to_deduped"><code class="docutils literal notranslate"><span class="pre">name_sort_bam_to_deduped()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz.html">cytozip.cz module</a><ul>
@@ -194,8 +206,6 @@
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.iter_chunks_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.iter_chunks_bytes()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
@@ -204,14 +214,13 @@
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.to_df"><code class="docutils literal notranslate"><span class="pre">Reader.to_df()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
 </ul>
 </li>
@@ -260,6 +269,7 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tocz_int_slab"><code class="docutils literal notranslate"><span class="pre">c_parse_tocz_int_slab()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
@@ -409,13 +419,14 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">shlex</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">struct</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">cz</span> <span class="k">as</span> <span class="n">_cz_mod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.cz</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -489,30 +500,157 @@
     <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_convert_bam_strandness</span><span class="p">(</span><span class="n">in_bam_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">out_bam_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Rewrite a bismark/hisat-3n BAM so `read.is_forward` matches the</span>
-<span class="sd">    conversion type (XG/YZ tag). Required for hisat-3n PE / Biskarp PE.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_read_ct_conversion_hisat3n</span><span class="p">(</span><span class="n">read</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;hisat-3n: YZ tag ``+`` marks a C-&gt;T (Watson/OT) conversion read.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">read</span><span class="o">.</span><span class="n">get_tag</span><span class="p">(</span><span class="s2">&quot;YZ&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_read_ct_conversion_bismark</span><span class="p">(</span><span class="n">read</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;bismark: XG tag ``CT`` marks a C-&gt;T (Watson/OT) conversion read.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">read</span><span class="o">.</span><span class="n">get_tag</span><span class="p">(</span><span class="s2">&quot;XG&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;CT&quot;</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_determine_ct_func</span><span class="p">(</span><span class="n">bam_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pick the conversion-type test from the first read&#39;s tags.</span>
+
+<span class="sd">    hisat-3n BAMs carry a ``YZ`` tag; bismark BAMs carry an ``XG`` tag.</span>
+<span class="sd">    A BAM lacking both cannot be strand-corrected (it is not a</span>
+<span class="sd">    bismark/hisat-3n bisulfite BAM).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">pysam</span>
+    <span class="k">with</span> <span class="n">pysam</span><span class="o">.</span><span class="n">AlignmentFile</span><span class="p">(</span><span class="n">bam_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">read</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">f</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">has_tag</span><span class="p">(</span><span class="s2">&quot;YZ&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_is_read_ct_conversion_hisat3n</span>
+    <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">has_tag</span><span class="p">(</span><span class="s2">&quot;XG&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_is_read_ct_conversion_bismark</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="s2">&quot;BAM reads lack a conversion-type tag (XG by bismark or YZ by &quot;</span>
+        <span class="s2">&quot;hisat-3n). convert_bam_strandness can only process bismark or &quot;</span>
+        <span class="s2">&quot;hisat-3n bisulfite BAMs.&quot;</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_convert_bam_strandness</span><span class="p">(</span><span class="n">in_bam_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">out_bam_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Rewrite a bismark/hisat-3n BAM so ``read.is_forward`` matches the</span>
+<span class="sd">    bisulfite conversion type (XG/YZ tag), not the alignment orientation.</span>
+
+<span class="sd">    Ported from ALLCools ``_bam_to_allc._convert_bam_strandness``.</span>
+
+<span class="sd">    Why this is needed</span>
+<span class="sd">    ------------------</span>
+<span class="sd">    Pileup-based methylation calling (both the htslib and ``samtools</span>
+<span class="sd">    mpileup`` backends) infers strand from the read FLAG:</span>
+
+<span class="sd">    * ref ``C`` sites are counted from forward reads (``.`` / ``T``),</span>
+<span class="sd">    * ref ``G`` sites are counted from reverse reads (``,`` / ``a``).</span>
+
+<span class="sd">    For **bismark SE**, the aligner already orients C-&gt;T reads to the</span>
+<span class="sd">    forward strand and G-&gt;A reads to the reverse strand, so the FLAG is</span>
+<span class="sd">    correct. For **hisat-3n PE / bismark PE**, R1 and R2 keep their</span>
+<span class="sd">    original orientation, so both C-&gt;T and G-&gt;A reads appear on either</span>
+<span class="sd">    strand and the FLAG no longer encodes the conversion type. Counting</span>
+<span class="sd">    then assigns coverage to the wrong-strand cytosines (e.g. the lambda</span>
+<span class="sd">    spike-in shows ~50% methylation instead of the conversion-error rate).</span>
+
+<span class="sd">    This function forces, per read (and its mate):</span>
+
+<span class="sd">    * C-&gt;T conversion (``YZ == &#39;+&#39;`` / ``XG == &#39;CT&#39;``) -&gt; ``is_forward = True``</span>
+<span class="sd">    * G-&gt;A conversion (``YZ == &#39;-&#39;`` / ``XG == &#39;GA&#39;``) -&gt; ``is_forward = False``</span>
+
+<span class="sd">    so downstream base counting stays unchanged and strand-correct.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    in_bam_path, out_bam_path : str</span>
+<span class="sd">        Input / output BAM paths. ``read.is_forward`` is only flipped, so</span>
+<span class="sd">        coordinate sort order is preserved.</span>
+<span class="sd">    index : bool, default True</span>
+<span class="sd">        Build the ``.bai`` for ``out_bam_path`` via pysam (avoids a hard</span>
+<span class="sd">        dependency on ``samtools`` being on ``$PATH``).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pysam</span>
+    <span class="n">is_ct_func</span> <span class="o">=</span> <span class="n">_determine_ct_func</span><span class="p">(</span><span class="n">in_bam_path</span><span class="p">)</span>
     <span class="k">with</span> <span class="n">pysam</span><span class="o">.</span><span class="n">AlignmentFile</span><span class="p">(</span><span class="n">in_bam_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">in_bam</span><span class="p">,</span> \
             <span class="n">pysam</span><span class="o">.</span><span class="n">AlignmentFile</span><span class="p">(</span><span class="n">out_bam_path</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">in_bam</span><span class="o">.</span><span class="n">header</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out_bam</span><span class="p">:</span>
-        <span class="n">is_ct_func</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">read</span> <span class="ow">in</span> <span class="n">in_bam</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">is_ct_func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">has_tag</span><span class="p">(</span><span class="s2">&quot;YZ&quot;</span><span class="p">):</span>
-                    <span class="n">is_ct_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">get_tag</span><span class="p">(</span><span class="s2">&quot;YZ&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span>
-                <span class="k">elif</span> <span class="n">read</span><span class="o">.</span><span class="n">has_tag</span><span class="p">(</span><span class="s2">&quot;XG&quot;</span><span class="p">):</span>
-                    <span class="n">is_ct_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">get_tag</span><span class="p">(</span><span class="s2">&quot;XG&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;CT&quot;</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="s2">&quot;BAM reads lack conversion-type tag (XG/YZ). &quot;</span>
-                        <span class="s2">&quot;Only bismark/hisat-3n BAMs are supported.&quot;</span>
-                    <span class="p">)</span>
-            <span class="n">ct</span> <span class="o">=</span> <span class="n">is_ct_func</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
-            <span class="n">read</span><span class="o">.</span><span class="n">is_forward</span> <span class="o">=</span> <span class="n">ct</span>
-            <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">is_paired</span><span class="p">:</span>
-                <span class="n">read</span><span class="o">.</span><span class="n">mate_is_forward</span> <span class="o">=</span> <span class="n">ct</span>
+            <span class="k">if</span> <span class="n">is_ct_func</span><span class="p">(</span><span class="n">read</span><span class="p">):</span>
+                <span class="n">read</span><span class="o">.</span><span class="n">is_forward</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">is_paired</span><span class="p">:</span>
+                    <span class="n">read</span><span class="o">.</span><span class="n">mate_is_forward</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">read</span><span class="o">.</span><span class="n">is_forward</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">is_paired</span><span class="p">:</span>
+                    <span class="n">read</span><span class="o">.</span><span class="n">mate_is_forward</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="n">out_bam</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">index</span><span class="p">:</span>
+        <span class="n">pysam</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">out_bam_path</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_start_mpileup</span><span class="p">(</span><span class="n">samtools_exe</span><span class="p">,</span> <span class="n">genome</span><span class="p">,</span> <span class="n">min_base_quality</span><span class="p">,</span> <span class="n">min_mapq</span><span class="p">,</span>
+                   <span class="n">bam_path</span><span class="p">,</span> <span class="n">strand_flip</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Start ``samtools mpileup`` and return ``(proc, text_stdout, feeder)``.</span>
+
+<span class="sd">    When ``strand_flip`` is True the input BAM is **streamed** to mpileup&#39;s</span>
+<span class="sd">    stdin with each read&#39;s FLAG rewritten to match its bisulfite conversion</span>
+<span class="sd">    tag (XG/YZ) — the same strand correction as</span>
+<span class="sd">    :func:`_convert_bam_strandness`, but via a pipe so **no temporary BAM is</span>
+<span class="sd">    written** (and no ``samtools index`` is needed). Otherwise mpileup reads</span>
+<span class="sd">    ``bam_path`` directly.</span>
+
+<span class="sd">    The returned stdout is a latin-1 text stream: mpileup pileup strings can</span>
+<span class="sd">    contain bytes &gt; 127 (the char after a ``^`` read-start marker encodes</span>
+<span class="sd">    MAPQ as ``chr(mapq + 33)``), which would crash a utf-8/locale decoder.</span>
+<span class="sd">    Base counting only inspects ASCII ``.`` / ``,`` / ``T`` / ``a``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="n">samtools_exe</span><span class="p">,</span> <span class="s2">&quot;mpileup&quot;</span><span class="p">,</span>
+           <span class="s2">&quot;-Q&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">min_base_quality</span><span class="p">),</span> <span class="s2">&quot;-q&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">min_mapq</span><span class="p">),</span>
+           <span class="s2">&quot;-B&quot;</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span> <span class="n">genome</span><span class="p">]</span>
+    <span class="n">feeder</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">strand_flip</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pysam</span>
+        <span class="n">is_ct_func</span> <span class="o">=</span> <span class="n">_determine_ct_func</span><span class="p">(</span><span class="n">bam_path</span><span class="p">)</span>
+        <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
+            <span class="n">cmd</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;-&quot;</span><span class="p">],</span> <span class="n">stdin</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">)</span>
+        <span class="n">exc_holder</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_feed</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">pysam</span><span class="o">.</span><span class="n">AlignmentFile</span><span class="p">(</span><span class="n">bam_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">in_bam</span><span class="p">:</span>
+                    <span class="n">out</span> <span class="o">=</span> <span class="n">pysam</span><span class="o">.</span><span class="n">AlignmentFile</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">stdin</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">,</span>
+                                              <span class="n">template</span><span class="o">=</span><span class="n">in_bam</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">read</span> <span class="ow">in</span> <span class="n">in_bam</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">is_ct_func</span><span class="p">(</span><span class="n">read</span><span class="p">):</span>
+                            <span class="n">read</span><span class="o">.</span><span class="n">is_forward</span> <span class="o">=</span> <span class="kc">True</span>
+                            <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">is_paired</span><span class="p">:</span>
+                                <span class="n">read</span><span class="o">.</span><span class="n">mate_is_forward</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">read</span><span class="o">.</span><span class="n">is_forward</span> <span class="o">=</span> <span class="kc">False</span>
+                            <span class="k">if</span> <span class="n">read</span><span class="o">.</span><span class="n">is_paired</span><span class="p">:</span>
+                                <span class="n">read</span><span class="o">.</span><span class="n">mate_is_forward</span> <span class="o">=</span> <span class="kc">False</span>
+                        <span class="n">out</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
+                    <span class="n">out</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - surfaced by caller</span>
+                <span class="n">exc_holder</span><span class="p">[</span><span class="s2">&quot;exc&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">exc</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">proc</span><span class="o">.</span><span class="n">stdin</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+
+        <span class="n">feeder</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">_feed</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">feeder</span><span class="o">.</span><span class="n">cz_exc</span> <span class="o">=</span> <span class="n">exc_holder</span>  <span class="c1"># type: ignore[attr-defined]</span>
+        <span class="n">feeder</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
+            <span class="n">cmd</span> <span class="o">+</span> <span class="p">[</span><span class="n">bam_path</span><span class="p">],</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;latin-1&quot;</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">proc</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">feeder</span>
 
 
 <span class="c1"># ---------------------------------------------------------------------------</span>
@@ -586,6 +724,11 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chrom</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chrom2dim</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">chroms</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set of chromosome names present in the reference .cz.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chrom2dim</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chrom</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return uint32 position array for *chrom* (loads on first call).</span>
@@ -723,16 +866,225 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_load_reference_positions</span><span class="p">(</span><span class="n">reference</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a lazy per-chrom position loader from a reference .cz.</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Pre-processing: name-sorted BAM -&gt; position-sorted + deduplicated BAM</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_env_bin</span><span class="p">(</span><span class="n">exe</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve an executable path, optionally from a specific conda env.</span>
 
-<span class="sd">    The previous implementation preloaded the entire genome as an</span>
-<span class="sd">    ``{chrom: int64-array}`` dict, which costs ~9 GB on mm10. This</span>
-<span class="sd">    function now returns a :class:`_LazyRefPositions` that loads each</span>
-<span class="sd">    chromosome on first access (uint32) and lets the caller :meth:`drop`</span>
-<span class="sd">    it after flushing.</span>
+<span class="sd">    Some tools (e.g. ``picard``) are not installed in every conda env. This</span>
+<span class="sd">    helper lets callers pin the env that provides ``exe``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    exe : str</span>
+<span class="sd">        Executable name, e.g. ``&quot;picard&quot;`` or ``&quot;samtools&quot;``.</span>
+<span class="sd">    env : str, optional</span>
+<span class="sd">        * ``None`` - return ``exe`` unchanged (resolved on ``$PATH`` at run</span>
+<span class="sd">          time).</span>
+<span class="sd">        * a directory path - treated as a conda env *prefix*; the executable</span>
+<span class="sd">          is looked up at ``&lt;env&gt;/bin/&lt;exe&gt;``.</span>
+<span class="sd">        * a bare env name (e.g. ``&quot;yap&quot;``) - resolved against the sibling</span>
+<span class="sd">          env dirs of the current interpreter (e.g.</span>
+<span class="sd">          ``/home/user/conda/m3c`` -&gt; ``/home/user/conda/yap``), the</span>
+<span class="sd">          standard ``envs/`` layout, and ``$CONDA_EXE``&#39;s ``envs/``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Absolute path to the executable (or ``exe`` unchanged if</span>
+<span class="sd">        ``env is None``).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">_LazyRefPositions</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">exe</span>
+    <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span> <span class="ow">in</span> <span class="n">env</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">env</span><span class="p">):</span>
+        <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Sibling of the current interpreter&#39;s env prefix, e.g.</span>
+        <span class="c1"># /home/.../conda/m3c/bin/python -&gt; /home/.../conda/yap</span>
+        <span class="n">cur_prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">)))</span>
+        <span class="n">parent</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">cur_prefix</span><span class="p">)</span>
+        <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="n">env</span><span class="p">))</span>
+        <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;envs&quot;</span><span class="p">,</span> <span class="n">env</span><span class="p">))</span>
+        <span class="n">conda_exe</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;CONDA_EXE&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conda_exe</span><span class="p">:</span>
+            <span class="n">conda_root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">conda_exe</span><span class="p">))</span>
+            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">conda_root</span><span class="p">,</span> <span class="s2">&quot;envs&quot;</span><span class="p">,</span> <span class="n">env</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">prefix</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
+        <span class="n">cand</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="s2">&quot;bin&quot;</span><span class="p">,</span> <span class="n">exe</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cand</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">cand</span>
+    <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Could not find </span><span class="si">{</span><span class="n">exe</span><span class="si">!r}</span><span class="s2"> in conda env </span><span class="si">{</span><span class="n">env</span><span class="si">!r}</span><span class="s2">. Tried: &quot;</span>
+        <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;bin&quot;</span><span class="p">,</span> <span class="n">exe</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">)</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="name_sort_bam_to_deduped">
+<a class="viewcode-back" href="../../cytozip.bam.html#cytozip.bam.name_sort_bam_to_deduped">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">name_sort_bam_to_deduped</span><span class="p">(</span>
+    <span class="n">bam_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">output</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">stats</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">remove_duplicates</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">sort_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">sort_mem_mb</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="n">index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">keep_pos_sort</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">env</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Turn a name-sorted BAM into a position-sorted, deduplicated BAM.</span>
+
+<span class="sd">    ``bam_to_cz`` requires a **position-sorted** BAM with a ``.bai`` index.</span>
+<span class="sd">    The hisat-3n / snmC pipeline (see cemba_data ``hisat3n.smk``) produces a</span>
+<span class="sd">    name-sorted BAM (``*.all_reads.name_sort.bam``), which must first be</span>
+<span class="sd">    coordinate-sorted and PCR-deduplicated before it can be fed to</span>
+<span class="sd">    ``bam_to_cz``. This helper reproduces those two Snakemake rules</span>
+<span class="sd">    (``sort_bam_by_pos`` + ``dedup``):</span>
+
+<span class="sd">    1. ``samtools sort -O BAM`` (name order -&gt; coordinate order)</span>
+<span class="sd">    2. ``picard MarkDuplicates -REMOVE_DUPLICATES true`` (drop PCR dups)</span>
+<span class="sd">    3. ``samtools index`` (optional, produces the ``.bai`` needed by</span>
+<span class="sd">       ``bam_to_cz``)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bam_path : str</span>
+<span class="sd">        Input name-sorted BAM (e.g. ``*.hisat3n_dna.all_reads.name_sort.bam``).</span>
+<span class="sd">    output : str, optional</span>
+<span class="sd">        Output deduplicated BAM path. Defaults to</span>
+<span class="sd">        ``&lt;stem&gt;.deduped.bam`` next to the input, where ``&lt;stem&gt;`` strips a</span>
+<span class="sd">        trailing ``.name_sort`` if present.</span>
+<span class="sd">    stats : str, optional</span>
+<span class="sd">        Path for the picard MarkDuplicates metrics file. Defaults to</span>
+<span class="sd">        ``&lt;output&gt;.matrix.txt``.</span>
+<span class="sd">    remove_duplicates : bool</span>
+<span class="sd">        If True (default), pass ``-REMOVE_DUPLICATES true`` so duplicates are</span>
+<span class="sd">        physically removed. If False, duplicates are only flagged.</span>
+<span class="sd">    tmp_dir : str, optional</span>
+<span class="sd">        Temp directory for picard. Defaults to ``&lt;output_dir&gt;/temp``</span>
+<span class="sd">        (created if missing).</span>
+<span class="sd">    sort_threads : int</span>
+<span class="sd">        Threads for ``samtools sort`` (``-@``).</span>
+<span class="sd">    sort_mem_mb : int</span>
+<span class="sd">        Per-thread memory for ``samtools sort`` in MB (``-m``).</span>
+<span class="sd">    index : bool</span>
+<span class="sd">        If True (default), build the ``.bai`` index for the deduped BAM.</span>
+<span class="sd">    keep_pos_sort : bool</span>
+<span class="sd">        If True, keep the intermediate coordinate-sorted BAM. By default it</span>
+<span class="sd">        is deleted after deduplication.</span>
+<span class="sd">    env : str, optional</span>
+<span class="sd">        Conda env that provides ``samtools`` / ``picard``. Useful when the</span>
+<span class="sd">        current env lacks ``picard`` (e.g. run cytozip from ``m3c`` but pull</span>
+<span class="sd">        ``picard`` from ``yap`` via ``env=&quot;yap&quot;``). May be a bare env name</span>
+<span class="sd">        (resolved against sibling env dirs of the current interpreter and</span>
+<span class="sd">        the standard ``envs/`` layout) or a full env prefix path. ``None``</span>
+<span class="sd">        (default) resolves both tools on ``$PATH``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Path to the deduplicated BAM.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bam_path</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input BAM not found: </span><span class="si">{</span><span class="n">bam_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">samtools_exe</span> <span class="o">=</span> <span class="n">_resolve_env_bin</span><span class="p">(</span><span class="s2">&quot;samtools&quot;</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
+    <span class="n">picard_exe</span> <span class="o">=</span> <span class="n">_resolve_env_bin</span><span class="p">(</span><span class="s2">&quot;picard&quot;</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
+
+    <span class="n">bam_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">bam_path</span><span class="p">))</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">bam_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">base</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.bam&quot;</span><span class="p">):</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="n">base</span><span class="p">[:</span> <span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;.bam&quot;</span><span class="p">)]</span>
+    <span class="c1"># Strip a trailing &quot;.name_sort&quot; so the output stem matches the pipeline</span>
+    <span class="c1"># convention (``*.all_reads.deduped.bam``).</span>
+    <span class="k">if</span> <span class="n">base</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.name_sort&quot;</span><span class="p">):</span>
+        <span class="n">stem</span> <span class="o">=</span> <span class="n">base</span><span class="p">[:</span> <span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;.name_sort&quot;</span><span class="p">)]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">stem</span> <span class="o">=</span> <span class="n">base</span>
+
+    <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bam_dir</span><span class="p">,</span> <span class="n">stem</span> <span class="o">+</span> <span class="s2">&quot;.deduped.bam&quot;</span><span class="p">)</span>
+    <span class="n">out_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">out_dir</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">out_dir</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">stats</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="n">output</span> <span class="o">+</span> <span class="s2">&quot;.matrix.txt&quot;</span>
+
+    <span class="k">if</span> <span class="n">tmp_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="s2">&quot;temp&quot;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># 1. Coordinate-sort (rule sort_bam_by_pos).</span>
+    <span class="n">pos_sort_bam</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="n">stem</span> <span class="o">+</span> <span class="s2">&quot;.pos_sort.bam&quot;</span><span class="p">)</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">([</span>
+        <span class="n">samtools_exe</span><span class="p">,</span> <span class="s2">&quot;sort&quot;</span><span class="p">,</span> <span class="s2">&quot;-O&quot;</span><span class="p">,</span> <span class="s2">&quot;BAM&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-@&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">sort_threads</span><span class="p">),</span>
+        <span class="s2">&quot;-m&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sort_mem_mb</span><span class="si">}</span><span class="s2">M&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="n">pos_sort_bam</span><span class="p">,</span> <span class="n">bam_path</span><span class="p">,</span>
+    <span class="p">])</span>
+
+    <span class="c1"># 2. Mark / remove PCR duplicates (rule dedup).</span>
+    <span class="n">picard_cmd</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">picard_exe</span><span class="p">,</span> <span class="s2">&quot;MarkDuplicates&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-I&quot;</span><span class="p">,</span> <span class="n">pos_sort_bam</span><span class="p">,</span>
+        <span class="s2">&quot;-O&quot;</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span>
+        <span class="s2">&quot;-M&quot;</span><span class="p">,</span> <span class="n">stats</span><span class="p">,</span>
+        <span class="s2">&quot;-REMOVE_DUPLICATES&quot;</span><span class="p">,</span> <span class="s2">&quot;true&quot;</span> <span class="k">if</span> <span class="n">remove_duplicates</span> <span class="k">else</span> <span class="s2">&quot;false&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-TMP_DIR&quot;</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">(</span><span class="n">picard_cmd</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_pos_sort</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">pos_sort_bam</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">pos_sort_bam</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="c1"># 3. Index (rule index_bam).</span>
+    <span class="k">if</span> <span class="n">index</span><span class="p">:</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">([</span><span class="n">samtools_exe</span><span class="p">,</span> <span class="s2">&quot;index&quot;</span><span class="p">,</span> <span class="n">output</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">output</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_chrom_whitelist</span><span class="p">(</span><span class="n">chroms</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize a ``chroms`` argument into a set of chromosome names or None.</span>
+
+<span class="sd">    Accepts:</span>
+
+<span class="sd">    * ``None`` -&gt; ``None`` (no restriction; every contig is piled up).</span>
+<span class="sd">    * list / tuple / set of names -&gt; a set of ``str``.</span>
+<span class="sd">    * a path to a chrom-size / ``.fai`` file -&gt; the first</span>
+<span class="sd">      (tab/whitespace-separated) column of each non-empty line.</span>
+<span class="sd">    * a comma-separated string ``&#39;chr1,chr2&#39;`` -&gt; the listed names.</span>
+<span class="sd">    * a single chromosome name -&gt; ``{name}``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">chroms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chroms</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">set</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">chroms</span><span class="p">}</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chroms</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">chroms</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">fh</span><span class="p">:</span>
+                    <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">line</span><span class="p">:</span>
+                        <span class="n">names</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">return</span> <span class="n">names</span>
+        <span class="k">if</span> <span class="s2">&quot;,&quot;</span> <span class="ow">in</span> <span class="n">chroms</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">chroms</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">chroms</span><span class="p">}</span>
+    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;chroms must be None, a list/tuple/set, or a str; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">chroms</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
 <span class="c1"># ---------------------------------------------------------------------------</span>
@@ -752,8 +1104,11 @@
     <span class="n">min_mapq</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
     <span class="n">min_base_quality</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
     <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>
-    <span class="n">convert_bam_strandness</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">convert_bam_strandness</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">save_count_df</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">name_sorted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">env</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">chroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a position-sorted BAM to a ``.cz`` methylation file.</span>
 
@@ -761,6 +1116,8 @@
 <span class="sd">    ----------</span>
 <span class="sd">    bam_path : str</span>
 <span class="sd">        Position-sorted BAM (requires ``.bai``; we will build it if missing).</span>
+<span class="sd">        If ``name_sorted=True``, a name-sorted BAM is accepted instead and</span>
+<span class="sd">        is first coordinate-sorted + PCR-deduplicated (see ``name_sorted``).</span>
 <span class="sd">    genome : str</span>
 <span class="sd">        Indexed reference fasta (``.fai`` required).</span>
 <span class="sd">    output : str, optional</span>
@@ -786,10 +1143,47 @@
 <span class="sd">    batch_size : int</span>
 <span class="sd">        Records per on-disk chunk (same semantics as ``allc2cz``).</span>
 <span class="sd">    convert_bam_strandness : bool</span>
-<span class="sd">        If True, rewrite the BAM so ``read.is_forward`` matches the</span>
-<span class="sd">        conversion type (XG/YZ tag).</span>
+<span class="sd">        If True (**default**, matching ALLCools ``bam_to_allc``), count</span>
+<span class="sd">        methylation using the strand implied by the bisulfite conversion</span>
+<span class="sd">        tag (XG for bismark, YZ for hisat-3n) instead of the alignment</span>
+<span class="sd">        orientation. **Required for hisat-3n PE / bismark PE data**, where</span>
+<span class="sd">        R1/R2 keep their original orientation so the FLAG strand no longer</span>
+<span class="sd">        encodes the conversion type; without it ~half of the reads are</span>
+<span class="sd">        counted on the wrong-strand cytosines (e.g. the lambda spike-in</span>
+<span class="sd">        reads ~50% methylation instead of the conversion-error rate). This</span>
+<span class="sd">        never writes a temporary BAM: the htslib backend derives the</span>
+<span class="sd">        strand in-process from each read&#39;s XG/YZ tag, and the ``samtools</span>
+<span class="sd">        mpileup`` fallback backend **streams** strand-flipped reads to</span>
+<span class="sd">        mpileup via a pipe (see :func:`_start_mpileup`). The input must be</span>
+<span class="sd">        a bismark/hisat-3n BAM carrying an ``XG``/``YZ`` tag, otherwise a</span>
+<span class="sd">        ``ValueError`` is raised; pass ``convert_bam_strandness=False`` for</span>
+<span class="sd">        plain (already strand-correct) BAMs such as bismark SE.</span>
 <span class="sd">    save_count_df : bool</span>
 <span class="sd">        If True, write a ``&lt;output&gt;.count.csv`` with total mC / cov per context.</span>
+
+<span class="sd">    name_sorted : bool</span>
+<span class="sd">        If True, ``bam_path`` is a **name-sorted** BAM (e.g. the hisat-3n</span>
+<span class="sd">        ``*.all_reads.name_sort.bam``). It is first passed through</span>
+<span class="sd">        :func:`name_sort_bam_to_deduped` (coordinate-sort + picard</span>
+<span class="sd">        MarkDuplicates) to produce the position-sorted, deduplicated BAM</span>
+<span class="sd">        that ``bam_to_cz`` requires. The generated deduped BAM is used as</span>
+<span class="sd">        the actual input.</span>
+<span class="sd">    env : str, optional</span>
+<span class="sd">        Conda env that provides ``picard`` / ``samtools`` for the</span>
+<span class="sd">        ``name_sorted`` pre-processing step (e.g. ``env=&quot;yap&quot;`` when running</span>
+<span class="sd">        from an env without picard). Ignored unless ``name_sorted=True``.</span>
+<span class="sd">        See :func:`name_sort_bam_to_deduped`.</span>
+<span class="sd">    chroms : None, list, or str, optional</span>
+<span class="sd">        Restrict the pileup to a whitelist of chromosomes. Accepts a list of</span>
+<span class="sd">        names, a comma-separated string (``&#39;chr1,chr2&#39;``), or a path to a</span>
+<span class="sd">        chrom-size / ``.fai`` file (first column). This mirrors ALLCools</span>
+<span class="sd">        ``bam_to_allc(..., chrom_size=...)``, which limits ``samtools</span>
+<span class="sd">        mpileup`` to the listed chroms; without it every contig in the</span>
+<span class="sd">        genome fasta (including alt/decoy/unplaced) is piled up and counted,</span>
+<span class="sd">        inflating the returned ``count_df``. In ``mode=&#39;mc_cov&#39;`` the pileup</span>
+<span class="sd">        is **always** limited to the reference&#39;s chromosomes regardless of</span>
+<span class="sd">        this argument (sites on other chroms are discarded at write time</span>
+<span class="sd">        anyway); passing ``chroms`` then further narrows that set.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -804,6 +1198,15 @@
             <span class="s2">&quot;in the output and must be recovered from the reference).&quot;</span>
         <span class="p">)</span>
 
+    <span class="k">if</span> <span class="n">name_sorted</span><span class="p">:</span>
+        <span class="c1"># Coordinate-sort + PCR-dedup the name-sorted BAM first; the</span>
+        <span class="c1"># resulting deduped BAM is what the pileup backends consume.</span>
+        <span class="n">bam_path</span> <span class="o">=</span> <span class="n">name_sort_bam_to_deduped</span><span class="p">(</span><span class="n">bam_path</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">)</span>
+
+    <span class="c1"># Resolve samtools once (optionally from a specific conda env) so both</span>
+    <span class="c1"># the .bai indexing and the mpileup fallback use the same binary.</span>
+    <span class="n">samtools_exe</span> <span class="o">=</span> <span class="n">_resolve_env_bin</span><span class="p">(</span><span class="s2">&quot;samtools&quot;</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
+    <span class="n">genome</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">genome</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">genome</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reference fasta not found: </span><span class="si">{</span><span class="n">genome</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">fai_path</span> <span class="o">=</span> <span class="n">genome</span> <span class="o">+</span> <span class="s2">&quot;.fai&quot;</span>
@@ -813,13 +1216,34 @@
         <span class="p">)</span>
     <span class="n">fai_df</span> <span class="o">=</span> <span class="n">_read_faidx</span><span class="p">(</span><span class="n">fai_path</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">convert_bam_strandness</span><span class="p">:</span>
-        <span class="n">temp_bam</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">bam_path</span><span class="si">}</span><span class="s2">.strand.tmp.bam&quot;</span>
-        <span class="n">_convert_bam_strandness</span><span class="p">(</span><span class="n">bam_path</span><span class="p">,</span> <span class="n">temp_bam</span><span class="p">)</span>
-        <span class="n">bam_path</span> <span class="o">=</span> <span class="n">temp_bam</span>
+    <span class="c1"># ---- backend selection (needed before strand handling) ----------------</span>
+    <span class="c1">#   1. htslib (in-process cytozip._bam_pileup, ~10-20x faster than the</span>
+    <span class="c1">#      mpileup subprocess, byte-equivalent to ALLCools). Default when</span>
+    <span class="c1">#      the optional extension was built.</span>
+    <span class="c1">#   2. ``samtools mpileup`` subprocess. Fallback when htslib is</span>
+    <span class="c1">#      unavailable, and forced via ``CYTOZIP_BAM_BACKEND_MPILEUP=1``.</span>
+    <span class="n">force_mpileup</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+        <span class="s2">&quot;CYTOZIP_BAM_BACKEND_MPILEUP&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)))</span>
+    <span class="n">_PileupCounter</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">force_mpileup</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">._bam_pileup</span><span class="w"> </span><span class="kn">import</span> <span class="n">PileupCounter</span> <span class="k">as</span> <span class="n">_PileupCounter</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="n">_PileupCounter</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">use_htslib</span> <span class="o">=</span> <span class="p">(</span><span class="n">_PileupCounter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force_mpileup</span>
+    <span class="n">use_mpileup</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">use_htslib</span>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bam_path</span> <span class="o">+</span> <span class="s2">&quot;.bai&quot;</span><span class="p">):</span>
-        <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">([</span><span class="s2">&quot;samtools&quot;</span><span class="p">,</span> <span class="s2">&quot;index&quot;</span><span class="p">,</span> <span class="n">bam_path</span><span class="p">])</span>
+    <span class="c1"># ---- strand correction (hisat-3n PE / bismark PE) ---------------------</span>
+    <span class="c1"># No temporary BAM is ever written. The htslib backend derives the</span>
+    <span class="c1"># effective strand from the XG/YZ conversion tag in-process; the</span>
+    <span class="c1"># mpileup subprocess backend streams strand-flipped reads via a pipe.</span>
+    <span class="n">strand_via_ext</span> <span class="o">=</span> <span class="n">convert_bam_strandness</span> <span class="ow">and</span> <span class="n">use_htslib</span>
+    <span class="n">strand_via_pipe</span> <span class="o">=</span> <span class="n">convert_bam_strandness</span> <span class="ow">and</span> <span class="n">use_mpileup</span>
+
+    <span class="c1"># Only the htslib backend needs a .bai (it does indexed per-chrom</span>
+    <span class="c1"># queries). The mpileup backend reads sequentially / from a pipe.</span>
+    <span class="k">if</span> <span class="n">use_htslib</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bam_path</span> <span class="o">+</span> <span class="s2">&quot;.bai&quot;</span><span class="p">):</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">([</span><span class="n">samtools_exe</span><span class="p">,</span> <span class="s2">&quot;index&quot;</span><span class="p">,</span> <span class="n">bam_path</span><span class="p">])</span>
 
     <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">stem</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">bam_path</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
@@ -830,10 +1254,22 @@
     <span class="n">formats</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">sort_col</span><span class="p">,</span> <span class="n">delta_cols</span> <span class="o">=</span> <span class="n">_layout_for_mode</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">count_fmt</span><span class="p">)</span>
     <span class="n">ref_pos_map</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;mc_cov&quot;</span><span class="p">:</span>
-        <span class="n">ref_pos_map</span> <span class="o">=</span> <span class="n">_load_reference_positions</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
+        <span class="n">ref_pos_map</span> <span class="o">=</span> <span class="n">_LazyRefPositions</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
         <span class="n">writer_message</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">writer_message</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">genome</span><span class="p">)</span>
+
+    <span class="c1"># Chromosome whitelist for the pileup. ALLCools restricts mpileup to the</span>
+    <span class="c1"># chroms in its chrom_size file; without a restriction we also pile up</span>
+    <span class="c1"># alt/decoy/unplaced contigs, which inflates the returned count_df.</span>
+    <span class="n">allowed_chroms</span> <span class="o">=</span> <span class="n">_parse_chrom_whitelist</span><span class="p">(</span><span class="n">chroms</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;mc_cov&quot;</span> <span class="ow">and</span> <span class="n">ref_pos_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Sites on chroms absent from the reference are discarded at write</span>
+        <span class="c1"># time anyway, so skip them during pileup too (faster, and keeps the</span>
+        <span class="c1"># returned count_df consistent with what is actually written).</span>
+        <span class="n">ref_chroms</span> <span class="o">=</span> <span class="n">ref_pos_map</span><span class="o">.</span><span class="n">chroms</span>
+        <span class="n">allowed_chroms</span> <span class="o">=</span> <span class="p">(</span><span class="n">ref_chroms</span> <span class="k">if</span> <span class="n">allowed_chroms</span> <span class="ow">is</span> <span class="kc">None</span>
+                          <span class="k">else</span> <span class="p">(</span><span class="n">allowed_chroms</span> <span class="o">&amp;</span> <span class="n">ref_chroms</span><span class="p">))</span>
 
     <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span>
         <span class="n">output</span><span class="p">,</span>
@@ -846,38 +1282,24 @@
     <span class="p">)</span>
     <span class="n">fmt_struct</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span> <span class="o">+</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">formats</span><span class="p">))</span>
 
-    <span class="n">mpileup_cmd</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;samtools mpileup -Q </span><span class="si">{</span><span class="n">min_base_quality</span><span class="si">}</span><span class="s2"> -q </span><span class="si">{</span><span class="n">min_mapq</span><span class="si">}</span><span class="s2"> -B &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;-f </span><span class="si">{</span><span class="n">genome</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">bam_path</span><span class="si">}</span><span class="s2">&quot;</span>
-    <span class="p">)</span>
-    <span class="c1"># Backend selection. Two options:</span>
-    <span class="c1">#</span>
-    <span class="c1">#   1. htslib (in-process via cytozip._bam_pileup, ~10-20x faster</span>
-    <span class="c1">#      than mpileup subprocess, byte-equivalent to ALLCools).</span>
-    <span class="c1">#      Default if the optional ``_bam_pileup`` extension was built.</span>
-    <span class="c1">#   2. ``samtools mpileup`` subprocess (the reference: matches</span>
-    <span class="c1">#      ALLCools ``bam_to_allc`` modulo u8 truncation). Fallback when</span>
-    <span class="c1">#      htslib is unavailable, and forced via</span>
-    <span class="c1">#      ``CYTOZIP_BAM_BACKEND_MPILEUP=1``.</span>
-    <span class="n">force_mpileup</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-        <span class="s2">&quot;CYTOZIP_BAM_BACKEND_MPILEUP&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)))</span>
-    <span class="n">_PileupCounter</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">force_mpileup</span><span class="p">:</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">._bam_pileup</span><span class="w"> </span><span class="kn">import</span> <span class="n">PileupCounter</span> <span class="k">as</span> <span class="n">_PileupCounter</span>
-        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-            <span class="n">_PileupCounter</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">use_htslib</span> <span class="o">=</span> <span class="p">(</span><span class="n">_PileupCounter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force_mpileup</span>
-    <span class="n">use_mpileup</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">use_htslib</span>
-    <span class="k">if</span> <span class="n">use_htslib</span><span class="p">:</span>
-        <span class="n">pipes</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">pipes</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
-            <span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">mpileup_cmd</span><span class="p">),</span>
-            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
-            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
-            <span class="n">universal_newlines</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Backend was selected above (use_htslib / use_mpileup). Only launch the</span>
+    <span class="c1"># ``samtools mpileup`` subprocess when the htslib backend is not used;</span>
+    <span class="c1"># when strand-correcting, strand-flipped reads are streamed to mpileup</span>
+    <span class="c1"># through a pipe (no temp BAM).</span>
+    <span class="n">mpileup_proc</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">mpileup_out</span> <span class="o">=</span> <span class="kc">None</span>      <span class="c1"># latin-1 text stream over mpileup stdout</span>
+    <span class="n">mpileup_feeder</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># background thread streaming strand-flipped reads</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">use_htslib</span><span class="p">:</span>
+        <span class="n">reason</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;CYTOZIP_BAM_BACKEND_MPILEUP=1 set&quot;</span> <span class="k">if</span> <span class="n">force_mpileup</span>
+                  <span class="k">else</span> <span class="s2">&quot;htslib extension (cytozip._bam_pileup) unavailable&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Using `samtools mpileup` subprocess backend (</span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">). This &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;is ~10-20x slower than the in-process htslib backend; build &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;the optional `_bam_pileup` extension for speed.&quot;</span>
         <span class="p">)</span>
+        <span class="n">mpileup_proc</span><span class="p">,</span> <span class="n">mpileup_out</span><span class="p">,</span> <span class="n">mpileup_feeder</span> <span class="o">=</span> <span class="n">_start_mpileup</span><span class="p">(</span>
+            <span class="n">samtools_exe</span><span class="p">,</span> <span class="n">genome</span><span class="p">,</span> <span class="n">min_base_quality</span><span class="p">,</span> <span class="n">min_mapq</span><span class="p">,</span>
+            <span class="n">bam_path</span><span class="p">,</span> <span class="n">strand_flip</span><span class="o">=</span><span class="n">strand_via_pipe</span><span class="p">)</span>
     <span class="n">cov_dict</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">mc_dict</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">total_line</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># set from nonlocal_state after the consume loop</span>
@@ -1040,12 +1462,10 @@
         <span class="n">mc_dict</span><span class="p">[</span><span class="n">context</span><span class="p">]</span> <span class="o">=</span> <span class="n">mc_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">unconverted</span>
         <span class="k">if</span> <span class="n">unconverted</span> <span class="o">&gt;</span> <span class="n">count_max</span> <span class="ow">or</span> <span class="n">cov</span> <span class="o">&gt;</span> <span class="n">count_max</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">_overflow_warned</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-                <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;mc/cov value exceeds count_fmt=</span><span class="si">{</span><span class="n">count_fmt</span><span class="si">!r}</span><span class="s2"> max &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">count_max</span><span class="si">}</span><span class="s2">); clipping. Consider count_fmt=&#39;H&#39; &quot;</span>
-                    <span class="s2">&quot;for bulk/high-coverage data.&quot;</span><span class="p">,</span>
-                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">count_max</span><span class="si">}</span><span class="s2">); clipping. Consider count_fmt=&#39;H&#39; for &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;bulk/high-coverage data.&quot;</span>
                 <span class="p">)</span>
                 <span class="n">_overflow_warned</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">if</span> <span class="n">unconverted</span> <span class="o">&gt;</span> <span class="n">count_max</span><span class="p">:</span>
@@ -1079,9 +1499,12 @@
                 <span class="n">genome</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">genome</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">genome</span><span class="p">,</span>
                 <span class="n">min_mapq</span><span class="o">=</span><span class="n">min_mapq</span><span class="p">,</span>
                 <span class="n">min_base_quality</span><span class="o">=</span><span class="n">min_base_quality</span><span class="p">,</span>
+                <span class="n">convert_bam_strandness</span><span class="o">=</span><span class="n">strand_via_ext</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">pc</span><span class="o">.</span><span class="n">references</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">chrom</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fai_df</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">allowed_chroms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">chrom</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_chroms</span><span class="p">:</span>
                     <span class="k">continue</span>
                 <span class="k">if</span> <span class="n">chrom</span> <span class="o">!=</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]:</span>
                     <span class="k">if</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">]:</span>
@@ -1107,9 +1530,11 @@
                         <span class="n">cov_i</span> <span class="o">-</span> <span class="n">mc_i</span><span class="p">,</span>
                     <span class="p">)</span>
         <span class="k">elif</span> <span class="n">use_mpileup</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">pipes</span><span class="o">.</span><span class="n">stdout</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">mpileup_out</span><span class="p">:</span>
                 <span class="n">fields</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">allowed_chroms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">fields</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_chroms</span><span class="p">:</span>
                     <span class="k">continue</span>
                 <span class="n">ref_base</span> <span class="o">=</span> <span class="n">fields</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">ref_base</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_MC_SITES</span><span class="p">:</span>
@@ -1141,17 +1566,22 @@
             <span class="n">_flush</span><span class="p">(</span><span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;cur_chrom&quot;</span><span class="p">])</span>
         <span class="n">total_line</span> <span class="o">=</span> <span class="n">nonlocal_state</span><span class="p">[</span><span class="s2">&quot;total_line&quot;</span><span class="p">]</span>
     <span class="k">finally</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">pipes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">pipes</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">mpileup_proc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">mpileup_out</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>   <span class="c1"># closes mpileup stdout</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">if</span> <span class="n">mpileup_feeder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">mpileup_feeder</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+                <span class="n">_feeder_exc</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+                    <span class="n">mpileup_feeder</span><span class="p">,</span> <span class="s2">&quot;cz_exc&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;exc&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">_feeder_exc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;strand-flip feeder thread failed: </span><span class="si">{</span><span class="n">_feeder_exc</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">mpileup_proc</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
         <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">ref_pos_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ref_pos_map</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">convert_bam_strandness</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">bam_path</span><span class="p">)</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">bam_path</span> <span class="o">+</span> <span class="s2">&quot;.bai&quot;</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-                <span class="k">pass</span>
 
     <span class="n">count_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;mc&quot;</span><span class="p">:</span> <span class="n">mc_dict</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">:</span> <span class="n">cov_dict</span><span class="p">})</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">count_df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>

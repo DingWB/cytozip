@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.features &mdash; cytozip 0.3.5.dev0 documentation</title>
+  <title>cytozip.features &mdash; cytozip 0.3.6.dev3 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
@@ -14,7 +14,7 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=e01d351f"></script>
+      <script src="../../_static/documentation_options.js?v=ad53049a"></script>
       <script src="../../_static/doctools.js?v=9a2dae69"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/js/rtd_search_config.js"></script>
@@ -46,15 +46,25 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../notebooks/1.quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Installation">1. Installation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#conda">conda</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/1.quick_start.html#pip">pip</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#pip">pip</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#1.-Convert-allc/bed/stdin-to-.cz">1. Convert allc/bed/stdin to .cz</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#2.-Python-API-(Quick-Overview)">2. Python API (Quick Overview)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/1.quick_start.html#3.-Remote-Reading-(from-URL)">3. Remote Reading (from URL)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#2.-Build-reference-cz-file-from-a-reference-genome-fasta-file">2. Build reference cz file from a reference genome fasta file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#3.-Call-methylation-from-bam-file-and-save-as-.cz-format">3. Call methylation from bam file and save as .cz format</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#2.1-Download-example-bam-files">2.1 Download example bam files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#2.2-Call-DNA-methylation-using-cytozip">2.2 Call DNA methylation using cytozip</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#4.-Convert-allc/bed/stdin-to-.cz">4. Convert allc/bed/stdin to .cz</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#4.1-convert-stream-input-to-cz-with-pipe">4.1 convert stream input to cz with pipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#4.2-allc-to-cz-with-reference-cz-as-input">4.2 allc to cz with reference cz as input</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#5.-Python-API">5. Python API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
 </ul>
 </li>
 </ul>
@@ -150,7 +160,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../benchmark.html">Benchmark</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/benchmark.html">1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/benchmark.html#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../modules.html">cytozip</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../cytozip.html">cytozip package</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#submodules">Submodules</a><ul>
@@ -179,6 +190,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.bam.html">cytozip.bam module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#cytozip.bam.name_sort_bam_to_deduped"><code class="docutils literal notranslate"><span class="pre">name_sort_bam_to_deduped()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz.html">cytozip.cz module</a><ul>
@@ -194,8 +206,6 @@
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.iter_chunks_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.iter_chunks_bytes()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.pos2id"><code class="docutils literal notranslate"><span class="pre">Reader.pos2id()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
@@ -204,14 +214,13 @@
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.readline"><code class="docutils literal notranslate"><span class="pre">Reader.readline()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.subset"><code class="docutils literal notranslate"><span class="pre">Reader.subset()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.to_df"><code class="docutils literal notranslate"><span class="pre">Reader.to_df()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
 </ul>
 </li>
@@ -260,6 +269,7 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tocz_int_slab"><code class="docutils literal notranslate"><span class="pre">c_parse_tocz_int_slab()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
@@ -382,9 +392,9 @@
 <span class="sd">* :func:`cz_to_anndata` - aggregate many single-cell ``.cz`` files (or one</span>
 <span class="sd">  ``catcz``-merged ``.cz``) over a BED / DataFrame / genome-bins feature</span>
 <span class="sd">  set and emit a single :class:`anndata.AnnData` with ``mc`` / ``cov``</span>
-<span class="sd">  layers. ``.X`` holds a user-selected score (raw fraction, posterior</span>
-<span class="sd">  fraction normalized by the cell&#39;s prior mean a la ALLCools, or a</span>
-<span class="sd">  binomial hypo / hyper score).</span>
+<span class="sd">  layers. ``.X`` holds a user-selected score (raw fraction, per-cell</span>
+<span class="sd">  empirical-Bayes posterior fraction ``(mc + alpha)/(cov + alpha + beta)``</span>
+<span class="sd">  from a Beta-Binomial prior, or a binomial hypo / hyper score).</span>
 <span class="sd">* :func:`parse_features` - read a BED (plain or bgzipped) feature file</span>
 <span class="sd">  into a DataFrame, normalizing columns.</span>
 <span class="sd">* :func:`make_genome_bins` - tile every chromosome of a chrom-size /</span>
@@ -413,7 +423,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">.cz</span><span class="w"> </span><span class="kn">import</span> <span class="n">Reader</span><span class="p">,</span> <span class="n">_fmt_to_np_dtype</span>
 
 
-<span class="n">_VALID_SCORES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;frac&quot;</span><span class="p">,</span> <span class="s2">&quot;hypo-score&quot;</span><span class="p">,</span> <span class="s2">&quot;hyper-score&quot;</span><span class="p">,</span> <span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">,</span> <span class="s2">&quot;umc&quot;</span><span class="p">)</span>
+<span class="n">_VALID_SCORES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;frac&quot;</span><span class="p">,</span> <span class="s2">&quot;posterior_frac&quot;</span><span class="p">,</span> <span class="s2">&quot;hypo-score&quot;</span><span class="p">,</span> <span class="s2">&quot;hyper-score&quot;</span><span class="p">,</span> <span class="s2">&quot;mc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">,</span> <span class="s2">&quot;umc&quot;</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_record_dtype_for</span><span class="p">(</span><span class="n">formats</span><span class="p">):</span>
@@ -806,145 +816,10 @@
             <span class="n">prior_mean</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_compute_beta_params</span><span class="p">(</span><span class="n">mc_mat</span><span class="p">,</span> <span class="n">cov_mat</span><span class="p">,</span> <span class="n">min_cov</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">df_correction</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-cell Beta(alpha, beta) via Beta-Binomial method of moments.</span>
-
-<span class="sd">    Coverage-aware empirical-Bayes prior over each cell&#39;s per-feature</span>
-<span class="sd">    methylation rates. Unlike the plain Beta MoM (ALLCools</span>
-<span class="sd">    ``calculate_posterior_mc_frac``, preserved as</span>
-<span class="sd">    :func:`_compute_beta_params_legacy`), this subtracts the finite-coverage</span>
-<span class="sd">    binomial sampling noise, so the concentration ``alpha + beta`` is not</span>
-<span class="sd">    biased low on shallow features. See ``docs/beta_binomial_prior.md``.</span>
-
-<span class="sd">    Only features with ``cov &gt;= min_cov`` (default 2) enter the estimate;</span>
-<span class="sd">    rows with &lt; 2 such features or a degenerate mean are flagged NaN.</span>
-<span class="sd">    Returns ``(alpha, beta, prior_mean)`` as ``(n_cells,)`` float32 vectors.</span>
-
-<span class="sd">    Writing these to ``adata.obs`` lets users reconstruct the posterior</span>
-<span class="sd">    fraction later::</span>
-
-<span class="sd">        a = adata.obs[&quot;alpha&quot;].values[:, None]</span>
-<span class="sd">        b = adata.obs[&quot;beta&quot;].values[:, None]</span>
-<span class="sd">        prior = adata.obs[&quot;prior_mean&quot;].values[:, None]</span>
-<span class="sd">        mc = adata.layers[&quot;mc&quot;].toarray()</span>
-<span class="sd">        cov = adata.layers[&quot;cov&quot;].toarray()</span>
-<span class="sd">        post = (mc + a) / (cov + a + b) / prior  # ALLCools post_frac</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">mc</span> <span class="o">=</span> <span class="n">mc_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">cov</span> <span class="o">=</span> <span class="n">cov_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">keep</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
-    <span class="n">n_keep</span> <span class="o">=</span> <span class="n">keep</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-    <span class="n">sum_cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">keep</span><span class="p">,</span> <span class="n">cov</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">sum_mc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">keep</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-        <span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">sum_cov</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">sum_mc</span> <span class="o">/</span> <span class="n">sum_cov</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
-    <span class="n">mu_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="mf">1e-6</span><span class="p">)</span>
-    <span class="n">denom</span> <span class="o">=</span> <span class="p">(</span><span class="n">mu_c</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">mu_c</span><span class="p">))[:,</span> <span class="kc">None</span><span class="p">]</span>
-    <span class="n">safe_cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">keep</span><span class="p">,</span> <span class="n">cov</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>          <span class="c1"># avoid /0 at dropped entries</span>
-    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-        <span class="n">term</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-            <span class="n">keep</span><span class="p">,</span>
-            <span class="p">(</span><span class="n">mc</span> <span class="o">-</span> <span class="n">cov</span> <span class="o">*</span> <span class="n">mu_c</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="n">safe_cov</span> <span class="o">*</span> <span class="n">denom</span><span class="p">),</span>
-            <span class="mf">0.0</span><span class="p">)</span>
-    <span class="n">X</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_beta_binomial_alpha_beta</span><span class="p">(</span><span class="n">sum_mc</span><span class="p">,</span> <span class="n">sum_cov</span><span class="p">,</span> <span class="n">n_keep</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">df_correction</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_compute_beta_params_legacy</span><span class="p">(</span><span class="n">mc_mat</span><span class="p">,</span> <span class="n">cov_mat</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-cell method-of-moments Beta(alpha, beta) from raw mc/cov.</span>
-
-<span class="sd">    ORIGINAL (pre Beta-Binomial) implementation, kept as a backup /</span>
-<span class="sd">    fallback. Mirrors ALLCools ``calculate_posterior_mc_frac`` without</span>
-<span class="sd">    applying the posterior transform: fits a plain Beta to the observed</span>
-<span class="sd">    ``mc/cov`` fractions, which does NOT correct for the binomial sampling</span>
-<span class="sd">    noise and therefore under-estimates ``alpha + beta`` on shallow data.</span>
-<span class="sd">    Superseded by :func:`_compute_beta_params`.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">mc</span> <span class="o">=</span> <span class="n">mc_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">cov</span> <span class="o">=</span> <span class="n">cov_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-        <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cov</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">mc</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">cov</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
-    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">),</span> \
-            <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">suppress_warnings</span><span class="p">()</span> <span class="k">as</span> <span class="n">sup</span><span class="p">:</span>
-        <span class="n">sup</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="ne">RuntimeWarning</span><span class="p">)</span>
-        <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanvar</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">ok</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">mean</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
-          <span class="o">&amp;</span> <span class="p">(</span><span class="n">mean</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">mean</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">var</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
-    <span class="n">alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">mc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-    <span class="n">beta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">mc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">ok</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-        <span class="n">m</span> <span class="o">=</span> <span class="n">mean</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span>
-        <span class="n">v</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span>
-        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">m</span> <span class="o">*</span> <span class="n">m</span> <span class="o">/</span> <span class="n">v</span> <span class="o">-</span> <span class="n">m</span>
-        <span class="n">b</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">m</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
-        <span class="n">alpha</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
-        <span class="n">beta</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
-    <span class="n">prior_mean</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">/</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">+</span> <span class="n">beta</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">(</span><span class="n">alpha</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
-            <span class="n">beta</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
-            <span class="n">prior_mean</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_compute_score_matrix</span><span class="p">(</span><span class="n">mc_mat</span><span class="p">,</span> <span class="n">cov_mat</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span> <span class="n">score_cutoff</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fully-vectorized dispatch to the requested scoring function.</span>
-
-<span class="sd">    Supported scores: ``&#39;frac&#39;``, ``&#39;hypo-score&#39;``, ``&#39;hyper-score&#39;``,</span>
-<span class="sd">    ``&#39;mc&#39;``, ``&#39;cov&#39;``, ``&#39;umc&#39;``. The ``mc`` / ``cov`` / ``umc``</span>
-<span class="sd">    options place the raw integer counts (or unmethylated count</span>
-<span class="sd">    ``cov - mc``) directly into ``.X`` so callers can use</span>
-<span class="sd">    :func:`cz_to_anndata` purely as a per-cell raw-count aggregator over</span>
-<span class="sd">    a feature set.</span>
-
-<span class="sd">    The ALLCools posterior-fraction transform is intentionally *not*</span>
-<span class="sd">    computed here; per-cell Beta(alpha, beta) parameters are instead</span>
-<span class="sd">    written to ``adata.obs`` by :func:`cz_to_anndata` so users can</span>
-<span class="sd">    reconstruct the posterior fraction on demand.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">score</span> <span class="o">==</span> <span class="s2">&quot;frac&quot;</span><span class="p">:</span>
-        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cov_mat</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
-                         <span class="n">mc_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">cov_mat</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                         <span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">x</span>
-
-    <span class="k">if</span> <span class="n">score</span> <span class="o">==</span> <span class="s2">&quot;mc&quot;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">mc_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">score</span> <span class="o">==</span> <span class="s2">&quot;cov&quot;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">cov_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">score</span> <span class="o">==</span> <span class="s2">&quot;umc&quot;</span><span class="p">:</span>
-        <span class="c1"># Unmethylated count = cov - mc; clip at 0 in case of weird inputs.</span>
-        <span class="n">umc</span> <span class="o">=</span> <span class="n">cov_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">-</span> <span class="n">mc_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">umc</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">umc</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">umc</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
-    <span class="n">mc</span> <span class="o">=</span> <span class="n">mc_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">cov</span> <span class="o">=</span> <span class="n">cov_mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">score</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;hypo-score&quot;</span><span class="p">,</span> <span class="s2">&quot;hyper-score&quot;</span><span class="p">):</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">binom</span>
-        <span class="n">tot_mc</span> <span class="o">=</span> <span class="n">mc</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">tot_cov</span> <span class="o">=</span> <span class="n">cov</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-            <span class="n">p</span> <span class="o">=</span> <span class="n">tot_mc</span> <span class="o">/</span> <span class="p">(</span><span class="n">tot_cov</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span>
-        <span class="n">valid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">p</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">p</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">tot_cov</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">mc</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">valid</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-            <span class="c1"># binom.sf broadcasts (k, n_feat) vs (k, 1) -&gt; (k, n_feat).</span>
-            <span class="n">sf</span> <span class="o">=</span> <span class="n">binom</span><span class="o">.</span><span class="n">sf</span><span class="p">(</span><span class="n">mc</span><span class="p">[</span><span class="n">valid</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">valid</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="n">valid</span><span class="p">,</span> <span class="kc">None</span><span class="p">])</span>
-            <span class="n">pv</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">sf</span><span class="p">)</span> <span class="k">if</span> <span class="n">score</span> <span class="o">==</span> <span class="s2">&quot;hyper-score&quot;</span> <span class="k">else</span> <span class="n">sf</span>
-            <span class="n">pv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cov</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">pv</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-            <span class="n">pv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">pv</span> <span class="o">&gt;=</span> <span class="nb">float</span><span class="p">(</span><span class="n">score_cutoff</span><span class="p">),</span> <span class="n">pv</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-            <span class="n">out</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">out</span>
-
-    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;score must be one of </span><span class="si">{</span><span class="n">_VALID_SCORES</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">score</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-
 <span class="c1"># ---------------------------------------------------------------------------</span>
 <span class="c1"># Sparse-streaming helpers (memory-efficient path for hundreds of thousands</span>
-<span class="c1"># of cells). The dense-matrix fallbacks above are kept for callers that</span>
-<span class="c1"># already pass ``mc_mat`` / ``cov_mat``.</span>
+<span class="c1"># of cells). All scoring / Beta-prior estimation runs directly on the</span>
+<span class="c1"># streamed CSR mc/cov layers; there is no dense code path.</span>
 <span class="c1"># ---------------------------------------------------------------------------</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">_StreamingSparseBuilder</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Append-one-cell-at-a-time CSR builder.</span>
@@ -1028,7 +903,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_compute_beta_params_sparse</span><span class="p">(</span><span class="n">mc_csr</span><span class="p">,</span> <span class="n">cov_csr</span><span class="p">,</span> <span class="n">min_cov</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">df_correction</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sparse-input Beta-Binomial MoM version of :func:`_compute_beta_params`.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-cell Beta(alpha, beta) via the coverage-aware Beta-Binomial MoM.</span>
 
 <span class="sd">    Operates only on the stored (non-zero-coverage) entries of each row via</span>
 <span class="sd">    two ``reduceat`` passes (first the per-row mean, then the Pearson</span>
@@ -1074,60 +949,18 @@
     <span class="k">return</span> <span class="n">_beta_binomial_alpha_beta</span><span class="p">(</span><span class="n">sum_mc</span><span class="p">,</span> <span class="n">sum_cov</span><span class="p">,</span> <span class="n">n_keep</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">df_correction</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_compute_beta_params_sparse_legacy</span><span class="p">(</span><span class="n">mc_csr</span><span class="p">,</span> <span class="n">cov_csr</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sparse-input version of :func:`_compute_beta_params_legacy`.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_score_matrix_sparse</span><span class="p">(</span><span class="n">mc_csr</span><span class="p">,</span> <span class="n">cov_csr</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span> <span class="n">score_cutoff</span><span class="p">,</span>
+                                 <span class="n">alpha</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the requested score matrix from the streamed CSR mc/cov layers.</span>
 
-<span class="sd">    ORIGINAL (pre Beta-Binomial) sparse implementation, kept as a backup.</span>
-<span class="sd">    Operates only on the non-zero entries of each row, never building</span>
-<span class="sd">    the full dense matrix. Equivalent to the plain-Beta dense version</span>
-<span class="sd">    because the raw fraction at zero-coverage entries is NaN and dropped</span>
-<span class="sd">    from the nan-mean / nan-var anyway. Superseded by</span>
-<span class="sd">    :func:`_compute_beta_params_sparse`.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">n_rows</span> <span class="o">=</span> <span class="n">cov_csr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cov_csr</span><span class="o">.</span><span class="n">indptr</span><span class="p">)</span>
-    <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">indptr</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-    <span class="n">nz_rows</span> <span class="o">=</span> <span class="n">counts</span> <span class="o">&gt;</span> <span class="mi">0</span>
-
-    <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span>
-        <span class="n">mc_csr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">cov_csr</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">sums</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-    <span class="n">sums_sq</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">nz_rows</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-        <span class="n">starts</span> <span class="o">=</span> <span class="n">indptr</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="n">nz_rows</span><span class="p">]</span>
-        <span class="n">sums</span><span class="p">[</span><span class="n">nz_rows</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">reduceat</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">starts</span><span class="p">)</span>
-        <span class="n">sums_sq</span><span class="p">[</span><span class="n">nz_rows</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">reduceat</span><span class="p">(</span><span class="n">raw</span> <span class="o">*</span> <span class="n">raw</span><span class="p">,</span> <span class="n">starts</span><span class="p">)</span>
-    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-        <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">nz_rows</span><span class="p">,</span> <span class="n">sums</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">counts</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
-        <span class="n">var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">nz_rows</span><span class="p">,</span>
-                       <span class="n">sums_sq</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">counts</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">mean</span> <span class="o">*</span> <span class="n">mean</span><span class="p">,</span>
-                       <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
-    <span class="n">ok</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">mean</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
-          <span class="o">&amp;</span> <span class="p">(</span><span class="n">mean</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">mean</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">var</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
-    <span class="n">alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-    <span class="n">beta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">ok</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-        <span class="n">m</span> <span class="o">=</span> <span class="n">mean</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span>
-        <span class="n">v</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span>
-        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">m</span> <span class="o">*</span> <span class="n">m</span> <span class="o">/</span> <span class="n">v</span> <span class="o">-</span> <span class="n">m</span>
-        <span class="n">b</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">m</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
-        <span class="n">alpha</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
-        <span class="n">beta</span><span class="p">[</span><span class="n">ok</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
-    <span class="n">prior_mean</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">/</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">+</span> <span class="n">beta</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">(</span><span class="n">alpha</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
-            <span class="n">beta</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
-            <span class="n">prior_mean</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_compute_score_matrix_sparse</span><span class="p">(</span><span class="n">mc_csr</span><span class="p">,</span> <span class="n">cov_csr</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span> <span class="n">score_cutoff</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sparse-input version of :func:`_compute_score_matrix`.</span>
-
+<span class="sd">    Supported scores: ``&#39;frac&#39;``, ``&#39;posterior_frac&#39;``, ``&#39;hypo-score&#39;``,</span>
+<span class="sd">    ``&#39;hyper-score&#39;``, ``&#39;mc&#39;``, ``&#39;cov&#39;``, ``&#39;umc&#39;`` (see :func:`cz_to_anndata`).</span>
 <span class="sd">    Returns a ``csr_matrix`` of shape ``(n_cells, n_features)`` with</span>
 <span class="sd">    ``float32`` data. Zero-coverage entries are *implicit* zeros — they</span>
 <span class="sd">    are not materialised, which is the whole point of the streaming</span>
-<span class="sd">    path.</span>
+<span class="sd">    path. For ``&#39;posterior_frac&#39;`` the per-cell posterior mean is computed</span>
+<span class="sd">    only on the stored (``cov &gt; 0``) entries, so the sparsity pattern is</span>
+<span class="sd">    identical to ``&#39;frac&#39;`` (uncovered entries stay implicit ``0``).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ss</span>
     <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cov_csr</span><span class="o">.</span><span class="n">indptr</span><span class="p">)</span>
@@ -1148,6 +981,25 @@
         <span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="n">mc_csr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
                 <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">cov_csr</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">ss</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span>
+                             <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">score</span> <span class="o">==</span> <span class="s2">&quot;posterior_frac&quot;</span><span class="p">:</span>
+        <span class="c1"># per-cell empirical-Bayes posterior mean (mc + a)/(cov + a + b) on</span>
+        <span class="c1"># the stored (cov&gt;0) entries; broadcast the per-row alpha/beta out to</span>
+        <span class="c1"># per-nonzero via repeat. Zero-cov entries remain implicit 0.</span>
+        <span class="k">if</span> <span class="n">alpha</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">beta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_compute_beta_params_sparse</span><span class="p">(</span><span class="n">mc_csr</span><span class="p">,</span> <span class="n">cov_csr</span><span class="p">)</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">indptr</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">a_nz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">alpha</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">counts</span><span class="p">)</span>
+        <span class="n">b_nz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">beta</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">counts</span><span class="p">)</span>
+        <span class="n">mcd</span> <span class="o">=</span> <span class="n">mc_csr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">covd</span> <span class="o">=</span> <span class="n">cov_csr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+            <span class="n">post</span> <span class="o">=</span> <span class="p">(</span><span class="n">mcd</span> <span class="o">+</span> <span class="n">a_nz</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">covd</span> <span class="o">+</span> <span class="n">a_nz</span> <span class="o">+</span> <span class="n">b_nz</span><span class="p">)</span>
+            <span class="n">raw</span> <span class="o">=</span> <span class="n">mcd</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">covd</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="c1"># degenerate cells (NaN alpha/beta) fall back to the raw fraction</span>
+        <span class="n">post</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">post</span><span class="p">),</span> <span class="n">post</span><span class="p">,</span> <span class="n">raw</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ss</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">post</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span>
                              <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">score</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;hypo-score&quot;</span><span class="p">,</span> <span class="s2">&quot;hyper-score&quot;</span><span class="p">):</span>
@@ -1178,6 +1030,62 @@
                              <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;score must be one of </span><span class="si">{</span><span class="n">_VALID_SCORES</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">score</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_hvf_var_stats_sparse</span><span class="p">(</span><span class="n">mc_csr</span><span class="p">,</span> <span class="n">cov_csr</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                  <span class="n">method</span><span class="o">=</span><span class="s2">&quot;posterior&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-feature additive HVF accumulators via column reductions.</span>
+
+<span class="sd">    For each feature (column ``j``), over the cells covering it (``cov &gt; 0``),</span>
+<span class="sd">    computes three additive statistics of the methylation fraction ``f``:</span>
+
+<span class="sd">    * ``hvf_n_cov[j]``   = number of covering cells,</span>
+<span class="sd">    * ``hvf_sum[j]``     = ``sum_i f_ij``,</span>
+<span class="sd">    * ``hvf_sum_sq[j]``  = ``sum_i f_ij^2``.</span>
+
+<span class="sd">    With ``method=&#39;posterior&#39;`` (default) ``f`` is the per-cell empirical-Bayes</span>
+<span class="sd">    posterior mean ``(mc + a)/(cov + a + b)`` (falling back to raw ``mc/cov``</span>
+<span class="sd">    for degenerate cells whose ``alpha``/``beta`` are NaN); ``method=&#39;raw&#39;``</span>
+<span class="sd">    uses ``mc/cov`` directly. All stored entries have ``cov &gt; 0`` (the builder</span>
+<span class="sd">    drops zero-coverage), so the column non-zero count equals the covered-cell</span>
+<span class="sd">    count.</span>
+
+<span class="sd">    These three vectors are additive across cells (and across merged</span>
+<span class="sd">    datasets), so the per-feature mean, variance, dispersion and mean-binned</span>
+<span class="sd">    normalized dispersion can be reconstructed later without re-reading the</span>
+<span class="sd">    matrix (e.g. by ``pym3c`` ``MultiAdata.select_hvf``):</span>
+
+<span class="sd">    .. code-block:: text</span>
+
+<span class="sd">        mean = hvf_sum / hvf_n_cov</span>
+<span class="sd">        var  = hvf_sum_sq / hvf_n_cov - mean**2</span>
+<span class="sd">        dispersion = var / mean</span>
+<span class="sd">        normalized_dispersion = z-score of dispersion within mean bins</span>
+
+<span class="sd">    Returns three ``(n_feat,)`` float64 arrays</span>
+<span class="sd">    ``(hvf_n_cov, hvf_sum, hvf_sum_sq)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n_feat</span> <span class="o">=</span> <span class="n">cov_csr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cov_csr</span><span class="o">.</span><span class="n">indptr</span><span class="p">)</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cov_csr</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span>
+    <span class="n">covd</span> <span class="o">=</span> <span class="n">cov_csr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">mcd</span> <span class="o">=</span> <span class="n">mc_csr</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="c1"># all stored entries are covered (cov &gt; 0), so raw is always finite</span>
+    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">mcd</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">covd</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;posterior&quot;</span> <span class="ow">and</span> <span class="n">alpha</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">beta</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">indptr</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">a_nz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">alpha</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">counts</span><span class="p">)</span>
+        <span class="n">b_nz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">beta</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">counts</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+            <span class="n">frac</span> <span class="o">=</span> <span class="p">(</span><span class="n">mcd</span> <span class="o">+</span> <span class="n">a_nz</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">covd</span> <span class="o">+</span> <span class="n">a_nz</span> <span class="o">+</span> <span class="n">b_nz</span><span class="p">)</span>
+        <span class="n">frac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">frac</span><span class="p">),</span> <span class="n">frac</span><span class="p">,</span> <span class="n">raw</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">frac</span> <span class="o">=</span> <span class="n">raw</span>
+    <span class="n">hvf_n_cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">minlength</span><span class="o">=</span><span class="n">n_feat</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">hvf_sum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">frac</span><span class="p">,</span> <span class="n">minlength</span><span class="o">=</span><span class="n">n_feat</span><span class="p">)</span>
+    <span class="n">hvf_sum_sq</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">frac</span> <span class="o">*</span> <span class="n">frac</span><span class="p">,</span> <span class="n">minlength</span><span class="o">=</span><span class="n">n_feat</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">hvf_n_cov</span><span class="p">,</span> <span class="n">hvf_sum</span><span class="p">,</span> <span class="n">hvf_sum_sq</span>
 
 
 <span class="c1"># ---------------------------------------------------------------------------</span>
@@ -1394,8 +1302,8 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;Cell .cz has no &#39;pos&#39; column; pass reference= to &quot;</span>
             <span class="s2">&quot;provide the coordinate reference.&quot;</span><span class="p">)</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">.bam</span><span class="w"> </span><span class="kn">import</span> <span class="n">_load_reference_positions</span>
-    <span class="n">_WORKER_STATE</span><span class="p">[</span><span class="s2">&quot;ref_pos_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_load_reference_positions</span><span class="p">(</span><span class="n">ref_path</span><span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.bam</span><span class="w"> </span><span class="kn">import</span> <span class="n">_LazyRefPositions</span>
+    <span class="n">_WORKER_STATE</span><span class="p">[</span><span class="s2">&quot;ref_pos_map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_LazyRefPositions</span><span class="p">(</span><span class="n">ref_path</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_WORKER_STATE</span><span class="p">[</span><span class="s2">&quot;ref_pos_map&quot;</span><span class="p">]</span>
 
 
@@ -1476,8 +1384,9 @@
     <span class="n">blacklist</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">flank_bp</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span>
     <span class="n">gtf_id_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gene_name&quot;</span><span class="p">,</span>
-    <span class="n">score</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;frac&quot;</span><span class="p">,</span>
+    <span class="n">score</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;posterior_frac&quot;</span><span class="p">,</span>
     <span class="n">score_cutoff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">,</span>
+    <span class="n">hvf_frac</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;posterior&quot;</span><span class="p">,</span>
     <span class="n">jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Build an :class:`anndata.AnnData` of shape ``(n_cells, n_features)``.</span>
@@ -1566,11 +1475,17 @@
 <span class="sd">        becomes ``var_names``. When ``&#39;gene_name&#39;`` (the default), GENCODE</span>
 <span class="sd">        records that share a symbol on one chrom are merged into a single</span>
 <span class="sd">        interval so the output has exactly one row per gene symbol.</span>
-<span class="sd">    score : {&#39;frac&#39;, &#39;hypo-score&#39;, &#39;hyper-score&#39;, &#39;mc&#39;, &#39;cov&#39;, &#39;umc&#39;}</span>
+<span class="sd">    score : {&#39;frac&#39;, &#39;posterior_frac&#39;, &#39;hypo-score&#39;, &#39;hyper-score&#39;, &#39;mc&#39;, &#39;cov&#39;, &#39;umc&#39;}</span>
 <span class="sd">        What to store in ``.X``:</span>
 
-<span class="sd">        - ``&#39;frac&#39;`` (default): raw ``mc/cov`` fraction. Zero-cov</span>
+<span class="sd">        - ``&#39;frac&#39;``: raw ``mc/cov`` fraction. Zero-cov</span>
 <span class="sd">          features are ``0``.</span>
+<span class="sd">        - ``&#39;posterior_frac&#39;`` (default): per-cell empirical-Bayes posterior mean</span>
+<span class="sd">          ``(mc + alpha) / (cov + alpha + beta)`` using the per-cell Beta</span>
+<span class="sd">          prior estimated by the Beta-Binomial method of moments (see</span>
+<span class="sd">          ``docs/Methods.md``). Shrinks noisy low-coverage estimates toward</span>
+<span class="sd">          the cell&#39;s prior mean. Only covered features get a value;</span>
+<span class="sd">          zero-cov features stay ``0`` (same sparsity as ``&#39;frac&#39;``).</span>
 <span class="sd">        - ``&#39;hypo-score&#39;``: per-cell binomial survival function</span>
 <span class="sd">          ``P(X &gt; mc | Binomial(cov, p_cell))``, with ``p_cell = total_mc /</span>
 <span class="sd">          total_cov`` for that cell. Values below ``score_cutoff`` are set</span>
@@ -1590,13 +1505,23 @@
 <span class="sd">        ``.layers[&#39;cov&#39;]`` regardless of which score is selected; the</span>
 <span class="sd">        ``score`` choice only changes ``.X``.</span>
 
-<span class="sd">        The ALLCools posterior-fraction transform is intentionally *not*</span>
-<span class="sd">        offered as a score; instead, per-cell Beta(alpha, beta) are</span>
-<span class="sd">        written to ``adata.obs`` as ``[&#39;alpha&#39;, &#39;beta&#39;, &#39;prior_mean&#39;]``</span>
-<span class="sd">        so users can recover the posterior fraction downstream:</span>
-<span class="sd">        ``(mc + alpha) / (cov + alpha + beta) / prior_mean``.</span>
+<span class="sd">        Only when ``score=&#39;posterior_frac&#39;`` are the per-cell Beta prior</span>
+<span class="sd">        columns ``[&#39;alpha&#39;, &#39;beta&#39;, &#39;prior_mean&#39;, &#39;rho&#39;]`` written to</span>
+<span class="sd">        ``adata.obs`` and the per-feature accumulators ``[&#39;hvf_n_cov&#39;,</span>
+<span class="sd">        &#39;hvf_sum&#39;, &#39;hvf_sum_sq&#39;]`` written to ``adata.var`` (they reuse the</span>
+<span class="sd">        same per-cell prior, estimated once). For the other scores these are</span>
+<span class="sd">        skipped to avoid the extra Beta-Binomial estimation.</span>
 <span class="sd">    score_cutoff : float</span>
 <span class="sd">        Sparsification threshold for hypo/hyper scores. Default 0.9.</span>
+<span class="sd">    hvf_frac : {&#39;posterior&#39;, &#39;raw&#39;}, default ``&#39;posterior&#39;``</span>
+<span class="sd">        Only used when ``score=&#39;posterior_frac&#39;``. Which per-(cell, feature)</span>
+<span class="sd">        fraction the per-feature HVF accumulators</span>
+<span class="sd">        (``adata.var[&#39;hvf_n_cov&#39; / &#39;hvf_sum&#39; / &#39;hvf_sum_sq&#39;]``) are computed</span>
+<span class="sd">        on. ``&#39;posterior&#39;`` uses the empirical-Bayes posterior mean</span>
+<span class="sd">        ``(mc + alpha) / (cov + alpha + beta)`` (raw ``mc/cov`` fallback for</span>
+<span class="sd">        degenerate cells); ``&#39;raw&#39;`` uses ``mc/cov``. These three additive</span>
+<span class="sd">        accumulators let mean / var / dispersion / normalized dispersion be</span>
+<span class="sd">        reconstructed downstream (see ``docs/Methods.md``).</span>
 <span class="sd">    jobs : int</span>
 <span class="sd">        Number of worker processes (CPUs) for parallel per-cell aggregation.</span>
 <span class="sd">        ``1`` (default) runs serially in-process. ``&gt;1`` uses a</span>
@@ -1609,7 +1534,8 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    anndata.AnnData</span>
-<span class="sd">        ``.X`` holds the requested score (dense ``float32``).</span>
+<span class="sd">        ``.X`` holds the requested score as a CSR sparse ``float32``</span>
+<span class="sd">        matrix (uncovered features are implicit zeros).</span>
 <span class="sd">        ``.layers[&#39;mc&#39;]`` and ``.layers[&#39;cov&#39;]`` hold the raw integer</span>
 <span class="sd">        counts (``uint32``) as CSR sparse matrices.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -1711,8 +1637,8 @@
                 <span class="s2">&quot;provide the coordinate reference.&quot;</span>
             <span class="p">)</span>
         <span class="c1"># Local import to avoid circular deps at module load time.</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">.bam</span><span class="w"> </span><span class="kn">import</span> <span class="n">_load_reference_positions</span>
-        <span class="n">ref_pos_map_cache</span><span class="p">[</span><span class="s2">&quot;map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_load_reference_positions</span><span class="p">(</span><span class="n">ref_path</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.bam</span><span class="w"> </span><span class="kn">import</span> <span class="n">_LazyRefPositions</span>
+        <span class="n">ref_pos_map_cache</span><span class="p">[</span><span class="s2">&quot;map&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_LazyRefPositions</span><span class="p">(</span><span class="n">ref_path</span><span class="p">)</span>
         <span class="n">ref_pos_map_cache</span><span class="p">[</span><span class="s2">&quot;loaded&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="n">ref_pos_map_cache</span><span class="p">[</span><span class="s2">&quot;map&quot;</span><span class="p">]</span>
 
@@ -1876,32 +1802,41 @@
     <span class="k">if</span> <span class="n">gtf_meta_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">var_df</span> <span class="o">=</span> <span class="n">var_df</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">gtf_meta_df</span><span class="p">)</span>
 
-    <span class="n">X</span> <span class="o">=</span> <span class="n">_compute_score_matrix_sparse</span><span class="p">(</span><span class="n">mc_sp</span><span class="p">,</span> <span class="n">cov_sp</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span>
-                                     <span class="n">score_cutoff</span><span class="o">=</span><span class="n">score_cutoff</span><span class="p">)</span>
-
-    <span class="c1"># Per-cell Beta(alpha, beta) + prior_mean for ALLCools-style</span>
-    <span class="c1"># posterior fraction reconstruction downstream — sparse-aware so</span>
-    <span class="c1"># we don&#39;t densify just to compute per-row stats.</span>
-    <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">prior_mean</span> <span class="o">=</span> <span class="n">_compute_beta_params_sparse</span><span class="p">(</span><span class="n">mc_sp</span><span class="p">,</span> <span class="n">cov_sp</span><span class="p">)</span>
-
+    <span class="c1"># The per-cell Beta prior (alpha, beta) and the per-feature HVF</span>
+    <span class="c1"># accumulators are only needed for the posterior_frac score, so they are</span>
+    <span class="c1"># computed *only* in that branch to avoid wasted work on the other scores.</span>
+    <span class="c1"># alpha/beta are estimated once here and shared by the score transform, the</span>
+    <span class="c1"># HVF accumulators and adata.obs (no double estimation).</span>
     <span class="n">obs_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">obs_names</span><span class="p">)</span>
-    <span class="n">obs_df</span><span class="p">[</span><span class="s2">&quot;alpha&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">alpha</span>
-    <span class="n">obs_df</span><span class="p">[</span><span class="s2">&quot;beta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">beta</span>
-    <span class="n">obs_df</span><span class="p">[</span><span class="s2">&quot;prior_mean&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">prior_mean</span>
-    <span class="c1"># rho = 1 / (alpha + beta + 1)  == 1/(kappa+1): the intra-class correlation</span>
-    <span class="c1"># (over-dispersion) of the per-cell Beta-Binomial fit. It measures how much</span>
-    <span class="c1"># the cell&#39;s per-feature methylation rates spread around the prior mean,</span>
-    <span class="c1"># beyond binomial sampling noise:</span>
-    <span class="c1">#   * rho -&gt; 0  : rates are nearly constant (high concentration kappa),</span>
-    <span class="c1">#                 so the prior is strong and posterior shrinkage is heavy;</span>
-    <span class="c1">#   * rho -&gt; 1  : rates are highly variable (low kappa), weak prior /</span>
-    <span class="c1">#                 little shrinkage.</span>
-    <span class="c1"># It is coverage-independent (unlike a raw variance), so it is a useful</span>
-    <span class="c1"># per-cell QC handle (e.g. flag degenerate/low-complexity cells) and lets</span>
-    <span class="c1"># downstream code recover the shrinkage strength kappa = (1 - rho)/rho.</span>
-    <span class="c1"># NaN wherever alpha/beta are NaN (degenerate rows).</span>
-    <span class="n">obs_df</span><span class="p">[</span><span class="s2">&quot;rho&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">alpha</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-                            <span class="o">+</span> <span class="n">beta</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">score</span> <span class="o">==</span> <span class="s2">&quot;posterior_frac&quot;</span><span class="p">:</span>
+        <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">prior_mean</span> <span class="o">=</span> <span class="n">_compute_beta_params_sparse</span><span class="p">(</span><span class="n">mc_sp</span><span class="p">,</span> <span class="n">cov_sp</span><span class="p">)</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">_compute_score_matrix_sparse</span><span class="p">(</span><span class="n">mc_sp</span><span class="p">,</span> <span class="n">cov_sp</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span>
+                                         <span class="n">score_cutoff</span><span class="o">=</span><span class="n">score_cutoff</span><span class="p">,</span>
+                                         <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="n">beta</span><span class="p">)</span>
+        <span class="c1"># Per-feature additive HVF accumulators -&gt; adata.var. Additive across</span>
+        <span class="c1"># cells (and merged datasets), so mean / var / dispersion / normalized</span>
+        <span class="c1"># dispersion can be reconstructed downstream (e.g. pym3c</span>
+        <span class="c1"># MultiAdata.select_hvf) without re-reading the matrix.</span>
+        <span class="n">hvf_n_cov</span><span class="p">,</span> <span class="n">hvf_sum</span><span class="p">,</span> <span class="n">hvf_sum_sq</span> <span class="o">=</span> <span class="n">_compute_hvf_var_stats_sparse</span><span class="p">(</span>
+            <span class="n">mc_sp</span><span class="p">,</span> <span class="n">cov_sp</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="n">beta</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">hvf_frac</span><span class="p">)</span>
+        <span class="n">var_df</span><span class="p">[</span><span class="s2">&quot;hvf_n_cov&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hvf_n_cov</span>
+        <span class="n">var_df</span><span class="p">[</span><span class="s2">&quot;hvf_sum&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hvf_sum</span>
+        <span class="n">var_df</span><span class="p">[</span><span class="s2">&quot;hvf_sum_sq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hvf_sum_sq</span>
+        <span class="c1"># per-cell Beta prior + prior_mean + rho for downstream posterior use.</span>
+        <span class="n">obs_df</span><span class="p">[</span><span class="s2">&quot;alpha&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">alpha</span>
+        <span class="n">obs_df</span><span class="p">[</span><span class="s2">&quot;beta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">beta</span>
+        <span class="n">obs_df</span><span class="p">[</span><span class="s2">&quot;prior_mean&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">prior_mean</span>
+        <span class="c1"># rho = 1 / (alpha + beta + 1)  == 1/(kappa+1): the intra-class</span>
+        <span class="c1"># correlation (over-dispersion) of the per-cell Beta-Binomial fit. It</span>
+        <span class="c1"># is coverage-independent (unlike a raw variance), so it doubles as a</span>
+        <span class="c1"># per-cell QC handle (flag degenerate/low-complexity cells) and lets</span>
+        <span class="c1"># downstream code recover the shrinkage strength kappa = (1 - rho)/rho.</span>
+        <span class="c1"># NaN wherever alpha/beta are NaN (degenerate rows).</span>
+        <span class="n">obs_df</span><span class="p">[</span><span class="s2">&quot;rho&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">alpha</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                                <span class="o">+</span> <span class="n">beta</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">_compute_score_matrix_sparse</span><span class="p">(</span><span class="n">mc_sp</span><span class="p">,</span> <span class="n">cov_sp</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span>
+                                         <span class="n">score_cutoff</span><span class="o">=</span><span class="n">score_cutoff</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">obs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">obs_df</span> <span class="o">=</span> <span class="n">obs_df</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
 
@@ -1914,6 +1849,7 @@
     <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s2">&quot;cytozip_score&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;score&quot;</span><span class="p">:</span> <span class="n">score</span><span class="p">,</span>
         <span class="s2">&quot;score_cutoff&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">score_cutoff</span><span class="p">),</span>
+        <span class="s2">&quot;hvf_frac&quot;</span><span class="p">:</span> <span class="n">hvf_frac</span><span class="p">,</span>
     <span class="p">}</span>
     <span class="k">if</span> <span class="n">output</span><span class="p">:</span>
         <span class="n">adata</span><span class="o">.</span><span class="n">write_h5ad</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">output</span><span class="p">)))</span>

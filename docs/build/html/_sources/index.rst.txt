@@ -3,10 +3,10 @@ Chunk ZIP
 `cytozip <https://github.com/DingWB/cytozip>`_ is a scalable, cloud-native ecosystem for single-cell and population DNA methylation analysis.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Getting Started
 
-   notebooks/1.quick_start
+   notebooks/quick_start
 
 .. toctree::
    :maxdepth: 2
@@ -27,9 +27,7 @@ Chunk ZIP
    :maxdepth: 2
    :caption: Reference
 
-   benchmark
-   format_history
-   developer_guide
+   notebooks/benchmark
    modules
 
 Credits and Thanks

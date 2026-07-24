@@ -255,7 +255,7 @@ def _build_parser():
     p.add_argument('-p', '--pattern', default='C', help='nucleotide pattern')
     p.add_argument('-j', '--jobs', type=int, default=12, help='number of parallel processes (CPUs)')
     p.add_argument('--keep_temp', action='store_true', help='keep temp directory')
-    p.add_argument('-s', '--chrom_size', default=None,
+    p.add_argument('-s', '--chroms', default=None,
                    help="Path to a `.fai` index file or a plain text file whose first "
                         "(tab-separated, no header) column lists chromosome names. When "
                         "provided, only these chromosomes are extracted, and the merged "
@@ -826,7 +826,7 @@ def main():
         a = AllC(genome=args.genome, output=args.output,
                  pattern=args.pattern, jobs=args.jobs,
                  keep_temp=args.keep_temp, delta=not args.no_delta,
-                 chrom_size=args.chrom_size)
+                 chroms=args.chroms)
         a.run()
 
     elif cmd == 'index':
