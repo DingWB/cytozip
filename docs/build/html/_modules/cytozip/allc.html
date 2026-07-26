@@ -65,6 +65,13 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#5.-Python-API">5. Python API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#7.-Convert-cz-to-allc-&amp;-compare-cz-with-allc">7. Convert cz to allc &amp; compare cz with allc</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#7.1-Download-example-paired-cz-and-allc-files-from-figshare">7.1 Download example paired cz and allc files from figshare</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#7.2-Convert-.cz-to-.allc.tsv.gz">7.2 Convert .cz to .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#7.3-Directly-compare-.cz-and-ALLCools-generated-.allc.tsv.gz">7.3 Directly compare .cz and ALLCools generated .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#7.4-Compare-.cz-converted-.allc.tsv.gz-and-ALLCools-generated-.allc.tsv.gz">7.4 Compare .cz converted .allc.tsv.gz and ALLCools generated .allc.tsv.gz</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -177,6 +184,7 @@
 </li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.compare_allc"><code class="docutils literal notranslate"><span class="pre">compare_allc()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
 </ul>
 </li>
@@ -1187,6 +1195,126 @@
     <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
     <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
     <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<span class="c1"># ==========================================================</span>
+<span class="n">_ALLC_COLS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;pos&#39;</span><span class="p">,</span> <span class="s1">&#39;strand&#39;</span><span class="p">,</span> <span class="s1">&#39;context&#39;</span><span class="p">,</span> <span class="s1">&#39;mc&#39;</span><span class="p">,</span> <span class="s1">&#39;cov&#39;</span><span class="p">,</span> <span class="s1">&#39;methylated&#39;</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_allc_table</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read an allc.tsv[.gz] file into a DataFrame with standard columns.&quot;&quot;&quot;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="n">sep</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">_ALLC_COLS</span><span class="p">,</span>
+                       <span class="n">dtype</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;chrom&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="s1">&#39;pos&#39;</span><span class="p">:</span> <span class="s1">&#39;int64&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;strand&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="s1">&#39;context&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                              <span class="s1">&#39;mc&#39;</span><span class="p">:</span> <span class="s1">&#39;int64&#39;</span><span class="p">,</span> <span class="s1">&#39;cov&#39;</span><span class="p">:</span> <span class="s1">&#39;int64&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;methylated&#39;</span><span class="p">:</span> <span class="s1">&#39;int8&#39;</span><span class="p">})</span>
+
+
+<span class="c1"># Per-format saturation caps for unsigned-integer struct formats.</span>
+<span class="n">_DTYPE_MAX</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;B&#39;</span><span class="p">:</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">8</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;H&#39;</span><span class="p">:</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">16</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;I&#39;</span><span class="p">:</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">32</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;Q&#39;</span><span class="p">:</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">64</span> <span class="o">-</span> <span class="mi">1</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="compare_allc">
+<a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.compare_allc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compare_allc</span><span class="p">(</span><span class="n">allc1</span><span class="p">,</span> <span class="n">allc2</span><span class="p">,</span> <span class="n">drop_zero_cov</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;B&#39;</span><span class="p">,</span>
+                 <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compare two allc.tsv[.gz] files and report per-position differences.</span>
+
+<span class="sd">    Records are joined on ``(chrom, pos)``. Optionally, records whose</span>
+<span class="sd">    coverage is 0 are dropped, and ``mc`` / ``cov`` values are truncated</span>
+<span class="sd">    (clamped) to the maximum value representable by ``dtype`` before</span>
+<span class="sd">    comparison — this mimics the saturation applied when packing allc</span>
+<span class="sd">    values into fixed-width unsigned-integer .cz columns.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    allc1 : path</span>
+<span class="sd">        Path to the first allc.tsv[.gz] file.</span>
+<span class="sd">    allc2 : path</span>
+<span class="sd">        Path to the second allc.tsv[.gz] file.</span>
+<span class="sd">    drop_zero_cov : bool, optional</span>
+<span class="sd">        If True (default), drop records with ``cov == 0`` from both files</span>
+<span class="sd">        before comparison.</span>
+<span class="sd">    dtype : {&#39;B&#39;, &#39;H&#39;, &#39;I&#39;, &#39;Q&#39;} or None, optional</span>
+<span class="sd">        Unsigned-integer struct format used to derive the clamp bound for</span>
+<span class="sd">        ``mc`` / ``cov``: ``&#39;B&#39;`` -&gt; 255, ``&#39;H&#39;`` -&gt; 65535,</span>
+<span class="sd">        ``&#39;I&#39;`` -&gt; 4294967295, ``&#39;Q&#39;`` -&gt; 2**64-1 (default ``&#39;B&#39;``).</span>
+<span class="sd">        Values greater than the derived maximum are clamped to it. Pass</span>
+<span class="sd">        ``None`` to disable clamping.</span>
+
+<span class="sd">        With the default ``&#39;B&#39;``, any ``mc`` or ``cov`` value greater than</span>
+<span class="sd">        255 in the input allc file is truncated (saturated) to 255 before</span>
+<span class="sd">        comparison. This is intentional: cytozip stores single-cell ``mc`` /</span>
+<span class="sd">        ``cov`` as one-byte unsigned integers (``B``) to save space, so the</span>
+<span class="sd">        packed .cz file itself caps these values at 255. In single-cell</span>
+<span class="sd">        data, an ``mc`` or ``cov`` above 255 is almost always an artifact</span>
+<span class="sd">        (e.g. reads piling up in a repeat region) rather than a genuine</span>
+<span class="sd">        signal. Downstream tools reinforce this: ALLCools&#39; DMR analysis</span>
+<span class="sd">        further clips coverage to 50, so pre-truncating to 255 here has no</span>
+<span class="sd">        effect on downstream results. Applying the same 255 cap to both</span>
+<span class="sd">        files therefore lets ``compare_allc`` faithfully reproduce what the</span>
+<span class="sd">        packed .cz would contain, so it reports only differences that</span>
+<span class="sd">        actually survive the format&#39;s saturation. Use a wider format</span>
+<span class="sd">        (``&#39;H&#39;`` / ``&#39;I&#39;`` / ``&#39;Q&#39;``) or ``None`` if you want to compare the</span>
+<span class="sd">        raw, un-truncated values instead.</span>
+<span class="sd">    output : path, optional</span>
+<span class="sd">        If given, write the table of differing rows to this path</span>
+<span class="sd">        (tab-separated). Default None (do not write).</span>
+<span class="sd">    sep : str, optional</span>
+<span class="sd">        Column separator of the input allc files (default ``&#39;\\t&#39;``).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pandas.DataFrame</span>
+<span class="sd">        Rows where the two files differ, joined on ``(chrom, pos)`` with</span>
+<span class="sd">        ``_1`` / ``_2`` suffixes. A row is considered different when it is</span>
+<span class="sd">        present in only one file, or when ``mc`` / ``cov`` differ.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">max_value</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_DTYPE_MAX</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;dtype must be one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_DTYPE_MAX</span><span class="p">)</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">dtype</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">max_value</span> <span class="o">=</span> <span class="n">_DTYPE_MAX</span><span class="p">[</span><span class="n">dtype</span><span class="p">]</span>
+
+    <span class="n">df1</span> <span class="o">=</span> <span class="n">_read_allc_table</span><span class="p">(</span><span class="n">allc1</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="n">sep</span><span class="p">)</span>
+    <span class="n">df2</span> <span class="o">=</span> <span class="n">_read_allc_table</span><span class="p">(</span><span class="n">allc2</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="n">sep</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">drop_zero_cov</span><span class="p">:</span>
+        <span class="n">df1</span> <span class="o">=</span> <span class="n">df1</span><span class="p">[</span><span class="n">df1</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">df2</span> <span class="o">=</span> <span class="n">df2</span><span class="p">[</span><span class="n">df2</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">max_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">df</span> <span class="ow">in</span> <span class="p">(</span><span class="n">df1</span><span class="p">,</span> <span class="n">df2</span><span class="p">):</span>
+            <span class="n">df</span><span class="p">[</span><span class="s1">&#39;mc&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;mc&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">upper</span><span class="o">=</span><span class="n">max_value</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;cov&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">upper</span><span class="o">=</span><span class="n">max_value</span><span class="p">)</span>
+
+    <span class="n">merged</span> <span class="o">=</span> <span class="n">df1</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">df2</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;pos&#39;</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s1">&#39;outer&#39;</span><span class="p">,</span>
+                       <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;_1&#39;</span><span class="p">,</span> <span class="s1">&#39;_2&#39;</span><span class="p">),</span> <span class="n">indicator</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">only_in_1</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="s1">&#39;_merge&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;left_only&#39;</span>
+    <span class="n">only_in_2</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="s1">&#39;_merge&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;right_only&#39;</span>
+    <span class="n">both</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="s1">&#39;_merge&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;both&#39;</span>
+    <span class="n">mc_diff</span> <span class="o">=</span> <span class="n">both</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="s1">&#39;mc_1&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">merged</span><span class="p">[</span><span class="s1">&#39;mc_2&#39;</span><span class="p">])</span>
+    <span class="n">cov_diff</span> <span class="o">=</span> <span class="n">both</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="s1">&#39;cov_1&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">merged</span><span class="p">[</span><span class="s1">&#39;cov_2&#39;</span><span class="p">])</span>
+
+    <span class="n">diff_mask</span> <span class="o">=</span> <span class="n">only_in_1</span> <span class="o">|</span> <span class="n">only_in_2</span> <span class="o">|</span> <span class="n">mc_diff</span> <span class="o">|</span> <span class="n">cov_diff</span>
+    <span class="n">diff</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="n">diff_mask</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;compare_allc: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">df1</span><span class="p">)</span><span class="si">}</span><span class="s2"> records in allc1, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">df2</span><span class="p">)</span><span class="si">}</span><span class="s2"> in allc2; &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;only_in_1=</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">only_in_1</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="si">}</span><span class="s2">, only_in_2=</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">only_in_2</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="si">}</span><span class="s2">, &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;mc_diff=</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">mc_diff</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="si">}</span><span class="s2">, cov_diff=</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">cov_diff</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="si">}</span><span class="s2">, &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;total_diff=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+        <span class="n">diff</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Differences written to </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">diff</span></div>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>

@@ -71,6 +71,13 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#5.-Python-API">5. Python API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#7.-Convert-cz-to-allc-&amp;-compare-cz-with-allc">7. Convert cz to allc &amp; compare cz with allc</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#7.1-Download-example-paired-cz-and-allc-files-from-figshare">7.1 Download example paired cz and allc files from figshare</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#7.2-Convert-.cz-to-.allc.tsv.gz">7.2 Convert .cz to .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#7.3-Directly-compare-.cz-and-ALLCools-generated-.allc.tsv.gz">7.3 Directly compare .cz and ALLCools generated .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#7.4-Compare-.cz-converted-.allc.tsv.gz-and-ALLCools-generated-.allc.tsv.gz">7.4 Compare .cz converted .allc.tsv.gz and ALLCools generated .allc.tsv.gz</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -183,6 +190,7 @@
 </li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.compare_allc"><code class="docutils literal notranslate"><span class="pre">compare_allc()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
 </ul>
 </li>
@@ -491,6 +499,11 @@ real    2m3.596s
 user    3m51.014s
 sys     0m12.793s
 </pre></div></div>
+</div>
+<p>The reference .cz file (hg38_with_chrL.allc.cz) can also be downloaded from figshare: <a class="reference external" href="https://figshare.com/ndownloader/files/66985196">https://figshare.com/ndownloader/files/66985196</a> Or directly download it on linux with pyfigshare:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>pyfigshare
+figshare<span class="w"> </span>download<span class="w"> </span><span class="m">32095567</span><span class="w"> </span>--file_id<span class="w"> </span><span class="m">66985196</span><span class="w"> </span>--outdir<span class="w"> </span>cytozip_example_data
+</pre></div>
 </div>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
@@ -1209,6 +1222,722 @@ sys     0m0.177s
 </pre></div>
 </div>
 </div>
+</section>
+<section id="7.-Convert-cz-to-allc-&amp;-compare-cz-with-allc">
+<h2>7. Convert cz to allc &amp; compare cz with allc<a class="headerlink" href="#7.-Convert-cz-to-allc-&-compare-cz-with-allc" title="Link to this heading"></a></h2>
+<section id="7.1-Download-example-paired-cz-and-allc-files-from-figshare">
+<h3>7.1 Download example paired cz and allc files from figshare<a class="headerlink" href="#7.1-Download-example-paired-cz-and-allc-files-from-figshare" title="Link to this heading"></a></h3>
+<p>Download example paired allc and cz files from figshare: <a class="reference external" href="https://figshare.com/articles/dataset/cytozip_example_data/32095567">https://figshare.com/articles/dataset/cytozip_example_data/32095567</a> or download with command line using pyfigshare:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>pyfigshare<span class="w"> </span><span class="c1"># https://github.com/DingWB/pyfigshare</span>
+figshare<span class="w"> </span>download<span class="w"> </span><span class="m">32095567</span><span class="w"> </span>--cpu<span class="w"> </span><span class="m">4</span><span class="w"> </span>--outdir<span class="w"> </span>cytozip_example_data<span class="w"> </span><span class="c1"># download the whole folder (cytozip_example_data)</span>
+</pre></div>
+</div>
+</section>
+<section id="7.2-Convert-.cz-to-.allc.tsv.gz">
+<h3>7.2 Convert .cz to .allc.tsv.gz<a class="headerlink" href="#7.2-Convert-.cz-to-.allc.tsv.gz" title="Link to this heading"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>header<span class="w"> </span>-I<span class="w"> </span>cytozip_example_data/hg38_cz/UWA7648_CX1819_NAC_1_P9-1-M14-C14.cz
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+magic  :  b&#39;CZIP&#39;
+version  :  0.36
+total_size  :  55865977
+message  :  hg38_with_chrL.allc.cz
+formats  :  [&#39;B&#39;, &#39;B&#39;]
+columns  :  [&#39;mc&#39;, &#39;cov&#39;]
+sort_col  :  None
+delta_cols  :  []
+chunk_dims  :  [&#39;chrom&#39;]
+header_size  :  61
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Convert .cz to .allc.tsv.gz</span>
+<span class="o">!</span><span class="w"> </span><span class="nb">time</span><span class="w"> </span>czip<span class="w"> </span>to_bgzip<span class="w"> </span>-I<span class="w"> </span>cytozip_example_data/hg38_cz/UWA7648_CX1819_NAC_1_P9-1-M14-C14.cz<span class="w"> </span><span class="err">\</span>
+                <span class="o">-</span><span class="n">O</span> <span class="n">cytozip_example_data</span><span class="o">/</span><span class="n">hg38_cz</span><span class="o">/</span><span class="n">UWA7648_CX1819_NAC_1_P9</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="n">M14</span><span class="o">-</span><span class="n">C14</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">tsv</span><span class="o">.</span><span class="n">gz</span> \
+                <span class="o">-</span><span class="n">r</span> <span class="n">cytozip_example_data</span><span class="o">/</span><span class="n">hg38_with_chrL</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">cz</span> <span class="o">--</span><span class="n">cov_col</span> <span class="n">cov</span> <span class="o">--</span><span class="n">allc_format</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+
+real    2m44.037s
+user    2m34.460s
+sys     0m8.519s
+</pre></div></div>
+</div>
+</section>
+<section id="7.3-Directly-compare-.cz-and-ALLCools-generated-.allc.tsv.gz">
+<h3>7.3 Directly compare .cz and ALLCools generated .allc.tsv.gz<a class="headerlink" href="#7.3-Directly-compare-.cz-and-ALLCools-generated-.allc.tsv.gz" title="Link to this heading"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># validate whether cz and allc store the same values in Python</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="n">df_allc</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P9-1-M14-C14.allc.tsv.gz&quot;</span><span class="p">,</span>
+                    <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span><span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">,</span> <span class="s2">&quot;pos&quot;</span><span class="p">,</span> <span class="s1">&#39;strand&#39;</span><span class="p">,</span><span class="s1">&#39;context&#39;</span><span class="p">,</span><span class="s2">&quot;mc_allc&quot;</span><span class="p">,</span> <span class="s2">&quot;cov_allc&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+<span class="n">df_allc</span><span class="o">.</span><span class="n">set_index</span><span class="p">([</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span><span class="s1">&#39;strand&#39;</span><span class="p">,</span><span class="s1">&#39;context&#39;</span><span class="p">],</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">df_allc</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th>mc_allc</th>
+      <th>cov_allc</th>
+    </tr>
+    <tr>
+      <th>chrom</th>
+      <th>pos</th>
+      <th>strand</th>
+      <th>context</th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th rowspan="5" valign="top">chr1</th>
+      <th>32639</th>
+      <th>+</th>
+      <th>CAC</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>32641</th>
+      <th>+</th>
+      <th>CCC</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>32642</th>
+      <th>+</th>
+      <th>CCA</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>32643</th>
+      <th>+</th>
+      <th>CAT</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>32646</th>
+      <th>+</th>
+      <th>CGG</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <th>...</th>
+      <th>...</th>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th rowspan="5" valign="top">chrL</th>
+      <th>48487</th>
+      <th>-</th>
+      <th>CAC</th>
+      <td>0</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>48492</th>
+      <th>-</th>
+      <th>CGG</th>
+      <td>2</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>48496</th>
+      <th>-</th>
+      <th>CTG</th>
+      <td>0</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>48497</th>
+      <th>-</th>
+      <th>CCT</th>
+      <td>0</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>48502</th>
+      <th>-</th>
+      <th>CGT</th>
+      <td>2</td>
+      <td>3</td>
+    </tr>
+  </tbody>
+</table>
+<p>73852777 rows × 2 columns</p>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="kn">import</span> <span class="n">Reader</span>
+<span class="n">cell</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="s2">&quot;cytozip_example_data/hg38_cz/UWA7648_CX1819_NAC_1_P9-1-M14-C14.cz&quot;</span><span class="p">)</span>
+<span class="n">df_cz</span><span class="o">=</span><span class="n">cell</span><span class="o">.</span><span class="n">to_df</span><span class="p">(</span><span class="n">reference</span><span class="o">=</span><span class="s2">&quot;~/Ref/hg38/hg38_with_chrL.allc.cz&quot;</span><span class="p">)</span>
+<span class="n">df_cz</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;mc&#39;</span><span class="p">:</span><span class="s1">&#39;mc_cz&#39;</span><span class="p">,</span><span class="s1">&#39;cov&#39;</span><span class="p">:</span><span class="s1">&#39;cov_cz&#39;</span><span class="p">},</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">df_cz</span><span class="o">.</span><span class="n">set_index</span><span class="p">([</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span><span class="s1">&#39;pos&#39;</span><span class="p">,</span><span class="s1">&#39;strand&#39;</span><span class="p">,</span><span class="s1">&#39;context&#39;</span><span class="p">],</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">df_cz</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th>mc_cz</th>
+      <th>cov_cz</th>
+    </tr>
+    <tr>
+      <th>chrom</th>
+      <th>pos</th>
+      <th>strand</th>
+      <th>context</th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th rowspan="5" valign="top">chr1</th>
+      <th>32639</th>
+      <th>+</th>
+      <th>CAC</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>32641</th>
+      <th>+</th>
+      <th>CCC</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>32642</th>
+      <th>+</th>
+      <th>CCA</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>32643</th>
+      <th>+</th>
+      <th>CAT</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>32646</th>
+      <th>+</th>
+      <th>CGG</th>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <th>...</th>
+      <th>...</th>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th rowspan="5" valign="top">chrL</th>
+      <th>48487</th>
+      <th>-</th>
+      <th>CAC</th>
+      <td>0</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>48492</th>
+      <th>-</th>
+      <th>CGG</th>
+      <td>2</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>48496</th>
+      <th>-</th>
+      <th>CTG</th>
+      <td>0</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>48497</th>
+      <th>-</th>
+      <th>CCT</th>
+      <td>0</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>48502</th>
+      <th>-</th>
+      <th>CGT</th>
+      <td>2</td>
+      <td>3</td>
+    </tr>
+  </tbody>
+</table>
+<p>73852777 rows × 2 columns</p>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df_combined</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df_allc</span><span class="p">,</span><span class="n">df_cz</span><span class="p">],</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df_combined</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+<span class="n">df_diff</span><span class="o">=</span><span class="n">df_combined</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">df_combined</span><span class="o">.</span><span class="n">mc_allc</span> <span class="o">!=</span> <span class="n">df_combined</span><span class="o">.</span><span class="n">mc_cz</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">df_combined</span><span class="o">.</span><span class="n">cov_allc</span> <span class="o">!=</span> <span class="n">df_combined</span><span class="o">.</span><span class="n">cov_cz</span><span class="p">)]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">df_diff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> mismatch between allc and cz&quot;</span><span class="p">)</span>
+<span class="n">df_diff</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+                            mc_allc  cov_allc  mc_cz  cov_cz
+chrom pos   strand context
+chr1  32639 +      CAC            1         1      1       1
+      32641 +      CCC            1         1      1       1
+      32642 +      CCA            1         1      1       1
+      32643 +      CAT            1         1      1       1
+      32646 +      CGG            1         1      1       1
+25 mismatch between allc and cz
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th>mc_allc</th>
+      <th>cov_allc</th>
+      <th>mc_cz</th>
+      <th>cov_cz</th>
+    </tr>
+    <tr>
+      <th>chrom</th>
+      <th>pos</th>
+      <th>strand</th>
+      <th>context</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th rowspan="25" valign="top">chr1</th>
+      <th>125180207</th>
+      <th>-</th>
+      <th>CAA</th>
+      <td>195</td>
+      <td>335</td>
+      <td>195</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180208</th>
+      <th>-</th>
+      <th>CCA</th>
+      <td>145</td>
+      <td>336</td>
+      <td>145</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180210</th>
+      <th>-</th>
+      <th>CAC</th>
+      <td>205</td>
+      <td>346</td>
+      <td>205</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180213</th>
+      <th>-</th>
+      <th>CAA</th>
+      <td>197</td>
+      <td>340</td>
+      <td>197</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180223</th>
+      <th>-</th>
+      <th>CGA</th>
+      <td>296</td>
+      <td>322</td>
+      <td>255</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180233</th>
+      <th>-</th>
+      <th>CGA</th>
+      <td>294</td>
+      <td>319</td>
+      <td>255</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180236</th>
+      <th>-</th>
+      <th>CAT</th>
+      <td>184</td>
+      <td>328</td>
+      <td>184</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180249</th>
+      <th>-</th>
+      <th>CGA</th>
+      <td>295</td>
+      <td>309</td>
+      <td>255</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180257</th>
+      <th>-</th>
+      <th>CAT</th>
+      <td>164</td>
+      <td>313</td>
+      <td>164</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180259</th>
+      <th>-</th>
+      <th>CGC</th>
+      <td>289</td>
+      <td>309</td>
+      <td>255</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180262</th>
+      <th>-</th>
+      <th>CAT</th>
+      <td>166</td>
+      <td>320</td>
+      <td>166</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180282</th>
+      <th>-</th>
+      <th>CTA</th>
+      <td>182</td>
+      <td>352</td>
+      <td>182</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180285</th>
+      <th>-</th>
+      <th>CTT</th>
+      <td>183</td>
+      <td>356</td>
+      <td>183</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180288</th>
+      <th>-</th>
+      <th>CAT</th>
+      <td>185</td>
+      <td>349</td>
+      <td>185</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180298</th>
+      <th>-</th>
+      <th>CGA</th>
+      <td>300</td>
+      <td>334</td>
+      <td>255</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180300</th>
+      <th>-</th>
+      <th>CTC</th>
+      <td>171</td>
+      <td>341</td>
+      <td>171</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180308</th>
+      <th>-</th>
+      <th>CGA</th>
+      <td>312</td>
+      <td>328</td>
+      <td>255</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180311</th>
+      <th>-</th>
+      <th>CAT</th>
+      <td>175</td>
+      <td>333</td>
+      <td>175</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180315</th>
+      <th>-</th>
+      <th>CAA</th>
+      <td>172</td>
+      <td>329</td>
+      <td>172</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180330</th>
+      <th>-</th>
+      <th>CGA</th>
+      <td>299</td>
+      <td>314</td>
+      <td>255</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180333</th>
+      <th>-</th>
+      <th>CAT</th>
+      <td>140</td>
+      <td>278</td>
+      <td>140</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180336</th>
+      <th>-</th>
+      <th>CGT</th>
+      <td>244</td>
+      <td>264</td>
+      <td>244</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180352</th>
+      <th>-</th>
+      <th>CAG</th>
+      <td>138</td>
+      <td>259</td>
+      <td>138</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180359</th>
+      <th>-</th>
+      <th>CAT</th>
+      <td>147</td>
+      <td>273</td>
+      <td>147</td>
+      <td>255</td>
+    </tr>
+    <tr>
+      <th>125180369</th>
+      <th>-</th>
+      <th>CTA</th>
+      <td>142</td>
+      <td>262</td>
+      <td>142</td>
+      <td>255</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<p>All mismatches arise because cytozip clips mc and cov to a maximum of 255, since single-cell data is stored using the 1-byte unsigned integer format (B) by default.</p>
+</section>
+<section id="7.4-Compare-.cz-converted-.allc.tsv.gz-and-ALLCools-generated-.allc.tsv.gz">
+<h3>7.4 Compare .cz converted .allc.tsv.gz and ALLCools generated .allc.tsv.gz<a class="headerlink" href="#7.4-Compare-.cz-converted-.allc.tsv.gz-and-ALLCools-generated-.allc.tsv.gz" title="Link to this heading"></a></h3>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>compare_allc<span class="w"> </span>-h
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+usage: czip compare_allc [-h] -a ALLC1 -b ALLC2 [--keep_zero_cov]
+                         [--dtype {B,H,I,Q,None}] [-O OUTPUT] [--sep SEP]
+
+options:
+  -h, --help            show this help message and exit
+  -a ALLC1, --allc1 ALLC1
+                        first allc.tsv[.gz] file (default: None)
+  -b ALLC2, --allc2 ALLC2
+                        second allc.tsv[.gz] file (default: None)
+  --keep_zero_cov       keep records with cov==0 (default: drop them)
+                        (default: False)
+  --dtype {B,H,I,Q,None}
+                        unsigned-int format to derive mc/cov clamp bound
+                        (B=255, H=65535, I=2^32-1, Q=2^64-1; None=disable
+                        clamping; default: B). With B, mc/cov &gt;255 are
+                        truncated to 255 to mirror how cytozip packs single-
+                        cell mc/cov as 1-byte B; counts &gt;255 are usually
+                        repeat-region artifacts and downstream ALLCools DMR
+                        clips coverage to 50, so this does not affect
+                        downstream analysis (default: B)
+  -O OUTPUT, --output OUTPUT
+                        output TSV of differing rows (default: None)
+  --sep SEP             column separator of input files (default: )
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>compare_allc<span class="w"> </span>-a<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P9-1-M14-C14.allc.tsv.gz<span class="w"> </span><span class="err">\</span>
+                    <span class="o">-</span><span class="n">b</span> <span class="n">cytozip_example_data</span><span class="o">/</span><span class="n">hg38_cz</span><span class="o">/</span><span class="n">UWA7648_CX1819_NAC_1_P9</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="n">M14</span><span class="o">-</span><span class="n">C14</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">tsv</span><span class="o">.</span><span class="n">gz</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-07-26 01:38:46.888</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">compare_allc</span>:<span class="ansi-cyan-fg">889</span> - <span class="ansi-bold">compare_allc: 73852777 records in allc1, 73852777 in allc2; only_in_1=0, only_in_2=0, mc_diff=0, cov_diff=0, total_diff=0</span>
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span><span class="w"> </span>czip<span class="w"> </span>compare_allc<span class="w"> </span>-a<span class="w"> </span>cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P9-1-M14-C14.allc.tsv.gz<span class="w"> </span><span class="err">\</span>
+                    <span class="o">-</span><span class="n">b</span> <span class="n">cytozip_example_data</span><span class="o">/</span><span class="n">hg38_cz</span><span class="o">/</span><span class="n">UWA7648_CX1819_NAC_1_P9</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="n">M14</span><span class="o">-</span><span class="n">C14</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">tsv</span><span class="o">.</span><span class="n">gz</span> <span class="o">--</span><span class="n">dtype</span> <span class="kc">None</span>
+<span class="c1"># add --dtype=None to show the difference caused by truncation of 255</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-green-fg">2026-07-26 01:44:29.885</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.allc</span>:<span class="ansi-cyan-fg">compare_allc</span>:<span class="ansi-cyan-fg">889</span> - <span class="ansi-bold">compare_allc: 73852777 records in allc1, 73852777 in allc2; only_in_1=0, only_in_2=0, mc_diff=7, cov_diff=25, total_diff=25</span>
+</pre></div></div>
+</div>
+</section>
 </section>
 </section>
 

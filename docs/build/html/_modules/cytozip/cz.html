@@ -65,6 +65,13 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#5.-Python-API">5. Python API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/quick_start.html#7.-Convert-cz-to-allc-&amp;-compare-cz-with-allc">7. Convert cz to allc &amp; compare cz with allc</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#7.1-Download-example-paired-cz-and-allc-files-from-figshare">7.1 Download example paired cz and allc files from figshare</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#7.2-Convert-.cz-to-.allc.tsv.gz">7.2 Convert .cz to .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#7.3-Directly-compare-.cz-and-ALLCools-generated-.allc.tsv.gz">7.3 Directly compare .cz and ALLCools generated .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/quick_start.html#7.4-Compare-.cz-converted-.allc.tsv.gz-and-ALLCools-generated-.allc.tsv.gz">7.4 Compare .cz converted .allc.tsv.gz and ALLCools generated .allc.tsv.gz</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -177,6 +184,7 @@
 </li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.compare_allc"><code class="docutils literal notranslate"><span class="pre">compare_allc()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
 </ul>
 </li>
@@ -4506,6 +4514,21 @@
 <span class="sd">			&#39;wb&#39;, &#39;ab&#39;</span>
 <span class="sd">		formats : list</span>
 <span class="sd">			format for each column, see https://docs.python.org/3/library/struct.html#format-characters for detail format.</span>
+
+<span class="sd">			Note on unsigned-integer widths and saturation: fixed-width</span>
+<span class="sd">			unsigned formats cap the values they can store —</span>
+<span class="sd">			``&#39;B&#39;`` -&gt; 255, ``&#39;H&#39;`` -&gt; 65535, ``&#39;I&#39;`` -&gt; 4294967295,</span>
+<span class="sd">			``&#39;Q&#39;`` -&gt; 2**64-1. Any value exceeding the format&#39;s maximum is</span>
+<span class="sd">			truncated (saturated) to that maximum when packed. For</span>
+<span class="sd">			single-cell methylation ``mc`` / ``cov`` the default ``&#39;B&#39;`` (one</span>
+<span class="sd">			byte) is used to save space: values above 255 are almost always</span>
+<span class="sd">			artifacts (e.g. reads piling up in a repeat region) rather than</span>
+<span class="sd">			genuine signal, and downstream tools clip even further (ALLCools&#39;</span>
+<span class="sd">			DMR analysis caps coverage at 50), so truncating to 255 does not</span>
+<span class="sd">			affect downstream analysis. Use a wider format (``&#39;H&#39;`` / ``&#39;I&#39;``</span>
+<span class="sd">			/ ``&#39;Q&#39;``) only when you genuinely need to preserve counts above</span>
+<span class="sd">			255 at the cost of larger files (such as pseudobulk level data).</span>
+
 <span class="sd">		columns : list</span>
 <span class="sd">			columns names, length should be the same as formats.</span>
 <span class="sd">		chunk_dims : list</span>

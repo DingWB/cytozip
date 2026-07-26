@@ -68,6 +68,13 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#5.-Python-API">5. Python API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#7.-Convert-cz-to-allc-&amp;-compare-cz-with-allc">7. Convert cz to allc &amp; compare cz with allc</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.1-Download-example-paired-cz-and-allc-files-from-figshare">7.1 Download example paired cz and allc files from figshare</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.2-Convert-.cz-to-.allc.tsv.gz">7.2 Convert .cz to .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.3-Directly-compare-.cz-and-ALLCools-generated-.allc.tsv.gz">7.3 Directly compare .cz and ALLCools generated .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.4-Compare-.cz-converted-.allc.tsv.gz-and-ALLCools-generated-.allc.tsv.gz">7.4 Compare .cz converted .allc.tsv.gz and ALLCools generated .allc.tsv.gz</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -180,6 +187,7 @@
 </li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.allc.compare_allc"><code class="docutils literal notranslate"><span class="pre">compare_allc()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
 </ul>
 </li>
@@ -543,6 +551,59 @@ Nothing is returned; existing outputs are skipped.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.allc.compare_allc">
+<span class="sig-prename descclassname"><span class="pre">cytozip.allc.</span></span><span class="sig-name descname"><span class="pre">compare_allc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">allc1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allc2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_zero_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'B'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'\t'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/allc.html#compare_allc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.allc.compare_allc" title="Link to this definition"></a></dt>
+<dd><p>Compare two allc.tsv[.gz] files and report per-position differences.</p>
+<p>Records are joined on <code class="docutils literal notranslate"><span class="pre">(chrom,</span> <span class="pre">pos)</span></code>. Optionally, records whose
+coverage is 0 are dropped, and <code class="docutils literal notranslate"><span class="pre">mc</span></code> / <code class="docutils literal notranslate"><span class="pre">cov</span></code> values are truncated
+(clamped) to the maximum value representable by <code class="docutils literal notranslate"><span class="pre">dtype</span></code> before
+comparison — this mimics the saturation applied when packing allc
+values into fixed-width unsigned-integer .cz columns.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>allc1</strong> (<em>path</em>) – Path to the first allc.tsv[.gz] file.</p></li>
+<li><p><strong>allc2</strong> (<em>path</em>) – Path to the second allc.tsv[.gz] file.</p></li>
+<li><p><strong>drop_zero_cov</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), drop records with <code class="docutils literal notranslate"><span class="pre">cov</span> <span class="pre">==</span> <span class="pre">0</span></code> from both files
+before comparison.</p></li>
+<li><p><strong>dtype</strong> (<em>{'B'</em><em>, </em><em>'H'</em><em>, </em><em>'I'</em><em>, </em><em>'Q'}</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – <p>Unsigned-integer struct format used to derive the clamp bound for
+<code class="docutils literal notranslate"><span class="pre">mc</span></code> / <code class="docutils literal notranslate"><span class="pre">cov</span></code>: <code class="docutils literal notranslate"><span class="pre">'B'</span></code> -&gt; 255, <code class="docutils literal notranslate"><span class="pre">'H'</span></code> -&gt; 65535,
+<code class="docutils literal notranslate"><span class="pre">'I'</span></code> -&gt; 4294967295, <code class="docutils literal notranslate"><span class="pre">'Q'</span></code> -&gt; 2**64-1 (default <code class="docutils literal notranslate"><span class="pre">'B'</span></code>).
+Values greater than the derived maximum are clamped to it. Pass
+<code class="docutils literal notranslate"><span class="pre">None</span></code> to disable clamping.</p>
+<p>With the default <code class="docutils literal notranslate"><span class="pre">'B'</span></code>, any <code class="docutils literal notranslate"><span class="pre">mc</span></code> or <code class="docutils literal notranslate"><span class="pre">cov</span></code> value greater than
+255 in the input allc file is truncated (saturated) to 255 before
+comparison. This is intentional: cytozip stores single-cell <code class="docutils literal notranslate"><span class="pre">mc</span></code> /
+<code class="docutils literal notranslate"><span class="pre">cov</span></code> as one-byte unsigned integers (<code class="docutils literal notranslate"><span class="pre">B</span></code>) to save space, so the
+packed .cz file itself caps these values at 255. In single-cell
+data, an <code class="docutils literal notranslate"><span class="pre">mc</span></code> or <code class="docutils literal notranslate"><span class="pre">cov</span></code> above 255 is almost always an artifact
+(e.g. reads piling up in a repeat region) rather than a genuine
+signal. Downstream tools reinforce this: ALLCools’ DMR analysis
+further clips coverage to 50, so pre-truncating to 255 here has no
+effect on downstream results. Applying the same 255 cap to both
+files therefore lets <code class="docutils literal notranslate"><span class="pre">compare_allc</span></code> faithfully reproduce what the
+packed .cz would contain, so it reports only differences that
+actually survive the format’s saturation. Use a wider format
+(<code class="docutils literal notranslate"><span class="pre">'H'</span></code> / <code class="docutils literal notranslate"><span class="pre">'I'</span></code> / <code class="docutils literal notranslate"><span class="pre">'Q'</span></code>) or <code class="docutils literal notranslate"><span class="pre">None</span></code> if you want to compare the
+raw, un-truncated values instead.</p>
+</p></li>
+<li><p><strong>output</strong> (<em>path</em><em>, </em><em>optional</em>) – If given, write the table of differing rows to this path
+(tab-separated). Default None (do not write).</p></li>
+<li><p><strong>sep</strong> (<em>str</em><em>, </em><em>optional</em>) – Column separator of the input allc files (default <code class="docutils literal notranslate"><span class="pre">'\t'</span></code>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Rows where the two files differ, joined on <code class="docutils literal notranslate"><span class="pre">(chrom,</span> <span class="pre">pos)</span></code> with
+<code class="docutils literal notranslate"><span class="pre">_1</span></code> / <code class="docutils literal notranslate"><span class="pre">_2</span></code> suffixes. A row is considered different when it is
+present in only one file, or when <code class="docutils literal notranslate"><span class="pre">mc</span></code> / <code class="docutils literal notranslate"><span class="pre">cov</span></code> differ.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
 </dd>
 </dl>
 </dd></dl>
