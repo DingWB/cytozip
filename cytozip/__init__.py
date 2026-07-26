@@ -89,6 +89,11 @@ def _csv_str(s):
     return s.split(',')
 
 
+def _dtype_or_none(s):
+    """Parse 'None' → None, otherwise return the string unchanged."""
+    return None if s == 'None' else s
+
+
 def _str2bool(s):
     """Parse 'true'/'false' (and common synonyms) → bool."""
     if isinstance(s, bool):
@@ -119,7 +124,14 @@ def _build_parser():
     p = sub.add_parser('tocz', help='Convert text/stdin to .cz', formatter_class=_fmt)
     p.add_argument('-O', '--output', required=True, help='output .cz file')
     p.add_argument('-I', '--input', default=None, help='input file (stdin if omitted)')
-    p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats, comma-separated')
+    p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'],
+                   help='column formats, comma-separated (struct chars). '
+                        'Unsigned ints cap values: B=255, H=65535, '
+                        'I=2^32-1, Q=2^64-1; larger values are truncated '
+                        '(saturated) to the max. Default B for single-cell '
+                        'mc/cov saves space and is safe: counts >255 are '
+                        'usually repeat-region artifacts and downstream '
+                        'ALLCools DMR clips coverage to 50 anyway')
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names, comma-separated')
     p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key (dimension) names, comma-separated')
     p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack, comma-separated')
@@ -224,7 +236,13 @@ def _build_parser():
                    help='output .cz file (single-file), or output directory (batch mode)')
     p.add_argument('-r', '--reference', default=None, help='reference .cz file')
     p.add_argument('--missing_value', type=_csv_int, default=[0, 0], help='missing value fill')
-    p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats')
+    p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'],
+                   help='column formats (struct chars). Unsigned ints cap '
+                        'values: B=255, H=65535, I=2^32-1, Q=2^64-1; larger '
+                        'values are truncated (saturated) to the max. Default '
+                        'B for single-cell mc/cov saves space and is safe: '
+                        'counts >255 are usually repeat-region artifacts and '
+                        'downstream ALLCools DMR clips coverage to 50 anyway')
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
     p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key names')
     p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack')
@@ -411,9 +429,16 @@ def _build_parser():
     p.add_argument('-b', '--allc2', required=True, help='second allc.tsv[.gz] file')
     p.add_argument('--keep_zero_cov', action='store_true',
                    help='keep records with cov==0 (default: drop them)')
-    p.add_argument('--dtype', default='B', choices=['B', 'H', 'I', 'Q'],
+    p.add_argument('--dtype', default='B', type=_dtype_or_none,
+                   choices=['B', 'H', 'I', 'Q', None],
                    help='unsigned-int format to derive mc/cov clamp bound '
-                        '(B=255, H=65535, I=2^32-1, Q=2^64-1; default: B)')
+                        '(B=255, H=65535, I=2^32-1, Q=2^64-1; '
+                        'None=disable clamping; default: B). With B, mc/cov '
+                        '>255 are truncated to 255 to mirror how cytozip '
+                        'packs single-cell mc/cov as 1-byte B; counts >255 '
+                        'are usually repeat-region artifacts and downstream '
+                        'ALLCools DMR clips coverage to 50, so this does not '
+                        'affect downstream analysis')
     p.add_argument('-O', '--output', default=None, help='output TSV of differing rows')
     p.add_argument('--sep', default='\t', help='column separator of input files')
 

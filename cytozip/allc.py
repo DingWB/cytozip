@@ -826,6 +826,22 @@ def compare_allc(allc1, allc2, drop_zero_cov=True, dtype='B',
         ``'I'`` -> 4294967295, ``'Q'`` -> 2**64-1 (default ``'B'``).
         Values greater than the derived maximum are clamped to it. Pass
         ``None`` to disable clamping.
+
+        With the default ``'B'``, any ``mc`` or ``cov`` value greater than
+        255 in the input allc file is truncated (saturated) to 255 before
+        comparison. This is intentional: cytozip stores single-cell ``mc`` /
+        ``cov`` as one-byte unsigned integers (``B``) to save space, so the
+        packed .cz file itself caps these values at 255. In single-cell
+        data, an ``mc`` or ``cov`` above 255 is almost always an artifact
+        (e.g. reads piling up in a repeat region) rather than a genuine
+        signal. Downstream tools reinforce this: ALLCools' DMR analysis
+        further clips coverage to 50, so pre-truncating to 255 here has no
+        effect on downstream results. Applying the same 255 cap to both
+        files therefore lets ``compare_allc`` faithfully reproduce what the
+        packed .cz would contain, so it reports only differences that
+        actually survive the format's saturation. Use a wider format
+        (``'H'`` / ``'I'`` / ``'Q'``) or ``None`` if you want to compare the
+        raw, un-truncated values instead.
     output : path, optional
         If given, write the table of differing rows to this path
         (tab-separated). Default None (do not write).

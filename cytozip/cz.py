@@ -3998,6 +3998,21 @@ class Writer:
 			'wb', 'ab'
 		formats : list
 			format for each column, see https://docs.python.org/3/library/struct.html#format-characters for detail format.
+
+			Note on unsigned-integer widths and saturation: fixed-width
+			unsigned formats cap the values they can store —
+			``'B'`` -> 255, ``'H'`` -> 65535, ``'I'`` -> 4294967295,
+			``'Q'`` -> 2**64-1. Any value exceeding the format's maximum is
+			truncated (saturated) to that maximum when packed. For
+			single-cell methylation ``mc`` / ``cov`` the default ``'B'`` (one
+			byte) is used to save space: values above 255 are almost always
+			artifacts (e.g. reads piling up in a repeat region) rather than
+			genuine signal, and downstream tools clip even further (ALLCools'
+			DMR analysis caps coverage at 50), so truncating to 255 does not
+			affect downstream analysis. Use a wider format (``'H'`` / ``'I'``
+			/ ``'Q'``) only when you genuinely need to preserve counts above
+			255 at the cost of larger files (such as pseudobulk level data).
+
 		columns : list
 			columns names, length should be the same as formats.
 		chunk_dims : list
