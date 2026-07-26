@@ -28,6 +28,7 @@ _LAZY_EXPORTS = {
     # allc.py — methylation allc-file I/O
     'AllC': 'allc', 'allc2cz': 'allc',
     'extractCG': 'allc',
+    'compare_allc': 'allc',
     # bam.py — BAM → .cz
     'bam_to_cz': 'bam',
     'name_sort_bam_to_deduped': 'bam',
@@ -403,6 +404,18 @@ def _build_parser():
     p.add_argument('--index', required=True, help='CGN subset index file')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('--merge_cg', action='store_true', help='merge forward/reverse CG')
+
+    # ---- compare_allc --------------------------------------------------------
+    p = sub.add_parser('compare_allc', help='Compare two allc.tsv[.gz] files', formatter_class=_fmt)
+    p.add_argument('-a', '--allc1', required=True, help='first allc.tsv[.gz] file')
+    p.add_argument('-b', '--allc2', required=True, help='second allc.tsv[.gz] file')
+    p.add_argument('--keep_zero_cov', action='store_true',
+                   help='keep records with cov==0 (default: drop them)')
+    p.add_argument('--dtype', default='B', choices=['B', 'H', 'I', 'Q'],
+                   help='unsigned-int format to derive mc/cov clamp bound '
+                        '(B=255, H=65535, I=2^32-1, Q=2^64-1; default: B)')
+    p.add_argument('-O', '--output', default=None, help='output TSV of differing rows')
+    p.add_argument('--sep', default='\t', help='column separator of input files')
 
     # ---- aggregate -----------------------------------------------------------
     p = sub.add_parser('aggregate', help='Aggregate records within regions', formatter_class=_fmt)
@@ -902,6 +915,13 @@ def main():
         extractCG(input=args.input, output=args.output,
                   index=args.index, batch_size=args.batch_size,
                   merge_cg=args.merge_cg)
+
+    elif cmd == 'compare_allc':
+        from .allc import compare_allc
+        compare_allc(allc1=args.allc1, allc2=args.allc2,
+                     drop_zero_cov=not args.keep_zero_cov,
+                     dtype=args.dtype, output=args.output,
+                     sep=args.sep)
 
     elif cmd == 'aggregate':
         from .cz import aggregate

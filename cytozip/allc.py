@@ -782,6 +782,107 @@ def extractCG(input=None, output=None, index=None, batch_size=5000,
     reader.close()
     index_reader.close()
 
+# ==========================================================
+_ALLC_COLS = ['chrom', 'pos', 'strand', 'context', 'mc', 'cov', 'methylated']
+
+
+def _read_allc_table(path, sep='\t'):
+    """Read an allc.tsv[.gz] file into a DataFrame with standard columns."""
+    path = os.path.abspath(os.path.expanduser(path))
+    return pd.read_csv(path, sep=sep, header=None, names=_ALLC_COLS,
+                       dtype={'chrom': str, 'pos': 'int64',
+                              'strand': str, 'context': str,
+                              'mc': 'int64', 'cov': 'int64',
+                              'methylated': 'int8'})
+
+
+# Per-format saturation caps for unsigned-integer struct formats.
+_DTYPE_MAX = {'B': 2 ** 8 - 1, 'H': 2 ** 16 - 1, 'I': 2 ** 32 - 1, 'Q': 2 ** 64 - 1}
+
+
+def compare_allc(allc1, allc2, drop_zero_cov=True, dtype='B',
+                 output=None, sep='\t'):
+    """
+    Compare two allc.tsv[.gz] files and report per-position differences.
+
+    Records are joined on ``(chrom, pos)``. Optionally, records whose
+    coverage is 0 are dropped, and ``mc`` / ``cov`` values are truncated
+    (clamped) to the maximum value representable by ``dtype`` before
+    comparison — this mimics the saturation applied when packing allc
+    values into fixed-width unsigned-integer .cz columns.
+
+    Parameters
+    ----------
+    allc1 : path
+        Path to the first allc.tsv[.gz] file.
+    allc2 : path
+        Path to the second allc.tsv[.gz] file.
+    drop_zero_cov : bool, optional
+        If True (default), drop records with ``cov == 0`` from both files
+        before comparison.
+    dtype : {'B', 'H', 'I', 'Q'} or None, optional
+        Unsigned-integer struct format used to derive the clamp bound for
+        ``mc`` / ``cov``: ``'B'`` -> 255, ``'H'`` -> 65535,
+        ``'I'`` -> 4294967295, ``'Q'`` -> 2**64-1 (default ``'B'``).
+        Values greater than the derived maximum are clamped to it. Pass
+        ``None`` to disable clamping.
+    output : path, optional
+        If given, write the table of differing rows to this path
+        (tab-separated). Default None (do not write).
+    sep : str, optional
+        Column separator of the input allc files (default ``'\\t'``).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Rows where the two files differ, joined on ``(chrom, pos)`` with
+        ``_1`` / ``_2`` suffixes. A row is considered different when it is
+        present in only one file, or when ``mc`` / ``cov`` differ.
+    """
+    max_value = None
+    if dtype is not None:
+        if dtype not in _DTYPE_MAX:
+            raise ValueError(
+                f"dtype must be one of {sorted(_DTYPE_MAX)}, got {dtype!r}")
+        max_value = _DTYPE_MAX[dtype]
+
+    df1 = _read_allc_table(allc1, sep=sep)
+    df2 = _read_allc_table(allc2, sep=sep)
+
+    if drop_zero_cov:
+        df1 = df1[df1['cov'] > 0].copy()
+        df2 = df2[df2['cov'] > 0].copy()
+
+    if max_value is not None:
+        for df in (df1, df2):
+            df['mc'] = df['mc'].clip(upper=max_value)
+            df['cov'] = df['cov'].clip(upper=max_value)
+
+    merged = df1.merge(df2, on=['chrom', 'pos'], how='outer',
+                       suffixes=('_1', '_2'), indicator=True)
+
+    only_in_1 = merged['_merge'] == 'left_only'
+    only_in_2 = merged['_merge'] == 'right_only'
+    both = merged['_merge'] == 'both'
+    mc_diff = both & (merged['mc_1'] != merged['mc_2'])
+    cov_diff = both & (merged['cov_1'] != merged['cov_2'])
+
+    diff_mask = only_in_1 | only_in_2 | mc_diff | cov_diff
+    diff = merged[diff_mask].copy()
+
+    logger.info(
+        f"compare_allc: {len(df1)} records in allc1, {len(df2)} in allc2; "
+        f"only_in_1={int(only_in_1.sum())}, only_in_2={int(only_in_2.sum())}, "
+        f"mc_diff={int(mc_diff.sum())}, cov_diff={int(cov_diff.sum())}, "
+        f"total_diff={len(diff)}")
+
+    if output is not None:
+        output = os.path.abspath(os.path.expanduser(output))
+        diff.to_csv(output, sep='\t', index=False)
+        logger.info(f"Differences written to {output}")
+
+    return diff
+
 if __name__ == "__main__":
     from cytozip import main
     main()
