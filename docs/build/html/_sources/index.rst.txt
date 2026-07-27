@@ -10,6 +10,12 @@ Chunk ZIP
 
 .. toctree::
    :maxdepth: 2
+   :caption: Benchmark
+
+   notebooks/benchmark
+   
+.. toctree::
+   :maxdepth: 2
    :caption: User Guide
 
    notebooks/dnam
@@ -25,9 +31,9 @@ Chunk ZIP
 
 .. toctree::
    :maxdepth: 2
-   :caption: Benchmark
+   :caption: Cytozip Genome Browser
 
-   notebooks/benchmark
+   cz_viewer
 
 .. toctree::
    :maxdepth: 2

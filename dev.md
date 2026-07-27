@@ -353,6 +353,87 @@ you may hit CORS restrictions. Solutions:
 2. Use a lightweight proxy (e.g. `cors-anywhere` or a Cloudflare Worker).
 3. For local development, use a local HTTP server serving the .cz file.
 
+## Enabling CORS on the neomorph server
+
+The neomorph server (`https://neomorph.salk.edu/ftp/bican/`) hosts `.cz` files
+served by **Apache2 on CentOS/RHEL**. To let the browser reader (`cz_reader.mjs`
+/ `cz_viewer.html`) fetch these files directly, the server must send CORS
+headers **and** support HTTP Range requests. Both are enabled through
+`mod_headers`.
+
+### 1. Enable the required Apache module
+```shell
+# CentOS/RHEL: mod_headers ships with httpd; just make sure it's loaded.
+# Add (or confirm) this line in /etc/httpd/conf/httpd.conf:
+LoadModule headers_module modules/mod_headers.so
+
+# Verify it is active:
+httpd -M 2>/dev/null | grep headers
+# expected: headers_module (shared)
+```
+
+### 2. Add the CORS + Range headers
+Edit `/etc/httpd/conf/httpd.conf` (or drop a file in
+`/etc/httpd/conf.d/cors.conf`). Scope the rules to the directory that serves
+the `.cz` files so other paths are unaffected:
+```apache
+<Directory "/var/www/html/ftp/bican">
+    # Allow any origin to read the files (use a specific origin to lock down)
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+    Header set Access-Control-Allow-Headers "Range, Content-Type"
+
+    # CRITICAL for cz remote reading: the browser must see these response
+    # headers to perform Range requests and O(1) chunk lookups.
+    Header set Access-Control-Expose-Headers "Content-Range, Accept-Ranges, Content-Length"
+    Header set Accept-Ranges "bytes"
+
+    # Answer CORS pre-flight (OPTIONS) requests with 204 instead of hitting a file
+    RewriteEngine On
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^(.*)$ $1 [R=204,L]
+</Directory>
+```
+
+> Notes
+> - `Access-Control-Expose-Headers` is the header most often forgotten. Without
+>   `Content-Range` / `Accept-Ranges` / `Content-Length` exposed, the browser
+>   `fetch()` cannot read Range metadata and the reader fails even though the
+>   bytes are returned.
+> - Use `Header set` (not `Header add`) to avoid duplicate values on redirects.
+> - Serve over **HTTPS** — the viewer page is HTTPS and mixed-content requests
+>   to `http://` are blocked by browsers.
+
+### 3. Reload Apache
+```shell
+# Validate the config first, then reload (graceful, no dropped connections)
+apachectl configtest        # -> "Syntax OK"
+systemctl reload httpd
+# or: apachectl -k graceful
+```
+
+### 4. Verify from the client
+```shell
+# (a) Range request must return 206 Partial Content + Content-Range
+curl -I -H "Range: bytes=0-999" \
+  https://neomorph.salk.edu/ftp/bican/hg38_with_chrL.allc.cz
+# expected: HTTP/1.1 206 Partial Content
+#           Accept-Ranges: bytes
+#           Content-Range: bytes 0-999/<total>
+
+# (b) CORS pre-flight must echo the Access-Control-* headers
+curl -I -X OPTIONS \
+  -H "Origin: https://dingwb.github.io" \
+  -H "Access-Control-Request-Method: GET" \
+  https://neomorph.salk.edu/ftp/bican/hg38_with_chrL.allc.cz
+# expected: Access-Control-Allow-Origin: *
+#           Access-Control-Expose-Headers: Content-Range, Accept-Ranges, Content-Length
+```
+
+Once both checks pass, `czip query -I https://neomorph.salk.edu/...`, the
+Python `Reader.from_url()`, and the browser `cz_viewer.html` can all read the
+files directly without a proxy.
+
 ## docs
 ```shell
 pip install sphinx sphinx-autobuild sphinx-rtd-theme pandoc nbsphinx sphinx_pdj_theme sphinx_sizzle_theme recommonmark readthedocs-sphinx-search

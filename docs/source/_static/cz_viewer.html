@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>cytozip browser — remote .cz methylation viewer</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --toolbar: #232635;
+    --toolbar2: #2d3145;
+    --accent: #4a90d9;
+    --border: #d6d9e0;
+    --label-bg: #f5f6f8;
+    --text: #1c1e26;
+    --muted: #8a8f9c;
+    --track-w: 190px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    font-size: 13px;
+  }
+
+  /* ── Top toolbar (IGV-style) ─────────────────────────────── */
+  .toolbar {
+    background: var(--toolbar);
+    color: #eef0f5;
+    padding: 8px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 3px solid var(--accent);
+  }
+  .toolbar .brand {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: .3px;
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+  .toolbar .brand span { color: var(--accent); }
+  .toolbar input[type=text] {
+    background: #1a1c28;
+    border: 1px solid #3a3f57;
+    color: #eef0f5;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+  }
+  .toolbar input[type=text]:focus { border-color: var(--accent); }
+  .toolbar button, .panel button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .toolbar button:hover, .panel button:hover { background: #3a7bc0; }
+  .toolbar button.secondary { background: #464b63; }
+  .toolbar button.secondary:hover { background: #565c78; }
+  .locusbox { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .locusbox input { width: 230px; }
+  .zoombtns button { padding: 4px 9px; font-weight: 700; }
+
+  /* ── Config panel ────────────────────────────────────────── */
+  .panel {
+    background: var(--toolbar2);
+    color: #dfe2ea;
+    padding: 10px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    align-items: flex-end;
+    border-bottom: 1px solid #171922;
+  }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: #9aa0b2; }
+  .field input[type=text] {
+    background: #1a1c28; border: 1px solid #3a3f57; color: #eef0f5;
+    padding: 5px 8px; border-radius: 4px; font-size: 12px; outline: none;
+  }
+  .field input.url { width: 430px; }
+  .field input.name { width: 150px; }
+  .field select {
+    background: #1a1c28; border: 1px solid #3a3f57; color: #eef0f5;
+    padding: 5px 6px; border-radius: 4px; font-size: 12px;
+  }
+
+  /* ── Status bar ──────────────────────────────────────────── */
+  .status {
+    padding: 5px 14px; font-size: 11.5px; color: var(--muted);
+    background: #fafbfc; border-bottom: 1px solid var(--border);
+    min-height: 24px; white-space: pre-wrap;
+  }
+  .status.error { color: #b2182b; background: #fdf2f3; }
+
+  /* ── Tracks area ─────────────────────────────────────────── */
+  #tracks { user-select: none; }
+  .row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+  .label {
+    width: var(--track-w); flex: 0 0 var(--track-w);
+    background: var(--label-bg); border-right: 1px solid var(--border);
+    padding: 6px 8px; font-size: 12px; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  }
+  .label .tname { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .label .swatch { width: 11px; height: 11px; border-radius: 2px; flex: 0 0 auto; }
+  .label .meta { font-size: 10.5px; color: var(--muted); }
+  .label .ctrls { display: flex; gap: 5px; margin-top: 2px; }
+  .label select { font-size: 10.5px; padding: 1px 3px; }
+  .label .del {
+    cursor: pointer; color: var(--muted); border: none; background: none;
+    font-size: 14px; line-height: 1; padding: 0 2px;
+  }
+  .label .del:hover { color: #b2182b; }
+  .view { flex: 1 1 auto; position: relative; cursor: crosshair; overflow: hidden; background: #fff; }
+  .view canvas { display: block; width: 100%; height: 100%; }
+  .rulerrow .label { background: #eceef2; }
+  .rulerrow .view { cursor: ew-resize; }
+  #hover {
+    position: fixed; pointer-events: none; background: rgba(28,30,38,.92); color: #fff;
+    padding: 4px 7px; border-radius: 4px; font-size: 11px; display: none; z-index: 50;
+    white-space: nowrap;
+  }
+  .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+  .hint code { background: #eef0f5; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="brand">cytozip<span>·</span>browser</div>
+  <button id="btnLoad">Load reference</button>
+  <button id="btnAddTrack" class="secondary">+ Add track</button>
+  <div class="locusbox">
+    <input type="text" id="locus" placeholder="chr1:3,000,000-3,050,000" />
+    <button id="btnGo">Go</button>
+    <span class="zoombtns">
+      <button id="zoomOut" class="secondary" title="Zoom out">−</button>
+      <button id="zoomIn" class="secondary" title="Zoom in">+</button>
+    </span>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="field">
+    <label>Reference .cz URL (coordinates)</label>
+    <input type="text" class="url" id="refUrl"
+      value="https://neomorph.salk.edu/ftp/bican/hg38_with_chrL.allc.cz" />
+  </div>
+  <div class="field">
+    <label>New track name</label>
+    <input type="text" class="name" id="newName" value="UWA7648 NAC" />
+  </div>
+  <div class="field">
+    <label>New track .cz URL (mc/cov, shares reference)</label>
+    <input type="text" class="url" id="newUrl"
+      value="https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz" />
+  </div>
+  <div class="field">
+    <label>Context</label>
+    <select id="newCtx">
+      <option value="CG">CG</option>
+      <option value="CH">CH</option>
+      <option value="CHG">CHG</option>
+      <option value="CHH">CHH</option>
+      <option value="ALL" selected>All C</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>cz_reader.mjs module URL</label>
+    <input type="text" class="url" id="moduleUrl"
+      value="https://raw.githubusercontent.com/DingWB/cytozip/refs/heads/main/cytozip/cz_reader.mjs" />
+  </div>
+  <div class="field">
+    <label>CORS proxy prefix (optional)</label>
+    <input type="text" class="name" id="proxy" style="width:150px" placeholder="e.g. https://cors.x/?" />
+  </div>
+</div>
+
+<div class="status" id="status">Ready. Set the reference URL and click “Load reference”, then “Add track”.</div>
+
+<div id="tracks">
+  <div class="empty hint" id="emptyMsg">
+    No tracks yet. Click <b>Load reference</b>, then <b>+ Add track</b> to visualize a remote <code>.cz</code> file.
+  </div>
+</div>
+
+<div id="hover"></div>
+
+<script type="module">
+// ─────────────────────────────────────────────────────────────────────────────
+// cytozip browser — remote .cz methylation viewer
+//
+// Loads the cz_reader.mjs ES module directly from a (raw GitHub) URL, then
+// visualizes remote .cz files like a genome browser. A coordinate-less value
+// file (mc/cov) is joined against a shared reference .cz by global row index
+// (reader.queryWithIndex + reader.getRowValues).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PALETTE = ['#2166ac', '#b2182b', '#1b7837', '#762a83', '#e08214', '#01665e', '#c51b7d', '#4d4d4d'];
+
+const state = {
+  CzReader: null,
+  refUrl: null,
+  refReader: null,
+  chroms: [],
+  locus: null,          // {chrom, start, end}
+  tracks: [],           // {id, name, url, reader, color, ctx, canvas, labelEl, metaEl}
+  gen: 0,               // render generation token (drops stale async draws)
+  trackSeq: 0,
+};
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $('status');
+function setStatus(msg, isErr = false) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle('error', !!isErr);
+}
+function proxied(url) {
+  const p = $('proxy').value.trim();
+  return p ? p + encodeURIComponent(url) : url;
+}
+const fmtInt = (n) => n.toLocaleString('en-US');
+
+// ── Dynamically import the reader module from any URL ────────────────────────
+// raw.githubusercontent.com serves text/plain, which the browser refuses to
+// import as a module. Fetch the source and import it via a Blob URL instead.
+async function loadModule(url) {
+  const resp = await fetch(url, { cache: 'no-cache' });
+  if (!resp.ok) throw new Error(`module HTTP ${resp.status}`);
+  const src = await resp.text();
+  const blob = new Blob([src], { type: 'text/javascript' });
+  const blobUrl = URL.createObjectURL(blob);
+  try {
+    return await import(blobUrl);
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
+// ── Locus parsing / formatting ───────────────────────────────────────────────
+function parseLocus(text) {
+  const m = String(text).trim().match(/^([^\s:]+)\s*:\s*([\d,]+)\s*-\s*([\d,]+)$/);
+  if (!m) return null;
+  const start = parseInt(m[2].replace(/,/g, ''), 10);
+  const end = parseInt(m[3].replace(/,/g, ''), 10);
+  if (!(end > start)) return null;
+  return { chrom: m[1], start, end };
+}
+function locusText(l) {
+  return `${l.chrom}:${fmtInt(Math.round(l.start))}-${fmtInt(Math.round(l.end))}`;
+}
+function syncLocusInput() {
+  if (state.locus) $('locus').value = locusText(state.locus);
+}
+
+// ── Context filter ───────────────────────────────────────────────────────────
+// context is a 3-mer starting at the C (e.g. 'CGT', 'CAT').
+function ctxMatch(ctx, filter) {
+  if (!ctx || ctx[0] !== 'C') return false;
+  switch (filter) {
+    case 'ALL': return true;
+    case 'CG':  return ctx[1] === 'G';
+    case 'CH':  return ctx[1] !== 'G';
+    case 'CHG': return ctx[1] !== 'G' && ctx[2] === 'G';
+    case 'CHH': return ctx[1] !== 'G' && ctx[2] !== 'G';
+    default:    return true;
+  }
+}
+
+// ── Load reference ───────────────────────────────────────────────────────────
+async function loadReference() {
+  const url = $('refUrl').value.trim();
+  if (!url) { setStatus('Enter a reference .cz URL first.', true); return; }
+  try {
+    setStatus('Loading cz_reader.mjs module…');
+    if (!state.CzReader) {
+      const mod = await loadModule($('moduleUrl').value.trim());
+      state.CzReader = mod.CzReader;
+      if (!state.CzReader) throw new Error('module has no CzReader export');
+    }
+    setStatus('Opening reference .cz (header + chunk index)…');
+    const t0 = performance.now();
+    const reader = await state.CzReader.fromUrl(proxied(url), { randomReadAhead: 256 * 1024 });
+    if (reader.header.sortCol === null) {
+      reader.close();
+      throw new Error('reference must have a sort_col (position) index');
+    }
+    state.refReader && state.refReader.close();
+    state.refReader = reader;
+    state.refUrl = url;
+    state.chroms = reader.chunkKeys.map(k => k.split('\t')[0]);
+    const ms = (performance.now() - t0).toFixed(0);
+    setStatus(`Reference loaded in ${ms} ms · ${state.chroms.length} chromosomes · ` +
+              `columns [${reader.header.columns.join(', ')}]. Now add a track.`);
+    // default locus
+    if (!state.locus) {
+      const chrom = state.chroms.includes('chr1') ? 'chr1' : state.chroms[0];
+      state.locus = { chrom, start: 3_000_000, end: 3_050_000 };
+      syncLocusInput();
+    }
+    // reset any previously-attached track readers (reference changed)
+    render();
+  } catch (e) {
+    setStatus(corsHint('Failed to load reference: ' + e.message, url), true);
+  }
+}
+
+function corsHint(msg, url) {
+  return msg +
+    '\nIf this is a cross-origin/CORS error: the data server must send ' +
+    '`Access-Control-Allow-Origin` and expose Range headers, or host this page ' +
+    'on the same origin as the .cz files, or set a CORS proxy prefix above.';
+}
+
+// ── Add / remove tracks ──────────────────────────────────────────────────────
+async function addTrack() {
+  if (!state.refReader) { setStatus('Load the reference first.', true); return; }
+  const url = $('newUrl').value.trim();
+  const name = $('newName').value.trim() || `track ${state.tracks.length + 1}`;
+  const ctx = $('newCtx').value;
+  if (!url) { setStatus('Enter a track .cz URL.', true); return; }
+  try {
+    setStatus(`Opening track “${name}”…`);
+    const reader = await state.CzReader.fromUrl(proxied(url), { randomReadAhead: 256 * 1024 });
+    const track = {
+      id: ++state.trackSeq, name, url, reader, ctx,
+      color: PALETTE[state.tracks.length % PALETTE.length],
+    };
+    state.tracks.push(track);
+    buildTrackRows();
+    setStatus(`Added track “${name}”. Rendering ${locusText(state.locus)}…`);
+    render();
+  } catch (e) {
+    setStatus(corsHint('Failed to open track: ' + e.message, url), true);
+  }
+}
+
+function removeTrack(id) {
+  const i = state.tracks.findIndex(t => t.id === id);
+  if (i < 0) return;
+  state.tracks[i].reader.close();
+  state.tracks.splice(i, 1);
+  buildTrackRows();
+  render();
+}
+
+// ── DOM: build ruler + track rows ────────────────────────────────────────────
+function buildTrackRows() {
+  const host = $('tracks');
+  host.innerHTML = '';
+  if (state.tracks.length === 0) {
+    host.innerHTML = '<div class="empty hint">No tracks yet. Use <b>+ Add track</b>.</div>';
+    return;
+  }
+
+  // Ruler row
+  const rr = document.createElement('div');
+  rr.className = 'row rulerrow';
+  rr.innerHTML = `<div class="label"><div class="tname">Position</div>
+    <div class="meta" id="rulerMeta"></div></div>`;
+  const rv = document.createElement('div');
+  rv.className = 'view'; rv.dataset.ruler = '1';
+  const rc = document.createElement('canvas');
+  rv.appendChild(rc); rr.appendChild(rv); host.appendChild(rr);
+  state.rulerCanvas = rc; state.rulerView = rv;
+  attachPanZoom(rv);
+
+  for (const t of state.tracks) {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.innerHTML =
+      `<div class="tname"><span class="swatch" style="background:${t.color}"></span>` +
+      `<span>${escapeHtml(t.name)}</span>
+        <button class="del" title="Remove">×</button></div>
+       <div class="meta"></div>
+       <div class="ctrls">
+         <select class="ctxsel">
+           ${['CG','CH','CHG','CHH','ALL'].map(c =>
+             `<option value="${c}" ${c === t.ctx ? 'selected' : ''}>${c === 'ALL' ? 'All C' : c}</option>`).join('')}
+         </select>
+       </div>`;
+    label.querySelector('.del').onclick = () => removeTrack(t.id);
+    label.querySelector('.ctxsel').onchange = (e) => { t.ctx = e.target.value; render(); };
+    t.metaEl = label.querySelector('.meta');
+
+    const view = document.createElement('div');
+    view.className = 'view';
+    const canvas = document.createElement('canvas');
+    view.appendChild(canvas);
+    t.canvas = canvas; t.view = view;
+    attachPanZoom(view);
+
+    row.appendChild(label); row.appendChild(view);
+    host.appendChild(row);
+  }
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// ── Canvas sizing (HiDPI) ────────────────────────────────────────────────────
+function sizeCanvas(canvas, cssH) {
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.parentElement.clientWidth;
+  canvas.width = Math.max(1, Math.round(cssW * dpr));
+  canvas.height = Math.max(1, Math.round(cssH * dpr));
+  canvas.style.height = cssH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: cssW, h: cssH };
+}
+
+// ── Render everything (serialized) ───────────────────────────────────────────
+// Renders MUST NOT overlap: all tracks share one reference reader whose HTTP
+// handle has mutable position/cache state. Concurrent renders (e.g. during a
+// drag) would corrupt each other. Serialize: coalesce pending requests and run
+// one renderNow() at a time, re-running once more if new state arrived.
+let rendering = false;
+let renderPending = false;
+function render() {
+  renderPending = true;
+  if (!rendering) pump();
+}
+async function pump() {
+  rendering = true;
+  try {
+    while (renderPending) {
+      renderPending = false;
+      await renderNow();
+    }
+  } finally {
+    rendering = false;
+  }
+}
+
+async function renderNow() {
+  if (!state.refReader || !state.locus || state.tracks.length === 0) return;
+  const gen = ++state.gen;
+  const { chrom, start, end } = state.locus;
+
+  if (!state.chroms.includes(chrom)) {
+    setStatus(`Chromosome “${chrom}” not in reference (have: ${state.chroms.slice(0, 6).join(', ')}…)`, true);
+    return;
+  }
+  drawRuler();
+
+  let qi;
+  try {
+    const t0 = performance.now();
+    qi = await state.refReader.queryWithIndex(chrom, Math.round(start), Math.round(end));
+    if (gen !== state.gen) return;
+    const tRef = (performance.now() - t0).toFixed(0);
+    const rm = $('rulerMeta');
+    if (rm) rm.textContent = `${fmtInt(qi.positions.length)} C sites · ${tRef} ms`;
+  } catch (e) {
+    setStatus('Reference query failed: ' + e.message, true);
+    return;
+  }
+
+  for (const t of state.tracks) {
+    let vals;
+    try {
+      vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
+    } catch (e) {
+      setStatus(`Track “${t.name}” fetch failed: ` + e.message, true);
+      continue;
+    }
+    if (gen !== state.gen) return;
+    drawTrack(t, qi, vals);
+  }
+  setStatus(`${locusText(state.locus)} · ${state.tracks.length} track(s) · span ${fmtInt(Math.round(end - start))} bp`);
+}
+
+// ── Draw one methylation track (binned by pixel column) ──────────────────────
+function drawTrack(track, qi, vals) {
+  const H = 118;
+  const { ctx, w, h } = sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = 6;
+  const plotH = h - pad * 2;
+  const baseY = h - pad;
+  const { start, end } = state.locus;
+  const span = end - start;
+
+  // Gridlines (0, 0.5, 1.0 methylation)
+  ctx.strokeStyle = '#eceef2'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#b8bcc8'; ctx.font = '9px sans-serif'; ctx.textBaseline = 'middle';
+  for (const lv of [0, 0.5, 1]) {
+    const y = baseY - lv * plotH;
+    ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); ctx.stroke();
+    ctx.fillText(lv.toFixed(1), 2, y - 5);
+  }
+
+  // Bin per pixel column: sum mc, sum cov.
+  const W = Math.max(1, Math.floor(w));
+  const sumMc = new Float64Array(W);
+  const sumCov = new Float64Array(W);
+  const pos = qi.positions, recs = qi.records;
+  let nSites = 0, totMc = 0, totCov = 0;
+  const nCommon = Math.min(pos.length, vals.length);
+  for (let i = 0; i < nCommon; i++) {
+    if (!ctxMatch(recs[i][2], track.ctx)) continue;
+    const cov = vals[i][1];
+    if (!cov) continue;
+    const mc = vals[i][0];
+    let px = Math.floor((pos[i] - start) / span * W);
+    if (px < 0 || px >= W) continue;
+    sumMc[px] += mc; sumCov[px] += cov;
+    nSites++; totMc += mc; totCov += cov;
+  }
+
+  // Bars: height = methylation fraction; opacity ramps with coverage depth.
+  const rgb = hexToRgb(track.color);
+  for (let px = 0; px < W; px++) {
+    const c = sumCov[px];
+    if (!c) continue;
+    const level = sumMc[px] / c;
+    const barH = level * plotH;
+    const alpha = 0.35 + 0.65 * Math.min(1, Math.log10(1 + c) / 1.5);
+    ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha.toFixed(3)})`;
+    ctx.fillRect(px, baseY - barH, 1, barH);
+  }
+
+  // Baseline
+  ctx.strokeStyle = '#c9cdd6';
+  ctx.beginPath(); ctx.moveTo(0, baseY + 0.5); ctx.lineTo(w, baseY + 0.5); ctx.stroke();
+
+  // Store for hover tooltip
+  track._draw = { start, end, W, sumMc, sumCov };
+
+  const meanM = totCov ? (totMc / totCov) : 0;
+  if (track.metaEl) {
+    track.metaEl.textContent = nSites
+      ? `${fmtInt(nSites)} covered · mean ${(meanM * 100).toFixed(1)}% · ${track.ctx}`
+      : `no covered ${track.ctx} sites here`;
+  }
+}
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+// ── Ruler ────────────────────────────────────────────────────────────────────
+function drawRuler() {
+  if (!state.rulerCanvas) return;
+  const { ctx, w, h } = sizeCanvas(state.rulerCanvas, 30);
+  ctx.clearRect(0, 0, w, h);
+  const { chrom, start, end } = state.locus;
+  const span = end - start;
+
+  const step = niceStep(span, w / 90);
+  const first = Math.ceil(start / step) * step;
+  ctx.strokeStyle = '#b8bcc8'; ctx.fillStyle = '#6b7180';
+  ctx.font = '10px sans-serif'; ctx.textBaseline = 'top';
+  ctx.beginPath(); ctx.moveTo(0, h - 0.5); ctx.lineTo(w, h - 0.5); ctx.stroke();
+  for (let p = first; p <= end; p += step) {
+    const x = (p - start) / span * w;
+    ctx.beginPath(); ctx.moveTo(x + 0.5, h - 8); ctx.lineTo(x + 0.5, h); ctx.stroke();
+    ctx.fillText(fmtInt(p), x + 3, 3);
+  }
+  ctx.fillStyle = '#232635'; ctx.font = 'bold 11px sans-serif';
+  ctx.fillText(chrom, 3, 15);
+}
+function niceStep(span, targetTicks) {
+  const raw = span / Math.max(1, targetTicks);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 5, 10]) if (m * mag >= raw) return m * mag;
+  return 10 * mag;
+}
+
+// ── Pan / zoom interactions ──────────────────────────────────────────────────
+// Pointer-capture based: state is scoped to each view element (recreated on
+// every buildTrackRows), so there are no accumulating/stuck window listeners.
+function attachPanZoom(view) {
+  let dragId = null, startX = 0, locus0 = null;
+
+  view.addEventListener('pointerdown', (e) => {
+    if (!state.locus || e.button !== 0) return;
+    dragId = e.pointerId; startX = e.clientX; locus0 = { ...state.locus };
+    try { view.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
+  });
+  view.addEventListener('pointermove', (e) => {
+    if (dragId === e.pointerId && locus0) {
+      const w = view.clientWidth || 1;
+      const span = locus0.end - locus0.start;
+      const dbp = -(e.clientX - startX) / w * span;
+      let s = locus0.start + dbp, en = locus0.end + dbp;
+      if (s < 0) { en -= s; s = 0; }
+      state.locus = { chrom: locus0.chrom, start: s, end: en };
+      syncLocusInput(); render();
+    }
+    updateHover(e);
+  });
+  const endDrag = (e) => {
+    if (dragId === e.pointerId) {
+      dragId = null; locus0 = null;
+      try { view.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+  };
+  view.addEventListener('pointerup', endDrag);
+  view.addEventListener('pointercancel', endDrag);
+  view.addEventListener('mouseleave', () => { $('hover').style.display = 'none'; });
+
+  view.addEventListener('wheel', (e) => {
+    if (!state.locus) return;
+    e.preventDefault();
+    const w = view.clientWidth || 1;
+    const rect = view.getBoundingClientRect();
+    const frac = (e.clientX - rect.left) / w;         // zoom anchor
+    const { chrom, start, end } = state.locus;
+    const span = end - start;
+    const factor = e.deltaY < 0 ? 0.8 : 1.25;         // wheel up = zoom in
+    const anchor = start + frac * span;
+    let newSpan = Math.max(20, span * factor);
+    let s = anchor - frac * newSpan, en = anchor + (1 - frac) * newSpan;
+    if (s < 0) { en -= s; s = 0; }
+    state.locus = { chrom, start: s, end: en };
+    syncLocusInput(); render();
+  }, { passive: false });
+}
+
+function zoomBy(factor) {
+  if (!state.locus) return;
+  const { chrom, start, end } = state.locus;
+  const mid = (start + end) / 2, span = (end - start) * factor;
+  let s = mid - span / 2, en = mid + span / 2;
+  if (s < 0) { en -= s; s = 0; }
+  state.locus = { chrom, start: s, end: en };
+  syncLocusInput(); render();
+}
+
+// ── Hover tooltip (nearest covered bin) ──────────────────────────────────────
+function updateHover(e) {
+  const hv = $('hover');
+  const track = state.tracks.find(t => t.view && t.view.contains(e.target));
+  if (!track || !track._draw) { hv.style.display = 'none'; return; }
+  const rect = track.view.getBoundingClientRect();
+  const px = Math.floor((e.clientX - rect.left) / rect.width * track._draw.W);
+  const d = track._draw;
+  if (px < 0 || px >= d.W || !d.sumCov[px]) { hv.style.display = 'none'; return; }
+  const level = d.sumMc[px] / d.sumCov[px];
+  const bp = Math.round(d.start + (px + 0.5) / d.W * (d.end - d.start));
+  hv.textContent = `${track.name} · ~${fmtInt(bp)} · ${(level * 100).toFixed(0)}% mC · cov ${Math.round(d.sumCov[px])}`;
+  hv.style.left = (e.clientX + 12) + 'px';
+  hv.style.top = (e.clientY + 12) + 'px';
+  hv.style.display = 'block';
+}
+
+// ── Wire up controls ─────────────────────────────────────────────────────────
+$('btnLoad').onclick = loadReference;
+$('btnAddTrack').onclick = addTrack;
+$('btnGo').onclick = () => {
+  const l = parseLocus($('locus').value);
+  if (!l) { setStatus('Bad locus. Use e.g. chr1:3,000,000-3,050,000', true); return; }
+  state.locus = l; render();
+};
+$('locus').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnGo').click(); });
+$('zoomIn').onclick = () => zoomBy(0.5);
+$('zoomOut').onclick = () => zoomBy(2);
+$('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack(); });
+window.addEventListener('resize', () => render());
+
+setStatus('Ready. Click “Load reference”, then “Add track”. ' +
+          'Test files from neomorph.salk.edu are pre-filled.');
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>1. bam_to_cz vs bam_to_allc &mdash; cytozip 0.3.6.dev14 documentation</title>
+  <title>Benchmark bam to cz and allc to cz &mdash; cytozip 0.3.6.dev14 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
@@ -27,8 +27,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="cytozip" href="../modules.html" />
-    <link rel="prev" title="Advanced Features" href="advance.html" /> 
+    <link rel="next" title="Sing-cell DNA Methylation Analysis with cytozip" href="dnam.html" />
+    <link rel="prev" title="Quick Start Guide" href="quick_start.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -81,16 +81,24 @@
 </ul>
 </li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="dnam.html">DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#2.-Build-CG-/-CH-context-index-from-the-reference">2. Build CG / CH context index from the reference</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#3.-BAM-→-.cz">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="dnam.html#BAM-→-.cz-benchmark-vs-ALLCools">BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> benchmark vs ALLCools</a></li>
+<p class="caption" role="heading"><span class="caption-text">Benchmark</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Benchmark bam to cz and allc to cz</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#1.-bam_to_cz-vs-bam_to_allc">1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#4.-ALLC-→-.cz">4. ALLC → <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dnam.html">Sing-cell DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="dnam.html#2.-Build-CG-/-CH-context-index-from-the-reference">2. Build CG / CH context index from the reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dnam.html#3.-BAM-→-.cz-&amp;-generating-cz-format-in-mapping-pipeline">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> &amp; generating cz format in mapping pipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#3.1-Generating-.cz-format-in-mapping-pipeline">3.1 Generating .cz format in mapping pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dnam.html#3.2-Generating-.cz-file-from-position-sorted-bam-files">3.2 Generating .cz file from position-sorted bam files</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="dnam.html#5.-view-and-query">5. <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">query</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="dnam.html#Warm-query:-query_numpy-vs-pytabix-across-region-sizes">Warm query: <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> across region sizes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="dnam.html#Correctness-check:-cytozip-query-vs-pytabix">Correctness check: cytozip query vs pytabix</a></li>
@@ -171,10 +179,12 @@
 </ul>
 </li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Benchmark</span></p>
-<ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
+<p class="caption" role="heading"><span class="caption-text">Cytozip Genome Browser</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cz_viewer.html">Genome Browser</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cz_viewer.html#usage">Usage</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference</span></p>
 <ul>
@@ -386,7 +396,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code></li>
+      <li class="breadcrumb-item active">Benchmark bam to cz and allc to cz</li>
       <li class="wy-breadcrumbs-aside">
               <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/notebooks/benchmark.ipynb" class="fa fa-github"> Edit on GitHub</a>
       </li>
@@ -396,8 +406,10 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="1.-bam_to_cz-vs-bam_to_allc">
-<h1>1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code><a class="headerlink" href="#1.-bam_to_cz-vs-bam_to_allc" title="Link to this heading"></a></h1>
+  <section id="Benchmark-bam-to-cz-and-allc-to-cz">
+<h1>Benchmark bam to cz and allc to cz<a class="headerlink" href="#Benchmark-bam-to-cz-and-allc-to-cz" title="Link to this heading"></a></h1>
+<section id="1.-bam_to_cz-vs-bam_to_allc">
+<h2>1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code><a class="headerlink" href="#1.-bam_to_cz-vs-bam_to_allc" title="Link to this heading"></a></h2>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
@@ -1095,22 +1107,23 @@ chr1  14932 -      CTT            0         1      0       1
 </div></div>
 </div>
 <p>Benchmark See <a class="reference external" href="https://github.com/DingWB/cytozip/blob/main/notebooks/benchmark/benchmark_methylation_calling.ipynb">https://github.com/DingWB/cytozip/blob/main/notebooks/benchmark/benchmark_methylation_calling.ipynb</a> for benchmark:</p>
-<p><img alt="d2004c9dc6cc4013b7b5555417539388" class="no-scaled-link" src="../_images/bam_benchmark.png" style="width: 800px;" /></p>
-<p><img alt="ce776bfd8982478e9f0533f8b3ee3d11" class="no-scaled-link" src="../_images/bam_benchmark.runtime_vs_reads.png" style="width: 400px;" /></p>
-<p><img alt="e868553ae23140458b83b71b3d74c0e2" class="no-scaled-link" src="../_images/bam_benchmark.filesize_vs_reads.png" style="width: 400px;" /></p>
+<p><img alt="6b059cdc6cd041b4965ff9675d5abf5b" class="no-scaled-link" src="../_images/bam_benchmark.png" style="width: 800px;" /></p>
+<p><img alt="a8e147115572442ba62364403ba00b07" class="no-scaled-link" src="../_images/bam_benchmark.runtime_vs_reads.png" style="width: 400px;" /></p>
+<p><img alt="1c003f3fff3a4bd68be0907436a0d8bd" class="no-scaled-link" src="../_images/bam_benchmark.filesize_vs_reads.png" style="width: 400px;" /></p>
 </section>
 <section id="2.-allc2cz">
-<h1>2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code><a class="headerlink" href="#2.-allc2cz" title="Link to this heading"></a></h1>
-<p><img alt="07d3c4f755b94211910f87c2bcb2d812" class="no-scaled-link" src="../_images/allc2cz_benchmark.runtime_vs_cytosines.png" style="width: 400px;" /></p>
-<p><img alt="de0e99da79664f429d513312eba11ef5" class="no-scaled-link" src="../_images/allc2cz_benchmark.czsize_vs_cytosines.png" style="width: 400px;" /></p>
+<h2>2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code><a class="headerlink" href="#2.-allc2cz" title="Link to this heading"></a></h2>
+<p><img alt="61b010c26dab49ce9603c8fde4b4f939" class="no-scaled-link" src="../_images/allc2cz_benchmark.runtime_vs_cytosines.png" style="width: 400px;" /></p>
+<p><img alt="8a9eed59aa094ce4b9dad6c4390211f1" class="no-scaled-link" src="../_images/allc2cz_benchmark.czsize_vs_cytosines.png" style="width: 400px;" /></p>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="advance.html" class="btn btn-neutral float-left" title="Advanced Features" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="../modules.html" class="btn btn-neutral float-right" title="cytozip" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="quick_start.html" class="btn btn-neutral float-left" title="Quick Start Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dnam.html" class="btn btn-neutral float-right" title="Sing-cell DNA Methylation Analysis with cytozip" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

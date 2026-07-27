@@ -765,6 +765,151 @@ class CzReader {
   }
 
   /**
+   * Uniform per-block decompressed byte size for a chunk (all blocks except
+   * the last are packed to the same size). Learned by decompressing block 0
+   * once and cached on the chunk tail. Used for row-index ↔ byte-offset math.
+   * @param {string} chunkKey
+   * @returns {Promise<number>}
+   */
+  async _fullBlockBytes(chunkKey) {
+    const tail = await this._loadChunkTail(chunkKey);
+    if (tail._fullBlockBytes != null) return tail._fullBlockBytes;
+    if (tail.nblocks === 0) { tail._fullBlockBytes = 0; return 0; }
+    const b0 = await this._readOneBlock(tail.blockVOs[0]);
+    tail._fullBlockBytes = b0 ? b0.byteLength : 0;
+    return tail._fullBlockBytes;
+  }
+
+  /**
+   * Query a genomic region AND return the global row-index range within the
+   * chunk (needed to join a coordinate-less value file against this
+   * reference). Requires a sort_col index on the query column and a
+   * record-aligned (DELTA) layout — i.e. a reference .cz file.
+   *
+   * @param {string|string[]} dim - chunk_key, e.g. 'chr1'
+   * @param {number} start - inclusive start position
+   * @param {number} end   - inclusive end position
+   * @param {number} [queryCol] - defaults to the file's sort_col
+   * @returns {Promise<{rowStart:number, rowEnd:number, positions:number[], records:Array<Array>}>}
+   *          rowStart inclusive, rowEnd exclusive; positions[i] ↔ row rowStart+i.
+   */
+  async queryWithIndex(dim, start, end, queryCol = this.header.sortCol) {
+    const chunkKey = Array.isArray(dim) ? dim.join('\t') : dim;
+    const tail = await this._loadChunkTail(chunkKey);
+    const vos = tail.blockVOs;
+    const nblocks = vos.length;
+    const empty = { rowStart: 0, rowEnd: 0, positions: [], records: [] };
+    if (nblocks === 0) return empty;
+    if (tail.firstCoords === null || queryCol !== this.header.sortCol) {
+      throw new Error('queryWithIndex requires a sort_col index on the query column');
+    }
+
+    const fullBytes = await this._fullBlockBytes(chunkKey);
+    const recPerBlock = Math.floor(fullBytes / this._unitSize);
+
+    let startBlk = _bisectRight(tail.firstCoords, start) - 1;
+    if (startBlk < 0) startBlk = 0;
+    let endBlk = _bisectRight(tail.firstCoords, end) - 1;
+    if (endBlk < startBlk) endBlk = startBlk;
+
+    const firstByte = Math.floor(vos[startBlk] / VO_BLOCK_DIVISOR);
+    const lastByte = (endBlk + 1 < nblocks)
+      ? Math.floor(vos[endBlk + 1] / VO_BLOCK_DIVISOR)
+      : (tail.start + tail.size);
+    const spanBytes = lastByte - firstByte;
+    this._handle.seek(firstByte);
+    const readAhead = endBlk > startBlk ? spanBytes : this._handle.randomReadAhead;
+    const buf = await this._handle.read(spanBytes, { readAhead });
+    const blocks = await this._decompressBlocksList(buf);
+
+    const positions = [];
+    const records = [];
+    let rowStart = -1;
+    let rowEnd = -1;
+    for (let jj = 0; jj < blocks.length; jj++) {
+      const base = (startBlk + jj) * recPerBlock;
+      const recs = unpackRecords(blocks[jj], this._fields, this._unitSize);
+      this._applyDelta(recs);
+      for (let li = 0; li < recs.length; li++) {
+        const val = _toNumber(recs[li][queryCol]);
+        if (val > end) {
+          return {
+            rowStart: rowStart < 0 ? 0 : rowStart,
+            rowEnd: rowEnd < 0 ? 0 : rowEnd + 1,
+            positions, records,
+          };
+        }
+        if (val >= start) {
+          const gr = base + li;
+          if (rowStart < 0) rowStart = gr;
+          rowEnd = gr;
+          positions.push(val);
+          records.push(this._decodeRecord(recs[li]));
+        }
+      }
+    }
+    return {
+      rowStart: rowStart < 0 ? 0 : rowStart,
+      rowEnd: rowEnd < 0 ? 0 : rowEnd + 1,
+      positions, records,
+    };
+  }
+
+  /**
+   * Fetch records for a contiguous global row-index range [rowStart, rowEnd)
+   * within a chunk. Designed for coordinate-less value files (e.g. mc/cov)
+   * whose rows align 1:1 with a reference. Only the covering blocks are
+   * fetched/decompressed. Assumes a non-DELTA (RAW) value layout.
+   *
+   * @param {string|string[]} dim - chunk_key, e.g. 'chr1'
+   * @param {number} rowStart - inclusive
+   * @param {number} rowEnd   - exclusive
+   * @returns {Promise<Array<Array>>} records for rows [rowStart, rowEnd)
+   */
+  async getRowValues(dim, rowStart, rowEnd) {
+    const chunkKey = Array.isArray(dim) ? dim.join('\t') : dim;
+    if (rowEnd <= rowStart) return [];
+    const tail = await this._loadChunkTail(chunkKey);
+    const vos = tail.blockVOs;
+    const nblocks = vos.length;
+    if (nblocks === 0) return [];
+
+    const fullBytes = await this._fullBlockBytes(chunkKey);
+    const unit = this._unitSize;
+    const byteStart = rowStart * unit;
+    const byteEnd = rowEnd * unit;
+
+    let blockA = Math.floor(byteStart / fullBytes);
+    let blockB = Math.floor((byteEnd - 1) / fullBytes);
+    if (blockA < 0) blockA = 0;
+    if (blockB >= nblocks) blockB = nblocks - 1;
+    if (blockB < blockA) blockB = blockA;
+
+    const firstByte = Math.floor(vos[blockA] / VO_BLOCK_DIVISOR);
+    const lastByte = (blockB + 1 < nblocks)
+      ? Math.floor(vos[blockB + 1] / VO_BLOCK_DIVISOR)
+      : (tail.start + tail.size);
+    const spanBytes = lastByte - firstByte;
+    this._handle.seek(firstByte);
+    const readAhead = blockB > blockA ? spanBytes : this._handle.randomReadAhead;
+    const buf = await this._handle.read(spanBytes, { readAhead });
+    const blocks = await this._decompressBlocksList(buf);
+
+    // Concatenate the covering blocks (decompressed bytes are contiguous).
+    const total = blocks.reduce((s, b) => s + b.byteLength, 0);
+    const concat = new Uint8Array(total);
+    let p = 0;
+    for (const b of blocks) { concat.set(b, p); p += b.byteLength; }
+
+    const localStart = byteStart - blockA * fullBytes;
+    const localEnd = Math.min(byteEnd - blockA * fullBytes, concat.byteLength);
+    if (localStart >= localEnd) return [];
+    const slice = concat.subarray(localStart, localEnd);
+    const recs = unpackRecords(slice, this._fields, this._unitSize);
+    return recs.map(rec => this._decodeRecord(rec));
+  }
+
+  /**
    * Binary search on blocks to find the last block whose first record <= target.
    * Only decompresses O(log N) blocks.
    */
