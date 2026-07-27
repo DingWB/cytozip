@@ -30,7 +30,6 @@ include cytozip/*.pyx
 # By shipping only the ``.pyx``, every build regenerates the ``.c``
 # against the numpy actually present in the build env.
 # JS browser reader is a runtime asset shipped with the package.
-include cytozip/*.mjs
 
 # Directories that must never be shipped to users.
 prune data
@@ -45,6 +44,7 @@ prune .github
 prune .idea
 prune .pytest_cache
 prune .vscode
+prune cytozip/*.mjs
 
 # Blanket cleanup for junk that can slip into any directory.
 global-exclude __pycache__

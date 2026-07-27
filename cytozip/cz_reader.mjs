@@ -23,6 +23,17 @@ const BLOCK_MAGIC = 0x4243; // 'CB' little-endian → bytes [0x43, 0x42] → uin
 const CHUNK_MAGIC = 0x4343; // 'CC'
 const INDEX_MAGIC = 'CZIX';
 const BLOCK_MAX_LEN = 65535;
+// Block on-disk layout (must match Python cz._py_load_bcz_block):
+//   [magic 2B][block_size uint32 4B][deflate (block_size-10)B][data_len uint32 4B]
+// block_size is the TOTAL block size (header + deflate payload + trailer).
+const BLOCK_HEADER_BYTES = 6;   // magic(2) + block_size(4)
+const BLOCK_TRAILER_BYTES = 4;  // data_len(4)
+// Virtual offset layout (must match Python cz._VO_OFFSET_BITS): high bits hold
+// the physical file offset of the compressed block, low VO_OFFSET_BITS hold the
+// byte offset within the decompressed block data.
+const VO_OFFSET_BITS = 20;
+const VO_BLOCK_DIVISOR = 2 ** VO_OFFSET_BITS; // 1048576
+const VO_OFFSET_MASK = VO_BLOCK_DIVISOR - 1;  // 0xFFFFF
 
 // ─── Struct format helpers ───────────────────────────────────────────────────
 // Map Python struct format chars to {size, read(dataView, offset)}
@@ -164,7 +175,11 @@ class RemoteFile {
   /**
    * @param {string} url
    * @param {object} [opts]
-   * @param {number} [opts.cacheSize=2097152]  Read-ahead cache (bytes).
+   * @param {number} [opts.cacheSize=2097152]  Read-ahead window (bytes) used
+   *        for large sequential reads (e.g. whole-chunk fetch()).
+   * @param {number} [opts.randomReadAhead=262144]  Small read-ahead window
+   *        (bytes) used for random access (query / metadata reads). Keeping
+   *        this near one block avoids pulling megabytes for a point query.
    * @param {object} [opts.fetchOptions={}]    Extra options passed to fetch()
    *        (e.g. { headers: {...}, credentials: 'include' }).
    */
@@ -173,11 +188,15 @@ class RemoteFile {
     this._pos = 0;
     this._size = -1;
     this._cacheSize = opts.cacheSize ?? 2 * 1024 * 1024;
+    this._randomReadAhead = opts.randomReadAhead ?? 256 * 1024;
     this._fetchOpts = opts.fetchOptions ?? {};
     this._cacheStart = -1;
     this._cacheEnd = -1;
     this._cacheData = null;
   }
+
+  /** Small read-ahead window for random-access (query) reads. */
+  get randomReadAhead() { return this._randomReadAhead; }
 
   /** Probe the server for the file size (HEAD, fallback to Range probe). */
   async init() {
@@ -217,8 +236,14 @@ class RemoteFile {
   /**
    * Read `size` bytes from the current position. Returns a Uint8Array.
    * Fetches from cache or makes an HTTP Range request.
+   *
+   * @param {number} size
+   * @param {object} [opts]
+   * @param {number} [opts.readAhead]  Override the read-ahead window for this
+   *        read (bytes). Defaults to the large sequential window (cacheSize).
+   *        Pass `randomReadAhead` for random-access reads.
    */
-  async read(size) {
+  async read(size, opts = {}) {
     if (size <= 0) return new Uint8Array(0);
     const start = this._pos;
     const end = Math.min(start + size, this._size);
@@ -232,8 +257,10 @@ class RemoteFile {
       return new Uint8Array(this._cacheData.buffer, this._cacheData.byteOffset + off, need);
     }
 
-    // Fetch with read-ahead
-    const fetchEnd = Math.min(start + Math.max(size, this._cacheSize), this._size);
+    // Fetch with read-ahead (window is per-read: large for sequential whole-chunk
+    // reads, small for random-access queries).
+    const window = opts.readAhead != null ? opts.readAhead : this._cacheSize;
+    const fetchEnd = Math.min(start + Math.max(size, window), this._size);
     const headers = {
       ...(this._fetchOpts.headers || {}),
       Range: `bytes=${start}-${fetchEnd - 1}`,
@@ -296,9 +323,11 @@ class CzReader {
 
   // ── Header parsing ───────────────────────────────────────────────────────
   async _readHeader() {
+    // One-time metadata reads: small read-ahead (don't pull megabytes to open).
+    const ra = { readAhead: this._handle.randomReadAhead };
     this._handle.seek(0);
     // Read first 200 bytes (enough for most headers)
-    let buf = await this._handle.read(200);
+    let buf = await this._handle.read(200, ra);
     if (buf.byteLength < 4) throw new Error('File too small for .cz header');
     const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     let off = 0;
@@ -320,7 +349,7 @@ class CzReader {
     // Ensure we have enough data
     if (off + msgLen > buf.byteLength) {
       this._handle.seek(0);
-      buf = await this._handle.read(Math.max(400, off + msgLen + 200));
+      buf = await this._handle.read(Math.max(400, off + msgLen + 200), ra);
     }
     let dv2 = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     const message = new TextDecoder().decode(buf.subarray(off, off + msgLen));
@@ -335,7 +364,7 @@ class CzReader {
       if (off >= buf.byteLength) {
         // Need more data (very unlikely for typical headers)
         this._handle.seek(0);
-        buf = await this._handle.read(off + 200);
+        buf = await this._handle.read(off + 200, ra);
         dv2 = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
       }
       const fLen = buf[off]; off += 1;
@@ -356,7 +385,20 @@ class CzReader {
     const sortColRaw = buf[off]; off += 1;
     const sortCol = sortColRaw === 0xff ? null : sortColRaw;
 
-    // chunk_keys
+    // Per-column storage-encoding table (must match Python cz):
+    //   n_enc (1B) then n_enc pairs of (col_idx 1B, enc_code 1B).
+    // enc_code 0x00 = RAW (default), 0x01 = DELTA (in-block cumulative diffs
+    // on an integer column). Columns not listed default to RAW.
+    const ENC_DELTA = 0x01;
+    const nEnc = buf[off]; off += 1;
+    const deltaCols = [];
+    for (let i = 0; i < nEnc; i++) {
+      const colIdx = buf[off]; off += 1;
+      const encCode = buf[off]; off += 1;
+      if (encCode === ENC_DELTA) deltaCols.push(colIdx);
+    }
+
+    // chunk_dims (the chunk_key names)
     const nChunkKeys = buf[off]; off += 1;
     const chunk_keys = [];
     for (let i = 0; i < nChunkKeys; i++) {
@@ -367,9 +409,10 @@ class CzReader {
 
     this.header = {
       magic, version, totalSize, message,
-      formats, columns, sortCol, chunk_keys,
+      formats, columns, sortCol, deltaCols, chunk_keys,
       headerSize: off,
     };
+    this._deltaCols = deltaCols;
 
     this._fields = parseFormats(formats);
     this._unitSize = unitSize(this._fields);
@@ -404,8 +447,9 @@ class CzReader {
     }
 
     // Read last 36 bytes: chunk_index_offset(8B) + EOF(28B)
+    const ra = { readAhead: this._handle.randomReadAhead };
     f.seek(fileSize - 36);
-    const tail = await f.read(36);
+    const tail = await f.read(36, ra);
     const tailDv = new DataView(tail.buffer, tail.byteOffset, tail.byteLength);
     const indexOffset = Number(tailDv.getBigUint64(0, true));
 
@@ -416,7 +460,7 @@ class CzReader {
 
     // Read the entire chunk index
     f.seek(indexOffset);
-    const idxBuf = await f.read(fileSize - 28 - indexOffset);
+    const idxBuf = await f.read(fileSize - 28 - indexOffset, ra);
     const idxDv = new DataView(idxBuf.buffer, idxBuf.byteOffset, idxBuf.byteLength);
     let off = 0;
 
@@ -495,7 +539,7 @@ class CzReader {
     //   + chunk_key_values
     const sortSize = this._sortColSize || 0;
     const tailSize = 16 + info.nblocks * (8 + sortSize) + 256; // +256 for dim strings
-    const tailBuf = await this._handle.read(tailSize);
+    const tailBuf = await this._handle.read(tailSize, { readAhead: this._handle.randomReadAhead });
     const dv = new DataView(tailBuf.buffer, tailBuf.byteOffset, tailBuf.byteLength);
     let off = 0;
 
@@ -539,14 +583,15 @@ class CzReader {
   async _decompressBlocks(compressed) {
     const parts = [];
     let off = 0;
-    while (off + 4 <= compressed.byteLength) {
+    const dv = new DataView(compressed.buffer, compressed.byteOffset, compressed.byteLength);
+    while (off + BLOCK_HEADER_BYTES <= compressed.byteLength) {
       // Block magic: 'CB' as uint16 LE
       const magic = compressed[off] | (compressed[off + 1] << 8);
       if (magic !== BLOCK_MAGIC) break;
-      const bsize = compressed[off + 2] | (compressed[off + 3] << 8);
-      if (off + bsize > compressed.byteLength) break;
-      // Compressed payload is between header(4B) and raw_len trailer(2B)
-      const payload = compressed.subarray(off + 4, off + bsize - 2);
+      const bsize = dv.getUint32(off + 2, true);
+      if (bsize < BLOCK_HEADER_BYTES + BLOCK_TRAILER_BYTES || off + bsize > compressed.byteLength) break;
+      // Deflate payload sits between the 6B header and the 4B data_len trailer.
+      const payload = compressed.subarray(off + BLOCK_HEADER_BYTES, off + bsize - BLOCK_TRAILER_BYTES);
       const decompressed = await inflateRaw(payload);
       parts.push(decompressed instanceof Uint8Array ? decompressed : new Uint8Array(decompressed));
       off += bsize;
@@ -560,6 +605,29 @@ class CzReader {
       pos += p.byteLength;
     }
     return out;
+  }
+
+  /**
+   * Decompress all blocks of a chunk, returning one Uint8Array per block
+   * (boundaries preserved so per-block DELTA decoding works).
+   * @param {Uint8Array} compressed
+   * @returns {Promise<Uint8Array[]>}
+   */
+  async _decompressBlocksList(compressed) {
+    const parts = [];
+    let off = 0;
+    const dv = new DataView(compressed.buffer, compressed.byteOffset, compressed.byteLength);
+    while (off + BLOCK_HEADER_BYTES <= compressed.byteLength) {
+      const magic = compressed[off] | (compressed[off + 1] << 8);
+      if (magic !== BLOCK_MAGIC) break;
+      const bsize = dv.getUint32(off + 2, true);
+      if (bsize < BLOCK_HEADER_BYTES + BLOCK_TRAILER_BYTES || off + bsize > compressed.byteLength) break;
+      const payload = compressed.subarray(off + BLOCK_HEADER_BYTES, off + bsize - BLOCK_TRAILER_BYTES);
+      const decompressed = await inflateRaw(payload);
+      parts.push(decompressed instanceof Uint8Array ? decompressed : new Uint8Array(decompressed));
+      off += bsize;
+    }
+    return parts;
   }
 
   // ── Fetch ────────────────────────────────────────────────────────────────
@@ -578,12 +646,15 @@ class CzReader {
     const compressedSize = info.size - 10;
     const compressed = await this._handle.read(compressedSize);
 
-    // Decompress all blocks
-    const decompressed = await this._decompressBlocks(compressed);
-
-    // Unpack records and convert BigInt → Number
-    const records = unpackRecords(decompressed, this._fields, this._unitSize);
-    return records.map(rec => this._decodeRecord(rec));
+    // Decompress block by block so per-block DELTA decoding stays correct.
+    const blocks = await this._decompressBlocksList(compressed);
+    const out = [];
+    for (const blk of blocks) {
+      const records = unpackRecords(blk, this._fields, this._unitSize);
+      this._applyDelta(records);
+      for (const rec of records) out.push(this._decodeRecord(rec));
+    }
+    return out;
   }
 
   /**
@@ -604,8 +675,12 @@ class CzReader {
   // ── Query (binary search) ─────────────────────────────────────────────────
   /**
    * Query records in a genomic region [start, end] within a chunk_key.
-   * Uses binary search on blocks (O(log N) decompressions) to find the
-   * target block, then scans forward.
+   *
+   * Read-ahead strategy:
+   *   - Single-block (point / small region) queries use a small read-ahead
+   *     window (~one block), so a random jump costs only ~one block of bytes.
+   *   - Multi-block queries (large regions) bulk-read the whole contiguous
+   *     block span in a single Range request (large sequential read).
    *
    * @param {string|string[]} dim - chunk_key, e.g. 'chr1'
    * @param {number} start - start position (inclusive)
@@ -620,19 +695,48 @@ class CzReader {
     const nblocks = vos.length;
     if (nblocks === 0) return [];
 
-    // Fast path: if this file has a sort_col index and the caller is
-    // querying that column, bisect the in-memory first_coords array — no
-    // extra block decompressions needed to locate the start block.
-    let startBlockIdx;
+    // Fast path: sort_col index present and querying that column — bisect the
+    // in-memory first_coords array for BOTH ends, then read the contiguous
+    // block span [startBlockIdx, endBlockIdx] in one request.
     if (tail.firstCoords !== null && queryCol === this.header.sortCol) {
-      startBlockIdx = _bisectRight(tail.firstCoords, start) - 1;
+      let startBlockIdx = _bisectRight(tail.firstCoords, start) - 1;
       if (startBlockIdx < 0) startBlockIdx = 0;
-    } else {
-      // Fallback: probe block first-values via decompression (O(log N) blocks).
-      startBlockIdx = await this._bisectBlockIndex(vos, start, queryCol, 0, nblocks);
+      let endBlockIdx = _bisectRight(tail.firstCoords, end) - 1;
+      if (endBlockIdx < startBlockIdx) endBlockIdx = startBlockIdx;
+
+      // Byte range covering blocks [startBlockIdx, endBlockIdx]. Blocks are
+      // contiguous, so block j ends where block j+1 begins (or at the chunk
+      // tail offset for the last block).
+      const firstByte = Math.floor(vos[startBlockIdx] / VO_BLOCK_DIVISOR);
+      const lastByte = (endBlockIdx + 1 < nblocks)
+        ? Math.floor(vos[endBlockIdx + 1] / VO_BLOCK_DIVISOR)
+        : (tail.start + tail.size);
+      const spanBytes = lastByte - firstByte;
+      const nSpan = endBlockIdx - startBlockIdx + 1;
+
+      // One block → small read-ahead; many blocks → read the whole span at once.
+      const readAhead = nSpan > 1 ? spanBytes : this._handle.randomReadAhead;
+      this._handle.seek(firstByte);
+      const buf = await this._handle.read(spanBytes, { readAhead });
+      const blocks = await this._decompressBlocksList(buf);
+
+      const results = [];
+      for (const blk of blocks) {
+        const records = unpackRecords(blk, this._fields, this._unitSize);
+        this._applyDelta(records); // reconstruct absolute values for DELTA columns
+        if (records.length > 0 && _toNumber(records[0][queryCol]) > end) break;
+        for (const rec of records) {
+          const val = _toNumber(rec[queryCol]);
+          if (val > end) return results;
+          if (val >= start) results.push(this._decodeRecord(rec));
+        }
+      }
+      return results;
     }
 
-    // Read and decompress from startBlockIdx onward to collect matching records
+    // Fallback: no first_coords index — probe block first-values via
+    // decompression (O(log N) blocks), then scan forward block by block.
+    const startBlockIdx = await this._bisectBlockIndex(vos, start, queryCol, 0, nblocks);
     const results = [];
     let blockIdx = startBlockIdx;
 
@@ -641,14 +745,13 @@ class CzReader {
       if (!decompressed) break;
 
       const records = unpackRecords(decompressed, this._fields, this._unitSize);
-      let foundAny = false;
+      this._applyDelta(records); // reconstruct absolute values for DELTA columns
 
       for (const rec of records) {
         const val = _toNumber(rec[queryCol]);
         if (val > end) return results; // past the end, done
         if (val >= start) {
           results.push(this._decodeRecord(rec));
-          foundAny = true;
         }
       }
 
@@ -680,26 +783,28 @@ class CzReader {
 
   /** Read and decompress one block, return decompressed Uint8Array. */
   async _readOneBlock(virtualOffset) {
-    const blockStart = Math.floor(virtualOffset / 65536); // vo >> 16
+    const blockStart = Math.floor(virtualOffset / VO_BLOCK_DIVISOR); // vo >> 20
     this._handle.seek(blockStart);
-    // Read block header (4 bytes): magic(2B) + bsize(2B)
-    const hdr = await this._handle.read(4);
-    if (hdr.byteLength < 4) return null;
+    // Read block header (6 bytes): magic(2B) + block_size(uint32 4B).
+    // Random access → small read-ahead (prefetch ~one block, not megabytes).
+    const ra = { readAhead: this._handle.randomReadAhead };
+    const hdr = await this._handle.read(BLOCK_HEADER_BYTES, ra);
+    if (hdr.byteLength < BLOCK_HEADER_BYTES) return null;
     const magic = hdr[0] | (hdr[1] << 8);
     if (magic !== BLOCK_MAGIC) return null;
-    const bsize = hdr[2] | (hdr[3] << 8);
-    // Read the rest of the block (compressed payload + raw_len trailer)
-    const rest = await this._handle.read(bsize - 4);
-    if (rest.byteLength < bsize - 4) return null;
-    // Payload is bytes [0 .. bsize-6), raw_len trailer is last 2 bytes
-    const payload = rest.subarray(0, rest.byteLength - 2);
+    const bsize = (hdr[2] | (hdr[3] << 8) | (hdr[4] << 16) | (hdr[5] << 24)) >>> 0;
+    // Read the rest of the block (deflate payload + data_len trailer)
+    const rest = await this._handle.read(bsize - BLOCK_HEADER_BYTES, ra);
+    if (rest.byteLength < bsize - BLOCK_HEADER_BYTES) return null;
+    // Payload excludes the trailing 4-byte data_len
+    const payload = rest.subarray(0, rest.byteLength - BLOCK_TRAILER_BYTES);
     return inflateRaw(payload);
   }
 
   /** Read the first record's column value from a block at the given virtual offset. */
   async _readBlockFirstValue(virtualOffset, col) {
-    const blockStart = Math.floor(virtualOffset / 65536);
-    const within = virtualOffset % 65536;
+    const blockStart = Math.floor(virtualOffset / VO_BLOCK_DIVISOR);
+    const within = virtualOffset % VO_BLOCK_DIVISOR;
     const block = await this._readOneBlock(virtualOffset);
     if (!block || within + this._unitSize > block.byteLength) return null;
     // Read one record starting at 'within'
@@ -718,6 +823,26 @@ class CzReader {
       if (this._strColMask[i]) return v; // already a string
       return _toNumber(v);
     });
+  }
+
+  /**
+   * Undo per-column DELTA encoding in place on a block's records.
+   * For each delta column the stored values are within-block differences
+   * (first record absolute, rest are diffs); a running cumulative sum
+   * reconstructs the absolute values. Must be applied per block.
+   * @param {Array<Array>} records - records of a single block (mutated in place)
+   */
+  _applyDelta(records) {
+    if (!this._deltaCols || this._deltaCols.length === 0 || records.length < 2) return records;
+    for (const col of this._deltaCols) {
+      const isBig = typeof records[0][col] === 'bigint';
+      let acc = records[0][col];
+      for (let i = 1; i < records.length; i++) {
+        acc = isBig ? acc + records[i][col] : acc + records[i][col];
+        records[i][col] = acc;
+      }
+    }
+    return records;
   }
 
   close() {

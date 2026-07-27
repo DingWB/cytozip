@@ -432,3 +432,5 @@ conda install -c bioconda cytozip
 
 ## To-Do List
 - Peak calling using umc
+- Cell type prediction using Bayes model
+- Online cz visualizing tool
