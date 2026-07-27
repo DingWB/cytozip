@@ -182,8 +182,9 @@
       value="https://raw.githubusercontent.com/DingWB/cytozip/refs/heads/main/cytozip/cz_reader.mjs" />
   </div>
   <div class="field">
-    <label>CORS proxy prefix (optional)</label>
-    <input type="text" class="name" id="proxy" style="width:150px" placeholder="e.g. https://cors.x/?" />
+    <label>CORS proxy (auto-fallback; blank = default)</label>
+    <input type="text" class="url" id="proxy" style="width:260px"
+      placeholder="blank uses https://corsproxy.io/?url=" />
   </div>
 </div>
 
@@ -226,11 +227,62 @@ function setStatus(msg, isErr = false) {
   statusEl.textContent = msg;
   statusEl.classList.toggle('error', !!isErr);
 }
-function proxied(url) {
-  const p = $('proxy').value.trim();
-  return p ? p + encodeURIComponent(url) : url;
-}
 const fmtInt = (n) => n.toLocaleString('en-US');
+
+// ── Automatic CORS handling (global fetch wrapper) ───────────────────────────
+// IMPORTANT: CORS is enforced by the browser from the *server's response*
+// headers; it CANNOT be disabled by adding request headers from client-side JS.
+// The only client-side remedy is to route the request through a proxy that
+// re-serves the bytes WITH an `Access-Control-Allow-Origin` header AND — crucial
+// for .cz random reads — forwards HTTP `Range` requests, returning 206 replies.
+//
+// We transparently wrap globalThis.fetch(): every cross-origin data request is
+// tried directly first; if the browser blocks it (CORS surfaces as a TypeError)
+// we remember that host and automatically retry through the configured proxy
+// (the "CORS proxy" field, or DEFAULT_PROXY when that field is empty). All of
+// the reader's HEAD + Range requests flow through here, so nothing else changes.
+const DEFAULT_PROXY = 'https://corsproxy.io/?url=';
+const _proxyBadHosts = new Set();
+
+function _proxyPrefix() {
+  const el = document.getElementById('proxy');
+  const v = (el && el.value.trim()) || '';
+  return v || DEFAULT_PROXY;
+}
+function _applyProxy(url, prefix) {
+  // "?url=" / "?"-terminated prefixes expect a URL-encoded target; a bare
+  // prefix is simply concatenated in front of the raw URL.
+  return /[?&=]$/.test(prefix) ? prefix + encodeURIComponent(url) : prefix + url;
+}
+const _origFetch = globalThis.fetch.bind(globalThis);
+globalThis.fetch = async function (input, init) {
+  const rawUrl = (typeof input === 'string') ? input
+               : (input && input.url) ? input.url : null;
+  let u = null;
+  if (rawUrl) { try { u = new URL(rawUrl, location.href); } catch { u = null; } }
+  const isCross = u && /^https?:$/.test(u.protocol) && u.origin !== location.origin;
+  const prefix = _proxyPrefix();
+  const proxyBase = prefix ? prefix.split('?')[0] : '';
+  const alreadyProxied = rawUrl && proxyBase && rawUrl.startsWith(proxyBase);
+
+  // Same-origin, no proxy available, or already going through a proxy: passthru.
+  if (!isCross || !prefix || alreadyProxied) return _origFetch(input, init);
+
+  // Host already known to require a proxy → skip the (doomed) direct attempt.
+  if (_proxyBadHosts.has(u.host)) return _origFetch(_applyProxy(rawUrl, prefix), init);
+
+  try {
+    return await _origFetch(input, init);              // try the server directly
+  } catch (err) {
+    // Direct request blocked (almost always CORS). Remember host + retry proxied.
+    _proxyBadHosts.add(u.host);
+    try {
+      return await _origFetch(_applyProxy(rawUrl, prefix), init);
+    } catch (_err2) {
+      throw err;                                        // surface the clearer error
+    }
+  }
+};
 
 // ── Dynamically import the reader module from any URL ────────────────────────
 // raw.githubusercontent.com serves text/plain, which the browser refuses to
@@ -291,7 +343,7 @@ async function loadReference() {
     }
     setStatus('Opening reference .cz (header + chunk index)…');
     const t0 = performance.now();
-    const reader = await state.CzReader.fromUrl(proxied(url), { randomReadAhead: 256 * 1024 });
+    const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
     if (reader.header.sortCol === null) {
       reader.close();
       throw new Error('reference must have a sort_col (position) index');
@@ -318,9 +370,12 @@ async function loadReference() {
 
 function corsHint(msg, url) {
   return msg +
-    '\nIf this is a cross-origin/CORS error: the data server must send ' +
-    '`Access-Control-Allow-Origin` and expose Range headers, or host this page ' +
-    'on the same origin as the .cz files, or set a CORS proxy prefix above.';
+    '\nCross-origin/CORS error: the browser blocked reading this URL because the ' +
+    'server sent no `Access-Control-Allow-Origin` header (this cannot be fixed by ' +
+    'adding request headers). An automatic retry through the CORS proxy was also ' +
+    'unsuccessful.\nRemedies: (1) set a working CORS proxy that forwards HTTP ' +
+    'Range requests in the “CORS proxy” field, (2) enable CORS + Range on the ' +
+    'data server, or (3) host this page on the same origin as the .cz files.';
 }
 
 // ── Add / remove tracks ──────────────────────────────────────────────────────
@@ -332,7 +387,7 @@ async function addTrack() {
   if (!url) { setStatus('Enter a track .cz URL.', true); return; }
   try {
     setStatus(`Opening track “${name}”…`);
-    const reader = await state.CzReader.fromUrl(proxied(url), { randomReadAhead: 256 * 1024 });
+    const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
     const track = {
       id: ++state.trackSeq, name, url, reader, ctx,
       color: PALETTE[state.tracks.length % PALETTE.length],

@@ -1,0 +1,14 @@
+# Local build config for running `conda build conda-recipe` OUTSIDE the
+# conda-forge / bioconda CI (which supply these pinnings automatically).
+#
+# It only defines the C stdlib so `{{ stdlib('c') }}` resolves to
+# `sysroot_linux-64` instead of the non-existent `c_linux-64`. We deliberately
+# do NOT use the full `conda-forge-pinning` here because its `zip_keys` couple
+# `python` with `is_python_min`, which conflicts with `conda build --python X`.
+#
+# This file is auto-read by conda-build from the recipe directory. It is NOT
+# part of the bioconda recipe (only meta.yaml is copied there).
+c_stdlib:
+  - sysroot          # [linux]
+c_stdlib_version:
+  - "2.17"           # [linux]

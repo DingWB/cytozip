@@ -90,7 +90,7 @@ setup(
     )),
     install_requires=['pandas', 'numpy', 'loguru', 'pysam',
                       'fsspec',
-                      'requests', 'anndata', 'scipy'],
+                      'requests', 'anndata', 'scipy', 'biopython'],
     # fast-fisher is optional (PyPI-only; used only by pivot_fisher).
     # Install with: pip install cytozip[pivot]
     extras_require={

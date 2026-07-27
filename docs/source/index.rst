@@ -13,6 +13,7 @@ Chunk ZIP
    :caption: Benchmark
 
    notebooks/benchmark
+   notebooks/benchmark/benchmark_query
    
 .. toctree::
    :maxdepth: 2
@@ -26,7 +27,7 @@ Chunk ZIP
    :maxdepth: 2
    :caption: Advanced Topics
 
-   notebooks/remote_reading
+   notebooks/remote
    notebooks/advance.ipynb
 
 .. toctree::

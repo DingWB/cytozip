@@ -88,6 +88,15 @@
 <li class="toctree-l2"><a class="reference internal" href="benchmark.html#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark/benchmark_query.html">Benchmark: <code class="docutils literal notranslate"><span class="pre">cytozip</span></code> query vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Config">Config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Run-the-parallel-benchmark">Run the parallel benchmark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Aggregate-summary-→-text-file">Aggregate summary → text file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Plots">Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Correctness-check-on-a-random-subset">Correctness check on a random subset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Region-size-scaling-(single-representative-cell)">Region-size scaling (single representative cell)</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
 <ul class="current">
@@ -99,14 +108,8 @@
 <li class="toctree-l3"><a class="reference internal" href="dnam.html#3.2-Generating-.cz-file-from-position-sorted-bam-files">3.2 Generating .cz file from position-sorted bam files</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#5.-view-and-query">5. <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">query</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="dnam.html#Warm-query:-query_numpy-vs-pytabix-across-region-sizes">Warm query: <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> across region sizes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="dnam.html#Correctness-check:-cytozip-query-vs-pytabix">Correctness check: cytozip query vs pytabix</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#6.-View-/-query-a-remote-.cz-(no-download)">6. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#7.-catcz-and-merge_cz">7. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#8.-Build-a-cell-×-gene-AnnData">8. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="dnam.html#4.-catcz-and-merge_cz">4. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="dnam.html#5.-Build-a-cell-×-gene-AnnData">5. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">cytozip Python API</a><ul>
@@ -124,11 +127,8 @@
 <li class="toctree-l2"><a class="reference internal" href="#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="call_dmr.html">Calling DMRs with cytozip</a><ul>
@@ -151,17 +151,28 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="remote_reading.html">Remote Reading with cytozip</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#1.-Installation">1. Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="remote.html">Remote .cz access</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#1.-Setup-the-server">1. Setup the server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="remote.html#Serving-.cz-Files-for-Remote-Access">Serving <code class="docutils literal notranslate"><span class="pre">.cz</span></code> Files for Remote Access</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="remote.html#Nginx">Nginx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="remote.html#Apache">Apache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="remote.html#Object-Storage-(S3-/-GCS)">Object Storage (S3 / GCS)</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="remote.html#Amazon-S3">Amazon S3</a></li>
+<li class="toctree-l5"><a class="reference internal" href="remote.html#Google-Cloud-Storage">Google Cloud Storage</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+<li class="toctree-l4"><a class="reference internal" href="remote.html#Testing-Your-Configuration">Testing Your Configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#2.-View-/-query-a-remote-.cz-(no-download)">2. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#3.-Opening-a-remote-.cz-file-in-Python">3. Opening a remote .cz file in Python</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="remote.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#4.-Querying-remote-files-in-Python">4. Querying remote files in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#5.-Read-remote-cz-file-from-figshare">5. Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="advance.html">Advanced Features</a><ul>
@@ -2127,417 +2138,6 @@ chr12   3109893 -       CTC     90      255
 </pre></div></div>
 </div>
 </section>
-<section id="Remote-Reading-(from-URL)">
-<h3>Remote Reading (from URL)<a class="headerlink" href="#Remote-Reading-(from-URL)" title="Link to this heading"></a></h3>
-<p>cytozip files with a chunk index can be read directly from HTTP/HTTPS URLs, without downloading the entire file. This uses HTTP Range requests to fetch only the required chunks. The speed of querying remote cz file is almost the same as the local cz file.</p>
-<p>Key features:</p>
-<ul class="simple">
-<li><p><strong>RemoteFile</strong>: File-like object backed by HTTP Range requests with 2MB read-ahead cache</p></li>
-<li><p><strong>Reader.from_url()</strong>: Open a remote .cz file with O(1) chunk lookup via chunk index</p></li>
-<li><p><strong>Auto-detection</strong>: Passing a URL to <code class="docutils literal notranslate"><span class="pre">Reader()</span></code> automatically uses remote mode</p></li>
-</ul>
-<p>To enable CORS on Apache2 under CentOS, add the following to /etc/httpd/conf/httpd.conf</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Access-Control-Allow-Origin<span class="w"> </span><span class="s2">&quot;*&quot;</span>
-Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Access-Control-Allow-Methods<span class="w"> </span><span class="s2">&quot;GET, POST, OPTIONS, PUT&quot;</span>
-Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Access-Control-Allow-Headers<span class="w"> </span><span class="s2">&quot;Content-Type, Authorization, Range&quot;</span>
-Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Access-Control-Expose-Headers<span class="w"> </span><span class="s2">&quot;Content-Range, Accept-Ranges, Content-Length&quot;</span>
-Header<span class="w"> </span><span class="nb">set</span><span class="w"> </span>Accept-Ranges<span class="w"> </span><span class="s2">&quot;bytes&quot;</span>
-LoadModule<span class="w"> </span>headers_module<span class="w"> </span>modules/mod_headers.so
-</pre></div>
-</div>
-<p>Test whether a file support range request:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-I<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Range: bytes=0-999&quot;</span><span class="w"> </span>http://your-server.com/yourfile.bam
-</pre></div>
-</div>
-</section>
-</section>
-<section id="Read-remote-cz-file-from-webserver">
-<h2>Read remote cz file from webserver<a class="headerlink" href="#Read-remote-cz-file-from-webserver" title="Link to this heading"></a></h2>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[34]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">czip</span>
-<span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;https://neomorph.salk.edu/ftp/bican/FC_M_P12b_3C_2-5-M17-N10.with_pos.cz&quot;</span>
-
-<span class="c1"># Method 1: Using Reader.from_url (recommended)</span>
-<span class="n">reader</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-
-<span class="c1"># Method 2: Pass URL directly to Reader (auto-detected)</span>
-<span class="c1"># reader = czip.Reader(url)</span>
-
-<span class="c1"># Once opened, all Reader methods work the same as local files:</span>
-<span class="n">reader</span><span class="o">.</span><span class="n">print_header</span><span class="p">()</span>
-<span class="n">reader</span><span class="o">.</span><span class="n">summary_chunks</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch</span><span class="p">((</span><span class="s2">&quot;chr1&quot;</span><span class="p">,)):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
-    <span class="k">break</span>
-<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">chunk_key</span><span class="o">=</span><span class="s2">&quot;chr9&quot;</span><span class="p">,</span><span class="n">start</span><span class="o">=</span><span class="mi">3000294</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="mi">3000472</span><span class="p">,</span><span class="n">printout</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
-<span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Remote reading requires an HTTP server supporting Range requests.&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The .cz file should include a chunk index for optimal performance.&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-magic  :  b&#39;CZIP&#39;
-version  :  0.3
-total_size  :  43494399
-message  :
-formats  :  [&#39;Q&#39;, &#39;B&#39;, &#39;B&#39;]
-columns  :  [&#39;pos&#39;, &#39;mc&#39;, &#39;cov&#39;]
-sort_col  :  0
-delta_cols  :  [0]
-chunk_dims  :  [&#39;chrom&#39;]
-header_size  :  47
-chrom   chunk_start_offset      chunk_size      chunk_tail_offset       chunk_nblocks   chunk_nrows
-chr1    47      3365956 3367784 110     2871952
-chr10   3367784 2217013 5585987 73      1893443
-chr11   5585987 2063328 7650441 69      1793491
-chr12   7650441 2039078 9690613 67      1748109
-chr13   9690613 2035966 11727673        67      1740746
-chr14   11727673        2070897 13799680        68      1767574
-chr15   13799680        1745220 15545850        58      1496229
-chr16   15545850        1662163 17208899        54      1414646
-chr17   17208899        1593579 18803348        53      1376492
-chr18   18803348        1525689 20329859        50      1302683
-chr19   20329859        998682  21329091        33      862401
-chr1_GL456210_random    21329091        4156    21333300        1       3630
-chr1_GL456211_random    21333300        6061    21339414        1       5213
-chr1_GL456212_random    21339414        4135    21343602        1       3537
-chr1_GL456213_random    21343602        66      21343721        1       22
-chr1_GL456221_random    21343721        5424    21349198        1       4668
-chr2    21349198        3090213 24441064        102     2654154
-chr3    24441064        2753806 27196331        90      2339145
-chr4    27196331        2635990 29833734        87      2268088
-chr4_GL456216_random    29833734        1000    29834787        1       681
-chr4_JH584292_random    29834787        387     29835227        1       267
-chr4_GL456350_random    29835227        409     29835689        1       276
-chr4_JH584293_random    29835689        380     29836122        1       269
-chr4_JH584294_random    29836122        114     29836289        1       60
-chr5    29836289        2569683 32407353        85      2218642
-chr5_JH584296_random    32407353        834     32408240        1       597
-chr5_JH584297_random    32408240        1506    32409799        1       1209
-chr5_JH584298_random    32409799        368     32410220        1       243
-chr5_GL456354_random    32410220        1575    32411848        1       1243
-chr5_JH584299_random    32411848        5856    32417757        1       4959
-chr6    32417757        2555783 34974905        84      2184636
-chr7    34974905        2365882 37342072        79      2055539
-chr7_GL456219_random    37342072        212     37342337        1       119
-chr8    37342337        2181435 39524945        72      1878024
-chr9    39524945        2134058 41660144        70      1829928
-chrM    41660144        601     41660782        1       429
-chrX    41660782        1375360 43036883        45      1154296
-chrX_GL456233_random    43036883        3309    43040245        1       2629
-chrY    43040245        316689  43357131        11      267817
-chrY_JH584300_random    43357131        692     43357876        1       491
-chrY_JH584301_random    43357876        224     43358153        1       109
-chrY_JH584302_random    43358153        312     43358518        1       212
-chrY_JH584303_random    43358518        388     43358959        1       262
-chrUn_GL456239  43358959        2388    43361394        1       1946
-chrUn_GL456367  43361394        559     43362000        1       397
-chrUn_GL456378  43362000        1020    43363067        1       774
-chrUn_GL456381  43363067        350     43363464        1       252
-chrUn_GL456382  43363464        231     43363742        1       123
-chrUn_GL456383  43363742        3755    43367544        1       2548
-chrUn_GL456385  43367544        356     43367947        1       220
-chrUn_GL456390  43367947        1648    43369642        1       1036
-chrUn_GL456392  43369642        3412    43373101        1       2027
-chrUn_GL456393  43373101        2515    43375663        1       2028
-chrUn_GL456394  43375663        626     43376336        1       459
-chrUn_GL456359  43376336        521     43376904        1       368
-chrUn_GL456360  43376904        291     43377242        1       176
-chrUn_GL456396  43377242        1546    43378835        1       962
-chrUn_GL456372  43378835        797     43379679        1       620
-chrUn_GL456387  43379679        480     43380206        1       364
-chrUn_GL456389  43380206        2158    43382411        1       1326
-chrUn_GL456370  43382411        421     43382879        1       276
-chrUn_GL456379  43382879        749     43383675        1       528
-chrUn_GL456366  43383675        850     43384572        1       617
-chrUn_GL456368  43384572        575     43385194        1       419
-chrUn_JH584304  43385194        51759   43437016        2       33233
-chrL    43437016        54318   43491371        1       24164
-[3005823, 0, 1]
-(&#39;chr9&#39;, 3000294, 15, 23)
-(&#39;chr9&#39;, 3000296, 51, 62)
-(&#39;chr9&#39;, 3000297, 53, 63)
-(&#39;chr9&#39;, 3000300, 52, 65)
-(&#39;chr9&#39;, 3000304, 2, 26)
-(&#39;chr9&#39;, 3000305, 1, 27)
-(&#39;chr9&#39;, 3000307, 60, 71)
-(&#39;chr9&#39;, 3000312, 63, 76)
-(&#39;chr9&#39;, 3000321, 67, 78)
-(&#39;chr9&#39;, 3000322, 65, 76)
-(&#39;chr9&#39;, 3000325, 66, 77)
-(&#39;chr9&#39;, 3000331, 70, 81)
-(&#39;chr9&#39;, 3000333, 1, 30)
-(&#39;chr9&#39;, 3000338, 72, 84)
-(&#39;chr9&#39;, 3000339, 71, 85)
-(&#39;chr9&#39;, 3000341, 85, 88)
-(&#39;chr9&#39;, 3000342, 19, 26)
-(&#39;chr9&#39;, 3000343, 70, 84)
-(&#39;chr9&#39;, 3000344, 81, 95)
-(&#39;chr9&#39;, 3000351, 78, 94)
-(&#39;chr9&#39;, 3000353, 91, 94)
-(&#39;chr9&#39;, 3000354, 16, 21)
-(&#39;chr9&#39;, 3000356, 82, 104)
-(&#39;chr9&#39;, 3000357, 88, 108)
-(&#39;chr9&#39;, 3000362, 4, 24)
-(&#39;chr9&#39;, 3000364, 2, 21)
-(&#39;chr9&#39;, 3000366, 5, 23)
-(&#39;chr9&#39;, 3000372, 91, 121)
-(&#39;chr9&#39;, 3000374, 93, 123)
-(&#39;chr9&#39;, 3000380, 89, 121)
-(&#39;chr9&#39;, 3000381, 109, 122)
-(&#39;chr9&#39;, 3000382, 22, 25)
-(&#39;chr9&#39;, 3000384, 7, 26)
-(&#39;chr9&#39;, 3000390, 84, 122)
-(&#39;chr9&#39;, 3000392, 7, 28)
-(&#39;chr9&#39;, 3000397, 64, 102)
-(&#39;chr9&#39;, 3000399, 93, 100)
-(&#39;chr9&#39;, 3000400, 24, 31)
-(&#39;chr9&#39;, 3000402, 58, 96)
-(&#39;chr9&#39;, 3000408, 56, 95)
-(&#39;chr9&#39;, 3000409, 59, 99)
-(&#39;chr9&#39;, 3000411, 9, 31)
-(&#39;chr9&#39;, 3000412, 9, 30)
-(&#39;chr9&#39;, 3000414, 52, 96)
-(&#39;chr9&#39;, 3000415, 56, 98)
-(&#39;chr9&#39;, 3000418, 55, 103)
-(&#39;chr9&#39;, 3000420, 12, 33)
-(&#39;chr9&#39;, 3000422, 10, 32)
-(&#39;chr9&#39;, 3000424, 10, 33)
-(&#39;chr9&#39;, 3000425, 50, 103)
-(&#39;chr9&#39;, 3000430, 49, 103)
-(&#39;chr9&#39;, 3000432, 50, 107)
-(&#39;chr9&#39;, 3000439, 58, 123)
-(&#39;chr9&#39;, 3000441, 114, 128)
-(&#39;chr9&#39;, 3000442, 24, 33)
-(&#39;chr9&#39;, 3000448, 26, 155)
-(&#39;chr9&#39;, 3000450, 11, 39)
-(&#39;chr9&#39;, 3000452, 11, 45)
-(&#39;chr9&#39;, 3000457, 184, 200)
-(&#39;chr9&#39;, 3000458, 39, 41)
-(&#39;chr9&#39;, 3000460, 103, 202)
-(&#39;chr9&#39;, 3000467, 98, 206)
-(&#39;chr9&#39;, 3000469, 28, 61)
-(&#39;chr9&#39;, 3000470, 21, 64)
-(&#39;chr9&#39;, 3000472, 228, 238)
-Remote reading requires an HTTP server supporting Range requests.
-The .cz file should include a chunk index for optimal performance.
-</pre></div></div>
-</div>
-</section>
-<section id="Read-remote-cz-file-from-figshare">
-<h2>Read remote cz file from figshare<a class="headerlink" href="#Read-remote-cz-file-from-figshare" title="Link to this heading"></a></h2>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
-<span class="n">url</span><span class="o">=</span><span class="s2">&quot;https://figshare.com/ndownloader/files/64046767&quot;</span>
-<span class="c1"># FC_M_P12b_3C_2-5-M17-N10.cz</span>
-<span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
-<span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
-    <span class="s2">&quot;User-Agent&quot;</span><span class="p">:</span> <span class="s2">&quot;Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) &quot;</span>
-                    <span class="s2">&quot;AppleWebKit/537.36 (KHTML, like Gecko) &quot;</span>
-                    <span class="s2">&quot;Chrome/120.0.0.0 Safari/537.36&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Referer&quot;</span><span class="p">:</span> <span class="s2">&quot;https://figshare.com/&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Accept&quot;</span><span class="p">:</span> <span class="s2">&quot;*/*&quot;</span><span class="p">,</span>
-<span class="p">})</span>
-<span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://figshare.com&quot;</span><span class="p">)</span>  <span class="c1"># acquire cookies</span>
-<span class="n">reader</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="n">url</span><span class="p">,</span><span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">_is_remote</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">summary_chunks</span><span class="p">())</span>
-
-<span class="c1"># query with reference</span>
-<span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">chunk_key</span><span class="o">=</span><span class="s2">&quot;chr9&quot;</span><span class="p">,</span><span class="n">start</span><span class="o">=</span><span class="mi">3000294</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="mi">3000472</span><span class="p">,</span>
-                           <span class="n">reference</span><span class="o">=</span><span class="s2">&quot;output/mm10_with_chrL.allc.cz&quot;</span><span class="p">,</span>
-                           <span class="c1"># reference=&quot;https://neomorph.salk.edu/ftp/bican/mm10_with_chrL.allc.cz&quot;, # reference file could also be stored on a remote server</span>
-                           <span class="n">printout</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span> <span class="c1"># list</span>
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-True
-{&#39;magic&#39;: b&#39;CZIP&#39;, &#39;version&#39;: 0.3, &#39;total_size&#39;: 29849594, &#39;message&#39;: &#39;mm10_with_chrL.allc.cz&#39;, &#39;formats&#39;: [&#39;B&#39;, &#39;B&#39;], &#39;columns&#39;: [&#39;mc&#39;, &#39;cov&#39;], &#39;sort_col&#39;: None, &#39;delta_cols&#39;: [], &#39;chunk_dims&#39;: [&#39;chrom&#39;], &#39;header_size&#39;: 61}
-chrom   chunk_start_offset      chunk_size      chunk_tail_offset       chunk_nblocks   chunk_nrows
-chr1    61      2275394 2280300 603     78962721
-chr10   2280300 1505619 3789157 402     52609184
-chr11   3789157 1426655 5219010 397     52027265
-chr12   5219010 1386532 6608548 373     48799752
-chr13   6608548 1384955 7996501 372     48750883
-chr14   7996501 1405739 9405318 382     49987736
-chr15   9405318 1192458 10600382        323     42230765
-chr16   10600382        1123440 11726220        297     38899643
-chr17   11726220        1093682 12822316        299     39153472
-chr18   12822316        1035563 13860117        277     36239315
-chr19   13860117        685988  14547647        190     24870223
-chr1_GL456210_random    14547647        2658    14550350        1       74695
-chr1_GL456211_random    14550350        4011    14554406        1       106168
-chr1_GL456212_random    14554406        2647    14557098        1       67179
-chr1_GL456213_random    14557098        86      14557229        1       17318
-chr1_GL456221_random    14557229        3451    14560725        1       90146
-chr2    14560725        2111240 16676570        573     75046570
-chr3    16676570        1850956 18531411        483     63263682
-chr4    18531411        1801243 20336603        491     64311462
-chr4_GL456216_random    20336603        700     20337348        1       21353
-chr4_JH584292_random    20337348        257     20337650        1       5639
-chr4_GL456350_random    20337650        478     20338173        1       106754
-chr4_JH584293_random    20338173        451     20338669        1       98765
-chr4_JH584294_random    20338669        257     20338971        1       90576
-chr4_JH584295_random    20338971        39      20339055        1       1222
-chr5    20339055        1762274 22105198        481     62915808
-chr5_JH584296_random    22105198        712     22105955        1       81727
-chr5_JH584297_random    22105955        1081    22107081        1       84222
-chr5_JH584298_random    22107081        395     22107521        1       75608
-chr5_GL456354_random    22107521        1187    22108753        1       80588
-chr5_JH584299_random    22108753        4672    22113486        3       391154
-chr6    22113486        1732500 23849711        463     60606617
-chr7    23849711        1634098 25487558        466     61074111
-chr7_GL456219_random    25487558        276     25487879        1       70610
-chr8    25487879        1491997 26983153        407     53219434
-chr9    26983153        1461241 28447575        395     51739957
-chrM    28447575        362     28447966        1       5989
-chrX    28447966        1025656 29477563        490     64175203
-chrX_GL456233_random    29477563        2311    29479919        1       117714
-chrY    29479919        285376  29767412        262     34267988
-chrY_JH584300_random    29767412        568     29768025        1       71795
-chrY_JH584301_random    29768025        351     29768421        1       101850
-chrY_JH584302_random    29768421        325     29768791        1       60773
-chrY_JH584303_random    29768791        371     29769207        1       62961
-chrUn_GL456239  29769207        1429    29770675        1       17029
-chrUn_GL456367  29770675        383     29771097        1       15202
-chrUn_GL456378  29771097        616     29771752        1       12346
-chrUn_GL456381  29771752        264     29772055        1       9868
-chrUn_GL456382  29772055        173     29772267        1       8494
-chrUn_GL456383  29772267        2229    29774535        1       11429
-chrUn_GL456385  29774535        250     29774824        1       13754
-chrUn_GL456390  29774824        961     29775824        1       4900
-chrUn_GL456392  29775824        2023    29777886        1       8614
-chrUn_GL456393  29777886        1677    29779602        1       23565
-chrUn_GL456394  29779602        412     29780053        1       8807
-chrUn_GL456359  29780053        331     29780423        1       8855
-chrUn_GL456360  29780423        222     29780684        1       12636
-chrUn_GL456396  29780684        1009    29781732        1       8518
-chrUn_GL456372  29781732        488     29782259        1       10545
-chrUn_GL456387  29782259        366     29782664        1       10654
-chrUn_GL456389  29782664        1337    29784040        1       10675
-chrUn_GL456370  29784040        281     29784360        1       5962
-chrUn_GL456379  29784360        524     29784923        1       26755
-chrUn_GL456366  29784923        529     29785491        1       16990
-chrUn_GL456368  29785491        360     29785890        1       7478
-chrUn_JH584304  29785890        26879   29812808        1       48262
-chrL    29812808        33676   29846513        1       24182
-                            chrom  chunk_start_offset  chunk_size  \
-chunk_dims
-(chr1,)                      chr1                  61     2275394
-(chr10,)                    chr10             2280300     1505619
-(chr11,)                    chr11             3789157     1426655
-(chr12,)                    chr12             5219010     1386532
-(chr13,)                    chr13             6608548     1384955
-...                           ...                 ...         ...
-(chrUn_GL456379,)  chrUn_GL456379            29784360         524
-(chrUn_GL456366,)  chrUn_GL456366            29784923         529
-(chrUn_GL456368,)  chrUn_GL456368            29785491         360
-(chrUn_JH584304,)  chrUn_JH584304            29785890       26879
-(chrL,)                      chrL            29812808       33676
-
-                   chunk_tail_offset  chunk_nblocks  chunk_nrows
-chunk_dims
-(chr1,)                      2280300            603     78962721
-(chr10,)                     3789157            402     52609184
-(chr11,)                     5219010            397     52027265
-(chr12,)                     6608548            373     48799752
-(chr13,)                     7996501            372     48750883
-...                              ...            ...          ...
-(chrUn_GL456379,)           29784923              1        26755
-(chrUn_GL456366,)           29785491              1        16990
-(chrUn_GL456368,)           29785890              1         7478
-(chrUn_JH584304,)           29812808              1        48262
-(chrL,)                     29846513              1        24182
-
-[67 rows x 6 columns]
-[&#39;chr9&#39;, &#39;3000294&#39;, &#39;-&#39;, &#39;CAT&#39;, &#39;15&#39;, &#39;23&#39;]
-[&#39;chr9&#39;, &#39;3000296&#39;, &#39;+&#39;, &#39;CCT&#39;, &#39;51&#39;, &#39;62&#39;]
-[&#39;chr9&#39;, &#39;3000297&#39;, &#39;+&#39;, &#39;CTA&#39;, &#39;53&#39;, &#39;63&#39;]
-[&#39;chr9&#39;, &#39;3000300&#39;, &#39;+&#39;, &#39;CAA&#39;, &#39;52&#39;, &#39;65&#39;]
-[&#39;chr9&#39;, &#39;3000304&#39;, &#39;-&#39;, &#39;CAT&#39;, &#39;2&#39;, &#39;26&#39;]
-[&#39;chr9&#39;, &#39;3000305&#39;, &#39;-&#39;, &#39;CCA&#39;, &#39;1&#39;, &#39;27&#39;]
-[&#39;chr9&#39;, &#39;3000307&#39;, &#39;+&#39;, &#39;CAT&#39;, &#39;60&#39;, &#39;71&#39;]
-[&#39;chr9&#39;, &#39;3000312&#39;, &#39;+&#39;, &#39;CTA&#39;, &#39;63&#39;, &#39;76&#39;]
-[&#39;chr9&#39;, &#39;3000321&#39;, &#39;+&#39;, &#39;CCA&#39;, &#39;67&#39;, &#39;78&#39;]
-[&#39;chr9&#39;, &#39;3000322&#39;, &#39;+&#39;, &#39;CAA&#39;, &#39;65&#39;, &#39;76&#39;]
-[&#39;chr9&#39;, &#39;3000325&#39;, &#39;+&#39;, &#39;CTT&#39;, &#39;66&#39;, &#39;77&#39;]
-[&#39;chr9&#39;, &#39;3000331&#39;, &#39;+&#39;, &#39;CAG&#39;, &#39;70&#39;, &#39;81&#39;]
-[&#39;chr9&#39;, &#39;3000333&#39;, &#39;-&#39;, &#39;CTG&#39;, &#39;1&#39;, &#39;30&#39;]
-[&#39;chr9&#39;, &#39;3000338&#39;, &#39;+&#39;, &#39;CCT&#39;, &#39;72&#39;, &#39;84&#39;]
-[&#39;chr9&#39;, &#39;3000339&#39;, &#39;+&#39;, &#39;CTC&#39;, &#39;71&#39;, &#39;85&#39;]
-[&#39;chr9&#39;, &#39;3000341&#39;, &#39;+&#39;, &#39;CGC&#39;, &#39;85&#39;, &#39;88&#39;]
-[&#39;chr9&#39;, &#39;3000342&#39;, &#39;-&#39;, &#39;CGA&#39;, &#39;19&#39;, &#39;26&#39;]
-[&#39;chr9&#39;, &#39;3000343&#39;, &#39;+&#39;, &#39;CCA&#39;, &#39;70&#39;, &#39;84&#39;]
-[&#39;chr9&#39;, &#39;3000344&#39;, &#39;+&#39;, &#39;CAT&#39;, &#39;81&#39;, &#39;95&#39;]
-[&#39;chr9&#39;, &#39;3000351&#39;, &#39;+&#39;, &#39;CAC&#39;, &#39;78&#39;, &#39;94&#39;]
-[&#39;chr9&#39;, &#39;3000353&#39;, &#39;+&#39;, &#39;CGT&#39;, &#39;91&#39;, &#39;94&#39;]
-[&#39;chr9&#39;, &#39;3000354&#39;, &#39;-&#39;, &#39;CGT&#39;, &#39;16&#39;, &#39;21&#39;]
-[&#39;chr9&#39;, &#39;3000356&#39;, &#39;+&#39;, &#39;CCT&#39;, &#39;82&#39;, &#39;104&#39;]
-[&#39;chr9&#39;, &#39;3000357&#39;, &#39;+&#39;, &#39;CTA&#39;, &#39;88&#39;, &#39;108&#39;]
-[&#39;chr9&#39;, &#39;3000362&#39;, &#39;-&#39;, &#39;CTT&#39;, &#39;4&#39;, &#39;24&#39;]
-[&#39;chr9&#39;, &#39;3000364&#39;, &#39;-&#39;, &#39;CAC&#39;, &#39;2&#39;, &#39;21&#39;]
-[&#39;chr9&#39;, &#39;3000366&#39;, &#39;-&#39;, &#39;CAC&#39;, &#39;5&#39;, &#39;23&#39;]
-[&#39;chr9&#39;, &#39;3000372&#39;, &#39;+&#39;, &#39;CTC&#39;, &#39;91&#39;, &#39;121&#39;]
-[&#39;chr9&#39;, &#39;3000374&#39;, &#39;+&#39;, &#39;CAT&#39;, &#39;93&#39;, &#39;123&#39;]
-[&#39;chr9&#39;, &#39;3000380&#39;, &#39;+&#39;, &#39;CCG&#39;, &#39;89&#39;, &#39;121&#39;]
-[&#39;chr9&#39;, &#39;3000381&#39;, &#39;+&#39;, &#39;CGT&#39;, &#39;109&#39;, &#39;122&#39;]
-[&#39;chr9&#39;, &#39;3000382&#39;, &#39;-&#39;, &#39;CGG&#39;, &#39;22&#39;, &#39;25&#39;]
-[&#39;chr9&#39;, &#39;3000384&#39;, &#39;-&#39;, &#39;CAC&#39;, &#39;7&#39;, &#39;26&#39;]
-[&#39;chr9&#39;, &#39;3000390&#39;, &#39;+&#39;, &#39;CAG&#39;, &#39;84&#39;, &#39;122&#39;]
-[&#39;chr9&#39;, &#39;3000392&#39;, &#39;-&#39;, &#39;CTG&#39;, &#39;7&#39;, &#39;28&#39;]
-[&#39;chr9&#39;, &#39;3000397&#39;, &#39;+&#39;, &#39;CTC&#39;, &#39;64&#39;, &#39;102&#39;]
-[&#39;chr9&#39;, &#39;3000399&#39;, &#39;+&#39;, &#39;CGA&#39;, &#39;93&#39;, &#39;100&#39;]
-[&#39;chr9&#39;, &#39;3000400&#39;, &#39;-&#39;, &#39;CGA&#39;, &#39;24&#39;, &#39;31&#39;]
-[&#39;chr9&#39;, &#39;3000402&#39;, &#39;+&#39;, &#39;CAT&#39;, &#39;58&#39;, &#39;96&#39;]
-[&#39;chr9&#39;, &#39;3000408&#39;, &#39;+&#39;, &#39;CCA&#39;, &#39;56&#39;, &#39;95&#39;]
-[&#39;chr9&#39;, &#39;3000409&#39;, &#39;+&#39;, &#39;CAG&#39;, &#39;59&#39;, &#39;99&#39;]
-[&#39;chr9&#39;, &#39;3000411&#39;, &#39;-&#39;, &#39;CTG&#39;, &#39;9&#39;, &#39;31&#39;]
-[&#39;chr9&#39;, &#39;3000412&#39;, &#39;-&#39;, &#39;CCT&#39;, &#39;9&#39;, &#39;30&#39;]
-[&#39;chr9&#39;, &#39;3000414&#39;, &#39;+&#39;, &#39;CCT&#39;, &#39;52&#39;, &#39;96&#39;]
-[&#39;chr9&#39;, &#39;3000415&#39;, &#39;+&#39;, &#39;CTA&#39;, &#39;56&#39;, &#39;98&#39;]
-[&#39;chr9&#39;, &#39;3000418&#39;, &#39;+&#39;, &#39;CAG&#39;, &#39;55&#39;, &#39;103&#39;]
-[&#39;chr9&#39;, &#39;3000420&#39;, &#39;-&#39;, &#39;CTG&#39;, &#39;12&#39;, &#39;33&#39;]
-[&#39;chr9&#39;, &#39;3000422&#39;, &#39;-&#39;, &#39;CAC&#39;, &#39;10&#39;, &#39;32&#39;]
-[&#39;chr9&#39;, &#39;3000424&#39;, &#39;-&#39;, &#39;CAC&#39;, &#39;10&#39;, &#39;33&#39;]
-[&#39;chr9&#39;, &#39;3000425&#39;, &#39;+&#39;, &#39;CAT&#39;, &#39;50&#39;, &#39;103&#39;]
-[&#39;chr9&#39;, &#39;3000430&#39;, &#39;+&#39;, &#39;CTC&#39;, &#39;49&#39;, &#39;103&#39;]
-[&#39;chr9&#39;, &#39;3000432&#39;, &#39;+&#39;, &#39;CAT&#39;, &#39;50&#39;, &#39;107&#39;]
-[&#39;chr9&#39;, &#39;3000439&#39;, &#39;+&#39;, &#39;CAC&#39;, &#39;58&#39;, &#39;123&#39;]
-[&#39;chr9&#39;, &#39;3000441&#39;, &#39;+&#39;, &#39;CGT&#39;, &#39;114&#39;, &#39;128&#39;]
-[&#39;chr9&#39;, &#39;3000442&#39;, &#39;-&#39;, &#39;CGT&#39;, &#39;24&#39;, &#39;33&#39;]
-[&#39;chr9&#39;, &#39;3000448&#39;, &#39;+&#39;, &#39;CAG&#39;, &#39;26&#39;, &#39;155&#39;]
-[&#39;chr9&#39;, &#39;3000450&#39;, &#39;-&#39;, &#39;CTG&#39;, &#39;11&#39;, &#39;39&#39;]
-[&#39;chr9&#39;, &#39;3000452&#39;, &#39;-&#39;, &#39;CAC&#39;, &#39;11&#39;, &#39;45&#39;]
-[&#39;chr9&#39;, &#39;3000457&#39;, &#39;+&#39;, &#39;CGT&#39;, &#39;184&#39;, &#39;200&#39;]
-[&#39;chr9&#39;, &#39;3000458&#39;, &#39;-&#39;, &#39;CGA&#39;, &#39;39&#39;, &#39;41&#39;]
-[&#39;chr9&#39;, &#39;3000460&#39;, &#39;+&#39;, &#39;CAT&#39;, &#39;103&#39;, &#39;202&#39;]
-[&#39;chr9&#39;, &#39;3000467&#39;, &#39;+&#39;, &#39;CAC&#39;, &#39;98&#39;, &#39;206&#39;]
-[&#39;chr9&#39;, &#39;3000469&#39;, &#39;+&#39;, &#39;CGT&#39;, &#39;28&#39;, &#39;61&#39;]
-[&#39;chr9&#39;, &#39;3000470&#39;, &#39;-&#39;, &#39;CGT&#39;, &#39;21&#39;, &#39;64&#39;]
-[&#39;chr9&#39;, &#39;3000472&#39;, &#39;+&#39;, &#39;CGT&#39;, &#39;228&#39;, &#39;238&#39;]
-</pre></div></div>
-</div>
 </section>
 </section>
 

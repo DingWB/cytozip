@@ -27,7 +27,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Sing-cell DNA Methylation Analysis with cytozip" href="dnam.html" />
+    <link rel="next" title="Benchmark: cytozip query vs pytabix" href="benchmark/benchmark_query.html" />
     <link rel="prev" title="Quick Start Guide" href="quick_start.html" /> 
 </head>
 
@@ -88,6 +88,15 @@
 <li class="toctree-l2"><a class="reference internal" href="#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark/benchmark_query.html">Benchmark: <code class="docutils literal notranslate"><span class="pre">cytozip</span></code> query vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Config">Config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Run-the-parallel-benchmark">Run the parallel benchmark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Aggregate-summary-→-text-file">Aggregate summary → text file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Plots">Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Correctness-check-on-a-random-subset">Correctness check on a random subset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benchmark/benchmark_query.html#Region-size-scaling-(single-representative-cell)">Region-size scaling (single representative cell)</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
 <ul>
@@ -99,14 +108,8 @@
 <li class="toctree-l3"><a class="reference internal" href="dnam.html#3.2-Generating-.cz-file-from-position-sorted-bam-files">3.2 Generating .cz file from position-sorted bam files</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#5.-view-and-query">5. <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">query</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="dnam.html#Warm-query:-query_numpy-vs-pytabix-across-region-sizes">Warm query: <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> across region sizes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="dnam.html#Correctness-check:-cytozip-query-vs-pytabix">Correctness check: cytozip query vs pytabix</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#6.-View-/-query-a-remote-.cz-(no-download)">6. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#7.-catcz-and-merge_cz">7. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="dnam.html#8.-Build-a-cell-×-gene-AnnData">8. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="dnam.html#4.-catcz-and-merge_cz">4. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="dnam.html#5.-Build-a-cell-×-gene-AnnData">5. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="python_api.html">cytozip Python API</a><ul>
@@ -124,11 +127,8 @@
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
-<li class="toctree-l3"><a class="reference internal" href="python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="python_api.html#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
-<li class="toctree-l2"><a class="reference internal" href="python_api.html#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="call_dmr.html">Calling DMRs with cytozip</a><ul>
@@ -151,17 +151,28 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="remote_reading.html">Remote Reading with cytozip</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#1.-Installation">1. Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="remote.html">Remote .cz access</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#1.-Setup-the-server">1. Setup the server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="remote.html#Serving-.cz-Files-for-Remote-Access">Serving <code class="docutils literal notranslate"><span class="pre">.cz</span></code> Files for Remote Access</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="remote.html#Nginx">Nginx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="remote.html#Apache">Apache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="remote.html#Object-Storage-(S3-/-GCS)">Object Storage (S3 / GCS)</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="remote.html#Amazon-S3">Amazon S3</a></li>
+<li class="toctree-l5"><a class="reference internal" href="remote.html#Google-Cloud-Storage">Google Cloud Storage</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
-<li class="toctree-l2"><a class="reference internal" href="remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+<li class="toctree-l4"><a class="reference internal" href="remote.html#Testing-Your-Configuration">Testing Your Configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#2.-View-/-query-a-remote-.cz-(no-download)">2. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#3.-Opening-a-remote-.cz-file-in-Python">3. Opening a remote .cz file in Python</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="remote.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#4.-Querying-remote-files-in-Python">4. Querying remote files in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="remote.html#5.-Read-remote-cz-file-from-figshare">5. Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="advance.html">Advanced Features</a><ul>
@@ -1107,14 +1118,14 @@ chr1  14932 -      CTT            0         1      0       1
 </div></div>
 </div>
 <p>Benchmark See <a class="reference external" href="https://github.com/DingWB/cytozip/blob/main/notebooks/benchmark/benchmark_methylation_calling.ipynb">https://github.com/DingWB/cytozip/blob/main/notebooks/benchmark/benchmark_methylation_calling.ipynb</a> for benchmark:</p>
-<p><img alt="6b059cdc6cd041b4965ff9675d5abf5b" class="no-scaled-link" src="../_images/bam_benchmark.png" style="width: 800px;" /></p>
-<p><img alt="a8e147115572442ba62364403ba00b07" class="no-scaled-link" src="../_images/bam_benchmark.runtime_vs_reads.png" style="width: 400px;" /></p>
-<p><img alt="1c003f3fff3a4bd68be0907436a0d8bd" class="no-scaled-link" src="../_images/bam_benchmark.filesize_vs_reads.png" style="width: 400px;" /></p>
+<p><img alt="392c09e3a6614289b14d1512b1acb773" class="no-scaled-link" src="../_images/bam_benchmark.png" style="width: 800px;" /></p>
+<p><img alt="291bed98f36146f8948f77a94eef0747" class="no-scaled-link" src="../_images/bam_benchmark.runtime_vs_reads.png" style="width: 400px;" /></p>
+<p><img alt="c2538a3890084a8ca1c940b04f1baddc" class="no-scaled-link" src="../_images/bam_benchmark.filesize_vs_reads.png" style="width: 400px;" /></p>
 </section>
 <section id="2.-allc2cz">
 <h2>2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code><a class="headerlink" href="#2.-allc2cz" title="Link to this heading"></a></h2>
-<p><img alt="61b010c26dab49ce9603c8fde4b4f939" class="no-scaled-link" src="../_images/allc2cz_benchmark.runtime_vs_cytosines.png" style="width: 400px;" /></p>
-<p><img alt="8a9eed59aa094ce4b9dad6c4390211f1" class="no-scaled-link" src="../_images/allc2cz_benchmark.czsize_vs_cytosines.png" style="width: 400px;" /></p>
+<p><img alt="fd99182b988b4c10905391d1d3dedfeb" class="no-scaled-link" src="../_images/allc2cz_benchmark.runtime_vs_cytosines.png" style="width: 400px;" /></p>
+<p><img alt="089851c39dea4e688ca74ab1cd70d439" class="no-scaled-link" src="../_images/allc2cz_benchmark.czsize_vs_cytosines.png" style="width: 400px;" /></p>
 </section>
 </section>
 
@@ -1123,7 +1134,7 @@ chr1  14932 -      CTT            0         1      0       1
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="quick_start.html" class="btn btn-neutral float-left" title="Quick Start Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="dnam.html" class="btn btn-neutral float-right" title="Sing-cell DNA Methylation Analysis with cytozip" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="benchmark/benchmark_query.html" class="btn btn-neutral float-right" title="Benchmark: cytozip query vs pytabix" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

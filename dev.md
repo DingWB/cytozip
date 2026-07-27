@@ -490,16 +490,13 @@ mkdir -p recipes/cytozip
 cp /home/x-wding2/Projects/Github/cytozip/conda-recipe/meta.yaml recipes/cytozip/
 
 # Calculate real sha256（release the first version to PyPI）：
-VERSION=0.3.0
-curl -L -o /tmp/cytozip.tar.gz \
-  https://pypi.io/packages/source/c/cytozip/cytozip-${VERSION}.tar.gz
-sha256sum /tmp/cytozip.tar.gz
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.7.tar.gz | sha256sum
 # fill in sha256 to recipes/cytozip/meta.yaml
 
 # test before PR
 # mamba create -n bioconda-build -c conda-forge -c bioconda conda-build boa conda-verify
 # conda mambabuild -c conda-forge -c bioconda recipes/cytozip
-mamba create -n bioconda-build -c conda-forge -c bioconda bioconda-utils
+mamba create -n bioconda-build -c conda-forge -c bioconda bioconda-utils conda-build conda-forge-pinning anaconda-client
 conda activate bioconda-build
 bioconda-utils lint --packages cytozip
 bioconda-utils build --packages cytozip
@@ -509,6 +506,24 @@ git commit -m "Add cytozip 0.3.5"
 git push origin add-cytozip
 # PR to bioconda/bioconda-recipes:master, and finally:
 conda install -c bioconda cytozip
+```
+
+### Upload to your own conda channel
+```shell
+conda create -y -p ~/Software/conda/czbuild -c conda-forge \
+    conda-build conda-forge-pinning anaconda-client
+# update meta.yaml (version & sha256sum)
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.7.tar.gz | sha256sum
+
+conda activate ~/Software/conda/czbuild
+rm -rf conda-build
+for PY in 3.10 3.11 3.12 3.13; do
+  ~/Software/conda/czbuild/bin/conda build conda-recipe --python $PY -c conda-forge -c bioconda --output-folder conda-build
+done
+anaconda login # or use token: export ANACONDA_API_TOKEN=
+anaconda upload conda-build/*/cytozip-*.conda -u wubinding
+
+conda install -c wubinding -c bioconda cytozip
 ```
 
 ## To-Do List

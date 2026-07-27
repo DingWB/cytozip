@@ -8,17 +8,17 @@ A scalable, cloud-native ecosystem for single-cell and population DNA methylatio
 ### conda
 https://anaconda.org/bioconda/cytozip
 ```shell
-mamba install -c bioconda cytozip
+mamba install -c wubinding -c bioconda cytozip
 # or
-conda install -c bioconda cytozip
+conda install -c wubinding -c bioconda cytozip
 ```
 
 ### pip
 ```shell
 # Prerequisites (one of):
-#   conda install -c bioconda htslib libdeflate          # recommended
-#   apt-get install libhts-dev libdeflate-dev            # Debian/Ubuntu
-#   brew install htslib libdeflate                       # macOS
+conda install -c bioconda htslib libdeflate samtools         # recommended
+# apt-get install libhts-dev libdeflate-dev samtools          # Debian/Ubuntu
+# brew install htslib libdeflate samtools                     # macOS
 pip install cytozip
 # or reinstall
 pip uninstall -y cytozip && pip install git+http://github.com/DingWB/cytozip

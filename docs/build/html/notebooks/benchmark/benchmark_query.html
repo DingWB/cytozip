@@ -1,0 +1,1119 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benchmark: cytozip query vs pytabix &mdash; cytozip 0.3.6.dev14 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/nbsphinx-code-cells.css?v=2aa19091" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=161b7e8c" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5ea7db2c"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/js/rtd_search_config.js"></script>
+      <script src="../../_static/js/rtd_sphinx_search.min.js"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Sing-cell DNA Methylation Analysis with cytozip" href="../dnam.html" />
+    <link rel="prev" title="Benchmark bam to cz and allc to cz" href="../benchmark.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            cytozip
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quick_start.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quick_start.html#1.-Installation">1. Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#conda">conda</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#pip">pip</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../quick_start.html#2.-Build-reference-cz-file-from-a-reference-genome-fasta-file">2. Build reference cz file from a reference genome fasta file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quick_start.html#3.-Call-methylation-from-bam-file-and-save-as-.cz-format">3. Call methylation from bam file and save as .cz format</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#2.1-Download-example-bam-files">2.1 Download example bam files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#2.2-Call-DNA-methylation-using-cytozip">2.2 Call DNA methylation using cytozip</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../quick_start.html#4.-Convert-allc/bed/stdin-to-.cz">4. Convert allc/bed/stdin to .cz</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#4.1-convert-stream-input-to-cz-with-pipe">4.1 convert stream input to cz with pipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#4.2-allc-to-cz-with-reference-cz-as-input">4.2 allc to cz with reference cz as input</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../quick_start.html#5.-Python-API">5. Python API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quick_start.html#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quick_start.html#7.-Convert-cz-to-allc-&amp;-compare-cz-with-allc">7. Convert cz to allc &amp; compare cz with allc</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#7.1-Download-example-paired-cz-and-allc-files-from-figshare">7.1 Download example paired cz and allc files from figshare</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#7.2-Convert-.cz-to-.allc.tsv.gz">7.2 Convert .cz to .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#7.3-Directly-compare-.cz-and-ALLCools-generated-.allc.tsv.gz">7.3 Directly compare .cz and ALLCools generated .allc.tsv.gz</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../quick_start.html#7.4-Compare-.cz-converted-.allc.tsv.gz-and-ALLCools-generated-.allc.tsv.gz">7.4 Compare .cz converted .allc.tsv.gz and ALLCools generated .allc.tsv.gz</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Benchmark</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../benchmark.html">Benchmark bam to cz and allc to cz</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../benchmark.html#1.-bam_to_cz-vs-bam_to_allc">1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../benchmark.html#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Benchmark: <code class="docutils literal notranslate"><span class="pre">cytozip</span></code> query vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#Config">Config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Run-the-parallel-benchmark">Run the parallel benchmark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Aggregate-summary-→-text-file">Aggregate summary → text file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Plots">Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Correctness-check-on-a-random-subset">Correctness check on a random subset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Region-size-scaling-(single-representative-cell)">Region-size scaling (single representative cell)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dnam.html">Sing-cell DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dnam.html#2.-Build-CG-/-CH-context-index-from-the-reference">2. Build CG / CH context index from the reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dnam.html#3.-BAM-→-.cz-&amp;-generating-cz-format-in-mapping-pipeline">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> &amp; generating cz format in mapping pipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../dnam.html#3.1-Generating-.cz-format-in-mapping-pipeline">3.1 Generating .cz format in mapping pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dnam.html#3.2-Generating-.cz-file-from-position-sorted-bam-files">3.2 Generating .cz file from position-sorted bam files</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../dnam.html#4.-catcz-and-merge_cz">4. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dnam.html#5.-Build-a-cell-×-gene-AnnData">5. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../python_api.html">cytozip Python API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#view-header">view header</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#summary-chunks-&amp;-blocks">summary chunks &amp; blocks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#query">query</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../python_api.html#Numpy-/-DataFrame-APIs">Numpy / DataFrame APIs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#chunk2numpy(dims)-—-decode-a-whole-chunk"><code class="docutils literal notranslate"><span class="pre">chunk2numpy(dims)</span></code> — decode a whole chunk</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#chunk2df(dims)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims)</span></code> — decode as a DataFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../call_dmr.html">Calling DMRs with cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../call_dmr.html#Pseudobulk-vs-single-cell-input">Pseudobulk vs single-cell input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../call_dmr.html#1.-DMR-—-call_dmr">1. DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../call_dmr.html#Call-CG-DMR">Call CG DMR</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../call_dmr.html#2.-CH-DMR-—-call_dmr_ch">2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../call_dmr.html#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../call_dmr.html#Stratified-one-vs-rest-(within-each-class)">Stratified one-vs-rest (within each class)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../call_dmr.html#CH-batch-one-vs-rest-with-shared-global-rate-pre-scan">CH batch one-vs-rest with shared global-rate pre-scan</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../call_dmr.html#4.-Merging-results-—-merge_dmr_results">4. Merging results — <code class="docutils literal notranslate"><span class="pre">merge_dmr_results</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../call_dmr.html#5.-CLI-equivalents">5. CLI equivalents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../call_dmr.html#6.-Per-cell-methylation-over-DMRs-—-cz_to_anndata">6. Per-cell methylation over DMRs — <code class="docutils literal notranslate"><span class="pre">cz_to_anndata</span></code></a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../remote.html">Remote .cz access</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../remote.html#1.-Setup-the-server">1. Setup the server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../remote.html#Serving-.cz-Files-for-Remote-Access">Serving <code class="docutils literal notranslate"><span class="pre">.cz</span></code> Files for Remote Access</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../remote.html#Nginx">Nginx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../remote.html#Apache">Apache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../remote.html#Object-Storage-(S3-/-GCS)">Object Storage (S3 / GCS)</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../remote.html#Amazon-S3">Amazon S3</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../remote.html#Google-Cloud-Storage">Google Cloud Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../remote.html#Testing-Your-Configuration">Testing Your Configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../remote.html#2.-View-/-query-a-remote-.cz-(no-download)">2. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../remote.html#3.-Opening-a-remote-.cz-file-in-Python">3. Opening a remote .cz file in Python</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../remote.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../remote.html#4.-Querying-remote-files-in-Python">4. Querying remote files in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../remote.html#5.-Read-remote-cz-file-from-figshare">5. Read remote cz file from figshare</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../advance.html">Advanced Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../advance.html#Build-a-region-based-subset-index-(BED-→-.cz-index)">Build a region-based subset index (BED → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> index)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advance.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advance.html#DMR-calling">DMR calling</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../advance.html#Calling-DMRs-on-methylation-array-.cz">Calling DMRs on methylation-array <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../advance.html#id1">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../advance.html#Chunk-Index">Chunk Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../advance.html#Remote-Reading">Remote Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Cytozip Genome Browser</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../cz_viewer.html">Genome Browser</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../cz_viewer.html#usage">Usage</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">cytozip</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../cytozip.html">cytozip package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#submodules">Submodules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.allc.html">cytozip.allc module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.compare_allc"><code class="docutils literal notranslate"><span class="pre">compare_allc()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.array.html">cytozip.array module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#input-shape-conventions">Input shape conventions</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#output-layout">Output layout</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#float-quantization">Float quantization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.array2cz"><code class="docutils literal notranslate"><span class="pre">array2cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.dequantize_cz"><code class="docutils literal notranslate"><span class="pre">dequantize_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.dequantize_uniform"><code class="docutils literal notranslate"><span class="pre">dequantize_uniform()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.array.html#cytozip.array.quantize_uniform"><code class="docutils literal notranslate"><span class="pre">quantize_uniform()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.bam.html">cytozip.bam module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.bam.html#cytozip.bam.name_sort_bam_to_deduped"><code class="docutils literal notranslate"><span class="pre">name_sort_bam_to_deduped()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz.html">cytozip.cz module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk2numpy"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_chunk_batch"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_chunk_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.query_numpy_multi"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_multi()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.to_df"><code class="docutils literal notranslate"><span class="pre">Reader.to_df()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_compress_blocks_parallel"><code class="docutils literal notranslate"><span class="pre">c_compress_blocks_parallel()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_delta_encode_block"><code class="docutils literal notranslate"><span class="pre">c_delta_encode_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tocz_int_slab"><code class="docutils literal notranslate"><span class="pre">c_parse_tocz_int_slab()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr.html">cytozip.dmr module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr"><code class="docutils literal notranslate"><span class="pre">call_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr_accel.html#public-entry-point">Public entry point</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr_accel.html#cytozip.dmr_accel.rms_run_sites"><code class="docutils literal notranslate"><span class="pre">rms_run_sites()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.features.html">cytozip.features module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#design-notes">Design notes</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.cz_to_anndata"><code class="docutils literal notranslate"><span class="pre">cz_to_anndata()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.load_blacklist"><code class="docutils literal notranslate"><span class="pre">load_blacklist()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.make_genome_bins"><code class="docutils literal notranslate"><span class="pre">make_genome_bins()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_features"><code class="docutils literal notranslate"><span class="pre">parse_features()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.features.html#cytozip.features.parse_gtf"><code class="docutils literal notranslate"><span class="pre">parse_gtf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.index.html">cytozip.index module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.index.html#cytozip.index.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.index.html#cytozip.index.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.merge.html">cytozip.merge module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.model.html">cytozip.model module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.pivot.html">cytozip.pivot module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.pivot.html#cytozip.pivot.pivot_fisher"><code class="docutils literal notranslate"><span class="pre">pivot_fisher()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.pivot.html#cytozip.pivot.pivot_fraction"><code class="docutils literal notranslate"><span class="pre">pivot_fraction()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../cytozip.html#module-cytozip">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">cytozip</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Benchmark: <code class="docutils literal notranslate"><span class="pre">cytozip</span></code> query vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code></li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/notebooks/benchmark/benchmark_query.ipynb" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="Benchmark:-cytozip-query-vs-pytabix">
+<h1>Benchmark: <code class="docutils literal notranslate"><span class="pre">cytozip</span></code> query vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code><a class="headerlink" href="#Benchmark:-cytozip-query-vs-pytabix" title="Link to this heading"></a></h1>
+<p>Compare in-process <strong>warm</strong> region queries between:</p>
+<ul class="simple">
+<li><p><strong>``cytozip.Reader.query_numpy()``</strong> — decodes a chunk once (cached), then serves any sub-region out of an in-memory <code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> via <code class="docutils literal notranslate"><span class="pre">np.searchsorted</span></code>.</p></li>
+<li><p><strong>``pytabix.open().query()``</strong> — a tabix index lookup on the original bgzipped ALLC file; every hit is materialized as a Python tuple.</p></li>
+</ul>
+<p>Inputs are the <strong>2000 paired cells</strong> under <code class="docutils literal notranslate"><span class="pre">~/Projects/test_cytozip/benchmark</span></code>:</p>
+<ul class="simple">
+<li><p>per-cell reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> → <code class="docutils literal notranslate"><span class="pre">benchmark/cz/&lt;cell&gt;.cz</span></code></p></li>
+<li><p>per-cell original ALLC (for <code class="docutils literal notranslate"><span class="pre">pytabix</span></code>) → <code class="docutils literal notranslate"><span class="pre">benchmark/allc/&lt;cell&gt;.allc.tsv.gz(.tbi)</span></code></p></li>
+<li><p>genome-wide reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code> → <code class="docutils literal notranslate"><span class="pre">~/Ref/hg38/hg38_with_chrL.allc.cz</span></code></p></li>
+</ul>
+<p>Each cell is timed for both backends and the per-cell runtimes are written to <code class="docutils literal notranslate"><span class="pre">benchmark/query_benchmark.log.tsv</span></code> / <code class="docutils literal notranslate"><span class="pre">query_benchmark.tsv</span></code> (incrementally, so the run is resumable) and summarized as <code class="docutils literal notranslate"><span class="pre">query_benchmark.txt</span></code> + plots — modelled on <code class="docutils literal notranslate"><span class="pre">benchmark_methylation_calling.ipynb</span></code>.</p>
+<p>The heavy work is parallelised across cells with a <strong>``fork``</strong> process pool. The ~2.6 GB reference chunk is decoded <strong>once</strong> in the parent (<code class="docutils literal notranslate"><span class="pre">prime_reference</span></code>) and inherited copy-on-write by every worker, so hundreds of workers stay within RAM.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">sys</span><span class="o">,</span><span class="w"> </span><span class="nn">time</span><span class="o">,</span><span class="w"> </span><span class="nn">random</span><span class="o">,</span><span class="w"> </span><span class="nn">importlib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mpl</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">mpl</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;pdf.fonttype&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="n">mpl</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;font.family&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Arial&#39;</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">chdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s1">&#39;~/Projects/test_cytozip&#39;</span><span class="p">))</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s1">&#39;~/Projects/Github/cytozip&#39;</span><span class="p">))</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">czip</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;cytozip:&#39;</span><span class="p">,</span> <span class="n">czip</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+cytozip: /home/x-wding2/Projects/Github/cytozip/cytozip/__init__.py
+</pre></div></div>
+</div>
+<section id="Config">
+<h2>Config<a class="headerlink" href="#Config" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">JOBS</span></code> can be set high because the reference chunk is shared copy-on-write. Set <code class="docutils literal notranslate"><span class="pre">N_CELLS</span></code> smaller for a quick run; <code class="docutils literal notranslate"><span class="pre">None</span></code> uses every paired cell.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">BASE</span>     <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s1">&#39;~/Projects/test_cytozip/benchmark&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+<span class="n">CZ_DIR</span>   <span class="o">=</span> <span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;cz&#39;</span>                                   <span class="c1"># per-cell ref-aligned .cz</span>
+<span class="n">ALLC_DIR</span> <span class="o">=</span> <span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;allc&#39;</span>                                 <span class="c1"># per-cell ALLC (pytabix)</span>
+<span class="n">REF_CZ</span>   <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s1">&#39;~/Ref/hg38/hg38_with_chrL.allc.cz&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+
+<span class="c1"># ---- run parameters -----------------------------------------------------</span>
+<span class="n">N_CELLS</span> <span class="o">=</span> <span class="mi">2000</span>        <span class="c1"># None = ALL paired cells; an int randomly samples N</span>
+<span class="n">SEED</span>    <span class="o">=</span> <span class="mi">0</span>           <span class="c1"># RNG seed so the random cell subset is reproducible</span>
+<span class="n">JOBS</span>    <span class="o">=</span> <span class="mi">32</span>          <span class="c1"># workers (reference chunk is shared COW -&gt; can go high)</span>
+<span class="n">NQ</span>      <span class="o">=</span> <span class="mi">100</span>         <span class="c1"># warm repetitions per cell per backend</span>
+<span class="n">REGION</span>  <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">chrom</span><span class="o">=</span><span class="s1">&#39;chr1&#39;</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">3_000_000</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mi">3_100_000</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">REF_CZ</span><span class="o">.</span><span class="n">exists</span><span class="p">(),</span> <span class="sa">f</span><span class="s1">&#39;reference .cz missing: </span><span class="si">{</span><span class="n">REF_CZ</span><span class="si">}</span><span class="s1">&#39;</span>
+
+<span class="n">all_cz</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">stem</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">CZ_DIR</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;*.cz&#39;</span><span class="p">))</span>
+<span class="n">paired</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">all_cz</span> <span class="k">if</span> <span class="p">(</span><span class="n">ALLC_DIR</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s1">.allc.tsv.gz&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()]</span>
+<span class="k">if</span> <span class="n">N_CELLS</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">paired</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">N_CELLS</span><span class="p">:</span>
+    <span class="n">cells</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">paired</span><span class="p">,</span> <span class="n">N_CELLS</span><span class="p">))</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">cells</span> <span class="o">=</span> <span class="n">paired</span>
+<span class="n">region_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">paired</span><span class="p">)</span><span class="si">}</span><span class="s1"> paired cells; benchmarking </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span><span class="si">}</span><span class="s1"> &#39;</span>
+      <span class="sa">f</span><span class="s1">&#39;(SEED=</span><span class="si">{</span><span class="n">SEED</span><span class="si">}</span><span class="s1">, JOBS=</span><span class="si">{</span><span class="n">JOBS</span><span class="si">}</span><span class="s1">, NQ=</span><span class="si">{</span><span class="n">NQ</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;region:&#39;</span><span class="p">,</span> <span class="n">region_str</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+2000 paired cells; benchmarking 2000 (SEED=0, JOBS=32, NQ=100)
+region: chr1:3000000-3100000
+</pre></div></div>
+</div>
+</section>
+<section id="Run-the-parallel-benchmark">
+<h2>Run the parallel benchmark<a class="headerlink" href="#Run-the-parallel-benchmark" title="Link to this heading"></a></h2>
+<p>Per-cell metrics are appended to <code class="docutils literal notranslate"><span class="pre">query_benchmark.log.tsv</span></code> the moment each cell finishes, so re-running the cell resumes where it left off (already-logged cells are skipped). Only the parent process writes the log — workers just compute and return their row.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># query_bench.py lives next to this notebook; add that dir to sys.path since</span>
+<span class="c1"># an earlier cell chdir&#39;d into ~/Projects/test_cytozip.</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s1">&#39;~/Projects/Github/cytozip/notebooks/benchmark&#39;</span><span class="p">))</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">query_bench</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">qb</span>
+<span class="n">importlib</span><span class="o">.</span><span class="n">reload</span><span class="p">(</span><span class="n">qb</span><span class="p">)</span>
+<span class="n">qb</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">REF_CZ</span><span class="p">,</span> <span class="n">CZ_DIR</span><span class="p">,</span> <span class="n">ALLC_DIR</span><span class="p">,</span>
+             <span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">],</span> <span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">],</span> <span class="n">nq</span><span class="o">=</span><span class="n">NQ</span><span class="p">)</span>
+
+<span class="n">LOG_TSV</span> <span class="o">=</span> <span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;query_benchmark.log.tsv&#39;</span>
+<span class="n">COLS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;cell&#39;</span><span class="p">,</span> <span class="s1">&#39;ok&#39;</span><span class="p">,</span> <span class="s1">&#39;cz_n&#39;</span><span class="p">,</span> <span class="s1">&#39;tabix_n&#39;</span><span class="p">,</span> <span class="s1">&#39;cz_ms&#39;</span><span class="p">,</span> <span class="s1">&#39;tabix_ms&#39;</span><span class="p">,</span> <span class="s1">&#39;speedup&#39;</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_done</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">LOG_TSV</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">LOG_TSV</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">LOG_TSV</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;cell&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">()</span>
+
+<span class="n">done</span> <span class="o">=</span> <span class="n">_load_done</span><span class="p">()</span>
+<span class="n">todo</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cells</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">done</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span><span class="si">}</span><span class="s1"> target cells, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">done</span><span class="p">)</span><span class="si">}</span><span class="s1"> already logged, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">todo</span><span class="p">)</span><span class="si">}</span><span class="s1"> to run&#39;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">todo</span><span class="p">:</span>
+    <span class="n">qb</span><span class="o">.</span><span class="n">prime_reference</span><span class="p">()</span>                 <span class="c1"># decode reference chunk once (parent)</span>
+    <span class="n">ctx</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s1">&#39;fork&#39;</span><span class="p">)</span>         <span class="c1"># workers inherit the primed chunk COW</span>
+    <span class="n">header_needed</span> <span class="o">=</span> <span class="ow">not</span> <span class="p">(</span><span class="n">LOG_TSV</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">LOG_TSV</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">LOG_TSV</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">,</span> \
+            <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">JOBS</span><span class="p">,</span> <span class="n">mp_context</span><span class="o">=</span><span class="n">ctx</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">header_needed</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">COLS</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">);</span> <span class="n">f</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="n">futs</span> <span class="o">=</span> <span class="p">{</span><span class="n">ex</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">qb</span><span class="o">.</span><span class="n">bench_cell</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">todo</span><span class="p">}</span>
+        <span class="n">n_fail</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">fut</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">as_completed</span><span class="p">(</span><span class="n">futs</span><span class="p">),</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">COLS</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">);</span> <span class="n">f</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;ok&#39;</span><span class="p">]:</span>
+                <span class="n">n_fail</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">n_fail</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;FAIL&#39;</span><span class="p">,</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;cell&#39;</span><span class="p">],</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">r</span><span class="p">[</span><span class="s1">&#39;err&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">200</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">todo</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  </span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s1">&gt;5</span><span class="si">}</span><span class="s1">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">todo</span><span class="p">)</span><span class="si">}</span><span class="s1">  </span><span class="si">{</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;cell&quot;</span><span class="p">]</span><span class="si">:</span><span class="s1">&lt;38</span><span class="si">}</span><span class="s1"> &#39;</span>
+                      <span class="sa">f</span><span class="s1">&#39;cz=</span><span class="si">{</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;cz_ms&quot;</span><span class="p">]</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1">ms  tabix=</span><span class="si">{</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;tabix_ms&quot;</span><span class="p">]</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1">ms&#39;</span><span class="p">,</span>
+                      <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;done in </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">t0</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1">s  (failures=</span><span class="si">{</span><span class="n">n_fail</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;nothing to run; all target cells already logged.&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+2000 target cells, 0 already logged, 2000 to run
+    200/2000  UWA7648_CX1819_NAC_1_P10-1-K18-I10     cz=0.0088ms  tabix=0.4687ms
+    400/2000  UWA7648_CX1819_NAC_1_P12-1-E22-A21     cz=0.0086ms  tabix=1.1217ms
+FAIL UWA7648_CX1819_NAC_1_P13-1-I24-J21
+ Traceback (most recent call last):
+  File &#34;/home/x-wding2/Projects/Github/cytozip/notebooks/benchmark/query_bench.py&#34;, line 98, in bench_cell
+    tb_n = sum(1 for _ in tb.query(CHROM, START, END))
+tabix.TabixError: query failed
+
+    600/2000  UWA7648_CX1819_NAC_1_P13-1-I24-L24     cz=0.0087ms  tabix=0.4903ms
+    800/2000  UWA7648_CX1819_NAC_1_P15-1-L3-I14      cz=0.0086ms  tabix=0.5476ms
+   1000/2000  UWA7648_CX1819_NAC_1_P2-1-E5-A21       cz=0.0087ms  tabix=0.7692ms
+   1200/2000  UWA7648_CX1819_NAC_1_P3-1-O5-I6        cz=0.0086ms  tabix=0.4850ms
+   1400/2000  UWA7648_CX1819_NAC_1_P5-1-K9-D22       cz=0.0086ms  tabix=0.2645ms
+   1600/2000  UWA7648_CX1819_NAC_1_P6-1-M9-O2        cz=0.0086ms  tabix=0.3719ms
+   1800/2000  UWA7648_CX1819_NAC_1_P8-1-I15-I19      cz=0.0086ms  tabix=0.2297ms
+   2000/2000  UWA7648_CX1819_NAC_1_P9-1-M14-P7       cz=0.0086ms  tabix=0.3577ms
+done in 54.9s  (failures=1)
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Consolidated, de-duplicated per-cell table (successful cells only).</span>
+<span class="n">raw</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">LOG_TSV</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="s1">&#39;cell&#39;</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="s1">&#39;last&#39;</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[</span><span class="n">raw</span><span class="p">[</span><span class="s1">&#39;ok&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;True&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1"># restrict to the target subset for this run</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;cell&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">cells</span><span class="p">)]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">TSV</span> <span class="o">=</span> <span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;query_benchmark.tsv&#39;</span>
+<span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">TSV</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">float_format</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%.6f</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;wrote&#39;</span><span class="p">,</span> <span class="n">TSV</span><span class="p">,</span> <span class="s1">&#39; n =&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
+<span class="n">display</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">[[</span><span class="s1">&#39;cz_n&#39;</span><span class="p">,</span> <span class="s1">&#39;tabix_n&#39;</span><span class="p">,</span> <span class="s1">&#39;cz_ms&#39;</span><span class="p">,</span> <span class="s1">&#39;tabix_ms&#39;</span><span class="p">,</span> <span class="s1">&#39;speedup&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+wrote /home/x-wding2/Projects/test_cytozip/benchmark/query_benchmark.tsv  n = 1999
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>cell</th>
+      <th>ok</th>
+      <th>cz_n</th>
+      <th>tabix_n</th>
+      <th>cz_ms</th>
+      <th>tabix_ms</th>
+      <th>speedup</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>UWA7648_CX1819_NAC_1_P1-1-I3-B16</td>
+      <td>True</td>
+      <td>56601</td>
+      <td>0</td>
+      <td>0.008972</td>
+      <td>0.001582</td>
+      <td>0.176307</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>UWA7648_CX1819_NAC_1_P1-1-I3-A1</td>
+      <td>True</td>
+      <td>56601</td>
+      <td>1748</td>
+      <td>0.008962</td>
+      <td>0.595760</td>
+      <td>66.477110</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>UWA7648_CX1819_NAC_1_P1-1-I3-A11</td>
+      <td>True</td>
+      <td>56601</td>
+      <td>1579</td>
+      <td>0.009023</td>
+      <td>0.668766</td>
+      <td>74.122014</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>UWA7648_CX1819_NAC_1_P1-1-I3-A12</td>
+      <td>True</td>
+      <td>56601</td>
+      <td>1346</td>
+      <td>0.008847</td>
+      <td>0.467506</td>
+      <td>52.844201</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>UWA7648_CX1819_NAC_1_P1-1-I3-A6</td>
+      <td>True</td>
+      <td>56601</td>
+      <td>72</td>
+      <td>0.008780</td>
+      <td>0.096992</td>
+      <td>11.046450</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+          cz_n    tabix_n      cz_ms   tabix_ms    speedup
+count   1999.0  1999.0000  1999.0000  1999.0000  1999.0000
+mean   56601.0  1393.7214     0.0087     0.6841    78.6879
+std        0.0   526.8811     0.0005     0.3694    42.5145
+min    56601.0     0.0000     0.0084     0.0014     0.1593
+25%    56601.0  1094.0000     0.0086     0.4508    51.8149
+50%    56601.0  1403.0000     0.0086     0.5894    67.6277
+75%    56601.0  1696.0000     0.0087     0.8906   102.3872
+max    56601.0  9091.0000     0.0297     6.7720   785.8038
+</pre></div></div>
+</div>
+</section>
+<section id="Aggregate-summary-→-text-file">
+<h2>Aggregate summary → text file<a class="headerlink" href="#Aggregate-summary-→-text-file" title="Link to this heading"></a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">mean_cz</span><span class="p">,</span> <span class="n">mean_tb</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;cz_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;tabix_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="n">med_cz</span><span class="p">,</span>  <span class="n">med_tb</span>  <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;cz_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">(),</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;tabix_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">()</span>
+<span class="n">tot_cz</span><span class="p">,</span>  <span class="n">tot_tb</span>  <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;cz_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>   <span class="n">df</span><span class="p">[</span><span class="s1">&#39;tabix_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+<span class="n">txt</span> <span class="o">=</span> <span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;query_benchmark.txt&#39;</span>
+<span class="n">txt</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+    <span class="s2">&quot;cytozip Reader.query_numpy()  vs  pytabix .query()</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;==================================================</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;reference .cz : </span><span class="si">{</span><span class="n">REF_CZ</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;region        : </span><span class="si">{</span><span class="n">region_str</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;cells         : </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;warm reps (NQ): </span><span class="si">{</span><span class="n">NQ</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;pytabix : mean=</span><span class="si">{</span><span class="n">mean_tb</span><span class="o">*</span><span class="mf">1e3</span><span class="si">:</span><span class="s2">9.2f</span><span class="si">}</span><span class="s2"> us/call   median=</span><span class="si">{</span><span class="n">med_tb</span><span class="o">*</span><span class="mf">1e3</span><span class="si">:</span><span class="s2">9.2f</span><span class="si">}</span><span class="s2"> us   &quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;sum=</span><span class="si">{</span><span class="n">tot_tb</span><span class="si">:</span><span class="s2">9.2f</span><span class="si">}</span><span class="s2"> ms</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;cytozip : mean=</span><span class="si">{</span><span class="n">mean_cz</span><span class="o">*</span><span class="mf">1e3</span><span class="si">:</span><span class="s2">9.2f</span><span class="si">}</span><span class="s2"> us/call   median=</span><span class="si">{</span><span class="n">med_cz</span><span class="o">*</span><span class="mf">1e3</span><span class="si">:</span><span class="s2">9.2f</span><span class="si">}</span><span class="s2"> us   &quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;sum=</span><span class="si">{</span><span class="n">tot_cz</span><span class="si">:</span><span class="s2">9.2f</span><span class="si">}</span><span class="s2"> ms</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;speedup (pytabix / cytozip, mean per-call) = &quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">mean_tb</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nb">max</span><span class="p">(</span><span class="n">mean_cz</span><span class="p">,</span><span class="w"> </span><span class="mf">1e-12</span><span class="p">)</span><span class="si">:</span><span class="s2">6.1f</span><span class="si">}</span><span class="s2">x</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;speedup (median)                           = &quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">med_tb</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nb">max</span><span class="p">(</span><span class="n">med_cz</span><span class="p">,</span><span class="w"> </span><span class="mf">1e-12</span><span class="p">)</span><span class="si">:</span><span class="s2">6.1f</span><span class="si">}</span><span class="s2">x</span><span class="se">\n</span><span class="s2">&quot;</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">txt</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+cytozip Reader.query_numpy()  vs  pytabix .query()
+==================================================
+reference .cz : /home/x-wding2/Ref/hg38/hg38_with_chrL.allc.cz
+region        : chr1:3000000-3100000
+cells         : 1999
+warm reps (NQ): 100
+
+pytabix : mean=   684.12 us/call   median=   589.45 us   sum=  1367.56 ms
+cytozip : mean=     8.70 us/call   median=     8.64 us   sum=    17.40 ms
+
+speedup (pytabix / cytozip, mean per-call) =   78.6x
+speedup (median)                           =   68.2x
+
+</pre></div></div>
+</div>
+</section>
+<section id="Plots">
+<h2>Plots<a class="headerlink" href="#Plots" title="Link to this heading"></a></h2>
+<p>Note: with a <code class="docutils literal notranslate"><span class="pre">reference=</span></code>, <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> returns <strong>every</strong> reference cytosine in the window (<code class="docutils literal notranslate"><span class="pre">cz_n</span></code>, constant across cells), while <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> returns only covered rows (<code class="docutils literal notranslate"><span class="pre">tabix_n</span></code>, varies per cell). Timings are plotted against <code class="docutils literal notranslate"><span class="pre">tabix_n</span></code>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">c_tb</span><span class="p">,</span> <span class="n">c_qn</span> <span class="o">=</span> <span class="s1">&#39;#1f77b4&#39;</span><span class="p">,</span> <span class="s1">&#39;#d7263d&#39;</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mf">3.4</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># (1) mean +/- SD per-call time</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">means</span> <span class="o">=</span> <span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;tabix_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;cz_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()]</span>
+<span class="n">sds</span>   <span class="o">=</span> <span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;tabix_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">(),</span>  <span class="n">df</span><span class="p">[</span><span class="s1">&#39;cz_ms&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">()]</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">means</span><span class="p">,</span> <span class="n">yerr</span><span class="o">=</span><span class="n">sds</span><span class="p">,</span> <span class="n">capsize</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="n">c_tb</span><span class="p">,</span> <span class="n">c_qn</span><span class="p">],</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
+       <span class="n">error_kw</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">ecolor</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([</span><span class="s1">&#39;pytabix&#39;</span><span class="p">,</span> <span class="s1">&#39;cytozip&#39;</span><span class="p">])</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Per-call wall time (ms)&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Warm query at </span><span class="si">{</span><span class="n">region_str</span><span class="si">}</span><span class="se">\n</span><span class="s1">(n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="si">}</span><span class="s1"> cells, mean +/- SD)&#39;</span><span class="p">,</span>
+             <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="c1"># (2) time vs # covered records</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;tabix_n&#39;</span><span class="p">],</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;tabix_ms&#39;</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">c_tb</span><span class="p">,</span>
+           <span class="n">label</span><span class="o">=</span><span class="s1">&#39;pytabix .query()&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;tabix_n&#39;</span><span class="p">],</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;cz_ms&#39;</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">c_qn</span><span class="p">,</span>
+           <span class="n">label</span><span class="o">=</span><span class="s1">&#39;cytozip query_numpy()&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;# covered records (pytabix)&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Per-call wall time (ms)&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Time vs # records returned&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+<span class="c1"># (3) speedup distribution</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">sp</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;speedup&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;#555555&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">median</span><span class="p">(),</span> <span class="n">color</span><span class="o">=</span><span class="n">c_qn</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+           <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;median = </span><span class="si">{</span><span class="n">sp</span><span class="o">.</span><span class="n">median</span><span class="p">()</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1">x&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;speedup (pytabix / cytozip)&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;# cells&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Per-cell speedup&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;top&#39;</span><span class="p">,</span> <span class="s1">&#39;right&#39;</span><span class="p">):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">spines</span><span class="p">[</span><span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;query_benchmark.pdf&#39;</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;query_benchmark.png&#39;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../_images/notebooks_benchmark_benchmark_query_10_0.png" src="../../_images/notebooks_benchmark_benchmark_query_10_0.png" />
+</div>
+</div>
+</section>
+<section id="Correctness-check-on-a-random-subset">
+<h2>Correctness check on a random subset<a class="headerlink" href="#Correctness-check-on-a-random-subset" title="Link to this heading"></a></h2>
+<p>Compare the values returned by both backends on a sample of cells. Expected differences accounted for: <code class="docutils literal notranslate"><span class="pre">truncated_ge256</span></code> (uint8 saturation) and <code class="docutils literal notranslate"><span class="pre">only_in_cz_zero</span></code> (reference cytosines with no coverage). <code class="docutils literal notranslate"><span class="pre">mismatched</span></code> and <code class="docutils literal notranslate"><span class="pre">only_in_cz_covered</span></code> should be <strong>0</strong>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">N_CHECK</span> <span class="o">=</span> <span class="mi">50</span>
+<span class="n">check_cells</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">N_CHECK</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">))))</span>
+<span class="n">ref_reader</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">REF_CZ</span><span class="p">))</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tabix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pytabix</span>
+
+<span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">cid</span> <span class="ow">in</span> <span class="n">check_cells</span><span class="p">:</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">CZ_DIR</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cid</span><span class="si">}</span><span class="s1">.cz&#39;</span><span class="p">))</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">pytabix</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ALLC_DIR</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cid</span><span class="si">}</span><span class="s1">.allc.tsv.gz&#39;</span><span class="p">))</span>
+    <span class="n">pos</span><span class="p">,</span> <span class="n">recs</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">query_numpy</span><span class="p">(</span><span class="n">chunk_key</span><span class="o">=</span><span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span>
+                              <span class="n">start</span><span class="o">=</span><span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">],</span> <span class="n">end</span><span class="o">=</span><span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">],</span>
+                              <span class="n">reference</span><span class="o">=</span><span class="n">ref_reader</span><span class="p">)</span>
+    <span class="n">mc_f</span><span class="p">,</span> <span class="n">cov_f</span> <span class="o">=</span> <span class="n">recs</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">names</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">cz_map</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">p</span><span class="p">):</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="n">mc_f</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="n">cov_f</span><span class="p">]))</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">rec</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">recs</span><span class="p">)}</span>
+    <span class="c1"># pytabix is 0-based half-open; query_numpy is 1-based inclusive -&gt; start-1</span>
+    <span class="n">tb_map</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">5</span><span class="p">]))</span>
+              <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span> <span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">REGION</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">])}</span>
+    <span class="n">truncated</span> <span class="o">=</span> <span class="n">mismatched</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="p">(</span><span class="n">mc_a</span><span class="p">,</span> <span class="n">cov_a</span><span class="p">)</span> <span class="ow">in</span> <span class="n">tb_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">cz_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mismatched</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">v</span> <span class="o">==</span> <span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">mc_a</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="n">cov_a</span><span class="p">,</span> <span class="mi">255</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">mc_a</span> <span class="o">&gt;=</span> <span class="mi">256</span> <span class="ow">or</span> <span class="n">cov_a</span> <span class="o">&gt;=</span> <span class="mi">256</span><span class="p">:</span>
+                <span class="n">truncated</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mismatched</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">only_cov</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">cz_map</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">tb_map</span> <span class="ow">and</span> <span class="n">v</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="n">only_zero</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">cz_map</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">tb_map</span> <span class="ow">and</span> <span class="n">v</span> <span class="o">==</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">cell</span><span class="o">=</span><span class="n">cid</span><span class="p">,</span> <span class="n">pytabix_n</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">tb_map</span><span class="p">),</span> <span class="n">cz_n</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">cz_map</span><span class="p">),</span>
+                     <span class="n">truncated_ge256</span><span class="o">=</span><span class="n">truncated</span><span class="p">,</span> <span class="n">mismatched</span><span class="o">=</span><span class="n">mismatched</span><span class="p">,</span>
+                     <span class="n">only_in_cz_covered</span><span class="o">=</span><span class="n">only_cov</span><span class="p">,</span> <span class="n">only_in_cz_zero</span><span class="o">=</span><span class="n">only_zero</span><span class="p">))</span>
+    <span class="n">r</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="n">corr</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+<span class="n">corr</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;query_correctness.tsv&#39;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;checked </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">corr</span><span class="p">)</span><span class="si">}</span><span class="s2"> cells:  &quot;</span>
+      <span class="sa">f</span><span class="s2">&quot;truncated(&gt;=256)=</span><span class="si">{</span><span class="n">corr</span><span class="p">[</span><span class="s1">&#39;truncated_ge256&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">  &quot;</span>
+      <span class="sa">f</span><span class="s2">&quot;mismatched=</span><span class="si">{</span><span class="n">corr</span><span class="p">[</span><span class="s1">&#39;mismatched&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">  &quot;</span>
+      <span class="sa">f</span><span class="s2">&quot;only_in_cz_covered=</span><span class="si">{</span><span class="n">corr</span><span class="p">[</span><span class="s1">&#39;only_in_cz_covered&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">  &quot;</span>
+      <span class="sa">f</span><span class="s2">&quot;only_in_cz_zero=</span><span class="si">{</span><span class="n">corr</span><span class="p">[</span><span class="s1">&#39;only_in_cz_zero&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">corr</span><span class="p">[</span><span class="s1">&#39;mismatched&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">corr</span><span class="p">[</span><span class="s1">&#39;only_in_cz_covered&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> \
+    <span class="s1">&#39;unexpected mismatch!&#39;</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;OK: values agree (up to uint8 truncation and zero-coverage sites).&#39;</span><span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">corr</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+checked 50 cells:  truncated(&gt;=256)=0  mismatched=0  only_in_cz_covered=0  only_in_cz_zero=2764733
+OK: values agree (up to uint8 truncation and zero-coverage sites).
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>cell</th>
+      <th>pytabix_n</th>
+      <th>cz_n</th>
+      <th>truncated_ge256</th>
+      <th>mismatched</th>
+      <th>only_in_cz_covered</th>
+      <th>only_in_cz_zero</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>UWA7648_CX1819_NAC_1_P1-1-I3-J17</td>
+      <td>2233</td>
+      <td>56601</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>54368</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>UWA7648_CX1819_NAC_1_P10-1-K18-A24</td>
+      <td>1313</td>
+      <td>56601</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>55288</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>UWA7648_CX1819_NAC_1_P10-1-K18-H20</td>
+      <td>1422</td>
+      <td>56601</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>55179</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>UWA7648_CX1819_NAC_1_P10-1-K18-I2</td>
+      <td>1676</td>
+      <td>56601</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>54925</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>UWA7648_CX1819_NAC_1_P10-1-K18-J1</td>
+      <td>1444</td>
+      <td>56601</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>55157</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+</section>
+<section id="Region-size-scaling-(single-representative-cell)">
+<h2>Region-size scaling (single representative cell)<a class="headerlink" href="#Region-size-scaling-(single-representative-cell)" title="Link to this heading"></a></h2>
+<p>Complements the fixed-region result above: on one cell, grow the window and watch <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> per-call time scale ~linearly with the number of records returned while <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> stays roughly flat.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cell</span> <span class="o">=</span> <span class="n">cells</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">CZ_DIR</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cell</span><span class="si">}</span><span class="s1">.cz&#39;</span><span class="p">))</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">pytabix</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ALLC_DIR</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cell</span><span class="si">}</span><span class="s1">.allc.tsv.gz&#39;</span><span class="p">))</span>
+<span class="n">ref_reader</span> <span class="o">=</span> <span class="n">czip</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">REF_CZ</span><span class="p">))</span>
+
+<span class="n">chrom</span><span class="p">,</span> <span class="n">center</span> <span class="o">=</span> <span class="s1">&#39;chr1&#39;</span><span class="p">,</span> <span class="mi">50_000_000</span>
+<span class="n">half_widths</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2_500</span><span class="p">,</span> <span class="mi">25_000</span><span class="p">,</span> <span class="mi">250_000</span><span class="p">,</span> <span class="mi">2_500_000</span><span class="p">,</span> <span class="mi">25_000_000</span><span class="p">]</span>
+<span class="n">N_REP</span> <span class="o">=</span> <span class="mi">5</span>
+
+<span class="c1"># prime once on the largest window</span>
+<span class="n">mw</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">half_widths</span><span class="p">)</span>
+<span class="n">r</span><span class="o">.</span><span class="n">query_numpy</span><span class="p">(</span><span class="n">chunk_key</span><span class="o">=</span><span class="n">chrom</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">center</span> <span class="o">-</span> <span class="n">mw</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">center</span> <span class="o">+</span> <span class="n">mw</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">ref_reader</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_wt</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">fn</span><span class="p">()</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
+
+<span class="n">scale_rows</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">hw</span> <span class="ow">in</span> <span class="n">half_widths</span><span class="p">:</span>
+    <span class="n">s</span><span class="p">,</span> <span class="n">e</span> <span class="o">=</span> <span class="n">center</span> <span class="o">-</span> <span class="n">hw</span><span class="p">,</span> <span class="n">center</span> <span class="o">+</span> <span class="n">hw</span>
+    <span class="n">n_rec</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">chrom</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">))</span>
+    <span class="n">n_rep</span> <span class="o">=</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">hw</span> <span class="o">&lt;=</span> <span class="mi">250_000</span> <span class="k">else</span> <span class="p">(</span><span class="mi">20</span> <span class="k">if</span> <span class="n">hw</span> <span class="o">&lt;=</span> <span class="mi">2_500_000</span> <span class="k">else</span> <span class="mi">5</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">rep</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N_REP</span><span class="p">):</span>
+        <span class="n">t_tb</span> <span class="o">=</span> <span class="n">_wt</span><span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="n">e</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">chrom</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">)),</span> <span class="n">n_rep</span><span class="p">)</span>
+        <span class="n">t_qn</span> <span class="o">=</span> <span class="n">_wt</span><span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="n">e</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">query_numpy</span><span class="p">(</span>
+            <span class="n">chunk_key</span><span class="o">=</span><span class="n">chrom</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">e</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">ref_reader</span><span class="p">),</span> <span class="n">n_rep</span><span class="p">)</span>
+        <span class="n">scale_rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">size_bp</span><span class="o">=</span><span class="n">e</span> <span class="o">-</span> <span class="n">s</span><span class="p">,</span> <span class="n">n_records</span><span class="o">=</span><span class="n">n_rec</span><span class="p">,</span> <span class="n">replicate</span><span class="o">=</span><span class="n">rep</span><span class="p">,</span>
+                               <span class="n">pytabix_ms</span><span class="o">=</span><span class="n">t_tb</span> <span class="o">*</span> <span class="mf">1e3</span><span class="p">,</span> <span class="n">qnumpy_ms</span><span class="o">=</span><span class="n">t_qn</span> <span class="o">*</span> <span class="mf">1e3</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;size=</span><span class="si">{</span><span class="n">e</span><span class="o">-</span><span class="n">s</span><span class="si">:</span><span class="s1">&gt;10</span><span class="si">}</span><span class="s1"> bp  N=</span><span class="si">{</span><span class="n">n_rec</span><span class="si">:</span><span class="s1">&gt;7</span><span class="si">}</span><span class="s1">  &#39;</span>
+          <span class="sa">f</span><span class="s1">&#39;pytabix=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;pytabix_ms&quot;</span><span class="p">]</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">scale_rows</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;size_bp&quot;</span><span class="p">]</span><span class="o">==</span><span class="n">e</span><span class="o">-</span><span class="n">s</span><span class="p">])</span><span class="si">:</span><span class="s1">8.3f</span><span class="si">}</span><span class="s1"> ms  &#39;</span>
+          <span class="sa">f</span><span class="s1">&#39;qnumpy=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;qnumpy_ms&quot;</span><span class="p">]</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">scale_rows</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;size_bp&quot;</span><span class="p">]</span><span class="o">==</span><span class="n">e</span><span class="o">-</span><span class="n">s</span><span class="p">])</span><span class="si">:</span><span class="s1">8.4f</span><span class="si">}</span><span class="s1"> ms&#39;</span><span class="p">)</span>
+<span class="n">r</span><span class="o">.</span><span class="n">close</span><span class="p">();</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="n">scale</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">scale_rows</span><span class="p">)</span>
+<span class="n">scale</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;query_scale_benchmark.tsv&#39;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">agg</span> <span class="o">=</span> <span class="p">(</span><span class="n">scale</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s1">&#39;size_bp&#39;</span><span class="p">,</span> <span class="s1">&#39;n_records&#39;</span><span class="p">],</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+       <span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">pytabix_mean</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;pytabix_ms&#39;</span><span class="p">,</span> <span class="s1">&#39;mean&#39;</span><span class="p">),</span> <span class="n">pytabix_std</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;pytabix_ms&#39;</span><span class="p">,</span> <span class="s1">&#39;std&#39;</span><span class="p">),</span>
+            <span class="n">qnumpy_mean</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;qnumpy_ms&#39;</span><span class="p">,</span> <span class="s1">&#39;mean&#39;</span><span class="p">),</span> <span class="n">qnumpy_std</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;qnumpy_ms&#39;</span><span class="p">,</span> <span class="s1">&#39;std&#39;</span><span class="p">))</span>
+       <span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;size_bp&#39;</span><span class="p">))</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mf">5.2</span><span class="p">,</span> <span class="mf">3.6</span><span class="p">),</span> <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">agg</span><span class="p">[</span><span class="s1">&#39;n_records&#39;</span><span class="p">],</span> <span class="n">agg</span><span class="p">[</span><span class="s1">&#39;pytabix_mean&#39;</span><span class="p">],</span> <span class="n">yerr</span><span class="o">=</span><span class="n">agg</span><span class="p">[</span><span class="s1">&#39;pytabix_std&#39;</span><span class="p">],</span>
+            <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">c_tb</span><span class="p">,</span> <span class="n">capsize</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;pytabix .query()&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">agg</span><span class="p">[</span><span class="s1">&#39;n_records&#39;</span><span class="p">],</span> <span class="n">agg</span><span class="p">[</span><span class="s1">&#39;qnumpy_mean&#39;</span><span class="p">],</span> <span class="n">yerr</span><span class="o">=</span><span class="n">agg</span><span class="p">[</span><span class="s1">&#39;qnumpy_std&#39;</span><span class="p">],</span>
+            <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">c_qn</span><span class="p">,</span> <span class="n">capsize</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;cytozip query_numpy()&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;# records returned&#39;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Per-call wall time (ms)&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Warm query vs region size (</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s1">, cell=</span><span class="si">{</span><span class="n">cell</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">sp</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;top&#39;</span><span class="p">,</span> <span class="s1">&#39;right&#39;</span><span class="p">):</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">spines</span><span class="p">[</span><span class="n">sp</span><span class="p">]</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">BASE</span> <span class="o">/</span> <span class="s1">&#39;query_scale_benchmark.pdf&#39;</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s1">&#39;tight&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+size=      5000 bp  N=      0  pytabix=   0.001 ms  qnumpy=  0.0087 ms
+size=     50000 bp  N=      0  pytabix=   0.001 ms  qnumpy=  0.0091 ms
+size=    500000 bp  N=     97  pytabix=   0.099 ms  qnumpy=  0.0085 ms
+size=   5000000 bp  N=    865  pytabix=   1.207 ms  qnumpy=  0.0123 ms
+size=  50000000 bp  N=  10710  pytabix=   7.162 ms  qnumpy=  0.0175 ms
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../_images/notebooks_benchmark_benchmark_query_14_1.png" src="../../_images/notebooks_benchmark_benchmark_query_14_1.png" />
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../benchmark.html" class="btn btn-neutral float-left" title="Benchmark bam to cz and allc to cz" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../dnam.html" class="btn btn-neutral float-right" title="Sing-cell DNA Methylation Analysis with cytozip" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Wubin Ding.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-F0T1MBS19V', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

@@ -82,6 +82,15 @@
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/benchmark.html#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/benchmark/benchmark_query.html">Benchmark: <code class="docutils literal notranslate"><span class="pre">cytozip</span></code> query vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/benchmark/benchmark_query.html#Config">Config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/benchmark/benchmark_query.html#Run-the-parallel-benchmark">Run the parallel benchmark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/benchmark/benchmark_query.html#Aggregate-summary-→-text-file">Aggregate summary → text file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/benchmark/benchmark_query.html#Plots">Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/benchmark/benchmark_query.html#Correctness-check-on-a-random-subset">Correctness check on a random subset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/benchmark/benchmark_query.html#Region-size-scaling-(single-representative-cell)">Region-size scaling (single representative cell)</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
 <ul>
@@ -93,14 +102,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/dnam.html#3.2-Generating-.cz-file-from-position-sorted-bam-files">3.2 Generating .cz file from position-sorted bam files</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dnam.html#5.-view-and-query">5. <code class="docutils literal notranslate"><span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">query</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dnam.html#Warm-query:-query_numpy-vs-pytabix-across-region-sizes">Warm query: <code class="docutils literal notranslate"><span class="pre">query_numpy</span></code> vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code> across region sizes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/dnam.html#Correctness-check:-cytozip-query-vs-pytabix">Correctness check: cytozip query vs pytabix</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dnam.html#6.-View-/-query-a-remote-.cz-(no-download)">6. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dnam.html#7.-catcz-and-merge_cz">7. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dnam.html#8.-Build-a-cell-×-gene-AnnData">8. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dnam.html#4.-catcz-and-merge_cz">4. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/dnam.html#5.-Build-a-cell-×-gene-AnnData">5. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/python_api.html">cytozip Python API</a><ul>
@@ -118,11 +121,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/python_api.html#Remote-Reading-(from-URL)">Remote Reading (from URL)</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Read-remote-cz-file-from-webserver">Read remote cz file from webserver</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/python_api.html#Read-remote-cz-file-from-figshare">Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/call_dmr.html">Calling DMRs with cytozip</a><ul>
@@ -145,17 +145,28 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../notebooks/remote_reading.html">Remote Reading with cytozip</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#1.-Installation">1. Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#2.-Opening-a-remote-.cz-file">2. Opening a remote .cz file</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/remote_reading.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/remote.html">Remote .cz access</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote.html#1.-Setup-the-server">1. Setup the server</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/remote.html#Serving-.cz-Files-for-Remote-Access">Serving <code class="docutils literal notranslate"><span class="pre">.cz</span></code> Files for Remote Access</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../notebooks/remote.html#Nginx">Nginx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../notebooks/remote.html#Apache">Apache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../notebooks/remote.html#Object-Storage-(S3-/-GCS)">Object Storage (S3 / GCS)</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../notebooks/remote.html#Amazon-S3">Amazon S3</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../notebooks/remote.html#Google-Cloud-Storage">Google Cloud Storage</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#3.-Querying-remote-files">3. Querying remote files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#4.-Chunk-Index">4. Chunk Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#5.-RemoteFile-(Low-Level-API)">5. RemoteFile (Low-Level API)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#6.-Local-Demo-with-HTTP-Server">6. Local Demo with HTTP Server</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote_reading.html#7.-Performance-Tips">7. Performance Tips</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../notebooks/remote.html#Testing-Your-Configuration">Testing Your Configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote.html#2.-View-/-query-a-remote-.cz-(no-download)">2. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote.html#3.-Opening-a-remote-.cz-file-in-Python">3. Opening a remote .cz file in Python</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/remote.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote.html#4.-Querying-remote-files-in-Python">4. Querying remote files in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/remote.html#5.-Read-remote-cz-file-from-figshare">5. Read remote cz file from figshare</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../notebooks/advance.html">Advanced Features</a><ul>
