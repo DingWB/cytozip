@@ -139,7 +139,21 @@
   }
   .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
   .hint code { background: #eef0f5; padding: 1px 4px; border-radius: 3px; }
-</style>
+  /* Group header shown above a set of grouped methylation tracks */
+  .grouphdr {
+    background: #eef1f6; border-bottom: 1px solid var(--border);
+    padding: 3px 10px; font-size: 11px; font-weight: 700;
+    color: #3a3f57; letter-spacing: .3px;
+  }
+  .row.grouped .label { background: #f0f2f6; }
+  /* Per-track loading spinner */
+  .view.loading::after {
+    content: ''; position: absolute; top: 6px; right: 8px;
+    width: 12px; height: 12px; box-sizing: border-box;
+    border: 2px solid #cfd4de; border-top-color: var(--accent);
+    border-radius: 50%; animation: czspin .7s linear infinite; z-index: 15;
+  }
+  @keyframes czspin { to { transform: rotate(360deg); } }</style>
 </head>
 <body>
 
@@ -176,6 +190,18 @@
         <option value="5000">5000 bp</option>
       </select>
     </label>
+    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
+      Y
+      <select id="yScaleSel" title="Methylation y-axis scale">
+        <option value="1">0–1</option>
+        <option value="auto">Auto</option>
+      </select>
+    </label>
+    <span class="zoombtns" style="margin-left:8px;">
+      <button id="btnSvg" class="secondary" title="Download the current view as vector SVG">SVG</button>
+      <button id="btnPng" class="secondary" title="Download the current view as PNG">PNG</button>
+      <button id="btnPdf" class="secondary" title="Download the current view as PDF">PDF</button>
+    </span>
   </div>
 </div>
 
@@ -220,11 +246,37 @@
     <label>&nbsp;</label>
     <button id="btnAddTrack" title="Add a methylation .cz track (uses the fields above)">+ Add cz track</button>
   </div>
+  <div class="field">
+    <label>Track table — file or URL (csv/tsv/xlsx/json): name, url, [Group]</label>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input type="file" id="trackTable" accept=".csv,.tsv,.txt,.json,.xlsx,.xls"
+        style="font-size:11px;color:#dfe2ea;max-width:140px;" />
+      <input type="text" class="url" id="trackTableUrl" placeholder="https://…/tracks.csv" style="width:170px" />
+      <button id="btnTrackTableUrl" class="secondary">Load</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Color palette — file or URL (csv/tsv/xlsx/json): name, color</label>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input type="file" id="colorFile" accept=".csv,.tsv,.txt,.json,.xlsx,.xls"
+        style="font-size:11px;color:#dfe2ea;max-width:140px;" />
+      <input type="text" class="url" id="colorUrl" placeholder="https://…/colors.csv" style="width:170px" />
+      <button id="btnColorUrl" class="secondary">Load</button>
+    </div>
+  </div>
   <div class="field" style="margin-left:auto;">
     <label>Saved tracks (click to add)</label>
     <div style="display:flex;gap:6px;">
       <select id="savedTracks" style="width:280px"><option value="">— saved .cz tracks —</option></select>
       <button id="btnForgetTracks" class="secondary" title="Clear saved tracks">Clear</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Session (view + tracks)</label>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button id="btnSaveSession" class="secondary" title="Download the current session as JSON">Save</button>
+      <input type="file" id="sessionFile" accept=".json" title="Load a session JSON"
+        style="font-size:11px;color:#dfe2ea;max-width:120px;" />
     </div>
   </div>
 </div>
@@ -273,8 +325,10 @@ const GENOMES = {
 };
 const SAVED_TRACKS_KEY = 'czviewer_saved_tracks_v1';
 
-// cz_reader.mjs is loaded directly from the repo (raw GitHub); not user-configurable.
-const MODULE_URL = 'https://raw.githubusercontent.com/DingWB/cytozip/refs/heads/main/cytozip/cz_reader.mjs';
+// cz_reader.mjs is vendored next to this page (same origin) for stability and
+// offline/CORS-free loading. Resolve it relative to this module's own URL so it
+// works whether the page is served from _static/ or the site root.
+const MODULE_URL = new URL('cz_reader.mjs', import.meta.url).href;
 
 // Default track heights (px). Users can drag the bottom edge to resize.
 const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150 };
@@ -290,6 +344,8 @@ const state = {
   twoBit: null,         // { genome, tb } cached @gmod/twobit handle
   locus: null,          // {chrom, start, end}
   resolution: null,     // methylation binning: null = per-bp, else bin width in bp
+  colorMap: {},         // { trackName: colorCode } from an uploaded palette
+  yScale: '1',          // mc y-axis: '1' = fixed 0-1, 'auto' = per-track max
   tracks: [],           // {id, kind:'mc'|'seq'|'gene', name, url, reader, color, ctx, canvas, labelEl, metaEl}
   gen: 0,               // render generation token (drops stale async draws)
   trackSeq: 0,
@@ -634,19 +690,214 @@ async function addTrack() {
   if (!url) { setStatus('Enter a track .cz URL.', true); return; }
   try {
     setStatus(`Opening track “${name}”…`);
-    const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
-    const track = {
-      id: ++state.trackSeq, kind: 'mc', name, url, reader, ctx,
-      color: PALETTE[state.tracks.length % PALETTE.length],
-    };
-    state.tracks.push(track);
+    const tr = await openCzTrack({ name, url, ctx });
     saveTrack({ name, url, ctx });
     buildTrackRows();
-    setStatus(`Added track “${name}”. Rendering ${locusText(state.locus)}…`);
+    setStatus(tr.mismatch ? `Added “${name}”. ${tr.mismatch}` : `Added track “${name}”. Rendering ${locusText(state.locus)}…`, !!tr.mismatch);
     render();
   } catch (e) {
     setStatus(corsHint('Failed to open track: ' + e.message, url), true);
   }
+}
+
+// Open a single methylation .cz track and push it into state (no UI side effects).
+async function openCzTrack({ name, url, ctx = 'ALL', group = '' }) {
+  if (!state.refReader) throw new Error('Load the reference first.');
+  if (!url) throw new Error('missing URL');
+  const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
+  const nMc = state.tracks.filter(t => t.kind === 'mc').length;
+  const named = name || url.split('/').pop();
+  const track = {
+    id: ++state.trackSeq, kind: 'mc',
+    name: named, url, reader,
+    ctx: ctx || 'ALL', group: group || '',
+    color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nMc % PALETTE.length],
+    mismatch: validateAgainstRef(reader),
+  };
+  state.tracks.push(track);
+  return track;
+}
+
+// A value (mc/cov) track is joined to the reference by GLOBAL ROW INDEX, so its
+// per-chromosome record counts must match the reference exactly. Compare the
+// (already-loaded) chunk summaries — no extra network — and return a short
+// warning string if they differ (null when consistent).
+function validateAgainstRef(reader) {
+  try {
+    if (!state.refReader || !reader.summaryChunks) return null;
+    const refMap = new Map(state.refReader.summaryChunks().map(c => [c.dims.join('\t'), c.nrows]));
+    const trkMap = new Map(reader.summaryChunks().map(c => [c.dims.join('\t'), c.nrows]));
+    const issues = [];
+    for (const [key, refRows] of refMap) {
+      const chrom = key.split('\t')[0];
+      if (!trkMap.has(key)) { issues.push(`${chrom} missing`); continue; }
+      if (trkMap.get(key) !== refRows) issues.push(`${chrom} ${trkMap.get(key)}≠${refRows}`);
+    }
+    if (!issues.length) return null;
+    return `⚠ coordinates differ from reference (${issues.slice(0, 3).join(', ')}${issues.length > 3 ? '…' : ''}) — join may be wrong`;
+  } catch (_) { return null; }
+}
+
+// ── Track table & color palette (file OR url; csv / tsv / xlsx / json) ────────
+function extOf(name) { const m = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec(String(name)); return m ? m[1].toLowerCase() : ''; }
+
+// Read a table source into { kind:'matrix'|'json', data }. `io` provides async
+// text()/arrayBuffer() accessors (works for a File or a fetch Response).
+async function readTable(ext, io) {
+  if (ext === 'xlsx' || ext === 'xls') {
+    const XLSX = await import('https://esm.sh/xlsx@0.18.5');
+    const wb = XLSX.read(await io.arrayBuffer(), { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return { kind: 'matrix', data: XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: '' }) };
+  }
+  const text = await io.text();
+  if (ext === 'json') return { kind: 'json', data: JSON.parse(text) };
+  const delim = ext === 'csv' ? ',' : (ext === 'tsv' ? '\t' : (text.includes('\t') ? '\t' : ','));
+  return { kind: 'matrix', data: text.split(/\r?\n/).filter(l => l.trim() !== '').map(l => splitDelimited(l, delim)) };
+}
+function fileIO(file) { return { text: () => file.text(), arrayBuffer: () => file.arrayBuffer() }; }
+function respIO(resp) { return { text: () => resp.text(), arrayBuffer: () => resp.arrayBuffer() }; }
+
+// Minimal delimited-line splitter with quoted-field support.
+function splitDelimited(line, delim) {
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) {
+      if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === delim) { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
+// Parsed table → [{name, url, group, ctx}]
+function tableToTrackRows(parsed) {
+  if (parsed.kind === 'json') {
+    const arr = Array.isArray(parsed.data) ? parsed.data : (parsed.data.tracks || []);
+    const rows = [];
+    for (const it of arr) {
+      if (Array.isArray(it)) {
+        const [name, url, group] = it;
+        if (url) rows.push({ name: String(name || url).trim() || url, url: String(url).trim(), group: String(group || '').trim(), ctx: 'ALL' });
+      } else if (it && typeof it === 'object') {
+        const url = it.url || it.URL || it.Url; if (!url) continue;
+        rows.push({
+          name: String(it.name || it.Name || String(url).split('/').pop()).trim(),
+          url: String(url).trim(), group: String(it.group || it.Group || '').trim(),
+          ctx: it.ctx || it.context || 'ALL',
+        });
+      }
+    }
+    return rows;
+  }
+  const matrix = parsed.data;
+  if (!matrix || !matrix.length) return [];
+  const first = matrix[0].map(c => String(c).trim().toLowerCase());
+  const hasHeader = first[0] === 'name' || first[1] === 'url' || (first[2] || '') === 'group';
+  const rows = [];
+  for (let i = hasHeader ? 1 : 0; i < matrix.length; i++) {
+    const cells = (matrix[i] || []).map(c => String(c).trim());
+    const url = cells[1];
+    if (!url) continue;
+    rows.push({ name: cells[0] || url.split('/').pop(), url, group: cells[2] || '', ctx: 'ALL' });
+  }
+  return rows;
+}
+
+// Parsed table → { trackName: colorCode }
+function tableToColorMap(parsed) {
+  const map = {};
+  if (parsed.kind === 'json') {
+    const d = parsed.data;
+    if (Array.isArray(d)) {
+      for (const it of d) {
+        if (Array.isArray(it)) { if (it[0]) map[String(it[0]).trim()] = String(it[1] || '').trim(); }
+        else if (it && typeof it === 'object') {
+          const n = it.name || it.Name || it.track; const c = it.color || it.Color || it.colour;
+          if (n && c) map[String(n).trim()] = String(c).trim();
+        }
+      }
+    } else if (d && typeof d === 'object') {
+      for (const k in d) map[k] = String(d[k]).trim();   // { name: color }
+    }
+    return map;
+  }
+  const matrix = parsed.data;
+  if (!matrix || !matrix.length) return map;
+  const first = matrix[0].map(c => String(c).trim().toLowerCase());
+  const hasHeader = first[0] === 'name' || first[1] === 'color' || first[1] === 'colour';
+  for (let i = hasHeader ? 1 : 0; i < matrix.length; i++) {
+    const c = (matrix[i] || []).map(x => String(x).trim());
+    if (c[0] && c[1]) map[c[0]] = c[1];
+  }
+  return map;
+}
+function normalizeColor(c) {
+  c = String(c || '').trim();
+  if (/^[0-9a-f]{6}$/i.test(c) || /^[0-9a-f]{3}$/i.test(c)) return '#' + c;   // bare hex
+  return c;   // already #hex / rgb() / css name
+}
+function applyColorMap(map, label) {
+  Object.assign(state.colorMap, map);
+  let n = 0;
+  for (const t of state.tracks) {
+    if (t.name in state.colorMap) { t.color = normalizeColor(state.colorMap[t.name]); n++; }
+  }
+  buildTrackRows(); render();
+  setStatus(`Applied ${Object.keys(map).length} color(s) from ${label}; recolored ${n} track(s).`);
+}
+
+// Open every track row into the viewer.
+async function ingestTrackRows(rows, label) {
+  if (!rows.length) { setStatus(`No track rows found in ${label}.`, true); return; }
+  if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
+  setStatus(`Opening ${rows.length} track(s) from ${label}…`);
+  let ok = 0, mism = 0; const failed = [];
+  for (const r of rows) {
+    try { const tr = await openCzTrack(r); if (tr.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx }); ok++; }
+    catch (e) { failed.push(`${r.name}: ${e.message}`); }
+  }
+  buildTrackRows(); render();
+  const grouped = rows.some(r => r.group);
+  setStatus(`Added ${ok}/${rows.length} track(s) from ${label}${grouped ? ' (grouped)' : ''}.` +
+    (mism ? ` ⚠ ${mism} have coordinates not matching the reference.` : '') +
+    (failed.length ? ` Failed: ${failed.slice(0, 3).join('; ')}${failed.length > 3 ? '…' : ''}` : ''),
+    (failed.length > 0 && ok === 0) || mism > 0);
+}
+
+async function onTrackTableFile(ev) {
+  const file = ev.target.files && ev.target.files[0]; ev.target.value = '';
+  if (!file) return;
+  if (!state.refReader) { setStatus('Load the reference .cz first, then upload a track table.', true); return; }
+  try { await ingestTrackRows(tableToTrackRows(await readTable(extOf(file.name), fileIO(file))), file.name); }
+  catch (e) { setStatus('Failed to read table: ' + e.message, true); }
+}
+async function onTrackTableUrl() {
+  const url = ($('trackTableUrl').value || '').trim();
+  if (!url) { setStatus('Enter a track table URL.', true); return; }
+  if (!state.refReader) { setStatus('Load the reference .cz first, then load a track table.', true); return; }
+  try {
+    const resp = await fetch(url); if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    await ingestTrackRows(tableToTrackRows(await readTable(extOf(url), respIO(resp))), url.split('/').pop() || url);
+  } catch (e) { setStatus('Failed to load track table URL: ' + e.message, true); }
+}
+async function onColorFile(ev) {
+  const file = ev.target.files && ev.target.files[0]; ev.target.value = '';
+  if (!file) return;
+  try { applyColorMap(tableToColorMap(await readTable(extOf(file.name), fileIO(file))), file.name); }
+  catch (e) { setStatus('Failed to read color palette: ' + e.message, true); }
+}
+async function onColorUrl() {
+  const url = ($('colorUrl').value || '').trim();
+  if (!url) { setStatus('Enter a color palette URL.', true); return; }
+  try {
+    const resp = await fetch(url); if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    applyColorMap(tableToColorMap(await readTable(extOf(url), respIO(resp))), url.split('/').pop() || url);
+  } catch (e) { setStatus('Failed to load color palette URL: ' + e.message, true); }
 }
 
 function removeTrack(id) {
@@ -679,9 +930,24 @@ function buildTrackRows() {
   state.rulerCanvas = rc; state.rulerView = rv;
   attachPanZoom(rv);
 
-  for (const t of state.tracks) {
+  const ordered = orderedTracksForDisplay();
+  const gColors = groupColorMap(ordered);
+  let prevGroup = null;
+  for (const t of ordered) {
+    const grp = t.kind === 'mc' ? (t.group || '') : '';
+    // Group header: shown before the first track of each named group.
+    if (grp && grp !== prevGroup) {
+      const gh = document.createElement('div');
+      gh.className = 'grouphdr';
+      gh.style.borderLeft = `4px solid ${gColors[grp]}`;
+      gh.textContent = grp;
+      host.appendChild(gh);
+    }
+    if (t.kind === 'mc') prevGroup = grp;
+
     const row = document.createElement('div');
-    row.className = 'row';
+    row.className = 'row' + (grp ? ' grouped' : '');
+    if (grp) row.style.borderLeft = `4px solid ${gColors[grp]}`;
 
     const label = document.createElement('div');
     label.className = 'label';
@@ -695,8 +961,9 @@ function buildTrackRows() {
       : '';
     label.innerHTML =
       `<div class="tname"><span class="swatch" style="background:${t.color}"></span>` +
-      `<span>${escapeHtml(t.name)}</span>
-        <button class="del" title="Remove">×</button></div>
+      `<span>${escapeHtml(t.name)}</span>` +
+      (t.mismatch ? `<span title="${escapeHtml(t.mismatch)}" style="color:#b2182b;cursor:help;">⚠</span>` : '') +
+      `<button class="del" title="Remove">×</button></div>
        <div class="meta"></div>
        ${ctxCtrls}`;
     label.querySelector('.del').onclick = () => removeTrack(t.id);
@@ -723,6 +990,29 @@ function buildTrackRows() {
 }
 function escapeHtml(s) {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// Track display order: non-mc (sequence/gene) first, then methylation tracks
+// grouped by their Group (group order = first appearance; within a group the
+// insertion/table order is preserved).
+const GROUP_PALETTE = ['#4a90d9', '#e08214', '#1b7837', '#b2182b', '#762a83', '#01665e', '#c51b7d', '#8a6d3b'];
+function orderedTracksForDisplay() {
+  const nonMc = state.tracks.filter(t => t.kind !== 'mc');
+  const mc = state.tracks.filter(t => t.kind === 'mc');
+  const groupOrder = [];
+  for (const t of mc) { const g = t.group || ''; if (!groupOrder.includes(g)) groupOrder.push(g); }
+  const grouped = [];
+  for (const g of groupOrder) for (const t of mc) if ((t.group || '') === g) grouped.push(t);
+  return [...nonMc, ...grouped];
+}
+function groupColorMap(ordered) {
+  const map = {}; let i = 0;
+  for (const t of ordered) {
+    if (t.kind !== 'mc') continue;
+    const g = t.group || '';
+    if (g && !(g in map)) map[g] = GROUP_PALETTE[i++ % GROUP_PALETTE.length];
+  }
+  return map;
 }
 
 // ── Per-track height drag-resize ─────────────────────────────────────────────
@@ -784,6 +1074,27 @@ async function pump() {
   }
 }
 
+// Interactive (pan/zoom) render: repaint instantly from cached data for a smooth
+// feel, and debounce the (networked) full render until the gesture settles.
+let _fullTimer = null;
+function renderInteractive() {
+  quickRedraw();
+  clearTimeout(_fullTimer);
+  _fullTimer = setTimeout(render, 160);
+}
+function quickRedraw() {
+  if (!state.locus || state.tracks.length === 0) return;
+  drawRuler();
+  for (const t of state.tracks) {
+    try {
+      if (t.kind === 'seq') drawSeqCore(t);
+      else if (t.kind === 'gene') { if (t._genes) drawGenesCore(t, t._genes); }
+      else if (t.kind === 'mc' && t._data) drawTrack(t, t._data.qi, t._data.vals);
+    } catch (_) { /* ignore during fast repaint */ }
+  }
+  syncLocusInput();
+}
+
 async function renderNow() {
   if (!state.locus || state.tracks.length === 0) return;
   const gen = ++state.gen;
@@ -817,31 +1128,43 @@ async function renderNow() {
     }
   }
 
-  for (const t of state.tracks) {
+  // Fetch + draw every track in parallel (each has its own reader/endpoint).
+  await Promise.all(state.tracks.map(async (t) => {
     if (gen !== state.gen) return;
+    setTrackLoading(t, true);
     try {
       if (t.kind === 'seq') {
         await drawSeqTrack(t, gen);
       } else if (t.kind === 'gene') {
         await drawGeneTrack(t, gen);
       } else {
-        if (!qi) continue;
+        if (!qi) return;
         const vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
         if (gen !== state.gen) return;
+        t._data = { qi, vals };
         drawTrack(t, qi, vals);
       }
     } catch (e) {
       setStatus(`Track “${t.name}” fetch failed: ` + e.message, true);
-      continue;
+    } finally {
+      setTrackLoading(t, false);
     }
-  }
+  }));
+  if (gen !== state.gen) return;
   setStatus(`${locusText(state.locus)} · ${state.tracks.length} track(s) · span ${fmtInt(Math.round(end - start))} bp`);
+  syncUrlState();
+}
+function setTrackLoading(t, on) {
+  if (t.view) t.view.classList.toggle('loading', !!on);
 }
 
 // ── Draw one methylation track (binned by pixel column) ──────────────────────
-function drawTrack(track, qi, vals) {
+// `dst` (optional) = { ctx, w, h } to draw into an export recorder instead of
+// the live canvas; when present, live-only side effects (hover data, meta) skip.
+function drawTrack(track, qi, vals, dst) {
   const H = trackHeight(track);
-  const { ctx, w, h } = sizeCanvas(track.canvas, H);
+  const live = !dst;
+  const { ctx, w, h } = dst || sizeCanvas(track.canvas, H);
   ctx.clearRect(0, 0, w, h);
 
   const pad = 6;
@@ -850,18 +1173,10 @@ function drawTrack(track, qi, vals) {
   const { start, end } = state.locus;
   const span = end - start;
 
-  // Gridlines (0, 0.5, 1.0 methylation)
-  ctx.strokeStyle = '#eceef2'; ctx.lineWidth = 1;
-  ctx.fillStyle = '#b8bcc8'; ctx.font = '9px sans-serif'; ctx.textBaseline = 'middle';
-  for (const lv of [0, 0.5, 1]) {
-    const y = baseY - lv * plotH;
-    ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); ctx.stroke();
-    ctx.fillText(lv.toFixed(1), 2, y - 5);
-  }
-
   // Aggregate mc/cov either per pixel column (native, per-bp) or into fixed
   // genomic bins of `state.resolution` bp. sumMc/sumCov stay pixel-indexed so
-  // the hover tooltip works the same in both modes.
+  // the hover tooltip works the same in both modes. Bars are collected first so
+  // we can compute the y-axis max for 'auto' scaling before drawing.
   const W = Math.max(1, Math.floor(w));
   const sumMc = new Float64Array(W);
   const sumCov = new Float64Array(W);
@@ -871,9 +1186,10 @@ function drawTrack(track, qi, vals) {
   const rgb = hexToRgb(track.color);
   const res = state.resolution;   // null → per-bp; otherwise bin width in bp
   const alphaFor = (c) => 0.35 + 0.65 * Math.min(1, Math.log10(1 + c) / 1.5);
+  const bars = [];   // { x, bw, level, cov }
+  let maxLevel = 0;
 
   if (!res) {
-    // Native (per-bp) resolution: one bar per pixel column.
     for (let i = 0; i < nCommon; i++) {
       if (!ctxMatch(recs[i][2], track.ctx)) continue;
       const cov = vals[i][1];
@@ -887,12 +1203,11 @@ function drawTrack(track, qi, vals) {
     for (let px = 0; px < W; px++) {
       const c = sumCov[px];
       if (!c) continue;
-      const barH = (sumMc[px] / c) * plotH;
-      ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(c).toFixed(3)})`;
-      ctx.fillRect(px, baseY - barH, 1, barH);
+      const level = sumMc[px] / c;
+      if (level > maxLevel) maxLevel = level;
+      bars.push({ x: px, bw: 1, level, cov: c });
     }
   } else {
-    // Fixed genomic-bin resolution: aggregate mc/cov over `res`-bp windows.
     const nBins = Math.max(1, Math.ceil(span / res));
     const binMc = new Float64Array(nBins);
     const binCov = new Float64Array(nBins);
@@ -912,28 +1227,46 @@ function drawTrack(track, qi, vals) {
       if (!c) continue;
       const bpS = binStart0 + b * res, bpE = bpS + res;
       const x0 = (bpS - start) / span * w, x1 = (bpE - start) / span * w;
-      const bw = Math.max(1, x1 - x0);
-      const barH = (binMc[b] / c) * plotH;
-      ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(c).toFixed(3)})`;
-      ctx.fillRect(x0, baseY - barH, bw, barH);
-      // Mirror the bin value into the pixel arrays so hover reports it.
+      const level = binMc[b] / c;
+      if (level > maxLevel) maxLevel = level;
+      bars.push({ x: x0, bw: Math.max(1, x1 - x0), level, cov: c });
       const px0 = Math.max(0, Math.floor(x0)), px1 = Math.min(W, Math.ceil(x1));
       for (let px = px0; px < px1; px++) { sumMc[px] = binMc[b]; sumCov[px] = binCov[b]; }
     }
+  }
+
+  const scaleMax = state.yScale === 'auto' ? (maxLevel || 1) : 1;
+
+  // Gridlines (0, mid, max) at the current y-axis scale.
+  ctx.strokeStyle = '#eceef2'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#b8bcc8'; ctx.font = '9px sans-serif'; ctx.textBaseline = 'middle';
+  const fmtLv = (v) => (scaleMax < 0.2 ? v.toFixed(3) : (scaleMax < 1 ? v.toFixed(2) : v.toFixed(1)));
+  for (const frac of [0, 0.5, 1]) {
+    const y = baseY - frac * plotH;
+    ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); ctx.stroke();
+    ctx.fillText(fmtLv(frac * scaleMax), 2, y - 5);
+  }
+
+  // Bars: height = level / scaleMax; opacity ramps with coverage depth.
+  for (const b of bars) {
+    const barH = Math.min(1, b.level / scaleMax) * plotH;
+    ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(b.cov).toFixed(3)})`;
+    ctx.fillRect(b.x, baseY - barH, b.bw, barH);
   }
 
   // Baseline
   ctx.strokeStyle = '#c9cdd6';
   ctx.beginPath(); ctx.moveTo(0, baseY + 0.5); ctx.lineTo(w, baseY + 0.5); ctx.stroke();
 
-  // Store for hover tooltip
-  track._draw = { start, end, W, sumMc, sumCov };
+  // Store for hover tooltip (live only)
+  if (live) track._draw = { start, end, W, sumMc, sumCov };
 
   const meanM = totCov ? (totMc / totCov) : 0;
   const resLabel = res ? ` · ${res} bp bins` : '';
-  if (track.metaEl) {
+  const scaleLabel = state.yScale === 'auto' ? ` · y≤${(scaleMax * 100).toFixed(0)}%` : '';
+  if (live && track.metaEl) {
     track.metaEl.textContent = nSites
-      ? `${fmtInt(nSites)} covered · mean ${(meanM * 100).toFixed(1)}% · ${track.ctx}${resLabel}`
+      ? `${fmtInt(nSites)} covered · mean ${(meanM * 100).toFixed(1)}% · ${track.ctx}${resLabel}${scaleLabel}`
       : `no covered ${track.ctx} sites here`;
   }
 }
@@ -945,9 +1278,25 @@ function hexToRgb(hex) {
 
 // ── Draw the reference DNA sequence track (.2bit) ────────────────────────────
 const BASE_COLORS = { A: '#2ca02c', C: '#1f77b4', G: '#e08214', T: '#d62728', N: '#b8bcc8' };
-async function drawSeqTrack(track, gen) {
+async function drawSeqTrack(track, gen, dst) {
+  // Ensure sequence data (fetch only when zoomed in enough to show bases).
+  const w = dst ? dst.w : (track.canvas.parentElement.clientWidth || 1);
+  const { chrom, start, end } = state.locus;
+  const perBase = w / (end - start);
+  if (perBase >= 5 && !(dst && track._seqData)) {
+    const s = Math.max(0, Math.floor(start)), e = Math.ceil(end);
+    const tb = await loadTwoBit(track.genome || state.genome);
+    const seq = ((await tb.getSequence(chrom, s, e)) || '').toUpperCase();
+    if (gen !== state.gen) return;
+    track._seqData = { s, e, seq };
+  }
+  drawSeqCore(track, dst);
+}
+// Sync draw from cached _seqData (also used for the interactive quick-redraw).
+function drawSeqCore(track, dst) {
+  const live = !dst;
   const H = trackHeight(track);
-  const { ctx, w, h } = sizeCanvas(track.canvas, H);
+  const { ctx, w, h } = dst || sizeCanvas(track.canvas, H);
   ctx.clearRect(0, 0, w, h);
   const { chrom, start, end } = state.locus;
   const span = end - start;
@@ -958,15 +1307,12 @@ async function drawSeqTrack(track, gen) {
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillText(`${chrom} sequence — zoom in below ~${fmtInt(Math.round(w / 5))} bp to see bases`, w / 2, h / 2);
     ctx.textAlign = 'left';
-    if (track.metaEl) track.metaEl.textContent = `${fmtInt(Math.round(span))} bp span`;
+    if (live && track.metaEl) track.metaEl.textContent = `${fmtInt(Math.round(span))} bp span`;
     return;
   }
-
-  const s = Math.max(0, Math.floor(start));
-  const e = Math.ceil(end);
-  const tb = await loadTwoBit(track.genome || state.genome);
-  const seq = ((await tb.getSequence(chrom, s, e)) || '').toUpperCase();
-  if (gen !== state.gen) return;
+  const d = track._seqData;
+  if (!d) return;
+  const { s, e, seq } = d;
 
   ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
   ctx.font = `${Math.min(14, Math.max(8, perBase * 0.85))}px monospace`;
@@ -980,7 +1326,7 @@ async function drawSeqTrack(track, gen) {
     else ctx.fillRect(x + 0.5, yMid - (h - 8) / 2, Math.max(1, perBase - 0.5), h - 8);
   }
   ctx.textAlign = 'left';
-  if (track.metaEl) track.metaEl.textContent = `${chrom}:${fmtInt(s)}-${fmtInt(e)}`;
+  if (live && track.metaEl) track.metaEl.textContent = `${chrom}:${fmtInt(s)}-${fmtInt(e)}`;
 }
 
 // ── Draw a gene-annotation track (WashU REST API records) ────────────────────
@@ -992,18 +1338,28 @@ function parseCommaInts(s) {
   if (!s) return [];
   return String(s).split(',').filter(x => x !== '').map(x => parseInt(x, 10));
 }
-async function drawGeneTrack(track, gen) {
+async function drawGeneTrack(track, gen, dst) {
+  const { chrom, start, end } = state.locus;
+  let genes;
+  if (dst && track._genes) genes = track._genes;
+  else {
+    genes = await fetchGenes(track, chrom, start, end);
+    if (gen !== state.gen) return;
+    track._genes = genes;
+  }
+  drawGenesCore(track, genes, dst);
+}
+// Sync layout + draw (also used for the interactive quick-redraw and export).
+function drawGenesCore(track, genes, dst) {
+  const live = !dst;
   const { chrom, start, end } = state.locus;
   const span = end - start;
-  const genes = await fetchGenes(track, chrom, start, end);
-  if (gen !== state.gen) return;
-
-  const wCss = track.canvas.parentElement.clientWidth || 1;
+  const H = trackHeight(track);
+  const wCss = dst ? dst.w : (track.canvas.parentElement.clientWidth || 1);
   const toX = (bp) => (bp - start) / span * wCss;
   const rowH = 16, topPad = 4;
   const CHAR_W = 6;
   // Number of visible rows is driven by the (draggable) track height.
-  const H = trackHeight(track);
   const maxRows = Math.max(1, Math.floor((H - topPad * 2) / rowH));
 
   // Greedy row packing; reserve room for the left/over label.
@@ -1022,7 +1378,7 @@ async function drawGeneTrack(track, gen) {
     placed.push({ gd, row, x0, x1, label });
   }
 
-  const { ctx, w, h } = sizeCanvas(track.canvas, H);
+  const { ctx, w, h } = dst || sizeCanvas(track.canvas, H);
   ctx.clearRect(0, 0, w, h);
   ctx.font = '10px sans-serif';
 
@@ -1072,7 +1428,9 @@ async function drawGeneTrack(track, gen) {
     ctx.textAlign = 'left';
   }
 
-  if (track.metaEl) {
+  if (live) track._placed = { placed, rowH, topPad, wCss };
+
+  if (live && track.metaEl) {
     track.metaEl.textContent = genes.length
       ? `${fmtInt(genes.length)} genes${placed.length < genes.length ? ` (${genes.length - placed.length} hidden)` : ''}`
       : 'no genes in view';
@@ -1080,9 +1438,9 @@ async function drawGeneTrack(track, gen) {
 }
 
 // ── Ruler ────────────────────────────────────────────────────────────────────
-function drawRuler() {
-  if (!state.rulerCanvas) return;
-  const { ctx, w, h } = sizeCanvas(state.rulerCanvas, 30);
+function drawRuler(dst) {
+  if (!dst && !state.rulerCanvas) return;
+  const { ctx, w, h } = dst || sizeCanvas(state.rulerCanvas, 30);
   ctx.clearRect(0, 0, w, h);
   const { chrom, start, end } = state.locus;
   const span = end - start;
@@ -1107,34 +1465,281 @@ function niceStep(span, targetTicks) {
   return 10 * mag;
 }
 
-// ── Pan / zoom interactions ──────────────────────────────────────────────────
+// ── SVG / PDF export ─────────────────────────────────────────────────────────
+// A minimal Canvas2D-compatible recorder that emits SVG. It implements exactly
+// the subset of the 2D API used by the draw functions, so the SAME drawTrack /
+// drawGeneTrack / drawSeqTrack / drawRuler code produces vector output.
+function _svgEsc(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+function _svgColor(s) {
+  const m = /rgba?\(([^)]+)\)/i.exec(s);
+  if (m) { const p = m[1].split(',').map(x => x.trim()); return `rgb(${p[0]},${p[1]},${p[2]})`; }
+  return s;
+}
+function _svgAlpha(s) {
+  const m = /rgba\(([^)]+)\)/i.exec(s);
+  return m ? (m[1].split(',')[3] || '1').trim() : '1';
+}
+function _parseFont(f) {
+  const size = (/([\d.]+)px/.exec(f) || [, '10'])[1];
+  // Publication-friendly families (editable text in Illustrator/Inkscape).
+  const family = /monospace/.test(f) ? "'Courier New', monospace"
+    : (/\bserif\b/.test(f) && !/sans-serif/.test(f) ? 'Georgia, serif' : 'Arial, Helvetica, sans-serif');
+  let weight = 'normal';
+  if (/bold/.test(f)) weight = 'bold'; else { const m = /\b([1-9]00)\b/.exec(f); if (m) weight = m[1]; }
+  return { size, family, weight };
+}
+class SvgRecorder {
+  constructor(w, h) {
+    this.w = w; this.h = h; this.parts = [];
+    this.fillStyle = '#000'; this.strokeStyle = '#000';
+    this.font = '10px sans-serif'; this.textAlign = 'left'; this.textBaseline = 'alphabetic';
+    this.lineWidth = 1;
+    this._p = []; this._tx = 0; this._ty = 0; this._stack = [];
+  }
+  clearRect() {}
+  setTransform() {}
+  save() { this._stack.push([this._tx, this._ty]); }
+  restore() { const s = this._stack.pop(); if (s) { this._tx = s[0]; this._ty = s[1]; } }
+  translate(x, y) { this._tx += x; this._ty += y; }
+  beginPath() { this._p = []; }
+  moveTo(x, y) { this._p.push(`M${(x + this._tx).toFixed(2)} ${(y + this._ty).toFixed(2)}`); }
+  lineTo(x, y) { this._p.push(`L${(x + this._tx).toFixed(2)} ${(y + this._ty).toFixed(2)}`); }
+  closePath() { this._p.push('Z'); }
+  stroke() {
+    if (!this._p.length) return;
+    this.parts.push(`<path d="${this._p.join(' ')}" fill="none" stroke="${_svgColor(this.strokeStyle)}" stroke-opacity="${_svgAlpha(this.strokeStyle)}" stroke-width="${this.lineWidth}"/>`);
+  }
+  fill() {
+    if (!this._p.length) return;
+    this.parts.push(`<path d="${this._p.join(' ')}" fill="${_svgColor(this.fillStyle)}" fill-opacity="${_svgAlpha(this.fillStyle)}"/>`);
+  }
+  fillRect(x, y, w, h) {
+    if (w <= 0 || h <= 0) return;
+    this.parts.push(`<rect x="${(x + this._tx).toFixed(2)}" y="${(y + this._ty).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${_svgColor(this.fillStyle)}" fill-opacity="${_svgAlpha(this.fillStyle)}"/>`);
+  }
+  fillText(t, x, y) {
+    if (t == null || t === '') return;
+    const f = _parseFont(this.font);
+    const anchor = this.textAlign === 'center' ? 'middle' : (this.textAlign === 'right' ? 'end' : 'start');
+    const dy = this.textBaseline === 'middle' ? '0.35em' : (this.textBaseline === 'top' ? '0.8em' : '0');
+    this.parts.push(`<text x="${(x + this._tx).toFixed(2)}" y="${(y + this._ty).toFixed(2)}" font-family="${f.family}" font-size="${f.size}px" font-weight="${f.weight}" fill="${_svgColor(this.fillStyle)}" text-anchor="${anchor}" dy="${dy}">${_svgEsc(t)}</text>`);
+  }
+  toSvg() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${this.w}" height="${this.h}" viewBox="0 0 ${this.w} ${this.h}">` +
+      `<rect width="100%" height="100%" fill="#ffffff"/>${this.parts.join('')}</svg>`;
+  }
+}
+
+// Compose the whole current view (ruler + track labels + tracks, grouped) into
+// one SVG string using the SvgRecorder. Async because gene/seq tracks may fetch.
+async function composeExportSvg() {
+  if (!state.locus || state.tracks.length === 0) throw new Error('Load a view with tracks first.');
+  const ordered = orderedTracksForDisplay();
+  const gColors = groupColorMap(ordered);
+  const viewW = Math.round((state.rulerView && state.rulerView.clientWidth) || 800);
+  const labelW = 160, rulerH = 30, hdrH = 18;
+
+  let total = rulerH, prevGroup = null;
+  const rows = [];
+  for (const t of ordered) {
+    const grp = t.kind === 'mc' ? (t.group || '') : '';
+    const hdr = grp && grp !== prevGroup ? grp : null;
+    if (hdr) total += hdrH;
+    if (t.kind === 'mc') prevGroup = grp;
+    const h = trackHeight(t);
+    rows.push({ t, h, hdr });
+    total += h;
+  }
+  const totalW = labelW + viewW;
+  const rec = new SvgRecorder(totalW, total);
+
+  // Ruler
+  rec.save(); rec.translate(labelW, 0); drawRuler({ ctx: rec, w: viewW, h: rulerH }); rec.restore();
+  rec.fillStyle = '#232635'; rec.font = 'bold 11px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
+  rec.fillText('Position', 5, rulerH / 2);
+  rec.strokeStyle = '#d6d9e0'; rec.lineWidth = 1;
+  rec.beginPath(); rec.moveTo(0, rulerH + 0.5); rec.lineTo(totalW, rulerH + 0.5); rec.stroke();
+
+  let y = rulerH;
+  for (const ri of rows) {
+    if (ri.hdr) {
+      rec.fillStyle = '#eef1f6'; rec.fillRect(0, y, totalW, hdrH);
+      rec.fillStyle = gColors[ri.hdr] || '#4a90d9'; rec.fillRect(0, y, 4, hdrH);
+      rec.fillStyle = '#3a3f57'; rec.font = 'bold 11px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
+      rec.fillText(ri.hdr, 10, y + hdrH / 2);
+      y += hdrH;
+    }
+    const t = ri.t, h = ri.h;
+    // Label: swatch (mc) + name
+    if (t.kind === 'mc') { rec.fillStyle = t.color || '#333'; rec.fillRect(4, y + 6, 10, 10); }
+    rec.fillStyle = '#1c1e26'; rec.font = 'bold 12px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
+    rec.fillText(t.name, t.kind === 'mc' ? 18 : 5, y + 12);
+    // Track content
+    rec.save(); rec.translate(labelW, y);
+    const dst = { ctx: rec, w: viewW, h };
+    try {
+      if (t.kind === 'seq') await drawSeqTrack(t, state.gen, dst);
+      else if (t.kind === 'gene') await drawGeneTrack(t, state.gen, dst);
+      else if (t.kind === 'mc' && t._data) drawTrack(t, t._data.qi, t._data.vals, dst);
+    } catch (_) { /* skip a track that fails to draw */ }
+    rec.restore();
+    rec.strokeStyle = '#e6e8ee'; rec.lineWidth = 1;
+    rec.beginPath(); rec.moveTo(0, y + h + 0.5); rec.lineTo(totalW, y + h + 0.5); rec.stroke();
+    y += h;
+  }
+  return { svg: rec.toSvg(), width: totalW, height: total };
+}
+
+function exportBaseName() {
+  const l = state.locus;
+  const loc = l ? `${l.chrom}_${Math.round(l.start)}-${Math.round(l.end)}` : 'view';
+  return `cytozip_${loc}`;
+}
+function triggerDownload(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+async function downloadView(format) {
+  try {
+    setStatus(`Rendering ${format.toUpperCase()}…`);
+    const { svg, width, height } = await composeExportSvg();
+    const base = exportBaseName();
+    if (format === 'svg') {
+      triggerDownload(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), base + '.svg');
+      setStatus(`Downloaded ${base}.svg`);
+      return;
+    }
+    if (format === 'png') {
+      const scale = 2;   // hi-DPI raster
+      const img = new Image();
+      const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+      await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('SVG rasterize failed')); img.src = url; });
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(width * scale); cv.height = Math.round(height * scale);
+      const c = cv.getContext('2d'); c.scale(scale, scale); c.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      await new Promise(res => cv.toBlob(b => { triggerDownload(b, base + '.png'); res(); }, 'image/png'));
+      setStatus(`Downloaded ${base}.png`);
+      return;
+    }
+    // PDF via jsPDF + svg2pdf.js (vector).
+    const [jspdfMod, s2pMod] = await Promise.all([
+      import('https://esm.sh/jspdf@2.5.2'),
+      import('https://esm.sh/svg2pdf.js@2.2.3'),
+    ]);
+    const jsPDF = jspdfMod.jsPDF || jspdfMod.default;
+    const svg2pdf = s2pMod.svg2pdf || s2pMod.default;
+    const doc = new jsPDF({ orientation: width >= height ? 'landscape' : 'portrait', unit: 'pt', format: [width, height] });
+    const el = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement;
+    await svg2pdf(el, doc, { x: 0, y: 0, width, height });
+    doc.save(base + '.pdf');
+    setStatus(`Downloaded ${base}.pdf`);
+  } catch (e) {
+    setStatus(`${format.toUpperCase()} export failed: ${e.message}`, true);
+  }
+}
+
+// ── Session state (shareable URL hash + downloadable JSON) ───────────────────
+function currentStateObject() {
+  const geneT = state.tracks.find(t => t.kind === 'gene');
+  return {
+    g: state.genome || undefined,
+    gs: geneT ? geneT.geneSet : undefined,
+    ref: state.refUrl || undefined,
+    l: state.locus ? locusText(state.locus) : undefined,
+    r: state.resolution || undefined,
+    y: state.yScale !== '1' ? state.yScale : undefined,
+    colors: Object.keys(state.colorMap).length ? state.colorMap : undefined,
+    t: state.tracks.filter(t => t.kind === 'mc')
+      .map(t => ({ n: t.name, u: t.url, c: t.ctx, grp: t.group || undefined })),
+  };
+}
+let _urlTimer = null, _restoring = false;
+function syncUrlState() {
+  if (_restoring) return;
+  clearTimeout(_urlTimer);
+  _urlTimer = setTimeout(() => {
+    try { history.replaceState(null, '', '#' + encodeURIComponent(JSON.stringify(currentStateObject()))); } catch (_) {}
+  }, 400);
+}
+async function applyStateObject(st) {
+  if (!st || typeof st !== 'object') return;
+  _restoring = true;
+  try {
+    if (st.colors) Object.assign(state.colorMap, st.colors);
+    if (st.g && GENOMES[st.g]) {
+      $('genomeSel').value = st.g;
+      if (st.gs) $('geneSet').value = st.gs;
+      await onGenomeChange();
+    }
+    if (st.r) { state.resolution = parseInt(st.r, 10); if ($('resSel')) $('resSel').value = String(st.r); }
+    if (st.y) { state.yScale = st.y; if ($('yScaleSel')) $('yScaleSel').value = st.y; }
+    if (st.ref) { $('refUrl').value = st.ref; await loadReference(); }
+    if (st.l) { const lo = parseLocus(st.l); if (lo) { state.locus = lo; syncLocusInput(); } }
+    if (Array.isArray(st.t) && st.t.length) {
+      if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
+      for (const r of st.t) {
+        try { await openCzTrack({ name: r.n, url: r.u, ctx: r.c, group: r.grp || '' }); }
+        catch (e) { /* skip a track that fails to open */ }
+      }
+      buildTrackRows();
+    }
+  } finally {
+    _restoring = false;
+  }
+  render();
+}
+async function restoreFromUrl() {
+  const h = location.hash.replace(/^#/, '');
+  if (!h) return false;
+  let st; try { st = JSON.parse(decodeURIComponent(h)); } catch { return false; }
+  await applyStateObject(st);
+  return true;
+}
+function saveSession() {
+  triggerDownload(new Blob([JSON.stringify(currentStateObject(), null, 2)], { type: 'application/json' }),
+    'cytozip_session.json');
+  setStatus('Saved session JSON.');
+}
+async function loadSessionFile(ev) {
+  const file = ev.target.files && ev.target.files[0]; ev.target.value = '';
+  if (!file) return;
+  try { await applyStateObject(JSON.parse(await file.text())); setStatus(`Loaded session ${file.name}.`); }
+  catch (e) { setStatus('Failed to load session: ' + e.message, true); }
+}
 // Pointer-capture based: state is scoped to each view element (recreated on
 // every buildTrackRows), so there are no accumulating/stuck window listeners.
 function attachPanZoom(view) {
-  let dragId = null, startX = 0, locus0 = null;
+  let dragId = null, startX = 0, locus0 = null, moved = false;
 
   view.addEventListener('pointerdown', (e) => {
     if (!state.locus || e.button !== 0) return;
-    dragId = e.pointerId; startX = e.clientX; locus0 = { ...state.locus };
+    dragId = e.pointerId; startX = e.clientX; locus0 = { ...state.locus }; moved = false;
     try { view.setPointerCapture(e.pointerId); } catch (_) {}
     e.preventDefault();
   });
   view.addEventListener('pointermove', (e) => {
     if (dragId === e.pointerId && locus0) {
+      if (Math.abs(e.clientX - startX) > 3) moved = true;
       const w = view.clientWidth || 1;
       const span = locus0.end - locus0.start;
       const dbp = -(e.clientX - startX) / w * span;
       let s = locus0.start + dbp, en = locus0.end + dbp;
       if (s < 0) { en -= s; s = 0; }
       state.locus = { chrom: locus0.chrom, start: s, end: en };
-      syncLocusInput(); render();
+      renderInteractive();
     }
     updateHover(e);
   });
   const endDrag = (e) => {
     if (dragId === e.pointerId) {
+      const wasClick = !moved;
       dragId = null; locus0 = null;
       try { view.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (wasClick) handleViewClick(view, e);
     }
   };
   view.addEventListener('pointerup', endDrag);
@@ -1155,7 +1760,7 @@ function attachPanZoom(view) {
     let s = anchor - frac * newSpan, en = anchor + (1 - frac) * newSpan;
     if (s < 0) { en -= s; s = 0; }
     state.locus = { chrom, start: s, end: en };
-    syncLocusInput(); render();
+    renderInteractive();
   }, { passive: false });
 }
 
@@ -1169,11 +1774,42 @@ function zoomBy(factor) {
   syncLocusInput(); render();
 }
 
-// ── Hover tooltip (nearest covered bin) ──────────────────────────────────────
+// ── Hover tooltip (mc bins + gene models) ────────────────────────────────────
+function geneAtEvent(track, e) {
+  if (!track._placed) return null;
+  const rect = track.view.getBoundingClientRect();
+  const px = (e.clientX - rect.left) / rect.width * track._placed.wCss;
+  const py = e.clientY - rect.top;
+  const { placed, rowH, topPad } = track._placed;
+  const row = Math.floor((py - topPad) / rowH);
+  let best = null;
+  for (const p of placed) {
+    if (p.row !== row) continue;
+    if (px >= p.x0 - 2 && px <= p.x1 + 2) { best = p; break; }
+    if (px >= p.x0 - (p.label.length * 6 + 6) && px < p.x0) best = best || p;  // over the label
+  }
+  return best;
+}
 function updateHover(e) {
   const hv = $('hover');
   const track = state.tracks.find(t => t.view && t.view.contains(e.target));
-  if (!track || !track._draw) { hv.style.display = 'none'; return; }
+  if (!track) { hv.style.display = 'none'; return; }
+
+  // Gene track: identify the gene under the cursor.
+  if (track.kind === 'gene') {
+    const p = geneAtEvent(track, e);
+    if (!p) { hv.style.display = 'none'; track.view.style.cursor = ''; return; }
+    const gd = p.gd;
+    hv.textContent = `${gd.name || gd.id} · ${gd.chrom}:${fmtInt(gd.txStart)}-${fmtInt(gd.txEnd)} · ` +
+      `${gd.strand || ''} ${gd.transcriptionClass || ''} · click for details`;
+    hv.style.left = (e.clientX + 12) + 'px';
+    hv.style.top = (e.clientY + 12) + 'px';
+    hv.style.display = 'block';
+    track.view.style.cursor = 'pointer';
+    return;
+  }
+
+  if (!track._draw) { hv.style.display = 'none'; return; }
   const rect = track.view.getBoundingClientRect();
   const px = Math.floor((e.clientX - rect.left) / rect.width * track._draw.W);
   const d = track._draw;
@@ -1186,9 +1822,60 @@ function updateHover(e) {
   hv.style.display = 'block';
 }
 
+// Click on a gene → detail popup with external links.
+function handleViewClick(view, e) {
+  const track = state.tracks.find(t => t.view === view);
+  if (!track || track.kind !== 'gene') return;
+  const p = geneAtEvent(track, e);
+  if (p) showGeneDetail(p.gd, track.genome || state.genome, e.clientX, e.clientY);
+}
+function showGeneDetail(gd, genome, x, y) {
+  const old = document.getElementById('genePopup'); if (old) old.remove();
+  const name = gd.name || gd.id || 'gene';
+  const loc = `${gd.chrom}:${gd.txStart}-${gd.txEnd}`;
+  const ucsc = `https://genome.ucsc.edu/cgi-bin/hgTracks?db=${encodeURIComponent(genome)}&position=${encodeURIComponent(gd.chrom + ':' + gd.txStart + '-' + gd.txEnd)}`;
+  const isEns = /^ENS/i.test(gd.id || '');
+  const ensembl = isEns
+    ? `https://www.ensembl.org/${genome && genome.startsWith('mm') ? 'Mus_musculus' : 'Homo_sapiens'}/Gene/Summary?g=${encodeURIComponent((gd.id || '').split('.')[0])}`
+    : `https://www.ensembl.org/Multi/Search/Results?q=${encodeURIComponent(name)}`;
+  const ncbi = `https://www.ncbi.nlm.nih.gov/gene/?term=${encodeURIComponent(name)}`;
+  const pop = document.createElement('div');
+  pop.id = 'genePopup';
+  pop.style.cssText = 'position:fixed;z-index:100;background:#fff;border:1px solid #c9cdd6;border-radius:6px;' +
+    'box-shadow:0 6px 24px rgba(0,0,0,.18);padding:10px 12px;font-size:12px;max-width:340px;color:#1c1e26;';
+  pop.innerHTML =
+    `<div style="font-weight:700;font-size:13px;margin-bottom:3px;">${escapeHtml(String(name))}</div>` +
+    `<div style="color:#6b7180;">${escapeHtml(String(gd.id || ''))} · ${escapeHtml(gd.strand || '')} · ${escapeHtml(gd.transcriptionClass || '')}</div>` +
+    `<div style="margin:3px 0;">${escapeHtml(loc)}</div>` +
+    (gd.description ? `<div style="margin:4px 0;color:#3a3f57;">${escapeHtml(String(gd.description)).slice(0, 220)}</div>` : '') +
+    `<div style="margin-top:6px;display:flex;gap:10px;">` +
+    `<a href="${ucsc}" target="_blank" rel="noopener">UCSC</a>` +
+    `<a href="${ensembl}" target="_blank" rel="noopener">Ensembl</a>` +
+    `<a href="${ncbi}" target="_blank" rel="noopener">NCBI</a>` +
+    `<span style="margin-left:auto;cursor:pointer;color:#8a8f9c;" id="genePopupClose">✕</span></div>`;
+  document.body.appendChild(pop);
+  const px = Math.min(x + 12, window.innerWidth - pop.offsetWidth - 8);
+  const py = Math.min(y + 12, window.innerHeight - pop.offsetHeight - 8);
+  pop.style.left = Math.max(4, px) + 'px';
+  pop.style.top = Math.max(4, py) + 'px';
+  pop.querySelector('#genePopupClose').onclick = () => pop.remove();
+  const closer = (ev) => { if (!pop.contains(ev.target)) { pop.remove(); document.removeEventListener('pointerdown', closer, true); } };
+  setTimeout(() => document.addEventListener('pointerdown', closer, true), 0);
+}
+
 // ── Wire up controls ─────────────────────────────────────────────────────────
 $('btnLoad').onclick = loadReference;
 $('btnAddTrack').onclick = addTrack;
+$('trackTable').onchange = onTrackTableFile;
+$('btnTrackTableUrl').onclick = onTrackTableUrl;
+$('colorFile').onchange = onColorFile;
+$('btnColorUrl').onclick = onColorUrl;
+$('btnSvg').onclick = () => downloadView('svg');
+$('btnPng').onclick = () => downloadView('png');
+$('btnPdf').onclick = () => downloadView('pdf');
+$('yScaleSel').onchange = () => { state.yScale = $('yScaleSel').value; render(); };
+$('btnSaveSession').onclick = saveSession;
+$('sessionFile').onchange = loadSessionFile;
 $('genomeSel').onchange = onGenomeChange;
 $('geneSet').onchange = () => {
   const g = state.genome;
@@ -1250,11 +1937,11 @@ $('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack
 window.addEventListener('resize', () => render());
 
 refreshSavedTracksUI();
-onGenomeChange();
-
 setStatus('Ready. Pick a Genome to auto-load its DNA sequence + gene tracks, then search a ' +
           'locus (chr:start-end) or a gene name. Add methylation data with “+ Add cz track” ' +
-          '(needs a reference .cz; data URLs require CORS + HTTP Range).');
+          'or a track table; export as SVG/PNG/PDF; save/share via the URL or Session JSON.');
+// Restore a shared view from the URL hash, else start on the default genome.
+restoreFromUrl().then((restored) => { if (!restored) onGenomeChange(); });
 
 
 </script>
