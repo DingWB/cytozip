@@ -98,29 +98,65 @@ def _close_cached_readers():
     _READER_CACHE.clear()
 
 
-def _load_chunk_matrix(readers, dim, mc_col, cov_col, n_sites):
+def _load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites):
     """Load mc and cov as ``(n_cells, n_sites)`` int32 arrays for one chunk.
 
-    Cells whose chunk is missing or has a different length contribute zeros.
+    ``specs`` is a list of ``(path, suffix)`` cell specs (see
+    :func:`_expand_cell_specs`): a per-cell ``.cz`` gives ``suffix=()`` so the
+    lookup key is the reference ``dim`` itself, while a cell inside a
+    ``catcz``'d file gives ``suffix=(cell_id,)`` so the key becomes
+    ``dim + (cell_id,)``. Cells whose chunk is missing or has a different
+    length contribute zeros.
     """
-    n = len(readers)
+    n = len(specs)
     mc = np.zeros((n, n_sites), dtype=np.int32)
     cov = np.zeros((n, n_sites), dtype=np.int32)
-    for i, r in enumerate(readers):
-        if dim not in r.chunk_key2offset:
+    for i, (path, suffix) in enumerate(specs):
+        r = _get_cached_reader(path)
+        key = dim + suffix
+        if key not in r.chunk_key2offset:
             continue
-        raw = r.fetch_chunk_bytes(dim)
+        raw = r.fetch_chunk_bytes(key)
         if not raw:
             continue
         dt = _reader_np_dtype(r)
         arr = np.frombuffer(raw, dtype=dt)
         if arr.shape[0] != n_sites:
-            r.release_chunk(dim)
+            r.release_chunk(key)
             continue
         mc[i] = arr[mc_col].astype(np.int32, copy=False)
         cov[i] = arr[cov_col].astype(np.int32, copy=False)
-        r.release_chunk(dim)
+        r.release_chunk(key)
     return mc, cov
+
+
+def _expand_cell_specs(paths):
+    """Expand group ``.cz`` paths into ``(path, suffix)`` per-cell specs.
+
+    A per-cell ``.cz`` (``chunk_dims=['chrom']``) yields a single spec
+    ``(path, ())``. A ``catcz``'d multi-cell ``.cz``
+    (``chunk_dims=['chrom', 'cell_id', ...]``) yields one spec per unique
+    non-chromosome key suffix, so each contained cell becomes a separate
+    sample. Chromosome is assumed to be axis 0 (the ``catcz`` convention),
+    so the suffix is ``chunk_key[1:]``. This lets DMR callers accept either
+    many per-cell files or one catted file (or a mix) interchangeably.
+    """
+    specs = []
+    for p in paths:
+        r = Reader(p)
+        try:
+            if len(r.header['chunk_dims']) <= 1:
+                specs.append((p, ()))
+            else:
+                seen = set()
+                for k in r.chunk_key2offset:
+                    suffix = k[1:]
+                    if suffix not in seen:
+                        seen.add(suffix)
+                        specs.append((p, suffix))
+        finally:
+            r.close()
+    return specs
 
 
 def _resolve_paths(arg):
@@ -180,7 +216,7 @@ def _process_chunk_for_dmr(args):
     worker reuse already-opened mmaps + headers instead of paying the
     open/close cost on every chunk.
     """
-    (group_a_paths, group_b_paths, ref_path, index_path,
+    (group_a_specs, group_b_specs, ref_path, index_path,
      dim, mc_col, cov_col,
      min_cov, min_samples_per_group,
      n_permute, min_pvalue, max_row_count, max_total_count,
@@ -209,10 +245,8 @@ def _process_chunk_for_dmr(args):
                 sel_ids = ids.astype(np.int64, copy=False) - 1
 
     n_sites = ref_arr.shape[0]
-    a_readers = [_get_cached_reader(p) for p in group_a_paths]
-    b_readers = [_get_cached_reader(p) for p in group_b_paths]
-    mc_a, cov_a = _load_chunk_matrix(a_readers, dim, mc_col, cov_col, n_sites)
-    mc_b, cov_b = _load_chunk_matrix(b_readers, dim, mc_col, cov_col, n_sites)
+    mc_a, cov_a = _load_chunk_matrix(group_a_specs, dim, mc_col, cov_col, n_sites)
+    mc_b, cov_b = _load_chunk_matrix(group_b_specs, dim, mc_col, cov_col, n_sites)
     ref.release_chunk(dim)
 
     if sel_ids is not None:
@@ -538,13 +572,18 @@ def call_dmr(group_a, group_b, reference, output,
     n_proc = min(total, n_chunks)
     n_thr = max(1, total // max(1, n_proc))
 
-    logger.info(f"call_dmr: {len(a_paths)} cells in {group_names[0]} "
-                f"vs {len(b_paths)} cells in {group_names[1]} "
+    # Expand any catcz'd multi-cell inputs into per-cell specs so a single
+    # catted file behaves exactly like the equivalent set of per-cell files.
+    a_specs = _expand_cell_specs(a_paths)
+    b_specs = _expand_cell_specs(b_paths)
+
+    logger.info(f"call_dmr: {len(a_specs)} cells in {group_names[0]} "
+                f"vs {len(b_specs)} cells in {group_names[1]} "
                 f"over {n_chunks} chunks "
                 f"(jobs={total} = {n_proc} proc x {n_thr} threads)")
 
     tasks = [
-        (a_paths, b_paths, ref_path, index_path, dim, mc_col, cov_col,
+        (a_specs, b_specs, ref_path, index_path, dim, mc_col, cov_col,
          int(min_cov), int(min_samples_per_group),
          int(n_permute), float(min_pvalue),
          int(max_row_count), int(max_total_count),
@@ -684,14 +723,14 @@ def _aggregate_bins(mc, cov, pos, bin_size):
 
 def _scan_global_ch(args):
     """Worker: accumulate per-cell mc/cov totals over one chunk."""
-    paths, ref_path, index_path, dim, mc_col, cov_col = args
+    specs, ref_path, index_path, dim, mc_col, cov_col = args
     ref = _get_cached_reader(ref_path)
     if dim not in ref.chunk_key2offset:
-        n = len(paths)
+        n = len(specs)
         return np.zeros(n, dtype=np.int64), np.zeros(n, dtype=np.int64)
     ref_raw = ref.fetch_chunk_bytes(dim)
     if not ref_raw:
-        n = len(paths)
+        n = len(specs)
         return np.zeros(n, dtype=np.int64), np.zeros(n, dtype=np.int64)
     ref_dt = _reader_np_dtype(ref)
     n_sites = np.frombuffer(ref_raw, dtype=ref_dt).shape[0]
@@ -703,8 +742,7 @@ def _scan_global_ch(args):
             if ids.ndim == 1:
                 # IDs in the index file are 1-based; convert to 0-based.
                 sel_ids = ids.astype(np.int64, copy=False) - 1
-    readers = [_get_cached_reader(p) for p in paths]
-    mc, cov = _load_chunk_matrix(readers, dim, mc_col, cov_col, n_sites)
+    mc, cov = _load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites)
     ref.release_chunk(dim)
     if sel_ids is not None:
         mc = mc[:, sel_ids]
@@ -712,20 +750,23 @@ def _scan_global_ch(args):
     return mc.sum(axis=1, dtype=np.int64), cov.sum(axis=1, dtype=np.int64)
 
 
-def _compute_global_ch_rates(paths, ref_path, index_path, chunk_keys,
+def _compute_global_ch_rates(specs, ref_path, index_path, chunk_keys,
                              mc_col, cov_col, n_proc):
     """Compute per-cell global mCH rate (mc_total / cov_total) over the
     selected chunks (and optional context index).
+
+    ``specs`` are ``(path, suffix)`` cell specs (see
+    :func:`_expand_cell_specs`).
 
     Returns
     -------
     rates : (n_cells,) float64
     mc_tot, cov_tot : (n_cells,) int64
     """
-    n = len(paths)
+    n = len(specs)
     mc_tot = np.zeros(n, dtype=np.int64)
     cov_tot = np.zeros(n, dtype=np.int64)
-    tasks = [(paths, ref_path, index_path, dim, mc_col, cov_col)
+    tasks = [(specs, ref_path, index_path, dim, mc_col, cov_col)
              for dim in chunk_keys]
     if n_proc > 1 and len(tasks) > 1:
         from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -760,7 +801,7 @@ def _process_chunk_for_dmr_ch(args):
     -------
     dim, bin_starts, p_arr, delta_arr, rate_a_arr, rate_b_arr
     """
-    (group_a_paths, group_b_paths, ref_path, index_path,
+    (group_a_specs, group_b_specs, ref_path, index_path,
      dim, mc_col, cov_col, bin_size,
      scale_a, scale_b,
      min_cov, min_samples_per_group,
@@ -789,10 +830,8 @@ def _process_chunk_for_dmr_ch(args):
                 sel_ids = ids.astype(np.int64, copy=False) - 1
 
     n_sites = ref_arr.shape[0]
-    a_readers = [_get_cached_reader(p) for p in group_a_paths]
-    b_readers = [_get_cached_reader(p) for p in group_b_paths]
-    mc_a, cov_a = _load_chunk_matrix(a_readers, dim, mc_col, cov_col, n_sites)
-    mc_b, cov_b = _load_chunk_matrix(b_readers, dim, mc_col, cov_col, n_sites)
+    mc_a, cov_a = _load_chunk_matrix(group_a_specs, dim, mc_col, cov_col, n_sites)
+    mc_b, cov_b = _load_chunk_matrix(group_b_specs, dim, mc_col, cov_col, n_sites)
     ref.release_chunk(dim)
 
     if sel_ids is not None:
@@ -1283,9 +1322,14 @@ def call_dmr_ch(group_a, group_b, reference, output,
     n_proc = min(total, n_chunks)
     n_thr = max(1, total // max(1, n_proc))
 
+    # Expand any catcz'd multi-cell inputs into per-cell specs so a single
+    # catted file behaves exactly like the equivalent set of per-cell files.
+    a_specs = _expand_cell_specs(a_paths)
+    b_specs = _expand_cell_specs(b_paths)
+
     logger.info(
-        f"call_dmr_ch[{context}]: {len(a_paths)} cells in {group_names[0]} "
-        f"vs {len(b_paths)} cells in {group_names[1]} "
+        f"call_dmr_ch[{context}]: {len(a_specs)} cells in {group_names[0]} "
+        f"vs {len(b_specs)} cells in {group_names[1]} "
         f"over {n_chunks} chunks, bin_size={bin_size} "
         f"(jobs={total} = {n_proc} proc x {n_thr} threads)")
 
@@ -1297,20 +1341,20 @@ def call_dmr_ch(group_a, group_b, reference, output,
         if global_a is None:
             logger.info("call_dmr_ch: scanning group A for per-cell global rates")
             ga, mc_a_tot, cov_a_tot = _compute_global_ch_rates(
-                a_paths, ref_path, index_path, chunk_keys,
+                a_specs, ref_path, index_path, chunk_keys,
                 mc_col, cov_col, n_proc)
         else:
             ga = np.asarray(global_a, dtype=np.float64)
-            if ga.shape[0] != len(a_paths):
+            if ga.shape[0] != len(a_specs):
                 raise ValueError("len(global_a) must match len(group_a)")
         if global_b is None:
             logger.info("call_dmr_ch: scanning group B for per-cell global rates")
             gb, mc_b_tot, cov_b_tot = _compute_global_ch_rates(
-                b_paths, ref_path, index_path, chunk_keys,
+                b_specs, ref_path, index_path, chunk_keys,
                 mc_col, cov_col, n_proc)
         else:
             gb = np.asarray(global_b, dtype=np.float64)
-            if gb.shape[0] != len(b_paths):
+            if gb.shape[0] != len(b_specs):
                 raise ValueError("len(global_b) must match len(group_b)")
 
         scale_a, scale_b, target = _compute_normalization_scale(
@@ -1327,7 +1371,7 @@ def call_dmr_ch(group_a, group_b, reference, output,
                         f"(method='{method}')")
 
     tasks = [
-        (a_paths, b_paths, ref_path, index_path, dim, mc_col, cov_col,
+        (a_specs, b_specs, ref_path, index_path, dim, mc_col, cov_col,
          int(bin_size),
          scale_a, scale_b,
          int(min_cov), int(min_samples_per_group),
@@ -2150,6 +2194,19 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     reader.advise_sequential()
     ref_reader.advise_sequential()
 
+    # call_peaks produces a single aggregate peak set from one track. A
+    # catcz'd multi-cell file is N tracks, not one; pooling sparse single
+    # cells into a peak call is not meaningful. Ask the user to build a
+    # pseudobulk track first (merge_cz sums cells into a single-dim .cz).
+    if len(reader.header['chunk_dims']) > 1:
+        reader.close()
+        ref_reader.close()
+        raise ValueError(
+            "call_peaks expects a single-track .cz (chunk_dims=['chrom']); "
+            f"got a catcz'd multi-cell file (chunk_dims="
+            f"{reader.header['chunk_dims']}). Build a pseudobulk track first "
+            "with `merge_cz`, then call peaks on that.")
+
     if output is None:
         output = os.path.splitext(cz_path)[0] + '_peaks'
     output = os.path.abspath(os.path.expanduser(output))
@@ -2337,6 +2394,18 @@ def to_bedgraph(input=None, reference=None, output=None,
     reader.advise_sequential()
     ref_reader.advise_sequential()
 
+    # to_bedgraph emits a single track (unique sorted positions). A catcz'd
+    # multi-cell file holds many cells per chromosome, so pooling them would
+    # produce duplicated positions. Build a pseudobulk track first.
+    if len(reader.header['chunk_dims']) > 1:
+        reader.close()
+        ref_reader.close()
+        raise ValueError(
+            "to_bedgraph expects a single-track .cz (chunk_dims=['chrom']); "
+            f"got a catcz'd multi-cell file (chunk_dims="
+            f"{reader.header['chunk_dims']}). Build a pseudobulk track first "
+            "with `merge_cz`, then export the bedGraph.")
+
     if output is None:
         output = os.path.splitext(cz_path)[0] + '.bedgraph'
     output = os.path.abspath(os.path.expanduser(output))
@@ -2429,27 +2498,32 @@ def to_bedgraph(input=None, reference=None, output=None,
     return output
 
 
-def _load_array_chunk(paths, dim, beta_col, n_probes):
-    """Load a (n_samples, n_probes) float32 \u03b2 matrix for one chunk.
+def _load_array_chunk(specs, dim, beta_col, n_probes):
+    """Load a (n_samples, n_probes) float32 β matrix for one chunk.
 
-    Each per-sample .cz must be aligned to the reference (same number of
-    rows per chunk_dim). Missing chunks / values become NaN.
+    ``specs`` are ``(path, suffix)`` cell specs (see
+    :func:`_expand_cell_specs`): a per-sample ``.cz`` gives ``suffix=()``;
+    a sample inside a ``catcz``'d file gives ``suffix=(cell_id,)`` so the
+    lookup key becomes ``dim + (cell_id,)``. Each sample must be aligned to
+    the reference (same number of rows per chunk). Missing chunks / values
+    become NaN.
     """
-    M = np.full((len(paths), n_probes), np.nan, dtype=np.float32)
-    for i, p in enumerate(paths):
-        r = _get_reader(p)
-        if dim not in r.chunk_key2offset:
+    M = np.full((len(specs), n_probes), np.nan, dtype=np.float32)
+    for i, (p, suffix) in enumerate(specs):
+        r = _get_cached_reader(p)
+        key = dim + suffix
+        if key not in r.chunk_key2offset:
             continue
-        arr = r.chunk2numpy(dim)
+        arr = r.chunk2numpy(key)
         if arr.shape[0] != n_probes:
             raise ValueError(
-                f"{p}: chunk {dim} has {arr.shape[0]} rows but reference "
+                f"{p}: chunk {key} has {arr.shape[0]} rows but reference "
                 f"chunk has {n_probes}; per-sample .cz must be aligned to "
                 f"the reference (build with allc2cz / a custom array writer "
                 f"using the same reference)."
             )
         M[i, :] = arr[beta_col].astype(np.float32, copy=False)
-        r.release_chunk(dim)
+        r.release_chunk(key)
     return M
 
 
@@ -2640,10 +2714,14 @@ def call_dmr_array(group_a, group_b, reference, output,
 
     a_paths = _resolve_paths(group_a)
     b_paths = _resolve_paths(group_b)
-    if len(a_paths) < min_samples_per_group or len(b_paths) < min_samples_per_group:
+    # Expand any catcz'd multi-cell inputs into per-sample specs so a single
+    # catted file behaves like the equivalent set of per-sample files.
+    a_specs = _expand_cell_specs(a_paths)
+    b_specs = _expand_cell_specs(b_paths)
+    if len(a_specs) < min_samples_per_group or len(b_specs) < min_samples_per_group:
         raise ValueError(
             f"Need at least {min_samples_per_group} sample(s) per group; "
-            f"got A={len(a_paths)}, B={len(b_paths)}"
+            f"got A={len(a_specs)}, B={len(b_specs)}"
         )
     ref_path = os.path.abspath(os.path.expanduser(reference))
     output = os.path.abspath(os.path.expanduser(output))
@@ -2670,8 +2748,8 @@ def call_dmr_array(group_a, group_b, reference, output,
         raise ValueError("No matching chunks found in reference for "
                          f"chroms={chroms}")
     logger.info(
-        f"call_dmr_array[{test}]: A={len(a_paths)} samples, "
-        f"B={len(b_paths)} samples ({group_names[0]} vs {group_names[1]}), "
+        f"call_dmr_array[{test}]: A={len(a_specs)} samples, "
+        f"B={len(b_specs)} samples ({group_names[0]} vs {group_names[1]}), "
         f"{len(chunk_keys)} chunks"
     )
 
@@ -2685,8 +2763,8 @@ def call_dmr_array(group_a, group_b, reference, output,
             continue
         n_probes = int(ref_arr.shape[0])
         pos = ref_arr['pos'].astype(np.int64)
-        A = _load_array_chunk(a_paths, dim, beta_col, n_probes)
-        B = _load_array_chunk(b_paths, dim, beta_col, n_probes)
+        A = _load_array_chunk(a_specs, dim, beta_col, n_probes)
+        B = _load_array_chunk(b_specs, dim, beta_col, n_probes)
         p, a_n, b_n, delta = test_func(A, B)
         keep = (a_n >= min_samples_per_group) & (b_n >= min_samples_per_group) \
              & np.isfinite(p) & np.isfinite(delta)

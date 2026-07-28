@@ -353,7 +353,7 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
 
 def merge_cz(input=None, class_table=None,
              output=None, prefix=None, jobs=12, formats=['H', 'H'],
-             chrom_order=None, reference=None,
+             chroms=None, reference=None,
              keep_cat=False, blocks_per_batch=None, temp=False, bgzip=True,
              batch_size=50000, ext='.cz', level=6, agg='sum'):
     """
@@ -405,7 +405,7 @@ def merge_cz(input=None, class_table=None,
         ``['H', 'H']`` for uint16 mc/cov). The legacy ``'fraction'`` /
         ``'fisher'`` / ``'2D'`` modes were moved to
         :mod:`cytozip.pivot` and now raise.
-    chrom_order : path
+    chroms : path
         Chrom-size file. If provided, output chunks are written in
         the order of this file's first column (rather than sorted).
     reference : path
@@ -482,7 +482,7 @@ def merge_cz(input=None, class_table=None,
                         for sname in class_groups[key]]
             merge_cz(input=cz_paths, class_table=None,
                      output=None, prefix=f"{prefix}.{key}", jobs=jobs,
-                     formats=formats, chrom_order=chrom_order,
+                     formats=formats, chroms=chroms,
                      reference=reference, keep_cat=keep_cat,
                      blocks_per_batch=blocks_per_batch, temp=temp, bgzip=bgzip,
                      batch_size=batch_size, ext=ext, level=level)
@@ -531,9 +531,9 @@ def merge_cz(input=None, class_table=None,
 
     # get chromosomes order
     input_chroms = chunk_info[chrom_col].unique().tolist()
-    if not chrom_order is None:
-        chrom_order = os.path.abspath(os.path.expanduser(chrom_order))
-        df = pd.read_csv(chrom_order, sep='\t', header=None, usecols=[0])
+    if not chroms is None:
+        chroms = os.path.abspath(os.path.expanduser(chroms))
+        df = pd.read_csv(chroms, sep='\t', header=None, usecols=[0])
         chroms = [chrom for chrom in df.iloc[:, 0].tolist() if chrom in input_chroms]
     else:
         chroms = sorted(input_chroms)
@@ -660,7 +660,7 @@ def merge_cz(input=None, class_table=None,
 
 
 def merge_cell_type(indir=None, cell_table=None, outdir=None,
-                    jobs=64, chrom_order=None, ext='.CGN.merged.cz'):
+                    jobs=64, chroms=None, ext='.CGN.merged.cz'):
     """Merge per-cell .cz files into per-cell-type aggregates.
 
     Reads a TSV ``cell_table`` with columns (cell, cell_type), groups
@@ -670,7 +670,7 @@ def merge_cell_type(indir=None, cell_table=None, outdir=None,
     outdir = os.path.abspath(os.path.expanduser(outdir))
     if not os.path.exists(outdir):
         os.mkdir(outdir)
-    chrom_order = os.path.abspath(os.path.expanduser(chrom_order))
+    chroms = os.path.abspath(os.path.expanduser(chroms))
     df_ct = pd.read_csv(cell_table, sep='\t', header=None, names=['cell', 'ct'])
     for ct in df_ct.ct.unique():
         output = os.path.join(outdir, ct + '.cz')
@@ -681,7 +681,7 @@ def merge_cell_type(indir=None, cell_table=None, outdir=None,
         snames = df_ct.loc[df_ct.ct == ct, 'cell'].tolist()
         cz_paths = [os.path.join(indir, sname + ext) for sname in snames]
         merge_cz(input=cz_paths, bgzip=False,
-                 output=output, jobs=jobs, chrom_order=chrom_order)
+                 output=output, jobs=jobs, chroms=chroms)
 
 
 if __name__ == "__main__":

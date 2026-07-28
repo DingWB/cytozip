@@ -232,7 +232,7 @@ def _catchr(outdir, chrom, batch_nblock, batch_size):
 
 # ==========================================================
 def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
-           jobs=12, chrom_order=None, reference=None,
+           jobs=12, chroms=None, reference=None,
            keep_cat=False, blocks_per_batch=None, temp=False, bgzip=True,
            batch_size=50000, ext='.cz'):
     """Shared pivot pipeline for fraction / fisher modes."""
@@ -264,9 +264,9 @@ def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
     reader.close()
 
     input_chroms = chunk_info[chrom_col].unique().tolist()
-    if chrom_order is not None:
-        chrom_order = os.path.abspath(os.path.expanduser(chrom_order))
-        df_order = pd.read_csv(chrom_order, sep='\t', header=None, usecols=[0])
+    if chroms is not None:
+        chroms = os.path.abspath(os.path.expanduser(chroms))
+        df_order = pd.read_csv(chroms, sep='\t', header=None, usecols=[0])
         chroms = [c for c in df_order.iloc[:, 0].tolist() if c in input_chroms]
     else:
         chroms = sorted(input_chroms)
@@ -370,7 +370,7 @@ def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
 
 
 def pivot_fraction(indir=None, cz_paths=None, output=None, prefix=None,
-                   jobs=12, chrom_order=None, reference=None,
+                   jobs=12, chroms=None, reference=None,
                    keep_cat=False, blocks_per_batch=None, temp=False,
                    bgzip=True, batch_size=50000, ext='.cz'):
     """Pivot per-cell .cz files into a wide per-cell methylation
@@ -382,13 +382,13 @@ def pivot_fraction(indir=None, cz_paths=None, output=None, prefix=None,
     """
     return _pivot('fraction', indir=indir, cz_paths=cz_paths,
                   output=output, prefix=prefix, jobs=jobs,
-                  chrom_order=chrom_order, reference=reference,
+                  chroms=chroms, reference=reference,
                   keep_cat=keep_cat, blocks_per_batch=blocks_per_batch,
                   temp=temp, bgzip=bgzip, batch_size=batch_size, ext=ext)
 
 
 def pivot_fisher(indir=None, cz_paths=None, output=None, prefix=None,
-                 jobs=12, chrom_order=None, reference=None,
+                 jobs=12, chroms=None, reference=None,
                  keep_cat=False, blocks_per_batch=None, temp=False,
                  bgzip=True, batch_size=50000, ext='.cz'):
     """Pivot per-cell .cz files into a one-vs-rest Fisher exact-test
@@ -400,7 +400,7 @@ def pivot_fisher(indir=None, cz_paths=None, output=None, prefix=None,
     """
     return _pivot('fisher', indir=indir, cz_paths=cz_paths,
                   output=output, prefix=prefix, jobs=jobs,
-                  chrom_order=chrom_order, reference=reference,
+                  chroms=chroms, reference=reference,
                   keep_cat=keep_cat, blocks_per_batch=blocks_per_batch,
                   temp=temp, bgzip=bgzip, batch_size=batch_size, ext=ext)
 

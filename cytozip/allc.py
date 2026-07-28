@@ -29,7 +29,7 @@ import struct
 import multiprocessing
 from loguru import logger
 from .cz import (Reader, Writer, get_dtfuncs,
-                 _fmt_to_np_dtype,
+                 _fmt_to_np_dtype, _chrom_axis,
                  _all_numeric_formats, _pack_chunk_data,
                  _write_np_chunks, _parse_tabix_lines,
                  np, pd)
@@ -247,7 +247,7 @@ class AllC:
 
 def allc2cz(input, output, reference=None, missing_value=[0, 0],
            formats=['B', 'B'], columns=['mc', 'cov'], chunk_dims=['chrom'],
-           usecols=[4, 5], ref_pos_col=0, allc_pos_col=1, sep='\t', chrom_order=None,
+           usecols=[4, 5], ref_pos_col=0, allc_pos_col=1, sep='\t', chroms=None,
            batch_size=5000, sort_col=None, delta_cols=None,
            jobs=1, pattern='*.allc.tsv.gz', skip_existing=True,
            _ref_pos_dict=None):
@@ -262,10 +262,14 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     Parameters
     ----------
     input : path
-        Path to allc.tsv.gz (must have .tbi index), OR a directory containing
-        many allc.tsv.gz files (batch mode).
+        One of: (a) a single ``allc.tsv.gz`` (must have a ``.tbi`` index);
+        (b) a directory containing many ``allc.tsv.gz`` files (batch mode);
+        (c) an *allc_path table* — a headerless text file whose first column
+        is the cell ID and second column is the path to that cell's
+        ``allc.tsv.gz`` (batch mode; each output is named ``<cell_id>.cz``).
     output : path
-        Output .cz file (single-file mode), or output directory (batch mode).
+        Output .cz file (single-file mode), or output directory (batch mode:
+        directory or allc_path table input).
     reference : path
         path to reference coordinates.
     jobs : int
@@ -273,12 +277,13 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
         Ignored when ``input`` is a single file.
     pattern : str
         Glob pattern used to discover allc files when ``input`` is a directory
-        (default: ``'*.allc.tsv.gz'``).
+        (default: ``'*.allc.tsv.gz'``). Ignored for allc_path table input.
     skip_existing : bool
         In batch mode, skip files whose output .cz already exists (default: True).
     formats: list
         When reference is provided, we only need to pack mc and cov,
-        ['H', 'H'] is suggested (H is unsigned short integer, only 2 bytes),
+        ['H', 'H'] is suggested for pseudobulk data (H is unsigned short integer, only 2 bytes),
+        and ['B', 'B'] is suggested for single cell data (B is unsigned char, only 1 byte).
         if reference is not provided, we also need to pack position (Q is
         recommanded), in this case, formats should be ['Q','H','H'].
     columns: list
@@ -297,7 +302,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
         index of position column in input input or bed column.
     batch_size : int
         default is 5000
-    chrom_order : path
+    chroms : path
         path to chrom_size path or similar file containing chromosomes order,
         the first columns should be chromosomes, tab separated and no header.
     missing_value : list, optional
@@ -335,7 +340,20 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
             missing_value=missing_value, formats=formats, columns=columns,
             chunk_dims=chunk_dims, usecols=usecols,
             ref_pos_col=ref_pos_col, allc_pos_col=allc_pos_col, sep=sep,
-            chrom_order=chrom_order, batch_size=batch_size,
+            chroms=chroms, batch_size=batch_size,
+            sort_col=sort_col, delta_cols=delta_cols,
+            jobs=jobs, pattern=pattern, skip_existing=skip_existing,
+        )
+    # ---- Batch mode: input is an allc_path table (cell_id, allc_path) -----
+    if isinstance(input, str) and os.path.isfile(os.path.expanduser(input)) \
+            and _looks_like_allc_path_table(os.path.expanduser(input)):
+        return _allc2cz_batch(
+            input_dir=None, output_dir=output, reference=reference,
+            files_map=_read_allc_path_table(input),
+            missing_value=missing_value, formats=formats, columns=columns,
+            chunk_dims=chunk_dims, usecols=usecols,
+            ref_pos_col=ref_pos_col, allc_pos_col=allc_pos_col, sep=sep,
+            chroms=chroms, batch_size=batch_size,
             sort_col=sort_col, delta_cols=delta_cols,
             jobs=jobs, pattern=pattern, skip_existing=skip_existing,
         )
@@ -349,11 +367,11 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     import pysam
     tbi = pysam.TabixFile(allc_path)
     contigs = tbi.contigs
-    if not chrom_order is None:
-        chrom_order = os.path.abspath(os.path.expanduser(chrom_order))
-        df = pd.read_csv(chrom_order, sep='\t', header=None, usecols=[0])
-        chroms = df.iloc[:, 0].tolist()
-        all_chroms = [c for c in chroms if c in contigs]
+    if not chroms is None:
+        chroms = os.path.abspath(os.path.expanduser(chroms))
+        df = pd.read_csv(chroms, sep='\t', header=None, usecols=[0])
+        chrom_list = df.iloc[:, 0].tolist()
+        all_chroms = [c for c in chrom_list if c in contigs]
     else:
         all_chroms = contigs
     if not reference is None:
@@ -599,27 +617,100 @@ def _strip_allc_suffix(basename):
     return os.path.splitext(basename)[0]
 
 
+def _read_allc_path_table(path):
+    """Parse an *allc_path table* into ``[(cell_id, allc_path), ...]``.
+
+    The table is a headerless text file whose first column is the cell ID
+    and second column is the path to that cell's ``allc.tsv.gz``. Columns
+    are tab-separated (falls back to any whitespace). ``#`` comment lines
+    are ignored.
+    """
+    path = os.path.abspath(os.path.expanduser(path))
+    df = pd.read_csv(path, sep='\t', header=None, comment='#')
+    if df.shape[1] < 2:
+        df = pd.read_csv(path, sep=r'\s+', header=None, comment='#',
+                         engine='python')
+    if df.shape[1] < 2:
+        raise ValueError(
+            f"allc_path table {path!r} must have >=2 columns "
+            f"(cell_id, allc_path); got {df.shape[1]}")
+    return [(str(row[0]), str(row[1]))
+            for row in df.iloc[:, :2].itertuples(index=False)]
+
+
+def _looks_like_allc_path_table(path):
+    """Heuristically decide whether ``path`` is an allc_path table.
+
+    True when ``path`` is a plain-text (non-bgzipped) file with no ``.tbi``
+    index whose first non-comment line has >=2 columns and whose second
+    column points to an existing file. This distinguishes a
+    ``(cell_id, allc_path)`` table from a single ``allc.tsv.gz``.
+    """
+    if path.endswith(('.gz', '.bgz', '.cz')):
+        return False
+    if os.path.exists(path + '.tbi'):
+        return False
+    try:
+        with open(path, 'r') as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                parts = line.split('\t') if '\t' in line else line.split()
+                if len(parts) < 2:
+                    return False
+                return os.path.exists(os.path.expanduser(parts[1]))
+    except (UnicodeDecodeError, OSError):
+        return False
+    return False
+
+
 def _allc2cz_batch(input_dir, output_dir, reference=None, jobs=1,
-                   pattern='*.allc.tsv.gz', skip_existing=True, **kwargs):
-    """Parallel allc -> cz over a directory, sharing the decoded reference.
+                   pattern='*.allc.tsv.gz', skip_existing=True,
+                   files_map=None, **kwargs):
+    """Parallel allc -> cz over a directory (or an explicit table), sharing
+    the decoded reference.
 
     Workers are forked from the parent so the pre-decoded reference dict is
     shared via copy-on-write (zero extra RSS per worker on Linux).
+
+    ``files_map`` (optional) is a list of ``(cell_id, allc_path)`` pairs from
+    an *allc_path table*; when given the output for each cell is named
+    ``<output_dir>/<cell_id>.cz`` and directory globbing is skipped.
     """
-    import glob
-    input_dir = os.path.abspath(os.path.expanduser(input_dir))
     output_dir = os.path.abspath(os.path.expanduser(output_dir))
     os.makedirs(output_dir, exist_ok=True)
 
-    files = sorted(glob.glob(os.path.join(input_dir, pattern)))
-    files = [f for f in files if os.path.exists(f + '.tbi')]
-    if not files:
-        logger.warning(f"No allc files matching {pattern!r} (with .tbi) found in {input_dir}")
-        return
+    if files_map is not None:
+        # Explicit (cell_id, allc_path) list from an allc_path table.
+        out_by_inp = []
+        for cell_id, inp in files_map:
+            inp = os.path.abspath(os.path.expanduser(str(inp)))
+            if not os.path.exists(inp + '.tbi'):
+                logger.warning(f"skip {cell_id}: no .tbi index for {inp}")
+                continue
+            out_by_inp.append(
+                (inp, os.path.join(output_dir, str(cell_id) + '.cz')))
+        if not out_by_inp:
+            logger.warning("No allc files (with .tbi) found in the provided "
+                           "allc_path table.")
+            return
+    else:
+        import glob
+        input_dir = os.path.abspath(os.path.expanduser(input_dir))
+        files = sorted(glob.glob(os.path.join(input_dir, pattern)))
+        files = [f for f in files if os.path.exists(f + '.tbi')]
+        if not files:
+            logger.warning(f"No allc files matching {pattern!r} (with .tbi) found in {input_dir}")
+            return
+        out_by_inp = [
+            (inp, os.path.join(output_dir,
+                               _strip_allc_suffix(os.path.basename(inp)) + '.cz'))
+            for inp in files]
 
+    files = [inp for inp, _ in out_by_inp]
     job_args = []
-    for inp in files:
-        outp = os.path.join(output_dir, _strip_allc_suffix(os.path.basename(inp)) + '.cz')
+    for inp, outp in out_by_inp:
         if skip_existing and os.path.exists(outp):
             logger.info(f"{outp} existed, skip.")
             continue
@@ -676,10 +767,77 @@ def _allc2cz_batch(input_dir, output_dir, reference=None, jobs=1,
 
 
 # ==========================================================
+def _extractcg_chunk_worker(args):
+    """Extract (and optionally CG-merge) one chunk's CG records.
+
+    Returns ``(dim, data_bytes)``. ``dim`` is the FULL input chunk key so a
+    catted file's ``cell_id`` axis is preserved; the CGN index is looked up
+    by chromosome only.
+    """
+    (input_path, index_path, dim, chrom_axis, merge_cg, vec_merge) = args
+    reader = _cz._worker_reader(input_path)
+    index_reader = _cz._worker_reader(index_path)
+    idx_key = (dim[chrom_axis],)
+    if idx_key not in index_reader.chunk_key2offset:
+        return dim, None
+    IDs = index_reader.get_ids_from_index(idx_key)
+    if len(IDs.shape) != 1:
+        raise ValueError("Only support 1D index now!")
+    formats = reader.header['formats']
+    fmts = reader.fmts
+    # for CG, if pos is forward (+), then pos+1 is reverse strand (-)
+    if vec_merge:
+        if IDs.size == 0:
+            return dim, b''
+        # Gather the indexed rows once, then sum each forward/reverse pair
+        # column-wise with a single vectorized clip.
+        full = reader.chunk2numpy(dim)
+        arr = full[IDs - 1]
+        m = arr.shape[0] // 2  # number of (forward, reverse) pairs
+        if m == 0:
+            return dim, b''
+        _rec_dtype = np.dtype([
+            (f'f{i}', _fmt_to_np_dtype(f[-1]))
+            for i, f in enumerate(formats)])
+        fwd = arr[:2 * m:2]
+        rev = arr[1:2 * m:2]
+        out = np.empty(m, dtype=_rec_dtype)
+        for i in range(len(formats)):
+            fn = f'f{i}'
+            dt = _rec_dtype[fn]
+            summed = fwd[fn].astype(np.int64) + rev[fn].astype(np.int64)
+            info = np.iinfo(dt)
+            out[fn] = np.clip(summed, info.min, info.max).astype(dt)
+        return dim, out.tobytes()
+    records = reader._getRecordsByIds(dim, IDs)
+    data_parts = []
+    if merge_cg:
+        dtfuncs = get_dtfuncs(formats)
+        v0 = None
+        for i, record in enumerate(records):  # unpacked bytes
+            if i % 2 == 0:
+                v0 = struct.unpack(f"<{fmts}", record)
+            else:
+                v1 = struct.unpack(f"<{fmts}", record)
+                values = [r1 + r2 for r1, r2 in zip(v0, v1)]
+                data_parts.append(struct.pack(fmts,
+                                    *[func(v) for v, func in zip(values, dtfuncs)]))
+    else:
+        for record in records:  # unpacked bytes
+            data_parts.append(record)
+    return dim, b''.join(data_parts)
+
+
 def extractCG(input=None, output=None, index=None, batch_size=5000,
-              merge_cg=False):
+              merge_cg=False, jobs=1):
     """
     Extract CG context from .cz file
+
+    Supports both a single per-cell ``.cz`` (``chunk_dims=['chrom']``) and a
+    ``catcz``'d multi-cell ``.cz`` (``chunk_dims=['chrom', 'cell_id']``). The
+    CGN ``index`` is keyed by chromosome only; for a catted input each
+    ``(chrom, cell_id)`` chunk is extracted against the chromosome's index
+    and written back under its full key, preserving the per-cell structure.
 
     Parameters
     ----------
@@ -700,6 +858,10 @@ def extractCG(input=None, output=None, index=None, batch_size=5000,
     merge_cg : bool
         after merging, only forward strand would be kept, reverse strand values
         would be added to the corresponding forward strand.
+    jobs : int
+        Number of parallel worker processes across chunks (default 1). A
+        catted file has ``n_chroms * n_cells`` chunks, so ``jobs > 1`` gives
+        a near-linear speed-up on multi-cell inputs.
 
     Returns
     -------
@@ -709,78 +871,36 @@ def extractCG(input=None, output=None, index=None, batch_size=5000,
     """
     cz_path = os.path.abspath(os.path.expanduser(input))
     index_path = os.path.abspath(os.path.expanduser(index))
-    index_reader = Reader(index_path)
     reader = Reader(cz_path)
-    writer = Writer(output, formats=reader.header['formats'],
-                    columns=reader.header['columns'],
-                    chunk_dims=reader.header['chunk_dims'],
-                    message=index_path)
-    dtfuncs = get_dtfuncs(writer.formats)
+    chrom_axis = _chrom_axis(reader)
     # Vectorized merge_cg fast path is only exact when every column is an
     # unsigned integer (np.iinfo(dtype).max then equals the clamp used by
     # ``int_func``). methylation count columns (mc/cov) are unsigned, so this
     # covers the real use case; anything else falls back to the per-record loop.
     _vec_merge = merge_cg and all(
         f[-1] in 'BHILQ' for f in reader.header['formats'])
-    _rec_dtype = None
-    if _vec_merge:
-        _rec_dtype = np.dtype([
-            (f'f{i}', _fmt_to_np_dtype(f[-1]))
-            for i, f in enumerate(reader.header['formats'])])
-    for dim in reader.chunk_key2offset.keys():
-        # print(dim)
-        IDs = index_reader.get_ids_from_index(dim)
-        if len(IDs.shape) != 1:
-            raise ValueError("Only support 1D index now!")
-        # for CG, if pos is forward (+), then pos+1 is reverse strand (-)
-        if _vec_merge:
-            # Gather the indexed rows once, then sum each forward/reverse pair
-            # column-wise with a single vectorized clip — no per-record
-            # struct unpack/pack. Row order matches _getRecordsByIds(IDs).
-            if IDs.size == 0:
-                continue
-            arr = reader.chunk2numpy(dim, index=index_reader)
-            m = arr.shape[0] // 2  # number of (forward, reverse) pairs
-            if m == 0:
-                continue
-            fwd = arr[:2 * m:2]
-            rev = arr[1:2 * m:2]
-            out = np.empty(m, dtype=_rec_dtype)
-            for i in range(len(reader.header['formats'])):
-                fn = f'f{i}'
-                dt = _rec_dtype[fn]
-                summed = fwd[fn].astype(np.int64) + rev[fn].astype(np.int64)
-                info = np.iinfo(dt)
-                out[fn] = np.clip(summed, info.min, info.max).astype(dt)
-            writer.write_chunk(out.tobytes(), dim)
-            continue
-        records = reader._getRecordsByIds(dim, IDs)
-        data_parts, count = [], 0
-        if merge_cg:
-            for i, record in enumerate(records):  # unpacked bytes
-                if i % 2 == 0:
-                    v0 = struct.unpack(f"<{reader.fmts}", record)
-                else:
-                    v1 = struct.unpack(f"<{reader.fmts}", record)
-                    values = [r1 + r2 for r1, r2 in zip(v0, v1)]
-                    data_parts.append(struct.pack(writer.fmts,
-                                        *[func(v) for v, func in zip(values, dtfuncs)]))
-                    count += 1
-                if count > batch_size:
-                    writer.write_chunk(b''.join(data_parts), dim)
-                    data_parts, count = [], 0
-        else:
-            for record in records:  # unpacked bytes
-                data_parts.append(record)
-                count += 1
-                if count > batch_size:
-                    writer.write_chunk(b''.join(data_parts), dim)
-                    data_parts, count = [], 0
-        if len(data_parts) > 0:
-            writer.write_chunk(b''.join(data_parts), dim)
-    writer.close()
+    writer = Writer(output, formats=reader.header['formats'],
+                    columns=reader.header['columns'],
+                    chunk_dims=reader.header['chunk_dims'],
+                    message=index_path)
+    dims = list(reader.chunk_key2offset.keys())
     reader.close()
-    index_reader.close()
+    tasks = [(cz_path, index_path, dim, chrom_axis, merge_cg, _vec_merge)
+             for dim in dims]
+    if jobs and int(jobs) > 1 and len(tasks) > 1:
+        with multiprocessing.Pool(int(jobs)) as pool:
+            for dim, data in pool.imap_unordered(_extractcg_chunk_worker, tasks):
+                if data:
+                    writer.write_chunk(data, dim)
+    else:
+        try:
+            for t in tasks:
+                dim, data = _extractcg_chunk_worker(t)
+                if data:
+                    writer.write_chunk(data, dim)
+        finally:
+            _cz._close_worker_readers()
+    writer.close()
 
 # ==========================================================
 _ALLC_COLS = ['chrom', 'pos', 'strand', 'context', 'mc', 'cov', 'methylated']

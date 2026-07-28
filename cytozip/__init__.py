@@ -226,6 +226,10 @@ def _build_parser():
     p.add_argument('-O', '--output', required=True, help='output .cz file')
     p.add_argument('--index', required=True, help='subset index file')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='parallel worker processes across chunks; a catcz\'d '
+                        'multi-cell input has many chunks so jobs>1 gives a '
+                        'near-linear speed-up')
 
     # ---- allc2cz --------------------------------------------------------------
     p = sub.add_parser('allc2cz', help='Convert tabix-indexed allc.tsv.gz to .cz', formatter_class=_fmt)
@@ -237,19 +241,18 @@ def _build_parser():
     p.add_argument('-r', '--reference', default=None, help='reference .cz file')
     p.add_argument('--missing_value', type=_csv_int, default=[0, 0], help='missing value fill')
     p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'],
-                   help='column formats (struct chars). Unsigned ints cap '
-                        'values: B=255, H=65535, I=2^32-1, Q=2^64-1; larger '
-                        'values are truncated (saturated) to the max. Default '
-                        'B for single-cell mc/cov saves space and is safe: '
-                        'counts >255 are usually repeat-region artifacts and '
-                        'downstream ALLCools DMR clips coverage to 50 anyway')
+                   help="When reference is provided, we only need to pack mc and cov,"
+                        "['H', 'H'] is suggested for pseudobulk data (H is unsigned short integer, only 2 bytes),"
+                        "and ['B', 'B'] is suggested for single cell data (B is unsigned char, only 1 byte)."
+                        "if reference is not provided, we also need to pack position (Q is"
+                        "recommanded), in this case, formats should be ['Q','H','H'].")
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
     p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key names')
     p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack')
     p.add_argument('--ref_pos_col', type=int, default=0, help='position column index in reference')
     p.add_argument('--allc_pos_col', type=int, default=1, help='position column index in input')
     p.add_argument('-s', '--sep', default='\t', help='separator')
-    p.add_argument('--chrom_order', default=None, help='chrom order file')
+    p.add_argument('--chroms', default=None, help='chrom order file')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('--sort_col', default=None,
                    help='column name or index to index via per-block '
@@ -356,7 +359,7 @@ def _build_parser():
     p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'],
                    help='per-column struct formats for the output .cz '
                         '(default H,H = uint16 mc,cov)')
-    p.add_argument('--chrom_order', default=None,
+    p.add_argument('--chroms', default=None,
                    help='chrom-size file; output chunks are emitted in the '
                         'order of its first column when set')
     p.add_argument('-r', '--reference', default=None,
@@ -392,7 +395,7 @@ def _build_parser():
     p.add_argument('--cell_table', default=None, help='cell-type table')
     p.add_argument('-O', '--outdir', default=None, help='output directory')
     p.add_argument('-j', '--jobs', type=int, default=64, help='number of parallel processes (CPUs)')
-    p.add_argument('--chrom_order', default=None, help='chrom order file')
+    p.add_argument('--chroms', default=None, help='chrom order file')
     p.add_argument('--ext', default='.CGN.merged.cz', help='input file extension')
 
     # ---- pivot_fraction ------------------------------------------------------
@@ -406,7 +409,7 @@ def _build_parser():
         p.add_argument('-O', '--output', default=None, help='output .txt file')
         p.add_argument('--prefix', default=None, help='output prefix')
         p.add_argument('-j', '--jobs', type=int, default=12, help='number of parallel processes (CPUs)')
-        p.add_argument('--chrom_order', default=None, help='chrom order file')
+        p.add_argument('--chroms', default=None, help='chrom order file')
         p.add_argument('-r', '--reference', default=None, help='reference .cz file (adds chrom/start/pos columns)')
         p.add_argument('--keep_cat', action='store_true', help='keep intermediate cat file')
         p.add_argument('--blocks_per_batch', type=int, default=None, help='blocks per batch (auto if unset)')
@@ -422,6 +425,10 @@ def _build_parser():
     p.add_argument('--index', required=True, help='CGN subset index file')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('--merge_cg', action='store_true', help='merge forward/reverse CG')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='parallel worker processes across chunks; a catcz\'d '
+                        'multi-cell input has many chunks so jobs>1 gives a '
+                        'near-linear speed-up')
 
     # ---- compare_allc --------------------------------------------------------
     p = sub.add_parser('compare_allc', help='Compare two allc.tsv[.gz] files', formatter_class=_fmt)
@@ -451,6 +458,10 @@ def _build_parser():
     p.add_argument('--exclude', default=None, help='exclude filter')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'], help='output formats')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='parallel worker processes across chunks; a catcz\'d '
+                        'multi-cell input has many chunks so jobs>1 gives a '
+                        'near-linear speed-up')
 
     # ---- call_dmr_array ------------------------------------------------------
     p = sub.add_parser('call_dmr_array',
@@ -844,7 +855,7 @@ def main():
     elif cmd == 'extract':
         from .cz import extract
         extract(input=args.input, output=args.output,
-                index=args.index, batch_size=args.batch_size)
+                index=args.index, batch_size=args.batch_size, jobs=args.jobs)
 
     # ---- allc.py commands --------------------------------------------------
     elif cmd == 'allc2cz':
@@ -854,7 +865,7 @@ def main():
                formats=args.formats, columns=args.columns,
                chunk_dims=args.chunk_dims, usecols=args.usecols,
                ref_pos_col=args.ref_pos_col, allc_pos_col=args.allc_pos_col, sep=args.sep,
-               chrom_order=args.chrom_order, batch_size=args.batch_size,
+               chroms=args.chroms, batch_size=args.batch_size,
                sort_col=args.sort_col, delta_cols=args.delta_cols,
                jobs=args.jobs, pattern=args.pattern,
                skip_existing=not args.no_skip_existing)
@@ -901,7 +912,7 @@ def main():
         merge_cz(input=args.input,
                  class_table=args.class_table, output=args.output,
                  prefix=args.prefix, jobs=args.jobs,
-                 formats=args.formats, chrom_order=args.chrom_order,
+                 formats=args.formats, chroms=args.chroms,
                  reference=args.reference, keep_cat=args.keep_cat,
                  blocks_per_batch=args.blocks_per_batch, temp=args.temp,
                  bgzip=not args.no_bgzip, batch_size=args.batch_size,
@@ -911,14 +922,14 @@ def main():
         from .merge import merge_cell_type
         merge_cell_type(indir=args.indir, cell_table=args.cell_table,
                         outdir=args.outdir, jobs=args.jobs,
-                        chrom_order=args.chrom_order, ext=args.ext)
+                        chroms=args.chroms, ext=args.ext)
 
     elif cmd == 'pivot_fraction':
         from .pivot import pivot_fraction
         pivot_fraction(
             indir=args.indir, cz_paths=args.cz_paths,
             output=args.output, prefix=args.prefix, jobs=args.jobs,
-            chrom_order=args.chrom_order, reference=args.reference,
+            chroms=args.chroms, reference=args.reference,
             keep_cat=args.keep_cat,
             blocks_per_batch=args.blocks_per_batch, temp=args.temp,
             bgzip=not args.no_bgzip, batch_size=args.batch_size,
@@ -929,7 +940,7 @@ def main():
         pivot_fisher(
             indir=args.indir, cz_paths=args.cz_paths,
             output=args.output, prefix=args.prefix, jobs=args.jobs,
-            chrom_order=args.chrom_order, reference=args.reference,
+            chroms=args.chroms, reference=args.reference,
             keep_cat=args.keep_cat,
             blocks_per_batch=args.blocks_per_batch, temp=args.temp,
             bgzip=not args.no_bgzip, batch_size=args.batch_size,
@@ -939,7 +950,7 @@ def main():
         from .allc import extractCG
         extractCG(input=args.input, output=args.output,
                   index=args.index, batch_size=args.batch_size,
-                  merge_cg=args.merge_cg)
+                  merge_cg=args.merge_cg, jobs=args.jobs)
 
     elif cmd == 'compare_allc':
         from .allc import compare_allc
@@ -953,7 +964,7 @@ def main():
         aggregate(input=args.input, output=args.output,
                   index=args.index, intersect=args.intersect,
                   exclude=args.exclude, batch_size=args.batch_size,
-                  formats=args.formats)
+                  formats=args.formats, jobs=args.jobs)
 
     elif cmd == 'call_dmr_array':
         from .dmr import call_dmr_array

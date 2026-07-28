@@ -480,6 +480,46 @@ python tests/benchmark_query.py
 figshare upload -i cz/ --title cytozip_example_data -d "cytzip example datasets" --target_folder cz -W 4 --overwrite
 ```
 
+## Cytozip Genome Browser
+
+The browser (`docs/source/_static/cz_viewer.html`) pulls two kinds of data from the
+**WashU Epigenome Browser** infrastructure:
+
+- **Reference DNA sequence** as UCSC `.2bit` files hosted at
+  `https://vizhub.wustl.edu/public/<genome>/<genome>.2bit` (read in-browser with
+  the JBrowse [`@gmod/twobit`](https://www.npmjs.com/package/@gmod/twobit) reader).
+- **Gene annotations** (refGene / GENCODE) via the WashU REST API
+  `https://lambda.epigenomegateway.org/v3/<genome>/genes/<track>/queryRegion`.
+
+### How to cite
+
+If you use these genome-sequence and gene-annotation resources, please cite the
+**WashU Epigenome Browser** (cite the most recent update paper; the original 2011
+paper is optional as the founding reference):
+
+- Seng C, Liu S, Zhang W, Zhuo X, Li D, Wang T. **WashU Epigenome Browser update 2025.**
+  *Nucleic Acids Research.* 2025 Jul 7;53(W1):W554–W561. doi:[10.1093/nar/gkaf387](https://doi.org/10.1093/nar/gkaf387). PMID: 40322916.
+- Li D, Purushotham D, Harrison JK, Hsu S, Zhuo X, Fan C, Liu S, Xu V, Chen S, Xu J,
+  Ouyang S, Wu AS, Wang T. **WashU Epigenome Browser update 2022.**
+  *Nucleic Acids Research.* 2022 Jul 5;50(W1):W774–W781. doi:[10.1093/nar/gkac238](https://doi.org/10.1093/nar/gkac238). PMID: 35412637.
+- Li D, Hsu S, Purushotham D, Sears RL, Wang T. **WashU Epigenome Browser update 2019.**
+  *Nucleic Acids Research.* 2019 Jul 2;47(W1):W158–W165. doi:[10.1093/nar/gkz348](https://doi.org/10.1093/nar/gkz348). PMID: 31165883.
+- Zhou X, Maricque B, Xie M, Zhang D, Sundaram V, Edwards CA, Wang T.
+  **The Human Epigenome Browser at Washington University.**
+  *Nature Methods.* 2011 Nov 22;8(12):989–990. doi:[10.1038/nmeth.1772](https://doi.org/10.1038/nmeth.1772). PMID: 22127213.
+
+### Underlying data sources (cite if relevant to your analysis)
+
+- **Gene models** — RefSeq (`refGene`) and/or GENCODE, depending on the annotation
+  set you display:
+  - RefSeq: O'Leary NA, *et al.* **Reference sequence (RefSeq) database at NCBI.**
+    *Nucleic Acids Research.* 2016;44(D1):D733–D745. doi:[10.1093/nar/gkv1189](https://doi.org/10.1093/nar/gkv1189).
+  - GENCODE: Frankish A, *et al.* **GENCODE: reference annotation for the human and
+    mouse genomes in 2023.** *Nucleic Acids Research.* 2023;51(D1):D942–D949. doi:[10.1093/nar/gkac1071](https://doi.org/10.1093/nar/gkac1071).
+- **Genome assemblies** — GRCh38/hg38, GRCh37/hg19 (human) and GRCm39/mm39,
+  GRCm38/mm10 (mouse) from the Genome Reference Consortium (distributed via UCSC as
+  `.2bit`).
+
 ## upload to conda
 ```shell
 # 1. Fork https://github.com/bioconda/bioconda-recipes

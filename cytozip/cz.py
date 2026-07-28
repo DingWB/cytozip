@@ -3570,32 +3570,113 @@ def _parse_tabix_lines(lines, cols, np_dtypes, sep='\t'):
 
 
 # ==========================================================
-def extract(input=None, output=None, index=None, batch_size=5000):
-	index_reader = Reader(os.path.abspath(os.path.expanduser(index)))
-	reader = Reader(os.path.abspath(os.path.expanduser(input)))
+def _chrom_axis(reader):
+	"""Return the position of the chromosome dimension in a reader's chunk keys.
+
+	A per-cell ``.cz`` has ``chunk_dims=['chrom']`` (chrom at axis 0); a
+	``catcz``'d multi-cell file has ``chunk_dims=['chrom', 'cell_id']``
+	(chrom still at axis 0). We locate the axis by dimension NAME so both
+	layouts — and any future reordering — resolve correctly. Falls back to
+	axis 0 when no obviously chromosome-named dimension is present.
+	"""
+	dims = list(reader.header.get('chunk_dims', ['chrom']))
+	for i, d in enumerate(dims):
+		if str(d).lower() in ('chrom', 'chromosome', 'chr'):
+			return i
+	return 0
+
+
+# Per-process Reader cache used by the chunk workers below so that a pool
+# worker handling many chunks of the same file re-uses its already-opened
+# mmap + parsed header instead of paying the open cost on every chunk.
+_WORKER_READERS = {}
+
+
+def _worker_reader(path):
+	r = _WORKER_READERS.get(path)
+	if r is None:
+		r = Reader(path)
+		_WORKER_READERS[path] = r
+	return r
+
+
+def _close_worker_readers():
+	for r in _WORKER_READERS.values():
+		try:
+			r.close()
+		except Exception:
+			pass
+	_WORKER_READERS.clear()
+
+
+def _extract_chunk_worker(args):
+	"""Extract the index-selected records of a single chunk.
+
+	Returns ``(dim, data_bytes)``. ``dim`` is the FULL input chunk key
+	(so a catted file's ``cell_id`` axis is preserved in the output), while
+	the index is looked up by chromosome only (its keys are 1-tuples).
+	"""
+	input_path, index_path, dim, chrom_axis = args
+	reader = _worker_reader(input_path)
+	index_reader = _worker_reader(index_path)
+	idx_key = (dim[chrom_axis],)
+	if idx_key not in index_reader.chunk_key2offset:
+		return dim, None
+	IDs = index_reader.get_ids_from_index(idx_key)
+	if len(IDs.shape) != 1:
+		raise ValueError("Only support 1D index now!")
+	data = b''.join(reader._getRecordsByIds(dim, IDs))
+	return dim, data
+
+
+def extract(input=None, output=None, index=None, batch_size=5000, jobs=1):
+	"""Extract the index-selected rows of every chunk into a new ``.cz``.
+
+	Supports both a single per-cell ``.cz`` (``chunk_dims=['chrom']``) and a
+	``catcz``'d multi-cell ``.cz`` (``chunk_dims=['chrom', 'cell_id']``). The
+	1-D coordinate ``index`` is keyed by chromosome only; for a catted input
+	each ``(chrom, cell_id)`` chunk is filtered against the chromosome's
+	index and written back under its full key, so the per-cell structure is
+	preserved.
+
+	Parameters
+	----------
+	input, output, index : path
+		Input ``.cz``, output ``.cz``, and 1-D coordinate index ``.cz``.
+	batch_size : int
+		Kept for API compatibility (each chunk is now written in one call).
+	jobs : int
+		Number of parallel worker processes across chunks (default 1). A
+		catted file has ``n_chroms * n_cells`` chunks, so ``jobs > 1`` gives
+		a near-linear speed-up on multi-cell inputs.
+	"""
+	input_path = os.path.abspath(os.path.expanduser(input))
+	index_path = os.path.abspath(os.path.expanduser(index))
+	reader = Reader(input_path)
+	chrom_axis = _chrom_axis(reader)
 	writer = Writer(output, formats=reader.header['formats'],
 					columns=reader.header['columns'],
 					chunk_dims=reader.header['chunk_dims'],
 					message=index)
-	# dtfuncs = get_dtfuncs(writer.formats)
-	for dim in reader.chunk_key2offset.keys():
-		logger.debug(dim)
-		IDs = index_reader.get_ids_from_index(dim)
-		if len(IDs.shape) != 1:
-			raise ValueError("Only support 1D index now!")
-		records = reader._getRecordsByIds(dim, IDs)
-		data_parts, i = [], 0
-		for record in records:  # unpacked bytes
-			data_parts.append(record)
-			i += 1
-			if i > batch_size:
-				writer.write_chunk(b''.join(data_parts), dim)
-				data_parts, i = [], 0
-		if len(data_parts) > 0:
-			writer.write_chunk(b''.join(data_parts), dim)
-	writer.close()
+	dims = list(reader.chunk_key2offset.keys())
 	reader.close()
-	index_reader.close()
+	tasks = [(input_path, index_path, dim, chrom_axis) for dim in dims]
+	if jobs and int(jobs) > 1 and len(tasks) > 1:
+		import multiprocessing
+		with multiprocessing.Pool(int(jobs)) as pool:
+			for dim, data in pool.imap_unordered(_extract_chunk_worker, tasks):
+				if data:
+					writer.write_chunk(data, dim)
+	else:
+		try:
+			for t in tasks:
+				dim, data = _extract_chunk_worker(t)
+				logger.debug(dim)
+				if data:
+					writer.write_chunk(data, dim)
+		finally:
+			_close_worker_readers()
+	writer.close()
 
 
 # ==========================================================
@@ -3906,13 +3987,55 @@ def _align_cz_to_dataframe(ref, r1, r2, common_keys, chunk_dims,
 
 
 # ==========================================================
+def _aggregate_chunk_worker(args):
+	"""Aggregate (sum) the index-region records of a single chunk.
+
+	Returns ``(dim, data_bytes)`` where ``dim`` is the FULL input chunk key
+	(preserving a catted file's ``cell_id`` axis) and the region index is
+	looked up by chromosome only.
+	"""
+	(input_path, index_path, dim, chrom_axis, formats,
+	 in_formats) = args
+	reader = _worker_reader(input_path)
+	index_reader = _worker_reader(index_path)
+	idx_key = (dim[chrom_axis],)
+	if idx_key not in index_reader.chunk_key2offset:
+		return dim, None
+	IDs = index_reader.get_ids_from_index(idx_key)
+	assert len(IDs.shape) == 2
+	records = reader._getRecordsByIdRegions(dim=dim, IDs=IDs)
+	dtfuncs = get_dtfuncs(formats)
+	fmts = ''.join(formats)
+	st_writer = struct.Struct(f"<{fmts}")
+	agg_dtype = np.dtype(
+		[(f'f{i}', _fmt_to_np_dtype(f[-1])) for i, f in enumerate(in_formats)])
+	n_fields = len(in_formats)
+	data_parts = []
+	for record in records:  # each record spans one region's rows
+		if record:
+			raw = b''.join(record)
+			arr = np.frombuffer(raw, dtype=agg_dtype)
+			sum_v = tuple(int(arr[f'f{i}'].sum()) for i in range(n_fields))
+		else:
+			sum_v = tuple(0 for _ in in_formats)
+		data_parts.append(st_writer.pack(
+			*[func(v) for v, func in zip(sum_v, dtfuncs)]))
+	return dim, b''.join(data_parts)
+
+
 def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
-			  batch_size=5000, formats=['H', 'H']):
+			  batch_size=5000, formats=['H', 'H'], jobs=1):
 	"""
 	Aggregate a given genomic region on a .cz file, for example::
 
 		/usr/bin/time -f "%e\t%M\t%P" cytozip aggregate -I test.cz -O test_gene.cz \
 		-s mm10_with_chrL.allc.genes_flank2k.index
+
+	Supports both a single per-cell ``.cz`` (``chunk_dims=['chrom']``) and a
+	``catcz``'d multi-cell ``.cz`` (``chunk_dims=['chrom', 'cell_id']``). The
+	region ``index`` is keyed by chromosome only; for a catted input each
+	``(chrom, cell_id)`` chunk is aggregated against the chromosome's region
+	index and written back under its full key.
 
 	Parameters
 	----------
@@ -3923,6 +4046,10 @@ def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 	exclude :
 	batch_size :
 	formats :
+	jobs : int
+		Number of parallel worker processes across chunks (default 1).
+		A catted file has ``n_chroms * n_cells`` chunks, so ``jobs > 1``
+		gives a near-linear speed-up on multi-cell inputs.
 
 	Returns
 	-------
@@ -3930,48 +4057,33 @@ def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 	"""
 	cz_path = os.path.abspath(os.path.expanduser(input))
 	index_path = os.path.abspath(os.path.expanduser(index))
-	index_reader = Reader(index_path)
 	reader = Reader(cz_path)
+	chrom_axis = _chrom_axis(reader)
+	in_formats = list(reader.header['formats'])
 	writer = Writer(output, formats=formats,
 					columns=reader.header['columns'],
 					chunk_dims=reader.header['chunk_dims'],
 					message=os.path.basename(index_path))
-	dtfuncs = get_dtfuncs(writer.formats)
-	for dim in reader.chunk_key2offset.keys():
-		if dim not in index_reader.chunk_key2offset.keys():
-			continue
-		logger.debug(dim)
-		IDs = index_reader.get_ids_from_index(dim)
-		# names=[str(record[0], 'utf-8').rstrip('\x00') for record in index_reader.__fetch__(dim, s=2, e=3)]
-		# if len(IDs.shape) == 1:
-		#     records = reader._getRecordsByIds(dim, IDs)
-		assert len(IDs.shape) == 2
-		records = reader._getRecordsByIdRegions(dim=dim, IDs=IDs)
-		data_parts, count = [], 0
-		st_writer = struct.Struct(f"<{writer.fmts}")
-		agg_dtype = np.dtype(
-			[(f'f{i}', _fmt_to_np_dtype(f[-1])) for i, f in enumerate(reader.header['formats'])])
-		n_fields = len(reader.header['formats'])
-		for record in records:  # unpacked bytes, many values, zip with names
-			# record is an array, nrows, two columns (mc and cov)
-			# Bulk unpack all records in one pass and sum via numpy
-			if record:
-				raw = b''.join(record)
-				arr = np.frombuffer(raw, dtype=agg_dtype)
-				sum_v = tuple(int(arr[f'f{i}'].sum()) for i in range(n_fields))
-			else:
-				sum_v = tuple(0 for _ in reader.header['formats'])
-			data_parts.append(st_writer.pack(
-				*[func(v) for v, func in zip(sum_v, dtfuncs)]))
-			count += 1
-			if count > batch_size:
-				writer.write_chunk(b''.join(data_parts), dim)
-				data_parts, count = [], 0
-		if len(data_parts) > 0:
-			writer.write_chunk(b''.join(data_parts), dim)
-	writer.close()
+	dims = list(reader.chunk_key2offset.keys())
 	reader.close()
-	index_reader.close()
+	tasks = [(cz_path, index_path, dim, chrom_axis, list(formats), in_formats)
+			 for dim in dims]
+	if jobs and int(jobs) > 1 and len(tasks) > 1:
+		import multiprocessing
+		with multiprocessing.Pool(int(jobs)) as pool:
+			for dim, data in pool.imap_unordered(_aggregate_chunk_worker, tasks):
+				if data is not None:
+					writer.write_chunk(data, dim)
+	else:
+		try:
+			for t in tasks:
+				dim, data = _aggregate_chunk_worker(t)
+				logger.debug(dim)
+				if data is not None:
+					writer.write_chunk(data, dim)
+		finally:
+			_close_worker_readers()
+	writer.close()
 
 
 # ==========================================================
