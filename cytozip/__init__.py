@@ -172,6 +172,14 @@ def _build_parser():
     p = sub.add_parser('header', help='Print header of a .cz file', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
 
+    # ---- check ---------------------------------------------------------------
+    p = sub.add_parser('check', help='Check whether a local .cz file is complete',
+                       formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, nargs='+',
+                   help='input .cz file(s) to check')
+    p.add_argument('-q', '--quiet', action='store_true',
+                   help='suppress per-file output; exit code 0 = all complete')
+
     # ---- query ---------------------------------------------------------------
     p = sub.add_parser('query',
                        help='Query .cz file by chunk-key and position range '
@@ -842,6 +850,18 @@ def main():
         r = Reader(args.input)
         r.print_header()
         r.close()
+
+    elif cmd == 'check':
+        import sys as _sys
+        from .cz import check_cz
+        all_ok = True
+        for path in args.input:
+            ok, reason = check_cz(path)
+            all_ok = all_ok and ok
+            if not args.quiet:
+                status = 'OK' if ok else 'INCOMPLETE'
+                print(f"{status}\t{path}" + ('' if ok else f"\t{reason}"))
+        _sys.exit(0 if all_ok else 1)
 
     elif cmd == 'query':
         from .cz import Reader

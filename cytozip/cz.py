@@ -744,6 +744,66 @@ def _resolve_ref_path(reference):
 	return os.path.abspath(os.path.expanduser(reference))
 
 
+# Minimum file size that could possibly hold a valid .cz:
+# magic(4) + version(4) + total_size(8) + EOF(28).
+_CZ_MIN_SIZE = 4 + 4 + 8 + len(_cz_eof)
+
+
+def check_cz(path):
+	"""Check whether a local .cz file was written completely.
+
+	A .cz file is finalized by :meth:`Writer.close`, which (1) writes the
+	real file size into the header ``total_size`` field and (2) appends the
+	28-byte EOF marker.  Both are only present on a clean close, so a file
+	is considered complete iff *all* of the following hold:
+
+	  * the file exists and is at least ``_CZ_MIN_SIZE`` bytes,
+	  * the first 4 bytes are the ``CZIP`` magic,
+	  * the header ``total_size`` field is non-zero and, together with the
+	    28-byte EOF marker, equals the actual on-disk file size (catches
+	    truncation / mid-write crashes).  ``total_size`` stores the offset
+	    of the EOF marker (data end), so ``total_size + 28 == file size``,
+	  * the final 28 bytes match the ``_cz_eof`` sentinel.
+
+	Parameters
+	----------
+	path : str
+		Path to a local .cz file (``file://`` prefix and ``~`` are accepted).
+
+	Returns
+	-------
+	(bool, str)
+		``(True, "ok")`` if complete, otherwise ``(False, reason)`` where
+		*reason* describes the first failed check.
+	"""
+	if isinstance(path, str) and path.startswith('file://'):
+		path = path[len('file://'):]
+	path = os.path.abspath(os.path.expanduser(path))
+	if not os.path.isfile(path):
+		return False, f"not a file: {path}"
+	size = os.path.getsize(path)
+	if size < _CZ_MIN_SIZE:
+		return False, f"file too small ({size} bytes) to be a valid .cz"
+	with _open(path, "rb") as f:
+		if f.read(4) != _cz_magic:
+			return False, "bad magic (not a .cz file)"
+		f.seek(len(_cz_magic) + 4)  # skip magic + version
+		total_size = _struct_Q.unpack(f.read(8))[0]
+		if total_size == 0:
+			return False, "total_size is 0 (file not finalized / write incomplete)"
+		# total_size is the offset of the EOF marker (i.e. the end of data),
+		# captured before the 28-byte EOF sentinel is appended, so the whole
+		# file is total_size + len(_cz_eof) bytes.
+		if total_size + len(_cz_eof) != size:
+			return False, (f"total_size ({total_size}) + EOF ({len(_cz_eof)}) "
+			               f"!= actual file size ({size}); file is truncated "
+			               f"or corrupt")
+		f.seek(-len(_cz_eof), os.SEEK_END)
+		if f.read(len(_cz_eof)) != _cz_eof:
+			return False, "missing EOF marker (file not finalized / truncated)"
+	return True, "ok"
+
+
 # ==========================================================
 class Reader:
 	"""Reader for .cz (ChunkZIP) files.
