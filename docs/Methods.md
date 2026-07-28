@@ -454,4 +454,126 @@ where $b(j)$ is feature $j$'s mean-bin and $\mu_{b},\sigma_{b}$ are the mean and
 
 **Why store only the three accumulators**: `mean/var/dispersion` can be reconstructed exactly from $(\text{hvf\_n\_cov},\text{hvf\_sum},\text{hvf\_sum\_sq})$, and those three are additive — so after merging several `.h5ad` files (e.g. `AnnDataCollection.from_files(..., var_agg='sum')`) the HVF can be recomputed correctly on the **combined cells**. **Note**: `mean/var/dispersion` themselves are **not additive** — do not sum them directly; in particular the `normalized dispersion` depends on the binning over all features and must be computed **last**, once. Features covered by fewer than a threshold of cells (e.g. `min_cells`) are marked ineligible during selection.
 
+---
+
+# 细胞类型分类器（`CellTypeClassifier` / `predict_cell_type`，位点似然 / 朴素贝叶斯）
+
+面向**浅测序 snm3C-seq** 单细胞的细胞类型预测（`cytozip/model.py`）。给定一个单细胞 query 的逐位点 `mc`/`cov`（**所有胞嘧啶**，CpG 与 CpH 混在一起）以及若干**细胞类型级 pseudobulk**（深测序参考）`.cz`，判断该 query 细胞最可能属于哪个细胞类型。所有输入 `.cz` 必须对齐到**同一参考轴**（每行一个参考胞嘧啶、顺序一致），因此位点靠行索引在 query 与各参考间对齐。
+
+## 10. 参考频率的 Beta 收缩估计（`estimate_theta`）
+
+对每个判别性位点 $c$、候选类型 $t$，用第 3 节的矩估计先验 $\text{Beta}(\alpha_0,\beta_0)$ 对参考甲基化频率做**收缩估计**（等价于第 8 节的后验均值）：
+
+$$
+\theta_{c,t} = \frac{m_{c,t} + \alpha_0}{n_{c,t} + \alpha_0 + \beta_0}
+$$
+
+其中 $m_{c,t}$ 为该类型在位点 $c$ 的甲基化计数、$n_{c,t}$ 为覆盖。要求 $\alpha_0,\beta_0>0$，从而 $\theta\in(0,1)$ 开区间，$\log\theta$、$\log(1-\theta)$ 不发散。频率**保持连续、绝不二值化**——判别信号恰恰藏在中间频率里。
+
+## 11. CpG / CpH 双通道
+
+CpG 与 CpH 的背景甲基化完全不同，故建成**两个独立通道**，各自有自己的频率与收缩先验（$\alpha_0,\beta_0$ 由 `estimate_beta_prior` 在**该通道池化的参考计数**上分别估计）。CpG/CpH 的划分来自 `context` 列的第 2 个碱基：$G\Rightarrow$ CpG（如 `CGN`），$A/C/T\Rightarrow$ CpH（如 `CAC`），其它（如 `CNN`）两者都不属于、丢弃。因此**单个装了所有胞嘧啶的 `.cz` 就够了**，无需预先拆成 CG / CH 两个文件；context 通常来自单独的 `build_ref` 参考（`reference=`，含 `pos, strand, context`），因为细胞类型文件一般只存 `mc`/`cov`。
+
+## 12. 判别性位点选择（`_select_discriminative`）
+
+每个位点的判别力用**跨类型频率极差**打分：
+
+$$
+s_c = \max_t \theta_{c,t} - \min_t \theta_{c,t}
+$$
+
+各类型分歧最大的位点携带最多分类信息，而甲基化恒定（$s_c\approx 0$）的位点无信息、丢弃。`top=None` 时保留所有 $s_c \ge \text{min\_range}$ 的位点；`top` 为整数则取分数最高的 top-$N$；`top` 为 $(0,1]$ 的浮点则取最高的那一比例。CpG / CpH 各自独立选择。
+
+## 13. 位点似然打分（每通道）
+
+query 细胞在位点 $c$ 观测到 $mc_c$ 个甲基化、$cov_c$ 次覆盖（$umc_c = cov_c - mc_c$ 为未甲基化）。在类型 $t$ 下，把每个位点当作 **Bernoulli** 观测并在选中的判别位点上聚合对数似然：
+
+$$
+\ell_t = \sum_c \Bigl[\, mc_c\,\log\theta_{c,t} + (cov_c - mc_c)\,\log(1-\theta_{c,t}) \,\Bigr]
+$$
+
+实现上预存 $\log\theta$ 与 $\log(1-\theta)$ 矩阵（$n_\text{sites}\times n_\text{types}$），打分即两次矩阵-向量乘：$\ell = mc \cdot \log\theta + umc \cdot \log(1-\theta)$。
+
+## 14. 通道合并、丰度先验与后验
+
+两通道在对数空间加权求和，并加上类型对数先验：
+
+$$
+\log \text{post}_t = \log\pi_t + \lambda_\text{cg}\,\ell^{\text{cg}}_t + \lambda_\text{ch}\,\ell^{\text{ch}}_t
+$$
+
+- $\lambda_\text{cg},\lambda_\text{ch}$ 为通道权重（默认各 1）。CpH 位点远多于 CpG，容易隐性主导；可调低 $\lambda_\text{ch}$ 再平衡。
+- **丰度 / 温度先验**：$\pi_t \propto N_t^{\,\text{prior\_alpha}}$，其中 $N_t$ 为该类型的参考细胞数。`prior_alpha=0` → 均匀先验；`prior_alpha=1` → 纯丰度先验；未提供 `cell_counts` 时恒为均匀先验 $\pi_t = 1/T$。
+
+对类型做**数值稳定的 softmax** 得到标定后的后验概率：
+
+$$
+P(t \mid \text{cell}) = \frac{\exp(\log\text{post}_t - \max_{t'}\log\text{post}_{t'})}{\sum_{t''}\exp(\log\text{post}_{t''} - \max_{t'}\log\text{post}_{t'})}
+$$
+
+**预测与弃权**：取 $\hat t = \arg\max_t P(t\mid\text{cell})$，置信度为 $\max_t P$。若给定 `abstain_threshold` 且最高概率低于它，则标签置为 `'unassigned'`（弃权）。
+
+**接口**：`CellTypeClassifier.fit()` 在 pseudobulk 上估计并选点，`predict` / `predict_proba` / `predict_batch` 打分；`save` / `load` 用单个 `.npz`（不 pickle，仅存 $\log\theta$、$\log(1-\theta)$、掩码、判别位点索引与元数据 JSON）。`predict_cell_type(...)` 是"拟合 + 预测一个细胞"的一步式便捷封装。
+
+---
+
+# Cell-type classifier (`CellTypeClassifier` / `predict_cell_type`, site-likelihood / naive Bayes) — English
+
+Cell-type prediction for **shallow snm3C-seq** single cells (`cytozip/model.py`). Given a query cell's per-cytosine `mc`/`cov` (**all cytosines**, CpG and CpH together) and a set of **cell-type pseudobulk** (deep reference) `.cz` files, predict which cell type the query most likely belongs to. All inputs must be aligned to the **same reference axis** (one row per reference cytosine, in order), so positions align by row index across the query and references.
+
+## 10. Beta-shrinkage estimate of the reference frequency (`estimate_theta`)
+
+For each discriminative site $c$ and candidate type $t$, estimate the reference methylation frequency with the Section-3 MoM prior $\text{Beta}(\alpha_0,\beta_0)$ by shrinkage (equivalent to the Section-8 posterior mean):
+
+$$
+\theta_{c,t} = \frac{m_{c,t} + \alpha_0}{n_{c,t} + \alpha_0 + \beta_0}
+$$
+
+with $m_{c,t}$ the methylated count and $n_{c,t}$ the coverage of that type at site $c$. Both $\alpha_0,\beta_0>0$ keep $\theta\in(0,1)$ so $\log\theta$ and $\log(1-\theta)$ never diverge. The frequency is kept **continuous, never binarized** — the discriminative signal lives in the intermediate frequencies.
+
+## 11. CpG / CpH two channels
+
+CpG and CpH have very different backgrounds, so they are modeled as **two independent channels**, each with its own frequencies and shrinkage prior ($\alpha_0,\beta_0$ estimated per context by `estimate_beta_prior` on that context's pooled reference counts). The CpG/CpH split comes from the 2nd base of the `context` column: $G\Rightarrow$ CpG (e.g. `CGN`), $A/C/T\Rightarrow$ CpH (e.g. `CAC`), anything else (e.g. `CNN`) belongs to neither and is dropped. Hence a **single `.cz` carrying all cytosines is enough** — no need to pre-split CG / CH; context usually comes from a separate `build_ref` reference (`reference=`, with `pos, strand, context`) because the cell-type files typically store only `mc`/`cov`.
+
+## 12. Discriminative-site selection (`_select_discriminative`)
+
+Each site's discriminative power is scored by the **across-type frequency range**:
+
+$$
+s_c = \max_t \theta_{c,t} - \min_t \theta_{c,t}
+$$
+
+Sites where types disagree most carry the most classification signal, while constant-methylation sites ($s_c\approx 0$) are uninformative and dropped. `top=None` keeps all sites with $s_c \ge \text{min\_range}$; an integer `top` keeps the top-$N$ by score; a float in $(0,1]$ keeps the top fraction. CpG and CpH are selected independently.
+
+## 13. Site-likelihood scoring (per channel)
+
+The query cell observes $mc_c$ methylated calls out of $cov_c$ at site $c$ ($umc_c = cov_c - mc_c$ unmethylated). Under type $t$, treat each site as a **Bernoulli** observation and aggregate the log-likelihood over the selected discriminative sites:
+
+$$
+\ell_t = \sum_c \Bigl[\, mc_c\,\log\theta_{c,t} + (cov_c - mc_c)\,\log(1-\theta_{c,t}) \,\Bigr]
+$$
+
+In practice the $\log\theta$ and $\log(1-\theta)$ matrices ($n_\text{sites}\times n_\text{types}$) are precomputed, so scoring is two matrix-vector products: $\ell = mc \cdot \log\theta + umc \cdot \log(1-\theta)$.
+
+## 14. Channel combination, abundance prior & posterior
+
+The two channels are summed in log-space with weights, plus a type log-prior:
+
+$$
+\log \text{post}_t = \log\pi_t + \lambda_\text{cg}\,\ell^{\text{cg}}_t + \lambda_\text{ch}\,\ell^{\text{ch}}_t
+$$
+
+- $\lambda_\text{cg},\lambda_\text{ch}$ are channel weights (default 1 each). CpH sites vastly outnumber CpG and can implicitly dominate; lower $\lambda_\text{ch}$ to rebalance.
+- **Abundance / temperature prior**: $\pi_t \propto N_t^{\,\text{prior\_alpha}}$, with $N_t$ the reference cell count of type $t$. `prior_alpha=0` → uniform prior; `prior_alpha=1` → pure abundance; without `cell_counts` the prior is always uniform $\pi_t = 1/T$.
+
+A **numerically stable softmax** over types yields calibrated posterior probabilities:
+
+$$
+P(t \mid \text{cell}) = \frac{\exp(\log\text{post}_t - \max_{t'}\log\text{post}_{t'})}{\sum_{t''}\exp(\log\text{post}_{t''} - \max_{t'}\log\text{post}_{t'})}
+$$
+
+**Prediction and abstention**: take $\hat t = \arg\max_t P(t\mid\text{cell})$ with confidence $\max_t P$. If `abstain_threshold` is given and the top probability is below it, the label becomes `'unassigned'` (abstention).
+
+**API**: `CellTypeClassifier.fit()` estimates and selects sites on the pseudobulks; `predict` / `predict_proba` / `predict_batch` score cells; `save` / `load` use a single `.npz` (no pickling — only $\log\theta$, $\log(1-\theta)$, masks, discriminative-site indices, and a JSON metadata string). `predict_cell_type(...)` is a one-shot "fit + predict one cell" convenience wrapper.
+
 
