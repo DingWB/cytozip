@@ -31,6 +31,39 @@ from loguru import logger
 from .cz import (Reader, _STRUCT_TO_NP_DTYPE, _make_np_dtype, np, pd)
 
 
+def _parse_chrom_whitelist(chroms):
+    """Normalize a ``chroms`` argument into a set of chromosome names or None.
+
+    Accepts:
+
+    * ``None`` -> ``None`` (no restriction).
+    * list / tuple / set of names -> a set of ``str``.
+    * a path to a chrom-size / ``.fai`` file (or any text file whose first
+      whitespace-separated column is the chromosome name) -> that column.
+    * a comma-separated string ``'chr1,chr2'`` -> the listed names.
+    * a single chromosome name -> ``{name}``.
+    """
+    if chroms is None:
+        return None
+    if isinstance(chroms, (list, tuple, set)):
+        return {str(c) for c in chroms}
+    if isinstance(chroms, str):
+        path = os.path.abspath(os.path.expanduser(chroms))
+        if os.path.exists(path):
+            names = set()
+            with open(path) as fh:
+                for line in fh:
+                    line = line.strip()
+                    if line:
+                        names.add(line.split()[0])
+            return names
+        if "," in chroms:
+            return {c for c in chroms.split(",") if c}
+        return {chroms}
+    raise TypeError(
+        f"chroms must be None, a list/tuple/set, or a str; got {type(chroms)}")
+
+
 # =====================================================================
 # DMR calling — permutation root-mean-square (RMS) test
 #
@@ -481,9 +514,11 @@ def call_dmr(group_a, group_b, reference, output,
         Optional context-index ``.cz`` (e.g. CGN-only) to restrict to.
     dms_output : str or None
         If given, also write the per-site DMS table to this TSV.
-    chroms : list of str or None
+    chroms : list of str, str, or None
         Restrict to these chromosomes (matched against the chunk-key's
-        leading dimension).
+        leading dimension). Accepts a list of names, a comma-separated
+        string (``'chr1,chr2'``), or a path to a chrom-size / ``.fai``
+        file (or any text file whose first column is the chromosome).
     jobs : int
         Total CPU cores to use.  Automatically split into worker
         processes (across chunks) and OpenMP threads (per-site inside
@@ -559,7 +594,7 @@ def call_dmr(group_a, group_b, reference, output,
     ref.close()
     probe.close()
     if chroms is not None:
-        chroms = set(chroms)
+        chroms = _parse_chrom_whitelist(chroms)
         chunk_keys = [k for k in chunk_keys if k[0] in chroms]
     if not chunk_keys:
         raise ValueError("No matching chunks in reference.")
@@ -1312,7 +1347,7 @@ def call_dmr_ch(group_a, group_b, reference, output,
     chunk_keys = list(ref.chunk_key2offset)
     ref.close()
     if chroms is not None:
-        chroms = set(chroms)
+        chroms = _parse_chrom_whitelist(chroms)
         chunk_keys = [k for k in chunk_keys if k[0] in chroms]
     if not chunk_keys:
         raise ValueError("No matching chunks in reference.")
@@ -1724,7 +1759,7 @@ def call_dmr_one_vs_rest(indir, reference, outdir,
         ref_r.close()
         chroms = dmr_kwargs.get('chroms')
         if chroms is not None:
-            chroms_set = set(chroms)
+            chroms_set = _parse_chrom_whitelist(chroms)
             chunk_keys = [k for k in chunk_keys if k[0] in chroms_set]
         idx_path_abs = (os.path.abspath(os.path.expanduser(index))
                         if index else None)
@@ -2663,9 +2698,11 @@ def call_dmr_array(group_a, group_b, reference, output,
     keep_temp : bool
         Keep the per-chrom BED + cpv tmp directories under
         ``<output>.tmp/``.
-    chroms : list of str or None
+    chroms : list of str, str, or None
         Restrict to these chromosomes (default: every chunk in
-        ``reference``).
+        ``reference``). Accepts a list of names, a comma-separated string
+        (``'chr1,chr2'``), or a path to a chrom-size / ``.fai`` file (or
+        any text file whose first column is the chromosome).
     probe_pvalues_output : str or None
         If given, also dump the per-probe ``(chrom, pos, p, delta_beta)``
         TSV here \u2014 useful for QQ plots, custom thresholds, or
@@ -2741,7 +2778,7 @@ def call_dmr_array(group_a, group_b, reference, output,
         )
     chunk_keys = list(ref_reader.chunk_key2offset)
     if chroms is not None:
-        wanted = set(chroms)
+        wanted = _parse_chrom_whitelist(chroms)
         chunk_keys = [k for k in chunk_keys if k[0] in wanted]
     if not chunk_keys:
         ref_reader.close()

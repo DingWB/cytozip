@@ -151,9 +151,9 @@ def _build_parser():
     p = sub.add_parser('catcz', help='Concatenate multiple .cz files into one', formatter_class=_fmt)
     p.add_argument('-O', '--output', required=True, help='output .cz file')
     p.add_argument('-I', '--input', required=True, help='input pattern or comma-separated .cz paths')
-    p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats')
-    p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
-    p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key (dimension) names')
+    p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'], help='column formats, comma-separated')
+    p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names, comma-separated')
+    p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key (dimension) names, comma-separated')
     p.add_argument('--chunk_order', default=None, help='chunk-key order file or comma-separated')
     p.add_argument('--key_added', default='cell_id',
                    help="name of an extra chunk_dim derived from each input's basename "
@@ -241,13 +241,14 @@ def _build_parser():
     p.add_argument('-r', '--reference', default=None, help='reference .cz file')
     p.add_argument('--missing_value', type=_csv_int, default=[0, 0], help='missing value fill')
     p.add_argument('-F', '--formats', type=_csv_str, default=['B', 'B'],
-                   help="When reference is provided, we only need to pack mc and cov,"
+                   help="comma-separated column formats (struct chars). "
+                        "When reference is provided, we only need to pack mc and cov,"
                         "['H', 'H'] is suggested for pseudobulk data (H is unsigned short integer, only 2 bytes),"
                         "and ['B', 'B'] is suggested for single cell data (B is unsigned char, only 1 byte)."
                         "if reference is not provided, we also need to pack position (Q is"
                         "recommanded), in this case, formats should be ['Q','H','H'].")
-    p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names')
-    p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key names')
+    p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names, comma-separated')
+    p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key names, comma-separated')
     p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack')
     p.add_argument('--ref_pos_col', type=int, default=0, help='position column index in reference')
     p.add_argument('--allc_pos_col', type=int, default=1, help='position column index in input')
@@ -357,8 +358,8 @@ def _build_parser():
     p.add_argument('-j', '--jobs', type=int, default=12,
                    help='number of parallel worker processes')
     p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'],
-                   help='per-column struct formats for the output .cz '
-                        '(default H,H = uint16 mc,cov)')
+                   help='per-column struct formats for the output .cz, '
+                        'comma-separated (default H,H = uint16 mc,cov)')
     p.add_argument('--chroms', default=None,
                    help='chrom-size file; output chunks are emitted in the '
                         'order of its first column when set')
@@ -457,7 +458,7 @@ def _build_parser():
     p.add_argument('--intersect', default=None, help='intersect filter')
     p.add_argument('--exclude', default=None, help='exclude filter')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
-    p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'], help='output formats')
+    p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'], help='output formats, comma-separated')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='parallel worker processes across chunks; a catcz\'d '
                         'multi-cell input has many chunks so jobs>1 gives a '
@@ -493,8 +494,11 @@ def _build_parser():
                    help='ACF distance (default: round(max_dist/3, -1))')
     p.add_argument('--keep_temp', action='store_true',
                    help='keep <output>.tmp/ with per-chrom BED + cpv outputs')
-    p.add_argument('--chroms', type=_csv_str, default=None,
-                   help='restrict to these chromosomes (comma-separated)')
+    p.add_argument('--chroms', default=None,
+                   help='restrict to these chromosomes: a path to a '
+                        'chrom-size / .fai file (or any text file whose first '
+                        'column is the chromosome), OR a comma-separated list '
+                        '(chr1,chr2,...)')
     p.add_argument('--probe_pvalues_output', default=None,
                    help='also dump the per-probe (chrom, pos, p, delta_beta) TSV here')
     p.add_argument('-j', '--jobs', type=int, default=1,
@@ -543,8 +547,11 @@ def _build_parser():
                    help='mc column name or 0-based index (default: first column)')
     p.add_argument('--cov_col', default=None,
                    help='cov column name or 0-based index (default: last column)')
-    p.add_argument('--chroms', type=_csv_str, default=None,
-                   help='comma-separated chromosomes to restrict to')
+    p.add_argument('--chroms', default=None,
+                   help='restrict to these chromosomes: a path to a '
+                        'chrom-size / .fai file (or any text file whose first '
+                        'column is the chromosome), OR a comma-separated list '
+                        '(chr1,chr2,...)')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='total CPU cores to use (auto-split into '
                         'processes across chunks and OpenMP threads)')
@@ -595,7 +602,11 @@ def _build_parser():
     p.add_argument('--max_total_count', type=int, default=10000)
     p.add_argument('--mc_col', default=None)
     p.add_argument('--cov_col', default=None)
-    p.add_argument('--chroms', type=_csv_str, default=None)
+    p.add_argument('--chroms', default=None,
+                   help='restrict to these chromosomes: a path to a '
+                        'chrom-size / .fai file (or any text file whose first '
+                        'column is the chromosome), OR a comma-separated list '
+                        '(chr1,chr2,...)')
     p.add_argument('-j', '--jobs', type=int, default=1)
     p.add_argument('--no-delta_prefilter', dest='delta_prefilter',
                    action='store_false', default=True,
@@ -647,7 +658,11 @@ def _build_parser():
     p.add_argument('--max_dist', type=int, default=None)
     p.add_argument('--min_dms', type=int, default=None)
     p.add_argument('--n_permute', type=int, default=None)
-    p.add_argument('--chroms', type=_csv_str, default=None)
+    p.add_argument('--chroms', default=None,
+                   help='restrict to these chromosomes: a path to a '
+                        'chrom-size / .fai file (or any text file whose first '
+                        'column is the chromosome), OR a comma-separated list '
+                        '(chr1,chr2,...)')
     p.add_argument('--no-delta_prefilter', dest='delta_prefilter',
                    action='store_false', default=True,
                    help='forwarded to the underlying caller')
