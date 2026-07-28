@@ -1,499 +1,1262 @@
-
-
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="./">
+<html lang="en">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>cytozip browser — remote .cz methylation viewer</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --toolbar: #232635;
+    --toolbar2: #2d3145;
+    --accent: #4a90d9;
+    --border: #d6d9e0;
+    --label-bg: #f5f6f8;
+    --text: #1c1e26;
+    --muted: #8a8f9c;
+    --track-w: 190px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    font-size: 13px;
+  }
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Genome Browser &mdash; cytozip 0.3.6.dev14 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
-      <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=161b7e8c" />
+  /* ── Top toolbar (IGV-style) ─────────────────────────────── */
+  .toolbar {
+    background: var(--toolbar);
+    color: #eef0f5;
+    padding: 8px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 3px solid var(--accent);
+  }
+  .toolbar .brand {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: .3px;
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+  .toolbar .brand span { color: var(--accent); }
+  .toolbar input[type=text] {
+    background: #1a1c28;
+    border: 1px solid #3a3f57;
+    color: #eef0f5;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+  }
+  .toolbar input[type=text]:focus { border-color: var(--accent); }
+  .toolbar button, .panel button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .toolbar button:hover, .panel button:hover { background: #3a7bc0; }
+  .toolbar button.secondary { background: #464b63; }
+  .toolbar button.secondary:hover { background: #565c78; }
+  .locusbox { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .locusbox input { width: 230px; }
+  .zoombtns button { padding: 4px 9px; font-weight: 700; }
 
-  
-      <script src="_static/jquery.js?v=5d32c60e"></script>
-      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=5ea7db2c"></script>
-      <script src="_static/doctools.js?v=9a2dae69"></script>
-      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-      <script src="_static/js/rtd_search_config.js"></script>
-      <script src="_static/js/rtd_sphinx_search.min.js"></script>
-      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-    <script src="_static/js/theme.js"></script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="cytozip" href="modules.html" />
-    <link rel="prev" title="Advanced Features" href="notebooks/advance.html" /> 
+  /* ── Config panel ────────────────────────────────────────── */
+  .panel {
+    background: var(--toolbar2);
+    color: #dfe2ea;
+    padding: 10px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    align-items: flex-end;
+    border-bottom: 1px solid #171922;
+  }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: #9aa0b2; }
+  .field input[type=text] {
+    background: #1a1c28; border: 1px solid #3a3f57; color: #eef0f5;
+    padding: 5px 8px; border-radius: 4px; font-size: 12px; outline: none;
+  }
+  .field input.url { width: 430px; }
+  .field input.name { width: 150px; }
+  .field select {
+    background: #1a1c28; border: 1px solid #3a3f57; color: #eef0f5;
+    padding: 5px 6px; border-radius: 4px; font-size: 12px;
+  }
+
+  /* ── Status bar ──────────────────────────────────────────── */
+  .status {
+    padding: 5px 14px; font-size: 11.5px; color: var(--muted);
+    background: #fafbfc; border-bottom: 1px solid var(--border);
+    min-height: 24px; white-space: pre-wrap;
+  }
+  .status.error { color: #b2182b; background: #fdf2f3; }
+
+  /* ── Tracks area ─────────────────────────────────────────── */
+  #tracks { user-select: none; }
+  .row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+  .label {
+    width: var(--track-w); flex: 0 0 var(--track-w);
+    background: var(--label-bg); border-right: 1px solid var(--border);
+    padding: 6px 8px; font-size: 12px; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  }
+  .label .tname { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .label .swatch { width: 11px; height: 11px; border-radius: 2px; flex: 0 0 auto; }
+  .label .meta { font-size: 10.5px; color: var(--muted); }
+  .label .ctrls { display: flex; gap: 5px; margin-top: 2px; }
+  .label select { font-size: 10.5px; padding: 1px 3px; }
+  .label .del {
+    cursor: pointer; color: var(--muted); border: none; background: none;
+    font-size: 14px; line-height: 1; padding: 0 2px;
+  }
+  .label .del:hover { color: #b2182b; }
+  .view { flex: 1 1 auto; position: relative; cursor: crosshair; overflow: hidden; background: #fff; }
+  .view canvas { display: block; width: 100%; height: 100%; }
+  .rulerrow .label { background: #eceef2; }
+  .rulerrow .view { cursor: ew-resize; }
+  /* Height resize handle (bottom edge of each track row) */
+  .row .resizer {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+    cursor: ns-resize; z-index: 20; touch-action: none;
+  }
+  .row .resizer:hover, .row .resizer.dragging { background: rgba(74,144,217,.35); }
+  #hover {
+    position: fixed; pointer-events: none; background: rgba(28,30,38,.92); color: #fff;
+    padding: 4px 7px; border-radius: 4px; font-size: 11px; display: none; z-index: 50;
+    white-space: nowrap;
+  }
+  .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+  .hint code { background: #eef0f5; padding: 1px 4px; border-radius: 3px; }
+</style>
 </head>
+<body>
 
-<body class="wy-body-for-nav"> 
-  <div class="wy-grid-for-nav">
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
-
-          
-          
-          <a href="index.html" class="icon icon-home">
-            cytozip
-          </a>
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
+<div class="toolbar">
+  <div class="brand">cytozip<span>·</span>browser</div>
+  <label style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
+    <span style="font-size:11px;color:#9aa0b2;">Genome</span>
+    <select id="genomeSel" title="Reference genome assembly">
+      <option value="">— none —</option>
+      <option value="hg38">hg38</option>
+      <option value="hg19">hg19</option>
+      <option value="mm10">mm10</option>
+      <option value="mm39">mm39</option>
+    </select>
+  </label>
+  <button id="btnLoad">Load reference</button>
+  <div class="locusbox">
+    <input type="text" id="locus" placeholder="chr1:3,000,000-3,050,000 or gene name (e.g. HOXA13)" style="width:300px" />
+    <button id="btnGo">Go</button>
+    <span class="zoombtns">
+      <button id="zoomOut" class="secondary" title="Zoom out">−</button>
+      <button id="zoomIn" class="secondary" title="Zoom in">+</button>
+    </span>
+    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
+      Res
+      <select id="resSel" title="Methylation binning resolution">
+        <option value="">None (per-bp)</option>
+        <option value="10">10 bp</option>
+        <option value="20">20 bp</option>
+        <option value="50">50 bp</option>
+        <option value="100">100 bp</option>
+        <option value="500">500 bp</option>
+        <option value="1000">1000 bp</option>
+        <option value="5000">5000 bp</option>
+      </select>
+    </label>
+  </div>
 </div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="notebooks/quick_start.html">Quick Start Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#1.-Installation">1. Installation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#conda">conda</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#pip">pip</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#2.-Build-reference-cz-file-from-a-reference-genome-fasta-file">2. Build reference cz file from a reference genome fasta file</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#3.-Call-methylation-from-bam-file-and-save-as-.cz-format">3. Call methylation from bam file and save as .cz format</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#2.1-Download-example-bam-files">2.1 Download example bam files</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#2.2-Call-DNA-methylation-using-cytozip">2.2 Call DNA methylation using cytozip</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#4.-Convert-allc/bed/stdin-to-.cz">4. Convert allc/bed/stdin to .cz</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#4.1-convert-stream-input-to-cz-with-pipe">4.1 convert stream input to cz with pipe</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#4.2-allc-to-cz-with-reference-cz-as-input">4.2 allc to cz with reference cz as input</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#5.-Python-API">5. Python API</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#6.-Remote-Reading-(from-URL)">6. Remote Reading (from URL)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/quick_start.html#7.-Convert-cz-to-allc-&amp;-compare-cz-with-allc">7. Convert cz to allc &amp; compare cz with allc</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.1-Download-example-paired-cz-and-allc-files-from-figshare">7.1 Download example paired cz and allc files from figshare</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.2-Convert-.cz-to-.allc.tsv.gz">7.2 Convert .cz to .allc.tsv.gz</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.3-Directly-compare-.cz-and-ALLCools-generated-.allc.tsv.gz">7.3 Directly compare .cz and ALLCools generated .allc.tsv.gz</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/quick_start.html#7.4-Compare-.cz-converted-.allc.tsv.gz-and-ALLCools-generated-.allc.tsv.gz">7.4 Compare .cz converted .allc.tsv.gz and ALLCools generated .allc.tsv.gz</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Benchmark</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="notebooks/benchmark.html">Benchmark bam to cz and allc to cz</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/benchmark.html#1.-bam_to_cz-vs-bam_to_allc">1. <code class="docutils literal notranslate"><span class="pre">bam_to_cz</span></code> vs <code class="docutils literal notranslate"><span class="pre">bam_to_allc</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/benchmark.html#2.-allc2cz">2. <code class="docutils literal notranslate"><span class="pre">allc2cz</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="notebooks/benchmark/benchmark_query.html">Benchmark: <code class="docutils literal notranslate"><span class="pre">cytozip</span></code> query vs <code class="docutils literal notranslate"><span class="pre">pytabix</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/benchmark/benchmark_query.html#Config">Config</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/benchmark/benchmark_query.html#Run-the-parallel-benchmark">Run the parallel benchmark</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/benchmark/benchmark_query.html#Aggregate-summary-→-text-file">Aggregate summary → text file</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/benchmark/benchmark_query.html#Plots">Plots</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/benchmark/benchmark_query.html#Correctness-check-on-a-random-subset">Correctness check on a random subset</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/benchmark/benchmark_query.html#Region-size-scaling-(single-representative-cell)">Region-size scaling (single representative cell)</a></li>
-</ul>
-</li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="notebooks/dnam.html">Sing-cell DNA Methylation Analysis with <code class="docutils literal notranslate"><span class="pre">cytozip</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/dnam.html#1.-Build-the-reference-.cz">1. Build the reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/dnam.html#2.-Build-CG-/-CH-context-index-from-the-reference">2. Build CG / CH context index from the reference</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/dnam.html#3.-BAM-→-.cz-&amp;-generating-cz-format-in-mapping-pipeline">3. BAM → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> &amp; generating cz format in mapping pipeline</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#3.1-Generating-.cz-format-in-mapping-pipeline">3.1 Generating .cz format in mapping pipeline</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/dnam.html#3.2-Generating-.cz-file-from-position-sorted-bam-files">3.2 Generating .cz file from position-sorted bam files</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/dnam.html#4.-catcz-and-merge_cz">4. <code class="docutils literal notranslate"><span class="pre">catcz</span></code> and <code class="docutils literal notranslate"><span class="pre">merge_cz</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/dnam.html#5.-Build-a-cell-×-gene-AnnData">5. Build a cell × gene <code class="docutils literal notranslate"><span class="pre">AnnData</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="notebooks/python_api.html">cytozip Python API</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#view-header">view header</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#summary-chunks-&amp;-blocks">summary chunks &amp; blocks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#query">query</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Numpy-/-DataFrame-APIs">Numpy / DataFrame APIs</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#chunk2numpy(dims)-—-decode-a-whole-chunk"><code class="docutils literal notranslate"><span class="pre">chunk2numpy(dims)</span></code> — decode a whole chunk</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#chunk2df(dims)-—-decode-as-a-DataFrame"><code class="docutils literal notranslate"><span class="pre">chunk2df(dims)</span></code> — decode as a DataFrame</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#query_numpy(chunk_key,-start,-end,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy(chunk_key,</span> <span class="pre">start,</span> <span class="pre">end,</span> <span class="pre">reference=...)</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#query_numpy_chunk_batch(chunk_key,-intervals,-reference=...)"><code class="docutils literal notranslate"><span class="pre">query_numpy_chunk_batch(chunk_key,</span> <span class="pre">intervals,</span> <span class="pre">reference=...)</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Decoding-many-chunks-in-parallel-—-chunk2numpy-+-ThreadPoolExecutor">Decoding many chunks in parallel — <code class="docutils literal notranslate"><span class="pre">chunk2numpy</span></code> + <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#align_cz-—-column-concatenate-two-reference-aligned-.cz-files"><code class="docutils literal notranslate"><span class="pre">align_cz</span></code> — column-concatenate two reference-aligned <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/python_api.html#Pack-.allc.tsv.gz-to-.cz-without-coordinates-(using-reference)">Pack .allc.tsv.gz to .cz without coordinates (using reference)</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/python_api.html#Convert-.cz-into-allc-using-Python-API">Convert .cz into allc using Python API</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="notebooks/call_dmr.html">Calling DMRs with cytozip</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/call_dmr.html#Pseudobulk-vs-single-cell-input">Pseudobulk vs single-cell input</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/call_dmr.html#1.-DMR-—-call_dmr">1. DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/call_dmr.html#Call-CG-DMR">Call CG DMR</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/call_dmr.html#2.-CH-DMR-—-call_dmr_ch">2. CH DMR — <code class="docutils literal notranslate"><span class="pre">call_dmr_ch</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/call_dmr.html#3.-Batch-one-vs-rest-—-call_dmr_one_vs_rest">3. Batch one-vs-rest — <code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/call_dmr.html#Stratified-one-vs-rest-(within-each-class)">Stratified one-vs-rest (within each class)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/call_dmr.html#CH-batch-one-vs-rest-with-shared-global-rate-pre-scan">CH batch one-vs-rest with shared global-rate pre-scan</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/call_dmr.html#4.-Merging-results-—-merge_dmr_results">4. Merging results — <code class="docutils literal notranslate"><span class="pre">merge_dmr_results</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/call_dmr.html#5.-CLI-equivalents">5. CLI equivalents</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/call_dmr.html#6.-Per-cell-methylation-over-DMRs-—-cz_to_anndata">6. Per-cell methylation over DMRs — <code class="docutils literal notranslate"><span class="pre">cz_to_anndata</span></code></a></li>
-</ul>
-</li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Advanced Topics</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="notebooks/remote.html">Remote .cz access</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/remote.html#1.-Setup-the-server">1. Setup the server</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/remote.html#Serving-.cz-Files-for-Remote-Access">Serving <code class="docutils literal notranslate"><span class="pre">.cz</span></code> Files for Remote Access</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/remote.html#Nginx">Nginx</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/remote.html#Apache">Apache</a></li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/remote.html#Object-Storage-(S3-/-GCS)">Object Storage (S3 / GCS)</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="notebooks/remote.html#Amazon-S3">Amazon S3</a></li>
-<li class="toctree-l5"><a class="reference internal" href="notebooks/remote.html#Google-Cloud-Storage">Google Cloud Storage</a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="notebooks/remote.html#Testing-Your-Configuration">Testing Your Configuration</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/remote.html#2.-View-/-query-a-remote-.cz-(no-download)">2. View / query a remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (no download)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/remote.html#3.-Opening-a-remote-.cz-file-in-Python">3. Opening a remote .cz file in Python</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/remote.html#Example:-Open-and-inspect-a-remote-file">Example: Open and inspect a remote file</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/remote.html#4.-Querying-remote-files-in-Python">4. Querying remote files in Python</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/remote.html#5.-Read-remote-cz-file-from-figshare">5. Read remote cz file from figshare</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="notebooks/advance.html">Advanced Features</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/advance.html#Build-a-region-based-subset-index-(BED-→-.cz-index)">Build a region-based subset index (BED → <code class="docutils literal notranslate"><span class="pre">.cz</span></code> index)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/advance.html#Aggregate-genomic-regions">Aggregate genomic regions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/advance.html#DMR-calling">DMR calling</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/advance.html#Calling-DMRs-on-methylation-array-.cz">Calling DMRs on methylation-array <code class="docutils literal notranslate"><span class="pre">.cz</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="notebooks/advance.html#id1">Advanced Features</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/advance.html#Chunk-Index">Chunk Index</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/advance.html#Remote-Reading">Remote Reading</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Cytozip Genome Browser</span></p>
-<ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Genome Browser</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a></li>
-</ul>
-</li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">cytozip</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cytozip.html">cytozip package</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="cytozip.html#submodules">Submodules</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.allc.html">cytozip.allc module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC"><code class="docutils literal notranslate"><span class="pre">AllC</span></code></a><ul>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.merge"><code class="docutils literal notranslate"><span class="pre">AllC.merge()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.run"><code class="docutils literal notranslate"><span class="pre">AllC.run()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.AllC.writePattern"><code class="docutils literal notranslate"><span class="pre">AllC.writePattern()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.WriteC"><code class="docutils literal notranslate"><span class="pre">WriteC()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.allc2cz"><code class="docutils literal notranslate"><span class="pre">allc2cz()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.compare_allc"><code class="docutils literal notranslate"><span class="pre">compare_allc()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.allc.html#cytozip.allc.extractCG"><code class="docutils literal notranslate"><span class="pre">extractCG()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.array.html">cytozip.array module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.array.html#input-shape-conventions">Input shape conventions</a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.array.html#output-layout">Output layout</a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.array.html#float-quantization">Float quantization</a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.array.html#cytozip.array.array2cz"><code class="docutils literal notranslate"><span class="pre">array2cz()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.array.html#cytozip.array.dequantize_cz"><code class="docutils literal notranslate"><span class="pre">dequantize_cz()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.array.html#cytozip.array.dequantize_uniform"><code class="docutils literal notranslate"><span class="pre">dequantize_uniform()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.array.html#cytozip.array.quantize_uniform"><code class="docutils literal notranslate"><span class="pre">quantize_uniform()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.bam.html">cytozip.bam module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.bam.html#storage-layout-options-mode-parameter">Storage layout options (<code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter)</a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.bam.html#cytozip.bam.bam_to_cz"><code class="docutils literal notranslate"><span class="pre">bam_to_cz()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.bam.html#cytozip.bam.name_sort_bam_to_deduped"><code class="docutils literal notranslate"><span class="pre">name_sort_bam_to_deduped()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.cz.html">cytozip.cz module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#virtual-offsets">Virtual offsets</a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.advise_sequential"><code class="docutils literal notranslate"><span class="pre">Reader.advise_sequential()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.chunk2df"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2df()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.chunk2numpy"><code class="docutils literal notranslate"><span class="pre">Reader.chunk2numpy()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.chunk_info"><code class="docutils literal notranslate"><span class="pre">Reader.chunk_info</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.close"><code class="docutils literal notranslate"><span class="pre">Reader.close()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fetch"><code class="docutils literal notranslate"><span class="pre">Reader.fetch()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.fetch_chunk_bytes"><code class="docutils literal notranslate"><span class="pre">Reader.fetch_chunk_bytes()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.from_url"><code class="docutils literal notranslate"><span class="pre">Reader.from_url()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.get_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.get_chunks()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.get_ids_from_index"><code class="docutils literal notranslate"><span class="pre">Reader.get_ids_from_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.print_header"><code class="docutils literal notranslate"><span class="pre">Reader.print_header()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.query"><code class="docutils literal notranslate"><span class="pre">Reader.query()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.query_numpy"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.query_numpy_chunk_batch"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_chunk_batch()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.query_numpy_multi"><code class="docutils literal notranslate"><span class="pre">Reader.query_numpy_multi()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read_chunk_index"><code class="docutils literal notranslate"><span class="pre">Reader.read_chunk_index()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.read_header"><code class="docutils literal notranslate"><span class="pre">Reader.read_header()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.release_chunk"><code class="docutils literal notranslate"><span class="pre">Reader.release_chunk()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.seek"><code class="docutils literal notranslate"><span class="pre">Reader.seek()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.summary_blocks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_blocks()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.summary_chunks"><code class="docutils literal notranslate"><span class="pre">Reader.summary_chunks()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.tell"><code class="docutils literal notranslate"><span class="pre">Reader.tell()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.to_bgzip"><code class="docutils literal notranslate"><span class="pre">Reader.to_bgzip()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.to_df"><code class="docutils literal notranslate"><span class="pre">Reader.to_df()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Reader.view"><code class="docutils literal notranslate"><span class="pre">Reader.view()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile"><code class="docutils literal notranslate"><span class="pre">RemoteFile</span></code></a><ul>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.close"><code class="docutils literal notranslate"><span class="pre">RemoteFile.close()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.read"><code class="docutils literal notranslate"><span class="pre">RemoteFile.read()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.seek"><code class="docutils literal notranslate"><span class="pre">RemoteFile.seek()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.size"><code class="docutils literal notranslate"><span class="pre">RemoteFile.size</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.RemoteFile.tell"><code class="docutils literal notranslate"><span class="pre">RemoteFile.tell()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.SummaryBczBlocks"><code class="docutils literal notranslate"><span class="pre">SummaryBczBlocks()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.catcz"><code class="docutils literal notranslate"><span class="pre">Writer.catcz()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.close"><code class="docutils literal notranslate"><span class="pre">Writer.close()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.create_new_dim"><code class="docutils literal notranslate"><span class="pre">Writer.create_new_dim()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.flush"><code class="docutils literal notranslate"><span class="pre">Writer.flush()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.tell"><code class="docutils literal notranslate"><span class="pre">Writer.tell()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.tocz"><code class="docutils literal notranslate"><span class="pre">Writer.tocz()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.write_chunk"><code class="docutils literal notranslate"><span class="pre">Writer.write_chunk()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.Writer.write_header"><code class="docutils literal notranslate"><span class="pre">Writer.write_header()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.make_virtual_offset"><code class="docutils literal notranslate"><span class="pre">make_virtual_offset()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.open1"><code class="docutils literal notranslate"><span class="pre">open1()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.split_virtual_offset"><code class="docutils literal notranslate"><span class="pre">split_virtual_offset()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.cz_accel.html">cytozip.cz_accel module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_block_first_values"><code class="docutils literal notranslate"><span class="pre">c_block_first_values()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_compress_blocks_parallel"><code class="docutils literal notranslate"><span class="pre">c_compress_blocks_parallel()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_deflate_raw"><code class="docutils literal notranslate"><span class="pre">c_deflate_raw()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_delta_encode_block"><code class="docutils literal notranslate"><span class="pre">c_delta_encode_block()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_extract_c_positions"><code class="docutils literal notranslate"><span class="pre">c_extract_c_positions()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_fetch_chunk"><code class="docutils literal notranslate"><span class="pre">c_fetch_chunk()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_get_records_by_ids"><code class="docutils literal notranslate"><span class="pre">c_get_records_by_ids()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_inflate_bytes"><code class="docutils literal notranslate"><span class="pre">c_inflate_bytes()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records"><code class="docutils literal notranslate"><span class="pre">c_pack_records()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_pack_records_fast"><code class="docutils literal notranslate"><span class="pre">c_pack_records_fast()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_parse_blocks_buffer"><code class="docutils literal notranslate"><span class="pre">c_parse_blocks_buffer()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_parse_czix"><code class="docutils literal notranslate"><span class="pre">c_parse_czix()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tab_lines_int"><code class="docutils literal notranslate"><span class="pre">c_parse_tab_lines_int()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_parse_tocz_int_slab"><code class="docutils literal notranslate"><span class="pre">c_parse_tocz_int_slab()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_pos2id"><code class="docutils literal notranslate"><span class="pre">c_pos2id()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions"><code class="docutils literal notranslate"><span class="pre">c_query_regions()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_query_regions_flat"><code class="docutils literal notranslate"><span class="pre">c_query_regions_flat()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_read"><code class="docutils literal notranslate"><span class="pre">c_read()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_read_1record"><code class="docutils literal notranslate"><span class="pre">c_read_1record()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_readline"><code class="docutils literal notranslate"><span class="pre">c_readline()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_seek_and_read_1record"><code class="docutils literal notranslate"><span class="pre">c_seek_and_read_1record()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_write_c_records"><code class="docutils literal notranslate"><span class="pre">c_write_c_records()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.c_write_chunk_tail"><code class="docutils literal notranslate"><span class="pre">c_write_chunk_tail()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.compress_block"><code class="docutils literal notranslate"><span class="pre">compress_block()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.load_bcz_block"><code class="docutils literal notranslate"><span class="pre">load_bcz_block()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.cz_accel.html#cytozip.cz_accel.unpack_records"><code class="docutils literal notranslate"><span class="pre">unpack_records()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.dmr.html">cytozip.dmr module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.annot_dmr"><code class="docutils literal notranslate"><span class="pre">annot_dmr()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr"><code class="docutils literal notranslate"><span class="pre">call_dmr()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr_accel.html#public-entry-point">Public entry point</a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr_accel.html#cytozip.dmr_accel.rms_run_sites"><code class="docutils literal notranslate"><span class="pre">rms_run_sites()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.features.html">cytozip.features module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.features.html#design-notes">Design notes</a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.features.html#cytozip.features.cz_to_anndata"><code class="docutils literal notranslate"><span class="pre">cz_to_anndata()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.features.html#cytozip.features.load_blacklist"><code class="docutils literal notranslate"><span class="pre">load_blacklist()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.features.html#cytozip.features.make_genome_bins"><code class="docutils literal notranslate"><span class="pre">make_genome_bins()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.features.html#cytozip.features.parse_features"><code class="docutils literal notranslate"><span class="pre">parse_features()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.features.html#cytozip.features.parse_gtf"><code class="docutils literal notranslate"><span class="pre">parse_gtf()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.index.html">cytozip.index module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.index.html#cytozip.index.index_context"><code class="docutils literal notranslate"><span class="pre">index_context()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.index.html#cytozip.index.index_regions"><code class="docutils literal notranslate"><span class="pre">index_regions()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.merge.html">cytozip.merge module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cell_type"><code class="docutils literal notranslate"><span class="pre">merge_cell_type()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cz"><code class="docutils literal notranslate"><span class="pre">merge_cz()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.merge.html#cytozip.merge.merge_cz_worker"><code class="docutils literal notranslate"><span class="pre">merge_cz_worker()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.model.html">cytozip.model module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
-<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.pivot.html">cytozip.pivot module</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.pivot.html#cytozip.pivot.pivot_fisher"><code class="docutils literal notranslate"><span class="pre">pivot_fisher()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.pivot.html#cytozip.pivot.pivot_fraction"><code class="docutils literal notranslate"><span class="pre">pivot_fraction()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="cytozip.html#module-cytozip">Module contents</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="cytozip.html#cytozip.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
 
-        </div>
-      </div>
-    </nav>
-
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="index.html">cytozip</a>
-      </nav>
-
-      <div class="wy-nav-content">
-        <div class="rst-content">
-          <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Genome Browser</li>
-      <li class="wy-breadcrumbs-aside">
-              <a href="https://github.com/DingWB/PyComplexHeatmap/blob/main/docs/source/cz_viewer.rst" class="fa fa-github"> Edit on GitHub</a>
-      </li>
-  </ul>
-  <hr/>
+<div class="panel">
+  <div class="field">
+    <label>Reference .cz URL (coordinates)</label>
+    <input type="text" class="url" id="refUrl"
+      value="https://neomorph.salk.edu/ftp/bican/hg38_with_chrL.allc.cz" />
+  </div>
+  <div class="field">
+    <label>New track name</label>
+    <input type="text" class="name" id="newName" value="UWA7648 NAC" />
+  </div>
+  <div class="field">
+    <label>New track .cz URL (mc/cov, shares reference)</label>
+    <input type="text" class="url" id="newUrl"
+      value="https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz" />
+  </div>
+  <div class="field">
+    <label>Context</label>
+    <select id="newCtx">
+      <option value="CG">CG</option>
+      <option value="CH">CH</option>
+      <option value="CHG">CHG</option>
+      <option value="CHH">CHH</option>
+      <option value="ALL" selected>All C</option>
+    </select>
+  </div>
 </div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
-  <section id="genome-browser">
-<h1>Genome Browser<a class="headerlink" href="#genome-browser" title="Link to this heading"></a></h1>
-<p><code class="docutils literal notranslate"><span class="pre">cz_viewer.html</span></code> is a lightweight, IGV-style genome browser that visualizes
-remote <code class="docutils literal notranslate"><span class="pre">.cz</span></code> methylation files <strong>directly in the browser</strong> using HTTP Range
-requests — no server-side code required. It loads a shared <em>reference</em> <code class="docutils literal notranslate"><span class="pre">.cz</span></code>
-(genomic coordinates) plus one or more value <code class="docutils literal notranslate"><span class="pre">.cz</span></code> tracks (<code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>),
-joins them by row index, and renders per-cytosine methylation over any locus.
-Multiple tracks can share a single reference.</p>
-<p>
-  <a class="reference external" href="_static/cz_viewer.html" target="_blank"
-     style="display:inline-block;padding:8px 16px;margin:4px 0;background:#2980b9;
-            color:#fff;border-radius:4px;text-decoration:none;font-weight:600;">
-    &#8599; Open the genome browser full-screen
-  </a>
-</p>
-<iframe src="_static/cz_viewer.html" title="cytozip genome browser"
-        style="width:100%;height:80vh;border:1px solid #ccc;border-radius:6px;">
-</iframe><section id="usage">
-<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p>Enter the <strong>reference</strong> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> URL (the coordinate file with a <code class="docutils literal notranslate"><span class="pre">pos</span></code>
-sort column) and click <strong>Load reference</strong>.</p></li>
-<li><p>Click <strong>+ Add track</strong>, giving the URL of a value <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file (<code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>)
-that was built against the same reference. Repeat to stack multiple tracks.</p></li>
-<li><p>Type a locus (e.g. <code class="docutils literal notranslate"><span class="pre">chr1:3,000,000-3,050,000</span></code>) and press <strong>Go</strong>. Drag to
-pan, scroll to zoom, and switch the per-track cytosine context
-(CG / CH / CHG / CHH / all).</p></li>
-</ol>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Remote reading works only when the data server sends CORS headers
-(<code class="docutils literal notranslate"><span class="pre">Access-Control-Allow-Origin</span></code>) over <strong>HTTPS</strong>, and supports HTTP Range
-requests. NCBI GEO (<code class="docutils literal notranslate"><span class="pre">ftp.ncbi.nlm.nih.gov</span></code>) is CORS-enabled and works out
-of the box. For servers <strong>without</strong> CORS, host this page on the same origin
-as the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files, or run the bundled <code class="docutils literal notranslate"><span class="pre">docs/serve_viewer.py</span></code> proxy and
-set the page’s <em>CORS proxy prefix</em> field to <code class="docutils literal notranslate"><span class="pre">/proxy?url=</span></code>.</p>
-</div>
-</section>
-</section>
 
-
-           </div>
-          </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="notebooks/advance.html" class="btn btn-neutral float-left" title="Advanced Features" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="modules.html" class="btn btn-neutral float-right" title="cytozip" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+<div class="panel" style="background:#272b3d;">
+  <div class="field">
+    <label>Genome tracks</label>
+    <span style="font-size:11px;color:#9aa0b2;line-height:26px;">auto-added when a Genome is selected</span>
+  </div>
+  <div class="field">
+    <label>Gene annotation set</label>
+    <input type="text" class="name" id="geneSet" list="geneSetList" value="refGene" style="width:170px" />
+    <datalist id="geneSetList"></datalist>
+  </div>
+  <div class="field">
+    <label>&nbsp;</label>
+    <button id="btnAddTrack" title="Add a methylation .cz track (uses the fields above)">+ Add cz track</button>
+  </div>
+  <div class="field" style="margin-left:auto;">
+    <label>Saved tracks (click to add)</label>
+    <div style="display:flex;gap:6px;">
+      <select id="savedTracks" style="width:280px"><option value="">— saved .cz tracks —</option></select>
+      <button id="btnForgetTracks" class="secondary" title="Clear saved tracks">Clear</button>
     </div>
-
-  <hr/>
-
-  <div role="contentinfo">
-    <p>&#169; Copyright 2026, Wubin Ding.</p>
   </div>
+</div>
 
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
+<div class="status" id="status">Ready. Set the reference URL and click “Load reference”, then “Add track”.</div>
 
-</footer>
-        </div>
-      </div>
-    </section>
+<div id="tracks">
+  <div class="empty hint" id="emptyMsg">
+    No tracks yet. Click <b>Load reference</b>, then <b>+ Add cz track</b> to visualize a remote <code>.cz</code> file.
   </div>
-  <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script>
-    <!-- Theme Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F0T1MBS19V"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+</div>
 
-      gtag('config', 'G-F0T1MBS19V', {
-          'anonymize_ip': false,
-      });
-    </script> 
+<div id="hover"></div>
 
+<script type="module">
+// ─────────────────────────────────────────────────────────────────────────────
+// cytozip browser — remote .cz methylation viewer
+//
+// Loads the cz_reader.mjs ES module directly from a (raw GitHub) URL, then
+// visualizes remote .cz files like a genome browser. A coordinate-less value
+// file (mc/cov) is joined against a shared reference .cz by global row index
+// (reader.queryWithIndex + reader.getRowValues).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PALETTE = ['#2166ac', '#b2182b', '#1b7837', '#762a83', '#e08214', '#01665e', '#c51b7d', '#4d4d4d'];
+
+// ── WashU-hosted genome resources ────────────────────────────────────────────
+// Reference DNA sequence is served as UCSC .2bit (read via @gmod/twobit over
+// HTTP Range). Gene annotations come from the WashU REST API (returns JSON gene
+// records for a locus) — no static file to host ourselves.
+const TWOBIT_BASE = 'https://vizhub.wustl.edu/public';
+const GENE_API = 'https://lambda.epigenomegateway.org/v3';
+const GENOMES = {
+  hg38: { twoBit: `${TWOBIT_BASE}/hg38/hg38.2bit`,
+          genes: ['refGene', 'gencodeV47', 'gencodeV39'],
+          defaultLocus: 'chr7:27,150,000-27,250,000' },
+  hg19: { twoBit: `${TWOBIT_BASE}/hg19/hg19.2bit`,
+          genes: ['refGene', 'gencodeV47', 'gencodeV39'],
+          defaultLocus: 'chr7:27,180,000-27,280,000' },
+  mm10: { twoBit: `${TWOBIT_BASE}/mm10/mm10.2bit`,
+          genes: ['refGene', 'gencodeCompVM25', 'gencodeM19Basic'],
+          defaultLocus: 'chr5:51,997,000-52,150,000' },
+  mm39: { twoBit: `${TWOBIT_BASE}/mm39/mm39.2bit`,
+          genes: ['refGene', 'gencodeCompVM28'],
+          defaultLocus: 'chr5:52,000,000-52,150,000' },
+};
+const SAVED_TRACKS_KEY = 'czviewer_saved_tracks_v1';
+
+// cz_reader.mjs is loaded directly from the repo (raw GitHub); not user-configurable.
+const MODULE_URL = 'https://raw.githubusercontent.com/DingWB/cytozip/refs/heads/main/cytozip/cz_reader.mjs';
+
+// Default track heights (px). Users can drag the bottom edge to resize.
+const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150 };
+const MIN_HEIGHT = 22;
+function trackHeight(t) { return t.height || DEFAULT_HEIGHT[t.kind] || 100; }
+
+const state = {
+  CzReader: null,
+  refUrl: null,
+  refReader: null,
+  chroms: [],
+  genome: '',           // selected assembly (hg38/hg19/mm10/mm39/'')
+  twoBit: null,         // { genome, tb } cached @gmod/twobit handle
+  locus: null,          // {chrom, start, end}
+  resolution: null,     // methylation binning: null = per-bp, else bin width in bp
+  tracks: [],           // {id, kind:'mc'|'seq'|'gene', name, url, reader, color, ctx, canvas, labelEl, metaEl}
+  gen: 0,               // render generation token (drops stale async draws)
+  trackSeq: 0,
+};
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $('status');
+function setStatus(msg, isErr = false) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle('error', !!isErr);
+}
+const fmtInt = (n) => n.toLocaleString('en-US');
+
+// ── Automatic CORS handling (global fetch wrapper) ───────────────────────────
+// IMPORTANT: CORS is enforced by the browser from the *server's response*
+// headers; it CANNOT be disabled by adding request headers from client-side JS.
+// The only client-side remedy is to route the request through a proxy that
+// re-serves the bytes WITH an `Access-Control-Allow-Origin` header AND — crucial
+// for .cz random reads — forwards HTTP `Range` requests, returning 206 replies.
+//
+// We transparently wrap globalThis.fetch(): every cross-origin data request is
+// tried directly first; if the browser blocks it (CORS surfaces as a TypeError)
+// we remember that host and automatically retry through the configured proxy
+// (the "CORS proxy" field, or DEFAULT_PROXY when that field is empty). All of
+// the reader's HEAD + Range requests flow through here, so nothing else changes.
+const DEFAULT_PROXY = 'https://corsproxy.io/?url=';
+const _proxyBadHosts = new Set();
+
+function _proxyPrefix() {
+  const el = document.getElementById('proxy');
+  const v = (el && el.value.trim()) || '';
+  return v || DEFAULT_PROXY;
+}
+function _applyProxy(url, prefix) {
+  // "?url=" / "?"-terminated prefixes expect a URL-encoded target; a bare
+  // prefix is simply concatenated in front of the raw URL.
+  return /[?&=]$/.test(prefix) ? prefix + encodeURIComponent(url) : prefix + url;
+}
+const _origFetch = globalThis.fetch.bind(globalThis);
+globalThis.fetch = async function (input, init) {
+  const rawUrl = (typeof input === 'string') ? input
+               : (input && input.url) ? input.url : null;
+  let u = null;
+  if (rawUrl) { try { u = new URL(rawUrl, location.href); } catch { u = null; } }
+  const isCross = u && /^https?:$/.test(u.protocol) && u.origin !== location.origin;
+  const prefix = _proxyPrefix();
+  const proxyBase = prefix ? prefix.split('?')[0] : '';
+  const alreadyProxied = rawUrl && proxyBase && rawUrl.startsWith(proxyBase);
+
+  // Same-origin, no proxy available, or already going through a proxy: passthru.
+  if (!isCross || !prefix || alreadyProxied) return _origFetch(input, init);
+
+  // Host already known to require a proxy → skip the (doomed) direct attempt.
+  if (_proxyBadHosts.has(u.host)) return _origFetch(_applyProxy(rawUrl, prefix), init);
+
+  try {
+    return await _origFetch(input, init);              // try the server directly
+  } catch (err) {
+    // Direct request blocked (almost always CORS). Remember host + retry proxied.
+    _proxyBadHosts.add(u.host);
+    try {
+      return await _origFetch(_applyProxy(rawUrl, prefix), init);
+    } catch (_err2) {
+      throw err;                                        // surface the clearer error
+    }
+  }
+};
+
+// ── Dynamically import the reader module from any URL ────────────────────────
+// raw.githubusercontent.com serves text/plain, which the browser refuses to
+// import as a module. Fetch the source and import it via a Blob URL instead.
+async function loadModule(url) {
+  const resp = await fetch(url, { cache: 'no-cache' });
+  if (!resp.ok) throw new Error(`module HTTP ${resp.status}`);
+  const src = await resp.text();
+  const blob = new Blob([src], { type: 'text/javascript' });
+  const blobUrl = URL.createObjectURL(blob);
+  try {
+    return await import(blobUrl);
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
+// ── Locus parsing / formatting ───────────────────────────────────────────────
+function parseLocus(text) {
+  const m = String(text).trim().match(/^([^\s:]+)\s*:\s*([\d,]+)\s*-\s*([\d,]+)$/);
+  if (!m) return null;
+  const start = parseInt(m[2].replace(/,/g, ''), 10);
+  const end = parseInt(m[3].replace(/,/g, ''), 10);
+  if (!(end > start)) return null;
+  return { chrom: m[1], start, end };
+}
+function locusText(l) {
+  return `${l.chrom}:${fmtInt(Math.round(l.start))}-${fmtInt(Math.round(l.end))}`;
+}
+function syncLocusInput() {
+  if (state.locus) $('locus').value = locusText(state.locus);
+}
+
+// ── Context filter ───────────────────────────────────────────────────────────
+// context is a 3-mer starting at the C (e.g. 'CGT', 'CAT').
+function ctxMatch(ctx, filter) {
+  if (!ctx || ctx[0] !== 'C') return false;
+  switch (filter) {
+    case 'ALL': return true;
+    case 'CG':  return ctx[1] === 'G';
+    case 'CH':  return ctx[1] !== 'G';
+    case 'CHG': return ctx[1] !== 'G' && ctx[2] === 'G';
+    case 'CHH': return ctx[1] !== 'G' && ctx[2] !== 'G';
+    default:    return true;
+  }
+}
+
+// ── Load reference ───────────────────────────────────────────────────────────
+async function loadReference() {
+  const url = $('refUrl').value.trim();
+  if (!url) { setStatus('Enter a reference .cz URL first.', true); return; }
+  try {
+    setStatus('Loading cz_reader.mjs module…');
+    if (!state.CzReader) {
+      const mod = await loadModule(MODULE_URL);
+      state.CzReader = mod.CzReader;
+      if (!state.CzReader) throw new Error('module has no CzReader export');
+    }
+    setStatus('Opening reference .cz (header + chunk index)…');
+    const t0 = performance.now();
+    const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
+    if (reader.header.sortCol === null) {
+      reader.close();
+      throw new Error('reference must have a sort_col (position) index');
+    }
+    state.refReader && state.refReader.close();
+    state.refReader = reader;
+    state.refUrl = url;
+    state.chroms = reader.chunkKeys.map(k => k.split('\t')[0]);
+    const ms = (performance.now() - t0).toFixed(0);
+    setStatus(`Reference loaded in ${ms} ms · ${state.chroms.length} chromosomes · ` +
+              `columns [${reader.header.columns.join(', ')}]. Now add a track.`);
+    // default locus
+    if (!state.locus) {
+      const chrom = state.chroms.includes('chr1') ? 'chr1' : state.chroms[0];
+      state.locus = { chrom, start: 3_000_000, end: 3_050_000 };
+      syncLocusInput();
+    }
+    // reset any previously-attached track readers (reference changed)
+    render();
+  } catch (e) {
+    setStatus(corsHint('Failed to load reference: ' + e.message, url), true);
+  }
+}
+
+function corsHint(msg, url) {
+  return msg +
+    '\nCross-origin/CORS error: the browser blocked reading this URL because the ' +
+    'server sent no `Access-Control-Allow-Origin` header (this cannot be fixed by ' +
+    'adding request headers).\nRemedies: (1) enable CORS + HTTP Range on the data ' +
+    'server, or (2) host this page on the same origin as the .cz files.';
+}
+
+// ── Genome: .2bit sequence via @gmod/twobit ──────────────────────────────────
+let _twoBitLibs = null;
+async function getTwoBitLibs() {
+  if (!_twoBitLibs) {
+    const [{ TwoBitFile }, { RemoteFile }] = await Promise.all([
+      import('https://esm.sh/@gmod/twobit@6'),
+      import('https://esm.sh/generic-filehandle2@2'),
+    ]);
+    _twoBitLibs = { TwoBitFile, RemoteFile };
+  }
+  return _twoBitLibs;
+}
+async function loadTwoBit(genome) {
+  if (state.twoBit && state.twoBit.genome === genome) return state.twoBit.tb;
+  const cfg = GENOMES[genome];
+  if (!cfg) throw new Error(`Unknown genome “${genome}”`);
+  const { TwoBitFile, RemoteFile } = await getTwoBitLibs();
+  // RemoteFile routes through the (wrapped) global fetch, so the CORS proxy
+  // fallback and Range handling apply to .2bit reads too.
+  const tb = new TwoBitFile({
+    filehandle: new RemoteFile(cfg.twoBit, { fetch: (u, o) => fetch(u, o) }),
+  });
+  state.twoBit = { genome, tb };
+  return tb;
+}
+
+// ── Genome selector ──────────────────────────────────────────────────────────
+// Selecting a genome automatically (re)creates the reference sequence (.2bit)
+// and gene-annotation tracks for that assembly — no manual buttons needed.
+async function onGenomeChange() {
+  const g = $('genomeSel').value;
+  state.genome = g;
+  const dl = $('geneSetList');
+  dl.innerHTML = '';
+  // Drop any sequence/gene tracks belonging to the previous assembly.
+  for (const t of state.tracks) { if (t.reader) t.reader.close(); }
+  state.tracks = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');
+  state.twoBit = null;
+
+  if (!g || !GENOMES[g]) { buildTrackRows(); render(); return; }
+
+  for (const name of GENOMES[g].genes) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    dl.appendChild(opt);
+  }
+  if (!GENOMES[g].genes.includes($('geneSet').value.trim())) {
+    $('geneSet').value = GENOMES[g].genes[0] || 'refGene';
+  }
+  if (!state.locus) {
+    const l = parseLocus(GENOMES[g].defaultLocus);
+    if (l) { state.locus = l; syncLocusInput(); }
+  }
+  // Auto-add the sequence + gene tracks for the selected assembly.
+  await addSeqTrack(true);
+  addGeneTrack(true);
+  setStatus(`Genome ${g}: added sequence + gene tracks. ` +
+            'Search a locus (chr:start-end) or a gene name in the box above.');
+}
+
+// ── Gene name search (WashU queryName API) ───────────────────────────────────
+// Returns the best-matching gene record {chrom, txStart, txEnd, name, ...} or null.
+async function searchGeneByName(name) {
+  const g = state.genome;
+  if (!g || !name) return null;
+  const url = `${GENE_API}/${g}/genes/queryName?q=${encodeURIComponent(name)}&isExact=false`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`gene name API HTTP ${resp.status}`);
+  const recs = await resp.json();
+  if (!Array.isArray(recs) || recs.length === 0) return null;
+  const lower = name.toLowerCase();
+  // Prefer an exact (case-insensitive) name match; else the longest transcript.
+  const exact = recs.filter(r => (r.name || '').toLowerCase() === lower);
+  const pool = exact.length ? exact : recs;
+  return pool.reduce((a, b) =>
+    ((b.txEnd - b.txStart) > (a.txEnd - a.txStart) ? b : a));
+}
+
+// ── Add a reference-sequence (.2bit) track ───────────────────────────────────
+async function addSeqTrack() {
+  const g = state.genome;
+  if (!g) { setStatus('Pick a genome (hg38/hg19/mm10/mm39) first.', true); return; }
+  if (state.tracks.some(t => t.kind === 'seq')) {
+    setStatus('A sequence track is already present.'); return;
+  }
+  try {
+    setStatus(`Loading @gmod/twobit and opening ${g}.2bit…`);
+    await loadTwoBit(g);
+    const track = {
+      id: ++state.trackSeq, kind: 'seq', name: `${g} sequence`, genome: g,
+      url: GENOMES[g].twoBit, color: '#3a3f57',
+    };
+    state.tracks.unshift(track);   // sequence belongs at the top
+    if (!state.locus) {
+      const l = parseLocus(GENOMES[g].defaultLocus);
+      if (l) { state.locus = l; syncLocusInput(); }
+    }
+    buildTrackRows();
+    setStatus(`Added ${g} sequence track. Zoom in past ~150 bp to see bases.`);
+    render();
+  } catch (e) {
+    setStatus(corsHint('Failed to load sequence: ' + e.message, GENOMES[g].twoBit), true);
+  }
+}
+
+// ── Add a gene-annotation track (WashU REST API) ─────────────────────────────
+async function addGeneTrack() {
+  const g = state.genome;
+  if (!g) { setStatus('Pick a genome (hg38/hg19/mm10/mm39) first.', true); return; }
+  const set = $('geneSet').value.trim() || 'refGene';
+  const track = {
+    id: ++state.trackSeq, kind: 'gene', name: `${set} (${g})`,
+    geneSet: set, genome: g, url: `${GENE_API}/${g}/genes/${set}/queryRegion`,
+    color: '#1b7837',
+  };
+  state.tracks.push(track);
+  if (!state.locus) {
+    const l = parseLocus(GENOMES[g].defaultLocus);
+    if (l) { state.locus = l; syncLocusInput(); }
+  }
+  buildTrackRows();
+  setStatus(`Added gene track “${set}” for ${g}.`);
+  render();
+}
+
+async function fetchGenes(track, chrom, start, end) {
+  const url = `${track.url}?chr=${encodeURIComponent(chrom)}` +
+              `&start=${Math.round(start)}&end=${Math.round(end)}`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`gene API HTTP ${resp.status}`);
+  const data = await resp.json();
+  return Array.isArray(data) ? data : (data.data || []);
+}
+
+// ── Saved-track memory (localStorage) ────────────────────────────────────────
+function loadSavedTracks() {
+  try { return JSON.parse(localStorage.getItem(SAVED_TRACKS_KEY)) || []; }
+  catch { return []; }
+}
+function saveTrack(entry) {
+  const list = loadSavedTracks();
+  const key = entry.url;
+  const idx = list.findIndex(e => e.url === key);
+  if (idx >= 0) list.splice(idx, 1);
+  list.unshift(entry);
+  if (list.length > 50) list.length = 50;
+  try { localStorage.setItem(SAVED_TRACKS_KEY, JSON.stringify(list)); } catch {}
+  refreshSavedTracksUI();
+}
+function refreshSavedTracksUI() {
+  const sel = $('savedTracks');
+  if (!sel) return;
+  const list = loadSavedTracks();
+  sel.innerHTML = '<option value="">— saved .cz tracks —</option>';
+  list.forEach((e, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = `${e.name}  ·  ${e.ctx || 'ALL'}`;
+    opt.title = e.url;
+    sel.appendChild(opt);
+  });
+}
+function onSavedTrackPick() {
+  const sel = $('savedTracks');
+  const i = parseInt(sel.value, 10);
+  sel.value = '';
+  if (Number.isNaN(i)) return;
+  const e = loadSavedTracks()[i];
+  if (!e) return;
+  $('newName').value = e.name;
+  $('newUrl').value = e.url;
+  if (e.ctx) $('newCtx').value = e.ctx;
+  addTrack();
+}
+
+
+async function addTrack() {
+  if (!state.refReader) { setStatus('Load the reference first.', true); return; }
+  const url = $('newUrl').value.trim();
+  const name = $('newName').value.trim() || `track ${state.tracks.length + 1}`;
+  const ctx = $('newCtx').value;
+  if (!url) { setStatus('Enter a track .cz URL.', true); return; }
+  try {
+    setStatus(`Opening track “${name}”…`);
+    const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
+    const track = {
+      id: ++state.trackSeq, kind: 'mc', name, url, reader, ctx,
+      color: PALETTE[state.tracks.length % PALETTE.length],
+    };
+    state.tracks.push(track);
+    saveTrack({ name, url, ctx });
+    buildTrackRows();
+    setStatus(`Added track “${name}”. Rendering ${locusText(state.locus)}…`);
+    render();
+  } catch (e) {
+    setStatus(corsHint('Failed to open track: ' + e.message, url), true);
+  }
+}
+
+function removeTrack(id) {
+  const i = state.tracks.findIndex(t => t.id === id);
+  if (i < 0) return;
+  if (state.tracks[i].reader) state.tracks[i].reader.close();
+  state.tracks.splice(i, 1);
+  buildTrackRows();
+  render();
+}
+
+// ── DOM: build ruler + track rows ────────────────────────────────────────────
+function buildTrackRows() {
+  const host = $('tracks');
+  host.innerHTML = '';
+  if (state.tracks.length === 0) {
+    host.innerHTML = '<div class="empty hint">No tracks yet. Select a <b>Genome</b> to load sequence + gene tracks, or add a methylation <b>+ Add cz track</b>.</div>';
+    return;
+  }
+
+  // Ruler row
+  const rr = document.createElement('div');
+  rr.className = 'row rulerrow';
+  rr.innerHTML = `<div class="label"><div class="tname">Position</div>
+    <div class="meta" id="rulerMeta"></div></div>`;
+  const rv = document.createElement('div');
+  rv.className = 'view'; rv.dataset.ruler = '1';
+  const rc = document.createElement('canvas');
+  rv.appendChild(rc); rr.appendChild(rv); host.appendChild(rr);
+  state.rulerCanvas = rc; state.rulerView = rv;
+  attachPanZoom(rv);
+
+  for (const t of state.tracks) {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    const ctxCtrls = t.kind === 'mc'
+      ? `<div class="ctrls">
+           <select class="ctxsel">
+             ${['CG','CH','CHG','CHH','ALL'].map(c =>
+               `<option value="${c}" ${c === t.ctx ? 'selected' : ''}>${c === 'ALL' ? 'All C' : c}</option>`).join('')}
+           </select>
+         </div>`
+      : '';
+    label.innerHTML =
+      `<div class="tname"><span class="swatch" style="background:${t.color}"></span>` +
+      `<span>${escapeHtml(t.name)}</span>
+        <button class="del" title="Remove">×</button></div>
+       <div class="meta"></div>
+       ${ctxCtrls}`;
+    label.querySelector('.del').onclick = () => removeTrack(t.id);
+    const ctxSel = label.querySelector('.ctxsel');
+    if (ctxSel) ctxSel.onchange = (e) => { t.ctx = e.target.value; render(); };
+    t.metaEl = label.querySelector('.meta');
+
+    const view = document.createElement('div');
+    view.className = 'view';
+    const canvas = document.createElement('canvas');
+    view.appendChild(canvas);
+    t.canvas = canvas; t.view = view;
+    attachPanZoom(view);
+
+    const resizer = document.createElement('div');
+    resizer.className = 'resizer';
+    resizer.title = 'Drag to resize track height';
+    attachHeightResize(resizer, t);
+    view.appendChild(resizer);
+
+    row.appendChild(label); row.appendChild(view);
+    host.appendChild(row);
+  }
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// ── Per-track height drag-resize ─────────────────────────────────────────────
+function attachHeightResize(handle, t) {
+  let dragId = null, startY = 0, h0 = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    dragId = e.pointerId; startY = e.clientY; h0 = trackHeight(t);
+    handle.classList.add('dragging');
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (dragId !== e.pointerId) return;
+    e.stopPropagation();
+    t.height = Math.max(MIN_HEIGHT, Math.round(h0 + (e.clientY - startY)));
+    render();
+  });
+  const end = (e) => {
+    if (dragId !== e.pointerId) return;
+    dragId = null; handle.classList.remove('dragging');
+    try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+
+// ── Canvas sizing (HiDPI) ────────────────────────────────────────────────────
+function sizeCanvas(canvas, cssH) {
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.parentElement.clientWidth;
+  canvas.width = Math.max(1, Math.round(cssW * dpr));
+  canvas.height = Math.max(1, Math.round(cssH * dpr));
+  canvas.style.height = cssH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: cssW, h: cssH };
+}
+
+// ── Render everything (serialized) ───────────────────────────────────────────
+// Renders MUST NOT overlap: all tracks share one reference reader whose HTTP
+// handle has mutable position/cache state. Concurrent renders (e.g. during a
+// drag) would corrupt each other. Serialize: coalesce pending requests and run
+// one renderNow() at a time, re-running once more if new state arrived.
+let rendering = false;
+let renderPending = false;
+function render() {
+  renderPending = true;
+  if (!rendering) pump();
+}
+async function pump() {
+  rendering = true;
+  try {
+    while (renderPending) {
+      renderPending = false;
+      await renderNow();
+    }
+  } finally {
+    rendering = false;
+  }
+}
+
+async function renderNow() {
+  if (!state.locus || state.tracks.length === 0) return;
+  const gen = ++state.gen;
+  const { chrom, start, end } = state.locus;
+
+  // Only enforce the chromosome check against a loaded reference .cz.
+  if (state.refReader && !state.chroms.includes(chrom)) {
+    setStatus(`Chromosome “${chrom}” not in reference (have: ${state.chroms.slice(0, 6).join(', ')}…)`, true);
+    return;
+  }
+  drawRuler();
+
+  // Reference position/context index is only needed for methylation tracks.
+  const hasMc = state.tracks.some(t => t.kind === 'mc');
+  let qi = null;
+  if (hasMc) {
+    if (!state.refReader) {
+      setStatus('Load a reference .cz before adding methylation tracks.', true);
+    } else {
+      try {
+        const t0 = performance.now();
+        qi = await state.refReader.queryWithIndex(chrom, Math.round(start), Math.round(end));
+        if (gen !== state.gen) return;
+        const tRef = (performance.now() - t0).toFixed(0);
+        const rm = $('rulerMeta');
+        if (rm) rm.textContent = `${fmtInt(qi.positions.length)} C sites · ${tRef} ms`;
+      } catch (e) {
+        setStatus('Reference query failed: ' + e.message, true);
+        return;
+      }
+    }
+  }
+
+  for (const t of state.tracks) {
+    if (gen !== state.gen) return;
+    try {
+      if (t.kind === 'seq') {
+        await drawSeqTrack(t, gen);
+      } else if (t.kind === 'gene') {
+        await drawGeneTrack(t, gen);
+      } else {
+        if (!qi) continue;
+        const vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
+        if (gen !== state.gen) return;
+        drawTrack(t, qi, vals);
+      }
+    } catch (e) {
+      setStatus(`Track “${t.name}” fetch failed: ` + e.message, true);
+      continue;
+    }
+  }
+  setStatus(`${locusText(state.locus)} · ${state.tracks.length} track(s) · span ${fmtInt(Math.round(end - start))} bp`);
+}
+
+// ── Draw one methylation track (binned by pixel column) ──────────────────────
+function drawTrack(track, qi, vals) {
+  const H = trackHeight(track);
+  const { ctx, w, h } = sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = 6;
+  const plotH = h - pad * 2;
+  const baseY = h - pad;
+  const { start, end } = state.locus;
+  const span = end - start;
+
+  // Gridlines (0, 0.5, 1.0 methylation)
+  ctx.strokeStyle = '#eceef2'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#b8bcc8'; ctx.font = '9px sans-serif'; ctx.textBaseline = 'middle';
+  for (const lv of [0, 0.5, 1]) {
+    const y = baseY - lv * plotH;
+    ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); ctx.stroke();
+    ctx.fillText(lv.toFixed(1), 2, y - 5);
+  }
+
+  // Aggregate mc/cov either per pixel column (native, per-bp) or into fixed
+  // genomic bins of `state.resolution` bp. sumMc/sumCov stay pixel-indexed so
+  // the hover tooltip works the same in both modes.
+  const W = Math.max(1, Math.floor(w));
+  const sumMc = new Float64Array(W);
+  const sumCov = new Float64Array(W);
+  const pos = qi.positions, recs = qi.records;
+  let nSites = 0, totMc = 0, totCov = 0;
+  const nCommon = Math.min(pos.length, vals.length);
+  const rgb = hexToRgb(track.color);
+  const res = state.resolution;   // null → per-bp; otherwise bin width in bp
+  const alphaFor = (c) => 0.35 + 0.65 * Math.min(1, Math.log10(1 + c) / 1.5);
+
+  if (!res) {
+    // Native (per-bp) resolution: one bar per pixel column.
+    for (let i = 0; i < nCommon; i++) {
+      if (!ctxMatch(recs[i][2], track.ctx)) continue;
+      const cov = vals[i][1];
+      if (!cov) continue;
+      const mc = vals[i][0];
+      const px = Math.floor((pos[i] - start) / span * W);
+      if (px < 0 || px >= W) continue;
+      sumMc[px] += mc; sumCov[px] += cov;
+      nSites++; totMc += mc; totCov += cov;
+    }
+    for (let px = 0; px < W; px++) {
+      const c = sumCov[px];
+      if (!c) continue;
+      const barH = (sumMc[px] / c) * plotH;
+      ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(c).toFixed(3)})`;
+      ctx.fillRect(px, baseY - barH, 1, barH);
+    }
+  } else {
+    // Fixed genomic-bin resolution: aggregate mc/cov over `res`-bp windows.
+    const nBins = Math.max(1, Math.ceil(span / res));
+    const binMc = new Float64Array(nBins);
+    const binCov = new Float64Array(nBins);
+    const binStart0 = Math.floor(start / res) * res;   // align bins to genome grid
+    for (let i = 0; i < nCommon; i++) {
+      if (!ctxMatch(recs[i][2], track.ctx)) continue;
+      const cov = vals[i][1];
+      if (!cov) continue;
+      const mc = vals[i][0];
+      const b = Math.floor((pos[i] - binStart0) / res);
+      if (b < 0 || b >= nBins) continue;
+      binMc[b] += mc; binCov[b] += cov;
+      nSites++; totMc += mc; totCov += cov;
+    }
+    for (let b = 0; b < nBins; b++) {
+      const c = binCov[b];
+      if (!c) continue;
+      const bpS = binStart0 + b * res, bpE = bpS + res;
+      const x0 = (bpS - start) / span * w, x1 = (bpE - start) / span * w;
+      const bw = Math.max(1, x1 - x0);
+      const barH = (binMc[b] / c) * plotH;
+      ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(c).toFixed(3)})`;
+      ctx.fillRect(x0, baseY - barH, bw, barH);
+      // Mirror the bin value into the pixel arrays so hover reports it.
+      const px0 = Math.max(0, Math.floor(x0)), px1 = Math.min(W, Math.ceil(x1));
+      for (let px = px0; px < px1; px++) { sumMc[px] = binMc[b]; sumCov[px] = binCov[b]; }
+    }
+  }
+
+  // Baseline
+  ctx.strokeStyle = '#c9cdd6';
+  ctx.beginPath(); ctx.moveTo(0, baseY + 0.5); ctx.lineTo(w, baseY + 0.5); ctx.stroke();
+
+  // Store for hover tooltip
+  track._draw = { start, end, W, sumMc, sumCov };
+
+  const meanM = totCov ? (totMc / totCov) : 0;
+  const resLabel = res ? ` · ${res} bp bins` : '';
+  if (track.metaEl) {
+    track.metaEl.textContent = nSites
+      ? `${fmtInt(nSites)} covered · mean ${(meanM * 100).toFixed(1)}% · ${track.ctx}${resLabel}`
+      : `no covered ${track.ctx} sites here`;
+  }
+}
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+// ── Draw the reference DNA sequence track (.2bit) ────────────────────────────
+const BASE_COLORS = { A: '#2ca02c', C: '#1f77b4', G: '#e08214', T: '#d62728', N: '#b8bcc8' };
+async function drawSeqTrack(track, gen) {
+  const H = trackHeight(track);
+  const { ctx, w, h } = sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+  const { chrom, start, end } = state.locus;
+  const span = end - start;
+  const perBase = w / span;
+
+  if (perBase < 5) {
+    ctx.fillStyle = '#9aa0b2'; ctx.font = '11px sans-serif';
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    ctx.fillText(`${chrom} sequence — zoom in below ~${fmtInt(Math.round(w / 5))} bp to see bases`, w / 2, h / 2);
+    ctx.textAlign = 'left';
+    if (track.metaEl) track.metaEl.textContent = `${fmtInt(Math.round(span))} bp span`;
+    return;
+  }
+
+  const s = Math.max(0, Math.floor(start));
+  const e = Math.ceil(end);
+  const tb = await loadTwoBit(track.genome || state.genome);
+  const seq = ((await tb.getSequence(chrom, s, e)) || '').toUpperCase();
+  if (gen !== state.gen) return;
+
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  ctx.font = `${Math.min(14, Math.max(8, perBase * 0.85))}px monospace`;
+  const yMid = h / 2;
+  for (let i = 0; i < seq.length; i++) {
+    const bp = s + i;
+    const x = (bp - start) / span * w;
+    if (x < -perBase || x > w + perBase) continue;
+    ctx.fillStyle = BASE_COLORS[seq[i]] || '#b8bcc8';
+    if (perBase >= 9) ctx.fillText(seq[i], x + perBase / 2, yMid);
+    else ctx.fillRect(x + 0.5, yMid - (h - 8) / 2, Math.max(1, perBase - 0.5), h - 8);
+  }
+  ctx.textAlign = 'left';
+  if (track.metaEl) track.metaEl.textContent = `${chrom}:${fmtInt(s)}-${fmtInt(e)}`;
+}
+
+// ── Draw a gene-annotation track (WashU REST API records) ────────────────────
+const GENE_CLASS_COLORS = {
+  coding: '#1b5fa8', nonCoding: '#1b7837', pseudo: '#8a8f9c',
+  problem: '#b2182b', other: '#762a83',
+};
+function parseCommaInts(s) {
+  if (!s) return [];
+  return String(s).split(',').filter(x => x !== '').map(x => parseInt(x, 10));
+}
+async function drawGeneTrack(track, gen) {
+  const { chrom, start, end } = state.locus;
+  const span = end - start;
+  const genes = await fetchGenes(track, chrom, start, end);
+  if (gen !== state.gen) return;
+
+  const wCss = track.canvas.parentElement.clientWidth || 1;
+  const toX = (bp) => (bp - start) / span * wCss;
+  const rowH = 16, topPad = 4;
+  const CHAR_W = 6;
+  // Number of visible rows is driven by the (draggable) track height.
+  const H = trackHeight(track);
+  const maxRows = Math.max(1, Math.floor((H - topPad * 2) / rowH));
+
+  // Greedy row packing; reserve room for the left/over label.
+  genes.sort((a, b) => (a.txStart || 0) - (b.txStart || 0));
+  const rowFree = [];   // right-most used px per row
+  const placed = [];
+  for (const gd of genes) {
+    const x0 = toX(gd.txStart), x1 = toX(gd.txEnd);
+    const label = String(gd.name || gd.id || '');
+    const labelW = label.length * CHAR_W + 6;
+    const extentR = Math.max(x1, x0 + labelW);
+    let row = rowFree.findIndex(r => x0 > r + 4);
+    if (row < 0) { row = rowFree.length; }
+    if (row >= maxRows) continue;
+    rowFree[row] = extentR;
+    placed.push({ gd, row, x0, x1, label });
+  }
+
+  const { ctx, w, h } = sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+  ctx.font = '10px sans-serif';
+
+  for (const p of placed) {
+    const gd = p.gd;
+    const yMid = topPad + p.row * rowH + rowH / 2;
+    const cls = gd.transcriptionClass || 'other';
+    const color = GENE_CLASS_COLORS[cls] || GENE_CLASS_COLORS.other;
+    const gx0 = Math.max(-2, p.x0), gx1 = Math.min(w + 2, p.x1);
+
+    // Intron line
+    ctx.strokeStyle = color; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(gx0, yMid + 0.5); ctx.lineTo(gx1, yMid + 0.5); ctx.stroke();
+
+    // Strand arrows along the body
+    const fwd = gd.strand !== '-';
+    ctx.fillStyle = color;
+    for (let x = gx0 + 6; x < gx1 - 2; x += 14) {
+      ctx.beginPath();
+      if (fwd) { ctx.moveTo(x, yMid - 3); ctx.lineTo(x + 4, yMid); ctx.lineTo(x, yMid + 3); }
+      else { ctx.moveTo(x + 4, yMid - 3); ctx.lineTo(x, yMid); ctx.lineTo(x + 4, yMid + 3); }
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Exons — thin box; thicker where inside the CDS.
+    const es = parseCommaInts(gd.exonStarts), ee = parseCommaInts(gd.exonEnds);
+    const cdsS = Number.isFinite(gd.cdsStart) ? gd.cdsStart : gd.txStart;
+    const cdsE = Number.isFinite(gd.cdsEnd) ? gd.cdsEnd : gd.txStart;
+    ctx.fillStyle = color;
+    for (let i = 0; i < es.length; i++) {
+      const exS = es[i], exE = ee[i];
+      if (exE <= start || exS >= end) continue;
+      const ex0 = toX(Math.max(exS, start)), ex1 = toX(Math.min(exE, end));
+      ctx.fillRect(ex0, yMid - 2.5, Math.max(1, ex1 - ex0), 5);          // UTR/exon
+      const cS = Math.max(exS, cdsS), cE = Math.min(exE, cdsE);
+      if (cE > cS) {
+        const c0 = toX(Math.max(cS, start)), c1 = toX(Math.min(cE, end));
+        ctx.fillRect(c0, yMid - 5, Math.max(1, c1 - c0), 10);            // CDS
+      }
+    }
+
+    // Label (left of the gene if room, else above its start)
+    ctx.fillStyle = '#3a3f57';
+    const lw = p.label.length * CHAR_W;
+    if (p.x0 - lw - 3 > 0) { ctx.textAlign = 'right'; ctx.fillText(p.label, p.x0 - 3, yMid); }
+    else { ctx.textAlign = 'left'; ctx.fillText(p.label, Math.max(2, p.x0), yMid - 7); }
+    ctx.textAlign = 'left';
+  }
+
+  if (track.metaEl) {
+    track.metaEl.textContent = genes.length
+      ? `${fmtInt(genes.length)} genes${placed.length < genes.length ? ` (${genes.length - placed.length} hidden)` : ''}`
+      : 'no genes in view';
+  }
+}
+
+// ── Ruler ────────────────────────────────────────────────────────────────────
+function drawRuler() {
+  if (!state.rulerCanvas) return;
+  const { ctx, w, h } = sizeCanvas(state.rulerCanvas, 30);
+  ctx.clearRect(0, 0, w, h);
+  const { chrom, start, end } = state.locus;
+  const span = end - start;
+
+  const step = niceStep(span, w / 90);
+  const first = Math.ceil(start / step) * step;
+  ctx.strokeStyle = '#b8bcc8'; ctx.fillStyle = '#6b7180';
+  ctx.font = '10px sans-serif'; ctx.textBaseline = 'top';
+  ctx.beginPath(); ctx.moveTo(0, h - 0.5); ctx.lineTo(w, h - 0.5); ctx.stroke();
+  for (let p = first; p <= end; p += step) {
+    const x = (p - start) / span * w;
+    ctx.beginPath(); ctx.moveTo(x + 0.5, h - 8); ctx.lineTo(x + 0.5, h); ctx.stroke();
+    ctx.fillText(fmtInt(p), x + 3, 3);
+  }
+  ctx.fillStyle = '#232635'; ctx.font = 'bold 11px sans-serif';
+  ctx.fillText(chrom, 3, 15);
+}
+function niceStep(span, targetTicks) {
+  const raw = span / Math.max(1, targetTicks);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 5, 10]) if (m * mag >= raw) return m * mag;
+  return 10 * mag;
+}
+
+// ── Pan / zoom interactions ──────────────────────────────────────────────────
+// Pointer-capture based: state is scoped to each view element (recreated on
+// every buildTrackRows), so there are no accumulating/stuck window listeners.
+function attachPanZoom(view) {
+  let dragId = null, startX = 0, locus0 = null;
+
+  view.addEventListener('pointerdown', (e) => {
+    if (!state.locus || e.button !== 0) return;
+    dragId = e.pointerId; startX = e.clientX; locus0 = { ...state.locus };
+    try { view.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
+  });
+  view.addEventListener('pointermove', (e) => {
+    if (dragId === e.pointerId && locus0) {
+      const w = view.clientWidth || 1;
+      const span = locus0.end - locus0.start;
+      const dbp = -(e.clientX - startX) / w * span;
+      let s = locus0.start + dbp, en = locus0.end + dbp;
+      if (s < 0) { en -= s; s = 0; }
+      state.locus = { chrom: locus0.chrom, start: s, end: en };
+      syncLocusInput(); render();
+    }
+    updateHover(e);
+  });
+  const endDrag = (e) => {
+    if (dragId === e.pointerId) {
+      dragId = null; locus0 = null;
+      try { view.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+  };
+  view.addEventListener('pointerup', endDrag);
+  view.addEventListener('pointercancel', endDrag);
+  view.addEventListener('mouseleave', () => { $('hover').style.display = 'none'; });
+
+  view.addEventListener('wheel', (e) => {
+    if (!state.locus) return;
+    e.preventDefault();
+    const w = view.clientWidth || 1;
+    const rect = view.getBoundingClientRect();
+    const frac = (e.clientX - rect.left) / w;         // zoom anchor
+    const { chrom, start, end } = state.locus;
+    const span = end - start;
+    const factor = e.deltaY < 0 ? 0.8 : 1.25;         // wheel up = zoom in
+    const anchor = start + frac * span;
+    let newSpan = Math.max(20, span * factor);
+    let s = anchor - frac * newSpan, en = anchor + (1 - frac) * newSpan;
+    if (s < 0) { en -= s; s = 0; }
+    state.locus = { chrom, start: s, end: en };
+    syncLocusInput(); render();
+  }, { passive: false });
+}
+
+function zoomBy(factor) {
+  if (!state.locus) return;
+  const { chrom, start, end } = state.locus;
+  const mid = (start + end) / 2, span = (end - start) * factor;
+  let s = mid - span / 2, en = mid + span / 2;
+  if (s < 0) { en -= s; s = 0; }
+  state.locus = { chrom, start: s, end: en };
+  syncLocusInput(); render();
+}
+
+// ── Hover tooltip (nearest covered bin) ──────────────────────────────────────
+function updateHover(e) {
+  const hv = $('hover');
+  const track = state.tracks.find(t => t.view && t.view.contains(e.target));
+  if (!track || !track._draw) { hv.style.display = 'none'; return; }
+  const rect = track.view.getBoundingClientRect();
+  const px = Math.floor((e.clientX - rect.left) / rect.width * track._draw.W);
+  const d = track._draw;
+  if (px < 0 || px >= d.W || !d.sumCov[px]) { hv.style.display = 'none'; return; }
+  const level = d.sumMc[px] / d.sumCov[px];
+  const bp = Math.round(d.start + (px + 0.5) / d.W * (d.end - d.start));
+  hv.textContent = `${track.name} · ~${fmtInt(bp)} · ${(level * 100).toFixed(0)}% mC · cov ${Math.round(d.sumCov[px])}`;
+  hv.style.left = (e.clientX + 12) + 'px';
+  hv.style.top = (e.clientY + 12) + 'px';
+  hv.style.display = 'block';
+}
+
+// ── Wire up controls ─────────────────────────────────────────────────────────
+$('btnLoad').onclick = loadReference;
+$('btnAddTrack').onclick = addTrack;
+$('genomeSel').onchange = onGenomeChange;
+$('geneSet').onchange = () => {
+  const g = state.genome;
+  if (!g) return;
+  const set = $('geneSet').value.trim() || 'refGene';
+  const gt = state.tracks.find(t => t.kind === 'gene');
+  if (gt) {
+    gt.geneSet = set; gt.genome = g; gt.name = `${set} (${g})`;
+    gt.url = `${GENE_API}/${g}/genes/${set}/queryRegion`;
+    buildTrackRows(); render();
+    setStatus(`Gene set switched to “${set}”.`);
+  } else {
+    addGeneTrack();
+  }
+};
+$('savedTracks').onchange = onSavedTrackPick;
+$('btnForgetTracks').onclick = () => {
+  try { localStorage.removeItem(SAVED_TRACKS_KEY); } catch {}
+  refreshSavedTracksUI();
+  setStatus('Cleared saved tracks.');
+};
+// Locus box: accepts a coordinate (chr:start-end) or, when a genome is loaded,
+// a gene name (searched via the WashU queryName API).
+async function goToLocusOrGene() {
+  const text = $('locus').value.trim();
+  if (!text) return;
+  const l = parseLocus(text);
+  if (l) { state.locus = l; render(); return; }
+  if (state.genome) {
+    setStatus(`Searching gene “${text}”…`);
+    try {
+      const gene = await searchGeneByName(text);
+      if (gene) {
+        const len = Math.max(1, gene.txEnd - gene.txStart);
+        const pad = Math.max(1000, Math.round(len * 0.15));
+        state.locus = { chrom: gene.chrom, start: Math.max(0, gene.txStart - pad), end: gene.txEnd + pad };
+        syncLocusInput(); render();
+        setStatus(`${gene.name} · ${gene.collection || 'gene'} · ${gene.strand || ''} · ${locusText(state.locus)}`);
+        return;
+      }
+      setStatus(`No gene named “${text}” found, and it isn’t a valid locus.`, true);
+    } catch (e) {
+      setStatus('Gene search failed: ' + e.message, true);
+    }
+    return;
+  }
+  setStatus('Bad locus. Use chr:start-end, or select a Genome to search by gene name.', true);
+}
+$('btnGo').onclick = goToLocusOrGene;
+$('locus').addEventListener('keydown', (e) => { if (e.key === 'Enter') goToLocusOrGene(); });
+$('zoomIn').onclick = () => zoomBy(0.5);
+$('zoomOut').onclick = () => zoomBy(2);
+$('resSel').onchange = () => {
+  const v = $('resSel').value;
+  state.resolution = v ? parseInt(v, 10) : null;
+  render();
+};
+$('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack(); });
+window.addEventListener('resize', () => render());
+
+refreshSavedTracksUI();
+onGenomeChange();
+
+setStatus('Ready. Pick a Genome to auto-load its DNA sequence + gene tracks, then search a ' +
+          'locus (chr:start-end) or a gene name. Add methylation data with “+ Add cz track” ' +
+          '(needs a reference .cz; data URLs require CORS + HTTP Range).');
+
+
+</script>
 </body>
 </html>

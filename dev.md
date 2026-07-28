@@ -461,6 +461,9 @@ cd ..
 ls
 ls docs
 
+# after modifying cz_viewer.html
+cp docs/source/_static/cz_viewer.html docs/build/html/
+
 vim .nojekyll #create empty file
 ```
 

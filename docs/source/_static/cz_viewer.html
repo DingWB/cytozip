@@ -157,12 +157,25 @@
   </label>
   <button id="btnLoad">Load reference</button>
   <div class="locusbox">
-    <input type="text" id="locus" placeholder="chr1:3,000,000-3,050,000" />
+    <input type="text" id="locus" placeholder="chr1:3,000,000-3,050,000 or gene name (e.g. HOXA13)" style="width:300px" />
     <button id="btnGo">Go</button>
     <span class="zoombtns">
       <button id="zoomOut" class="secondary" title="Zoom out">−</button>
       <button id="zoomIn" class="secondary" title="Zoom in">+</button>
     </span>
+    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
+      Res
+      <select id="resSel" title="Methylation binning resolution">
+        <option value="">None (per-bp)</option>
+        <option value="10">10 bp</option>
+        <option value="20">20 bp</option>
+        <option value="50">50 bp</option>
+        <option value="100">100 bp</option>
+        <option value="500">500 bp</option>
+        <option value="1000">1000 bp</option>
+        <option value="5000">5000 bp</option>
+      </select>
+    </label>
   </div>
 </div>
 
@@ -195,19 +208,13 @@
 
 <div class="panel" style="background:#272b3d;">
   <div class="field">
-    <label>Genome tracks (from WashU)</label>
-    <div style="display:flex;gap:6px;">
-      <button id="btnAddSeq" class="secondary" title="Add reference DNA sequence track (.2bit)">+ Sequence</button>
-    </div>
+    <label>Genome tracks</label>
+    <span style="font-size:11px;color:#9aa0b2;line-height:26px;">auto-added when a Genome is selected</span>
   </div>
   <div class="field">
     <label>Gene annotation set</label>
     <input type="text" class="name" id="geneSet" list="geneSetList" value="refGene" style="width:170px" />
     <datalist id="geneSetList"></datalist>
-  </div>
-  <div class="field">
-    <label>&nbsp;</label>
-    <button id="btnAddGene" class="secondary" title="Add gene annotation track (WashU REST API)">+ Gene track</button>
   </div>
   <div class="field">
     <label>&nbsp;</label>
@@ -252,13 +259,13 @@ const TWOBIT_BASE = 'https://vizhub.wustl.edu/public';
 const GENE_API = 'https://lambda.epigenomegateway.org/v3';
 const GENOMES = {
   hg38: { twoBit: `${TWOBIT_BASE}/hg38/hg38.2bit`,
-          genes: ['refGene', 'gencodeV29', 'gencodeV39', 'gencodeV47', 'MANE_select'],
+          genes: ['refGene', 'gencodeV47', 'gencodeV39'],
           defaultLocus: 'chr7:27,150,000-27,250,000' },
   hg19: { twoBit: `${TWOBIT_BASE}/hg19/hg19.2bit`,
-          genes: ['refGene', 'gencodeV29', 'gencodeV29Basic', 'gencodeV39'],
+          genes: ['refGene', 'gencodeV47', 'gencodeV39'],
           defaultLocus: 'chr7:27,180,000-27,280,000' },
   mm10: { twoBit: `${TWOBIT_BASE}/mm10/mm10.2bit`,
-          genes: ['refGene', 'gencodeM19', 'gencodeM19Basic', 'gencodeCompVM25'],
+          genes: ['refGene', 'gencodeCompVM25', 'gencodeM19Basic'],
           defaultLocus: 'chr5:51,997,000-52,150,000' },
   mm39: { twoBit: `${TWOBIT_BASE}/mm39/mm39.2bit`,
           genes: ['refGene', 'gencodeCompVM28'],
@@ -282,6 +289,7 @@ const state = {
   genome: '',           // selected assembly (hg38/hg19/mm10/mm39/'')
   twoBit: null,         // { genome, tb } cached @gmod/twobit handle
   locus: null,          // {chrom, start, end}
+  resolution: null,     // methylation binning: null = per-bp, else bin width in bp
   tracks: [],           // {id, kind:'mc'|'seq'|'gene', name, url, reader, color, ctx, canvas, labelEl, metaEl}
   gen: 0,               // render generation token (drops stale async draws)
   trackSeq: 0,
@@ -469,24 +477,55 @@ async function loadTwoBit(genome) {
 }
 
 // ── Genome selector ──────────────────────────────────────────────────────────
-function onGenomeChange() {
+// Selecting a genome automatically (re)creates the reference sequence (.2bit)
+// and gene-annotation tracks for that assembly — no manual buttons needed.
+async function onGenomeChange() {
   const g = $('genomeSel').value;
   state.genome = g;
   const dl = $('geneSetList');
   dl.innerHTML = '';
-  if (g && GENOMES[g]) {
-    for (const name of GENOMES[g].genes) {
-      const opt = document.createElement('option');
-      opt.value = name;
-      dl.appendChild(opt);
-    }
-    state.twoBit = null;   // drop cached handle for the previous assembly
-    if (!state.locus) {
-      const l = parseLocus(GENOMES[g].defaultLocus);
-      if (l) { state.locus = l; syncLocusInput(); }
-    }
-    setStatus(`Genome set to ${g}. Use “+ Sequence” for DNA and “+ Gene track” for annotations.`);
+  // Drop any sequence/gene tracks belonging to the previous assembly.
+  for (const t of state.tracks) { if (t.reader) t.reader.close(); }
+  state.tracks = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');
+  state.twoBit = null;
+
+  if (!g || !GENOMES[g]) { buildTrackRows(); render(); return; }
+
+  for (const name of GENOMES[g].genes) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    dl.appendChild(opt);
   }
+  if (!GENOMES[g].genes.includes($('geneSet').value.trim())) {
+    $('geneSet').value = GENOMES[g].genes[0] || 'refGene';
+  }
+  if (!state.locus) {
+    const l = parseLocus(GENOMES[g].defaultLocus);
+    if (l) { state.locus = l; syncLocusInput(); }
+  }
+  // Auto-add the sequence + gene tracks for the selected assembly.
+  await addSeqTrack(true);
+  addGeneTrack(true);
+  setStatus(`Genome ${g}: added sequence + gene tracks. ` +
+            'Search a locus (chr:start-end) or a gene name in the box above.');
+}
+
+// ── Gene name search (WashU queryName API) ───────────────────────────────────
+// Returns the best-matching gene record {chrom, txStart, txEnd, name, ...} or null.
+async function searchGeneByName(name) {
+  const g = state.genome;
+  if (!g || !name) return null;
+  const url = `${GENE_API}/${g}/genes/queryName?q=${encodeURIComponent(name)}&isExact=false`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`gene name API HTTP ${resp.status}`);
+  const recs = await resp.json();
+  if (!Array.isArray(recs) || recs.length === 0) return null;
+  const lower = name.toLowerCase();
+  // Prefer an exact (case-insensitive) name match; else the longest transcript.
+  const exact = recs.filter(r => (r.name || '').toLowerCase() === lower);
+  const pool = exact.length ? exact : recs;
+  return pool.reduce((a, b) =>
+    ((b.txEnd - b.txStart) > (a.txEnd - a.txStart) ? b : a));
 }
 
 // ── Add a reference-sequence (.2bit) track ───────────────────────────────────
@@ -624,7 +663,7 @@ function buildTrackRows() {
   const host = $('tracks');
   host.innerHTML = '';
   if (state.tracks.length === 0) {
-    host.innerHTML = '<div class="empty hint">No tracks yet. Use <b>+ Add track</b>.</div>';
+    host.innerHTML = '<div class="empty hint">No tracks yet. Select a <b>Genome</b> to load sequence + gene tracks, or add a methylation <b>+ Add cz track</b>.</div>';
     return;
   }
 
@@ -820,34 +859,67 @@ function drawTrack(track, qi, vals) {
     ctx.fillText(lv.toFixed(1), 2, y - 5);
   }
 
-  // Bin per pixel column: sum mc, sum cov.
+  // Aggregate mc/cov either per pixel column (native, per-bp) or into fixed
+  // genomic bins of `state.resolution` bp. sumMc/sumCov stay pixel-indexed so
+  // the hover tooltip works the same in both modes.
   const W = Math.max(1, Math.floor(w));
   const sumMc = new Float64Array(W);
   const sumCov = new Float64Array(W);
   const pos = qi.positions, recs = qi.records;
   let nSites = 0, totMc = 0, totCov = 0;
   const nCommon = Math.min(pos.length, vals.length);
-  for (let i = 0; i < nCommon; i++) {
-    if (!ctxMatch(recs[i][2], track.ctx)) continue;
-    const cov = vals[i][1];
-    if (!cov) continue;
-    const mc = vals[i][0];
-    let px = Math.floor((pos[i] - start) / span * W);
-    if (px < 0 || px >= W) continue;
-    sumMc[px] += mc; sumCov[px] += cov;
-    nSites++; totMc += mc; totCov += cov;
-  }
-
-  // Bars: height = methylation fraction; opacity ramps with coverage depth.
   const rgb = hexToRgb(track.color);
-  for (let px = 0; px < W; px++) {
-    const c = sumCov[px];
-    if (!c) continue;
-    const level = sumMc[px] / c;
-    const barH = level * plotH;
-    const alpha = 0.35 + 0.65 * Math.min(1, Math.log10(1 + c) / 1.5);
-    ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha.toFixed(3)})`;
-    ctx.fillRect(px, baseY - barH, 1, barH);
+  const res = state.resolution;   // null → per-bp; otherwise bin width in bp
+  const alphaFor = (c) => 0.35 + 0.65 * Math.min(1, Math.log10(1 + c) / 1.5);
+
+  if (!res) {
+    // Native (per-bp) resolution: one bar per pixel column.
+    for (let i = 0; i < nCommon; i++) {
+      if (!ctxMatch(recs[i][2], track.ctx)) continue;
+      const cov = vals[i][1];
+      if (!cov) continue;
+      const mc = vals[i][0];
+      const px = Math.floor((pos[i] - start) / span * W);
+      if (px < 0 || px >= W) continue;
+      sumMc[px] += mc; sumCov[px] += cov;
+      nSites++; totMc += mc; totCov += cov;
+    }
+    for (let px = 0; px < W; px++) {
+      const c = sumCov[px];
+      if (!c) continue;
+      const barH = (sumMc[px] / c) * plotH;
+      ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(c).toFixed(3)})`;
+      ctx.fillRect(px, baseY - barH, 1, barH);
+    }
+  } else {
+    // Fixed genomic-bin resolution: aggregate mc/cov over `res`-bp windows.
+    const nBins = Math.max(1, Math.ceil(span / res));
+    const binMc = new Float64Array(nBins);
+    const binCov = new Float64Array(nBins);
+    const binStart0 = Math.floor(start / res) * res;   // align bins to genome grid
+    for (let i = 0; i < nCommon; i++) {
+      if (!ctxMatch(recs[i][2], track.ctx)) continue;
+      const cov = vals[i][1];
+      if (!cov) continue;
+      const mc = vals[i][0];
+      const b = Math.floor((pos[i] - binStart0) / res);
+      if (b < 0 || b >= nBins) continue;
+      binMc[b] += mc; binCov[b] += cov;
+      nSites++; totMc += mc; totCov += cov;
+    }
+    for (let b = 0; b < nBins; b++) {
+      const c = binCov[b];
+      if (!c) continue;
+      const bpS = binStart0 + b * res, bpE = bpS + res;
+      const x0 = (bpS - start) / span * w, x1 = (bpE - start) / span * w;
+      const bw = Math.max(1, x1 - x0);
+      const barH = (binMc[b] / c) * plotH;
+      ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(c).toFixed(3)})`;
+      ctx.fillRect(x0, baseY - barH, bw, barH);
+      // Mirror the bin value into the pixel arrays so hover reports it.
+      const px0 = Math.max(0, Math.floor(x0)), px1 = Math.min(W, Math.ceil(x1));
+      for (let px = px0; px < px1; px++) { sumMc[px] = binMc[b]; sumCov[px] = binCov[b]; }
+    }
   }
 
   // Baseline
@@ -858,9 +930,10 @@ function drawTrack(track, qi, vals) {
   track._draw = { start, end, W, sumMc, sumCov };
 
   const meanM = totCov ? (totMc / totCov) : 0;
+  const resLabel = res ? ` · ${res} bp bins` : '';
   if (track.metaEl) {
     track.metaEl.textContent = nSites
-      ? `${fmtInt(nSites)} covered · mean ${(meanM * 100).toFixed(1)}% · ${track.ctx}`
+      ? `${fmtInt(nSites)} covered · mean ${(meanM * 100).toFixed(1)}% · ${track.ctx}${resLabel}`
       : `no covered ${track.ctx} sites here`;
   }
 }
@@ -1116,32 +1189,73 @@ function updateHover(e) {
 // ── Wire up controls ─────────────────────────────────────────────────────────
 $('btnLoad').onclick = loadReference;
 $('btnAddTrack').onclick = addTrack;
-$('btnAddSeq').onclick = addSeqTrack;
-$('btnAddGene').onclick = addGeneTrack;
 $('genomeSel').onchange = onGenomeChange;
+$('geneSet').onchange = () => {
+  const g = state.genome;
+  if (!g) return;
+  const set = $('geneSet').value.trim() || 'refGene';
+  const gt = state.tracks.find(t => t.kind === 'gene');
+  if (gt) {
+    gt.geneSet = set; gt.genome = g; gt.name = `${set} (${g})`;
+    gt.url = `${GENE_API}/${g}/genes/${set}/queryRegion`;
+    buildTrackRows(); render();
+    setStatus(`Gene set switched to “${set}”.`);
+  } else {
+    addGeneTrack();
+  }
+};
 $('savedTracks').onchange = onSavedTrackPick;
 $('btnForgetTracks').onclick = () => {
   try { localStorage.removeItem(SAVED_TRACKS_KEY); } catch {}
   refreshSavedTracksUI();
   setStatus('Cleared saved tracks.');
 };
-$('btnGo').onclick = () => {
-  const l = parseLocus($('locus').value);
-  if (!l) { setStatus('Bad locus. Use e.g. chr1:3,000,000-3,050,000', true); return; }
-  state.locus = l; render();
-};
-$('locus').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnGo').click(); });
+// Locus box: accepts a coordinate (chr:start-end) or, when a genome is loaded,
+// a gene name (searched via the WashU queryName API).
+async function goToLocusOrGene() {
+  const text = $('locus').value.trim();
+  if (!text) return;
+  const l = parseLocus(text);
+  if (l) { state.locus = l; render(); return; }
+  if (state.genome) {
+    setStatus(`Searching gene “${text}”…`);
+    try {
+      const gene = await searchGeneByName(text);
+      if (gene) {
+        const len = Math.max(1, gene.txEnd - gene.txStart);
+        const pad = Math.max(1000, Math.round(len * 0.15));
+        state.locus = { chrom: gene.chrom, start: Math.max(0, gene.txStart - pad), end: gene.txEnd + pad };
+        syncLocusInput(); render();
+        setStatus(`${gene.name} · ${gene.collection || 'gene'} · ${gene.strand || ''} · ${locusText(state.locus)}`);
+        return;
+      }
+      setStatus(`No gene named “${text}” found, and it isn’t a valid locus.`, true);
+    } catch (e) {
+      setStatus('Gene search failed: ' + e.message, true);
+    }
+    return;
+  }
+  setStatus('Bad locus. Use chr:start-end, or select a Genome to search by gene name.', true);
+}
+$('btnGo').onclick = goToLocusOrGene;
+$('locus').addEventListener('keydown', (e) => { if (e.key === 'Enter') goToLocusOrGene(); });
 $('zoomIn').onclick = () => zoomBy(0.5);
 $('zoomOut').onclick = () => zoomBy(2);
+$('resSel').onchange = () => {
+  const v = $('resSel').value;
+  state.resolution = v ? parseInt(v, 10) : null;
+  render();
+};
 $('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack(); });
 window.addEventListener('resize', () => render());
 
 refreshSavedTracksUI();
 onGenomeChange();
 
-setStatus('Ready. Pick a Genome for DNA/gene tracks, or set a reference .cz URL and ' +
-          'click “Load reference”, then “+ Add cz track”. Data URLs need CORS + HTTP Range ' +
-          '(e.g. neomorph.salk.edu, Zenodo, S3/R2). Drag a track’s bottom edge to resize it.');
+setStatus('Ready. Pick a Genome to auto-load its DNA sequence + gene tracks, then search a ' +
+          'locus (chr:start-end) or a gene name. Add methylation data with “+ Add cz track” ' +
+          '(needs a reference .cz; data URLs require CORS + HTTP Range).');
+
 
 </script>
 </body>
