@@ -126,6 +126,12 @@
   .view canvas { display: block; width: 100%; height: 100%; }
   .rulerrow .label { background: #eceef2; }
   .rulerrow .view { cursor: ew-resize; }
+  /* Height resize handle (bottom edge of each track row) */
+  .row .resizer {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+    cursor: ns-resize; z-index: 20; touch-action: none;
+  }
+  .row .resizer:hover, .row .resizer.dragging { background: rgba(74,144,217,.35); }
   #hover {
     position: fixed; pointer-events: none; background: rgba(28,30,38,.92); color: #fff;
     padding: 4px 7px; border-radius: 4px; font-size: 11px; display: none; z-index: 50;
@@ -139,8 +145,17 @@
 
 <div class="toolbar">
   <div class="brand">cytozip<span>·</span>browser</div>
+  <label style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
+    <span style="font-size:11px;color:#9aa0b2;">Genome</span>
+    <select id="genomeSel" title="Reference genome assembly">
+      <option value="">— none —</option>
+      <option value="hg38">hg38</option>
+      <option value="hg19">hg19</option>
+      <option value="mm10">mm10</option>
+      <option value="mm39">mm39</option>
+    </select>
+  </label>
   <button id="btnLoad">Load reference</button>
-  <button id="btnAddTrack" class="secondary">+ Add track</button>
   <div class="locusbox">
     <input type="text" id="locus" placeholder="chr1:3,000,000-3,050,000" />
     <button id="btnGo">Go</button>
@@ -176,15 +191,34 @@
       <option value="ALL" selected>All C</option>
     </select>
   </div>
+</div>
+
+<div class="panel" style="background:#272b3d;">
   <div class="field">
-    <label>cz_reader.mjs module URL</label>
-    <input type="text" class="url" id="moduleUrl"
-      value="https://raw.githubusercontent.com/DingWB/cytozip/refs/heads/main/cytozip/cz_reader.mjs" />
+    <label>Genome tracks (from WashU)</label>
+    <div style="display:flex;gap:6px;">
+      <button id="btnAddSeq" class="secondary" title="Add reference DNA sequence track (.2bit)">+ Sequence</button>
+    </div>
   </div>
   <div class="field">
-    <label>CORS proxy (auto-fallback; blank = default)</label>
-    <input type="text" class="url" id="proxy" style="width:260px"
-      placeholder="blank uses https://corsproxy.io/?url=" />
+    <label>Gene annotation set</label>
+    <input type="text" class="name" id="geneSet" list="geneSetList" value="refGene" style="width:170px" />
+    <datalist id="geneSetList"></datalist>
+  </div>
+  <div class="field">
+    <label>&nbsp;</label>
+    <button id="btnAddGene" class="secondary" title="Add gene annotation track (WashU REST API)">+ Gene track</button>
+  </div>
+  <div class="field">
+    <label>&nbsp;</label>
+    <button id="btnAddTrack" title="Add a methylation .cz track (uses the fields above)">+ Add cz track</button>
+  </div>
+  <div class="field" style="margin-left:auto;">
+    <label>Saved tracks (click to add)</label>
+    <div style="display:flex;gap:6px;">
+      <select id="savedTracks" style="width:280px"><option value="">— saved .cz tracks —</option></select>
+      <button id="btnForgetTracks" class="secondary" title="Clear saved tracks">Clear</button>
+    </div>
   </div>
 </div>
 
@@ -192,7 +226,7 @@
 
 <div id="tracks">
   <div class="empty hint" id="emptyMsg">
-    No tracks yet. Click <b>Load reference</b>, then <b>+ Add track</b> to visualize a remote <code>.cz</code> file.
+    No tracks yet. Click <b>Load reference</b>, then <b>+ Add cz track</b> to visualize a remote <code>.cz</code> file.
   </div>
 </div>
 
@@ -210,13 +244,45 @@
 
 const PALETTE = ['#2166ac', '#b2182b', '#1b7837', '#762a83', '#e08214', '#01665e', '#c51b7d', '#4d4d4d'];
 
+// ── WashU-hosted genome resources ────────────────────────────────────────────
+// Reference DNA sequence is served as UCSC .2bit (read via @gmod/twobit over
+// HTTP Range). Gene annotations come from the WashU REST API (returns JSON gene
+// records for a locus) — no static file to host ourselves.
+const TWOBIT_BASE = 'https://vizhub.wustl.edu/public';
+const GENE_API = 'https://lambda.epigenomegateway.org/v3';
+const GENOMES = {
+  hg38: { twoBit: `${TWOBIT_BASE}/hg38/hg38.2bit`,
+          genes: ['refGene', 'gencodeV29', 'gencodeV39', 'gencodeV47', 'MANE_select'],
+          defaultLocus: 'chr7:27,150,000-27,250,000' },
+  hg19: { twoBit: `${TWOBIT_BASE}/hg19/hg19.2bit`,
+          genes: ['refGene', 'gencodeV29', 'gencodeV29Basic', 'gencodeV39'],
+          defaultLocus: 'chr7:27,180,000-27,280,000' },
+  mm10: { twoBit: `${TWOBIT_BASE}/mm10/mm10.2bit`,
+          genes: ['refGene', 'gencodeM19', 'gencodeM19Basic', 'gencodeCompVM25'],
+          defaultLocus: 'chr5:51,997,000-52,150,000' },
+  mm39: { twoBit: `${TWOBIT_BASE}/mm39/mm39.2bit`,
+          genes: ['refGene', 'gencodeCompVM28'],
+          defaultLocus: 'chr5:52,000,000-52,150,000' },
+};
+const SAVED_TRACKS_KEY = 'czviewer_saved_tracks_v1';
+
+// cz_reader.mjs is loaded directly from the repo (raw GitHub); not user-configurable.
+const MODULE_URL = 'https://raw.githubusercontent.com/DingWB/cytozip/refs/heads/main/cytozip/cz_reader.mjs';
+
+// Default track heights (px). Users can drag the bottom edge to resize.
+const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150 };
+const MIN_HEIGHT = 22;
+function trackHeight(t) { return t.height || DEFAULT_HEIGHT[t.kind] || 100; }
+
 const state = {
   CzReader: null,
   refUrl: null,
   refReader: null,
   chroms: [],
+  genome: '',           // selected assembly (hg38/hg19/mm10/mm39/'')
+  twoBit: null,         // { genome, tb } cached @gmod/twobit handle
   locus: null,          // {chrom, start, end}
-  tracks: [],           // {id, name, url, reader, color, ctx, canvas, labelEl, metaEl}
+  tracks: [],           // {id, kind:'mc'|'seq'|'gene', name, url, reader, color, ctx, canvas, labelEl, metaEl}
   gen: 0,               // render generation token (drops stale async draws)
   trackSeq: 0,
 };
@@ -337,7 +403,7 @@ async function loadReference() {
   try {
     setStatus('Loading cz_reader.mjs module…');
     if (!state.CzReader) {
-      const mod = await loadModule($('moduleUrl').value.trim());
+      const mod = await loadModule(MODULE_URL);
       state.CzReader = mod.CzReader;
       if (!state.CzReader) throw new Error('module has no CzReader export');
     }
@@ -372,13 +438,155 @@ function corsHint(msg, url) {
   return msg +
     '\nCross-origin/CORS error: the browser blocked reading this URL because the ' +
     'server sent no `Access-Control-Allow-Origin` header (this cannot be fixed by ' +
-    'adding request headers). An automatic retry through the CORS proxy was also ' +
-    'unsuccessful.\nRemedies: (1) set a working CORS proxy that forwards HTTP ' +
-    'Range requests in the “CORS proxy” field, (2) enable CORS + Range on the ' +
-    'data server, or (3) host this page on the same origin as the .cz files.';
+    'adding request headers).\nRemedies: (1) enable CORS + HTTP Range on the data ' +
+    'server, or (2) host this page on the same origin as the .cz files.';
 }
 
-// ── Add / remove tracks ──────────────────────────────────────────────────────
+// ── Genome: .2bit sequence via @gmod/twobit ──────────────────────────────────
+let _twoBitLibs = null;
+async function getTwoBitLibs() {
+  if (!_twoBitLibs) {
+    const [{ TwoBitFile }, { RemoteFile }] = await Promise.all([
+      import('https://esm.sh/@gmod/twobit@6'),
+      import('https://esm.sh/generic-filehandle2@2'),
+    ]);
+    _twoBitLibs = { TwoBitFile, RemoteFile };
+  }
+  return _twoBitLibs;
+}
+async function loadTwoBit(genome) {
+  if (state.twoBit && state.twoBit.genome === genome) return state.twoBit.tb;
+  const cfg = GENOMES[genome];
+  if (!cfg) throw new Error(`Unknown genome “${genome}”`);
+  const { TwoBitFile, RemoteFile } = await getTwoBitLibs();
+  // RemoteFile routes through the (wrapped) global fetch, so the CORS proxy
+  // fallback and Range handling apply to .2bit reads too.
+  const tb = new TwoBitFile({
+    filehandle: new RemoteFile(cfg.twoBit, { fetch: (u, o) => fetch(u, o) }),
+  });
+  state.twoBit = { genome, tb };
+  return tb;
+}
+
+// ── Genome selector ──────────────────────────────────────────────────────────
+function onGenomeChange() {
+  const g = $('genomeSel').value;
+  state.genome = g;
+  const dl = $('geneSetList');
+  dl.innerHTML = '';
+  if (g && GENOMES[g]) {
+    for (const name of GENOMES[g].genes) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      dl.appendChild(opt);
+    }
+    state.twoBit = null;   // drop cached handle for the previous assembly
+    if (!state.locus) {
+      const l = parseLocus(GENOMES[g].defaultLocus);
+      if (l) { state.locus = l; syncLocusInput(); }
+    }
+    setStatus(`Genome set to ${g}. Use “+ Sequence” for DNA and “+ Gene track” for annotations.`);
+  }
+}
+
+// ── Add a reference-sequence (.2bit) track ───────────────────────────────────
+async function addSeqTrack() {
+  const g = state.genome;
+  if (!g) { setStatus('Pick a genome (hg38/hg19/mm10/mm39) first.', true); return; }
+  if (state.tracks.some(t => t.kind === 'seq')) {
+    setStatus('A sequence track is already present.'); return;
+  }
+  try {
+    setStatus(`Loading @gmod/twobit and opening ${g}.2bit…`);
+    await loadTwoBit(g);
+    const track = {
+      id: ++state.trackSeq, kind: 'seq', name: `${g} sequence`, genome: g,
+      url: GENOMES[g].twoBit, color: '#3a3f57',
+    };
+    state.tracks.unshift(track);   // sequence belongs at the top
+    if (!state.locus) {
+      const l = parseLocus(GENOMES[g].defaultLocus);
+      if (l) { state.locus = l; syncLocusInput(); }
+    }
+    buildTrackRows();
+    setStatus(`Added ${g} sequence track. Zoom in past ~150 bp to see bases.`);
+    render();
+  } catch (e) {
+    setStatus(corsHint('Failed to load sequence: ' + e.message, GENOMES[g].twoBit), true);
+  }
+}
+
+// ── Add a gene-annotation track (WashU REST API) ─────────────────────────────
+async function addGeneTrack() {
+  const g = state.genome;
+  if (!g) { setStatus('Pick a genome (hg38/hg19/mm10/mm39) first.', true); return; }
+  const set = $('geneSet').value.trim() || 'refGene';
+  const track = {
+    id: ++state.trackSeq, kind: 'gene', name: `${set} (${g})`,
+    geneSet: set, genome: g, url: `${GENE_API}/${g}/genes/${set}/queryRegion`,
+    color: '#1b7837',
+  };
+  state.tracks.push(track);
+  if (!state.locus) {
+    const l = parseLocus(GENOMES[g].defaultLocus);
+    if (l) { state.locus = l; syncLocusInput(); }
+  }
+  buildTrackRows();
+  setStatus(`Added gene track “${set}” for ${g}.`);
+  render();
+}
+
+async function fetchGenes(track, chrom, start, end) {
+  const url = `${track.url}?chr=${encodeURIComponent(chrom)}` +
+              `&start=${Math.round(start)}&end=${Math.round(end)}`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`gene API HTTP ${resp.status}`);
+  const data = await resp.json();
+  return Array.isArray(data) ? data : (data.data || []);
+}
+
+// ── Saved-track memory (localStorage) ────────────────────────────────────────
+function loadSavedTracks() {
+  try { return JSON.parse(localStorage.getItem(SAVED_TRACKS_KEY)) || []; }
+  catch { return []; }
+}
+function saveTrack(entry) {
+  const list = loadSavedTracks();
+  const key = entry.url;
+  const idx = list.findIndex(e => e.url === key);
+  if (idx >= 0) list.splice(idx, 1);
+  list.unshift(entry);
+  if (list.length > 50) list.length = 50;
+  try { localStorage.setItem(SAVED_TRACKS_KEY, JSON.stringify(list)); } catch {}
+  refreshSavedTracksUI();
+}
+function refreshSavedTracksUI() {
+  const sel = $('savedTracks');
+  if (!sel) return;
+  const list = loadSavedTracks();
+  sel.innerHTML = '<option value="">— saved .cz tracks —</option>';
+  list.forEach((e, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = `${e.name}  ·  ${e.ctx || 'ALL'}`;
+    opt.title = e.url;
+    sel.appendChild(opt);
+  });
+}
+function onSavedTrackPick() {
+  const sel = $('savedTracks');
+  const i = parseInt(sel.value, 10);
+  sel.value = '';
+  if (Number.isNaN(i)) return;
+  const e = loadSavedTracks()[i];
+  if (!e) return;
+  $('newName').value = e.name;
+  $('newUrl').value = e.url;
+  if (e.ctx) $('newCtx').value = e.ctx;
+  addTrack();
+}
+
+
 async function addTrack() {
   if (!state.refReader) { setStatus('Load the reference first.', true); return; }
   const url = $('newUrl').value.trim();
@@ -389,10 +597,11 @@ async function addTrack() {
     setStatus(`Opening track “${name}”…`);
     const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
     const track = {
-      id: ++state.trackSeq, name, url, reader, ctx,
+      id: ++state.trackSeq, kind: 'mc', name, url, reader, ctx,
       color: PALETTE[state.tracks.length % PALETTE.length],
     };
     state.tracks.push(track);
+    saveTrack({ name, url, ctx });
     buildTrackRows();
     setStatus(`Added track “${name}”. Rendering ${locusText(state.locus)}…`);
     render();
@@ -404,7 +613,7 @@ async function addTrack() {
 function removeTrack(id) {
   const i = state.tracks.findIndex(t => t.id === id);
   if (i < 0) return;
-  state.tracks[i].reader.close();
+  if (state.tracks[i].reader) state.tracks[i].reader.close();
   state.tracks.splice(i, 1);
   buildTrackRows();
   render();
@@ -437,19 +646,23 @@ function buildTrackRows() {
 
     const label = document.createElement('div');
     label.className = 'label';
+    const ctxCtrls = t.kind === 'mc'
+      ? `<div class="ctrls">
+           <select class="ctxsel">
+             ${['CG','CH','CHG','CHH','ALL'].map(c =>
+               `<option value="${c}" ${c === t.ctx ? 'selected' : ''}>${c === 'ALL' ? 'All C' : c}</option>`).join('')}
+           </select>
+         </div>`
+      : '';
     label.innerHTML =
       `<div class="tname"><span class="swatch" style="background:${t.color}"></span>` +
       `<span>${escapeHtml(t.name)}</span>
         <button class="del" title="Remove">×</button></div>
        <div class="meta"></div>
-       <div class="ctrls">
-         <select class="ctxsel">
-           ${['CG','CH','CHG','CHH','ALL'].map(c =>
-             `<option value="${c}" ${c === t.ctx ? 'selected' : ''}>${c === 'ALL' ? 'All C' : c}</option>`).join('')}
-         </select>
-       </div>`;
+       ${ctxCtrls}`;
     label.querySelector('.del').onclick = () => removeTrack(t.id);
-    label.querySelector('.ctxsel').onchange = (e) => { t.ctx = e.target.value; render(); };
+    const ctxSel = label.querySelector('.ctxsel');
+    if (ctxSel) ctxSel.onchange = (e) => { t.ctx = e.target.value; render(); };
     t.metaEl = label.querySelector('.meta');
 
     const view = document.createElement('div');
@@ -459,12 +672,42 @@ function buildTrackRows() {
     t.canvas = canvas; t.view = view;
     attachPanZoom(view);
 
+    const resizer = document.createElement('div');
+    resizer.className = 'resizer';
+    resizer.title = 'Drag to resize track height';
+    attachHeightResize(resizer, t);
+    view.appendChild(resizer);
+
     row.appendChild(label); row.appendChild(view);
     host.appendChild(row);
   }
 }
 function escapeHtml(s) {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// ── Per-track height drag-resize ─────────────────────────────────────────────
+function attachHeightResize(handle, t) {
+  let dragId = null, startY = 0, h0 = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    dragId = e.pointerId; startY = e.clientY; h0 = trackHeight(t);
+    handle.classList.add('dragging');
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (dragId !== e.pointerId) return;
+    e.stopPropagation();
+    t.height = Math.max(MIN_HEIGHT, Math.round(h0 + (e.clientY - startY)));
+    render();
+  });
+  const end = (e) => {
+    if (dragId !== e.pointerId) return;
+    dragId = null; handle.classList.remove('dragging');
+    try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
 }
 
 // ── Canvas sizing (HiDPI) ────────────────────────────────────────────────────
@@ -503,46 +746,62 @@ async function pump() {
 }
 
 async function renderNow() {
-  if (!state.refReader || !state.locus || state.tracks.length === 0) return;
+  if (!state.locus || state.tracks.length === 0) return;
   const gen = ++state.gen;
   const { chrom, start, end } = state.locus;
 
-  if (!state.chroms.includes(chrom)) {
+  // Only enforce the chromosome check against a loaded reference .cz.
+  if (state.refReader && !state.chroms.includes(chrom)) {
     setStatus(`Chromosome “${chrom}” not in reference (have: ${state.chroms.slice(0, 6).join(', ')}…)`, true);
     return;
   }
   drawRuler();
 
-  let qi;
-  try {
-    const t0 = performance.now();
-    qi = await state.refReader.queryWithIndex(chrom, Math.round(start), Math.round(end));
-    if (gen !== state.gen) return;
-    const tRef = (performance.now() - t0).toFixed(0);
-    const rm = $('rulerMeta');
-    if (rm) rm.textContent = `${fmtInt(qi.positions.length)} C sites · ${tRef} ms`;
-  } catch (e) {
-    setStatus('Reference query failed: ' + e.message, true);
-    return;
+  // Reference position/context index is only needed for methylation tracks.
+  const hasMc = state.tracks.some(t => t.kind === 'mc');
+  let qi = null;
+  if (hasMc) {
+    if (!state.refReader) {
+      setStatus('Load a reference .cz before adding methylation tracks.', true);
+    } else {
+      try {
+        const t0 = performance.now();
+        qi = await state.refReader.queryWithIndex(chrom, Math.round(start), Math.round(end));
+        if (gen !== state.gen) return;
+        const tRef = (performance.now() - t0).toFixed(0);
+        const rm = $('rulerMeta');
+        if (rm) rm.textContent = `${fmtInt(qi.positions.length)} C sites · ${tRef} ms`;
+      } catch (e) {
+        setStatus('Reference query failed: ' + e.message, true);
+        return;
+      }
+    }
   }
 
   for (const t of state.tracks) {
-    let vals;
+    if (gen !== state.gen) return;
     try {
-      vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
+      if (t.kind === 'seq') {
+        await drawSeqTrack(t, gen);
+      } else if (t.kind === 'gene') {
+        await drawGeneTrack(t, gen);
+      } else {
+        if (!qi) continue;
+        const vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
+        if (gen !== state.gen) return;
+        drawTrack(t, qi, vals);
+      }
     } catch (e) {
       setStatus(`Track “${t.name}” fetch failed: ` + e.message, true);
       continue;
     }
-    if (gen !== state.gen) return;
-    drawTrack(t, qi, vals);
   }
   setStatus(`${locusText(state.locus)} · ${state.tracks.length} track(s) · span ${fmtInt(Math.round(end - start))} bp`);
 }
 
 // ── Draw one methylation track (binned by pixel column) ──────────────────────
 function drawTrack(track, qi, vals) {
-  const H = 118;
+  const H = trackHeight(track);
   const { ctx, w, h } = sizeCanvas(track.canvas, H);
   ctx.clearRect(0, 0, w, h);
 
@@ -609,6 +868,142 @@ function drawTrack(track, qi, vals) {
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+// ── Draw the reference DNA sequence track (.2bit) ────────────────────────────
+const BASE_COLORS = { A: '#2ca02c', C: '#1f77b4', G: '#e08214', T: '#d62728', N: '#b8bcc8' };
+async function drawSeqTrack(track, gen) {
+  const H = trackHeight(track);
+  const { ctx, w, h } = sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+  const { chrom, start, end } = state.locus;
+  const span = end - start;
+  const perBase = w / span;
+
+  if (perBase < 5) {
+    ctx.fillStyle = '#9aa0b2'; ctx.font = '11px sans-serif';
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    ctx.fillText(`${chrom} sequence — zoom in below ~${fmtInt(Math.round(w / 5))} bp to see bases`, w / 2, h / 2);
+    ctx.textAlign = 'left';
+    if (track.metaEl) track.metaEl.textContent = `${fmtInt(Math.round(span))} bp span`;
+    return;
+  }
+
+  const s = Math.max(0, Math.floor(start));
+  const e = Math.ceil(end);
+  const tb = await loadTwoBit(track.genome || state.genome);
+  const seq = ((await tb.getSequence(chrom, s, e)) || '').toUpperCase();
+  if (gen !== state.gen) return;
+
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  ctx.font = `${Math.min(14, Math.max(8, perBase * 0.85))}px monospace`;
+  const yMid = h / 2;
+  for (let i = 0; i < seq.length; i++) {
+    const bp = s + i;
+    const x = (bp - start) / span * w;
+    if (x < -perBase || x > w + perBase) continue;
+    ctx.fillStyle = BASE_COLORS[seq[i]] || '#b8bcc8';
+    if (perBase >= 9) ctx.fillText(seq[i], x + perBase / 2, yMid);
+    else ctx.fillRect(x + 0.5, yMid - (h - 8) / 2, Math.max(1, perBase - 0.5), h - 8);
+  }
+  ctx.textAlign = 'left';
+  if (track.metaEl) track.metaEl.textContent = `${chrom}:${fmtInt(s)}-${fmtInt(e)}`;
+}
+
+// ── Draw a gene-annotation track (WashU REST API records) ────────────────────
+const GENE_CLASS_COLORS = {
+  coding: '#1b5fa8', nonCoding: '#1b7837', pseudo: '#8a8f9c',
+  problem: '#b2182b', other: '#762a83',
+};
+function parseCommaInts(s) {
+  if (!s) return [];
+  return String(s).split(',').filter(x => x !== '').map(x => parseInt(x, 10));
+}
+async function drawGeneTrack(track, gen) {
+  const { chrom, start, end } = state.locus;
+  const span = end - start;
+  const genes = await fetchGenes(track, chrom, start, end);
+  if (gen !== state.gen) return;
+
+  const wCss = track.canvas.parentElement.clientWidth || 1;
+  const toX = (bp) => (bp - start) / span * wCss;
+  const rowH = 16, topPad = 4;
+  const CHAR_W = 6;
+  // Number of visible rows is driven by the (draggable) track height.
+  const H = trackHeight(track);
+  const maxRows = Math.max(1, Math.floor((H - topPad * 2) / rowH));
+
+  // Greedy row packing; reserve room for the left/over label.
+  genes.sort((a, b) => (a.txStart || 0) - (b.txStart || 0));
+  const rowFree = [];   // right-most used px per row
+  const placed = [];
+  for (const gd of genes) {
+    const x0 = toX(gd.txStart), x1 = toX(gd.txEnd);
+    const label = String(gd.name || gd.id || '');
+    const labelW = label.length * CHAR_W + 6;
+    const extentR = Math.max(x1, x0 + labelW);
+    let row = rowFree.findIndex(r => x0 > r + 4);
+    if (row < 0) { row = rowFree.length; }
+    if (row >= maxRows) continue;
+    rowFree[row] = extentR;
+    placed.push({ gd, row, x0, x1, label });
+  }
+
+  const { ctx, w, h } = sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+  ctx.font = '10px sans-serif';
+
+  for (const p of placed) {
+    const gd = p.gd;
+    const yMid = topPad + p.row * rowH + rowH / 2;
+    const cls = gd.transcriptionClass || 'other';
+    const color = GENE_CLASS_COLORS[cls] || GENE_CLASS_COLORS.other;
+    const gx0 = Math.max(-2, p.x0), gx1 = Math.min(w + 2, p.x1);
+
+    // Intron line
+    ctx.strokeStyle = color; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(gx0, yMid + 0.5); ctx.lineTo(gx1, yMid + 0.5); ctx.stroke();
+
+    // Strand arrows along the body
+    const fwd = gd.strand !== '-';
+    ctx.fillStyle = color;
+    for (let x = gx0 + 6; x < gx1 - 2; x += 14) {
+      ctx.beginPath();
+      if (fwd) { ctx.moveTo(x, yMid - 3); ctx.lineTo(x + 4, yMid); ctx.lineTo(x, yMid + 3); }
+      else { ctx.moveTo(x + 4, yMid - 3); ctx.lineTo(x, yMid); ctx.lineTo(x + 4, yMid + 3); }
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Exons — thin box; thicker where inside the CDS.
+    const es = parseCommaInts(gd.exonStarts), ee = parseCommaInts(gd.exonEnds);
+    const cdsS = Number.isFinite(gd.cdsStart) ? gd.cdsStart : gd.txStart;
+    const cdsE = Number.isFinite(gd.cdsEnd) ? gd.cdsEnd : gd.txStart;
+    ctx.fillStyle = color;
+    for (let i = 0; i < es.length; i++) {
+      const exS = es[i], exE = ee[i];
+      if (exE <= start || exS >= end) continue;
+      const ex0 = toX(Math.max(exS, start)), ex1 = toX(Math.min(exE, end));
+      ctx.fillRect(ex0, yMid - 2.5, Math.max(1, ex1 - ex0), 5);          // UTR/exon
+      const cS = Math.max(exS, cdsS), cE = Math.min(exE, cdsE);
+      if (cE > cS) {
+        const c0 = toX(Math.max(cS, start)), c1 = toX(Math.min(cE, end));
+        ctx.fillRect(c0, yMid - 5, Math.max(1, c1 - c0), 10);            // CDS
+      }
+    }
+
+    // Label (left of the gene if room, else above its start)
+    ctx.fillStyle = '#3a3f57';
+    const lw = p.label.length * CHAR_W;
+    if (p.x0 - lw - 3 > 0) { ctx.textAlign = 'right'; ctx.fillText(p.label, p.x0 - 3, yMid); }
+    else { ctx.textAlign = 'left'; ctx.fillText(p.label, Math.max(2, p.x0), yMid - 7); }
+    ctx.textAlign = 'left';
+  }
+
+  if (track.metaEl) {
+    track.metaEl.textContent = genes.length
+      ? `${fmtInt(genes.length)} genes${placed.length < genes.length ? ` (${genes.length - placed.length} hidden)` : ''}`
+      : 'no genes in view';
+  }
 }
 
 // ── Ruler ────────────────────────────────────────────────────────────────────
@@ -721,6 +1116,15 @@ function updateHover(e) {
 // ── Wire up controls ─────────────────────────────────────────────────────────
 $('btnLoad').onclick = loadReference;
 $('btnAddTrack').onclick = addTrack;
+$('btnAddSeq').onclick = addSeqTrack;
+$('btnAddGene').onclick = addGeneTrack;
+$('genomeSel').onchange = onGenomeChange;
+$('savedTracks').onchange = onSavedTrackPick;
+$('btnForgetTracks').onclick = () => {
+  try { localStorage.removeItem(SAVED_TRACKS_KEY); } catch {}
+  refreshSavedTracksUI();
+  setStatus('Cleared saved tracks.');
+};
 $('btnGo').onclick = () => {
   const l = parseLocus($('locus').value);
   if (!l) { setStatus('Bad locus. Use e.g. chr1:3,000,000-3,050,000', true); return; }
@@ -732,8 +1136,13 @@ $('zoomOut').onclick = () => zoomBy(2);
 $('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack(); });
 window.addEventListener('resize', () => render());
 
-setStatus('Ready. Click “Load reference”, then “Add track”. ' +
-          'Test files from neomorph.salk.edu are pre-filled.');
+refreshSavedTracksUI();
+onGenomeChange();
+
+setStatus('Ready. Pick a Genome for DNA/gene tracks, or set a reference .cz URL and ' +
+          'click “Load reference”, then “+ Add cz track”. Data URLs need CORS + HTTP Range ' +
+          '(e.g. neomorph.salk.edu, Zenodo, S3/R2). Drag a track’s bottom edge to resize it.');
+
 </script>
 </body>
 </html>
