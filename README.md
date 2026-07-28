@@ -11,6 +11,7 @@ https://anaconda.org/bioconda/cytozip
 mamba install -c wubinding -c bioconda cytozip
 # or
 conda install -c wubinding -c bioconda cytozip
+# -c wubinding is optional, which may be the latest version
 ```
 
 ### pip

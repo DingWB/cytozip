@@ -513,14 +513,14 @@ conda install -c bioconda cytozip
 conda create -y -p ~/Software/conda/czbuild -c conda-forge \
     conda-build conda-forge-pinning anaconda-client
 # update meta.yaml (version & sha256sum)
-curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.7.tar.gz | sha256sum
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.8.tar.gz | sha256sum
 
 conda activate ~/Software/conda/czbuild
 rm -rf conda-build
 for PY in 3.10 3.11 3.12 3.13; do
   ~/Software/conda/czbuild/bin/conda build conda-recipe --python $PY -c conda-forge -c bioconda --output-folder conda-build
 done
-anaconda login # or use token: export ANACONDA_API_TOKEN=
+# anaconda login # or use token: export ANACONDA_API_TOKEN=
 anaconda upload conda-build/*/cytozip-*.conda -u wubinding
 
 conda install -c wubinding -c bioconda cytozip
@@ -529,4 +529,4 @@ conda install -c wubinding -c bioconda cytozip
 ## To-Do List
 - Peak calling using umc
 - Cell type prediction using Bayes model
-- Online cz visualizing tool
+- Online cz visualizing tool: modify pyGenomeTrack to support .cz file
