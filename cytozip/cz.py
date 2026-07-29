@@ -2475,7 +2475,7 @@ class Reader:
 			If True (default), create a tabix index (``.tbi``) after
 			writing via ``pysam.tabix_index``.
 		cov_col : str, optional
-			Name of a numeric column. When given, rows where the column
+			Name of a column from cz header['columns'] (such as cov). When given, rows where the column
 			is zero are dropped before writing (allc convention). Default
 			``None`` keeps all rows (suitable for array data, where 0 is
 			a valid beta value).
@@ -4149,8 +4149,8 @@ def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 # ==========================================================
 # Methylation-specific operations (merge_cz, merge_cell_type,
 # call_peaks, to_bedgraph, call_dmr_array, annot_dmr, WriteC, AllC, allc2cz, extractCG)
-# live in companion modules: allc.py, merge.py, dmr.py. This file is reserved
-# for the generic .cz format layer.
+# live in companion modules: allc.py, merge.py, dmr.py, peaks.py. This file is
+# reserved for the generic .cz format layer.
 # ==========================================================
 
 

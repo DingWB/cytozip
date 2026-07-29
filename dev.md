@@ -569,7 +569,377 @@ anaconda upload conda-build/*/cytozip-*.conda -u wubinding
 conda install -c wubinding -c bioconda cytozip
 ```
 
+## Cell-type prediction (`cytozip/model.py`)
+
+`model.py` provides a **site-likelihood (naive-Bayes) cell-type classifier**
+for shallow snm3C-seq. Given a query cell's per-cytosine `mc`/`cov` `.cz` and a
+set of cell-type **pseudobulk** `.cz` (deep reference), it predicts the most
+likely cell type.
+
+### Method in one paragraph
+
+For every reference cytosine `c` and cell type `t`, the pseudobulk methylation
+frequency is a Beta-shrinkage estimate
+`theta[c,t] = (mc + alpha0) / (cov + alpha0 + beta0)` (kept continuous, never
+binarized). A query cell with `mc`/`cov` at each site scores each type by the
+aggregated per-site Bernoulli log-likelihood
+`sum_c ( mc*log(theta) + (cov-mc)*log(1-theta) )`. CpG and CpH are modelled as
+two independent **channels** (own frequencies + shrinkage prior), summed in
+log-space with weights `lambda_cg`/`lambda_ch`, plus a class log-prior; a
+softmax over types gives calibrated probabilities. The CpG/CpH split comes from
+the `context` column of a `build_ref` reference `.cz`.
+
+Only **discriminative** sites are kept: the per-site score is the across-type
+range `theta.max - theta.min`; sites with score `== 0` (all types share the
+same theta) are dropped because they add an identical constant to every type
+and cancel in the softmax — dropping them is lossless. Use `top_cg`/`top_ch`
+(keep top-N) or `min_range_cg`/`min_range_ch` (keep score > threshold) to prune
+harder and shrink the model.
+
+### Two entry points
+
+- **`CellTypeClassifier`** — the class: `fit()` → `save()` / `load()` →
+  `predict()` / `predict_batch()` / `predict_multicell()` /
+  `predict_proba()` / `log_posterior()` / `site_importance()`.
+- **`predict_cell_type(...)`** — a one-shot wrapper that fits (or reuses a
+  saved model), predicts, and (with `outdir=`) writes everything to disk.
+
+### Quick start
+
+```python
+from cytozip.model import CellTypeClassifier, predict_cell_type
+
+# --- A) one-shot: fit + predict + write outputs ---
+labels, proba = predict_cell_type(
+    query="cells_dir_or_table_or.cz",     # see "query forms" below
+    pseudobulks="pseudobulk_dir/",        # or {cell_type: path} dict
+    reference="ref.cz",                   # build_ref .cz (pos/strand/context)
+    top_cg=50000, top_ch=50000,           # prune to keep the model small
+    n_jobs=-1,
+    outdir="~/out")                       # writes model + predictions here
+
+# --- B) explicit: fit once, save, reuse ---
+clf = CellTypeClassifier(lambda_cg=1.0, lambda_ch=1.0)
+clf.fit(pseudobulks="pseudobulk_dir/", reference="ref.cz",
+        top_cg=50000, top_ch=50000, outdir="~/out/model")
+clf.save("~/out/model")
+
+clf = CellTypeClassifier.load("~/out/model")   # arrays are mmap-ed, low RAM
+res = clf.predict("one_cell.cz")               # -> dict(label, confidence, proba, log_posterior)
+labels, proba = clf.predict_batch(["a.cz", "b.cz"], n_jobs=-1)
+```
+
+**`query` forms** (auto-detected): a single `.cz` (→ one prediction `dict`); a
+**concatenated multi-cell** `.cz` (a `catcz` output; → `(labels, proba)`); a
+**directory** of `.cz`; a 2-column `[cell_id, cz_path]` **table** (file or
+DataFrame); a `{cell_id: path}` dict or list of paths; or a preloaded
+`(mc, cov)` array pair. Local paths and **remote URLs** (`http(s)://`,
+`s3://`, `gs://`, `hf://`, ...) both work.
+
+### What `outdir/` contains
+
+| Path | What it is |
+|------|-----------|
+| `<outdir>/model/` | the saved model store (see below). If it already exists and is complete, `predict_cell_type` **skips fitting** and just loads it — so `pseudobulks`/`reference` need not be re-supplied. |
+| `<outdir>/predictions.csv` | one row per cell, index `cell_id`, columns `label`, `confidence` (the top softmax probability; `label='unassigned'` if below `abstain_threshold`). |
+| `<outdir>/predict_proba.csv` | cell × cell_type matrix of softmax posterior probabilities (rows sum to 1), index `cell_id`. |
+
+> The model store is written **directly** under `<outdir>/model` (real disk).
+> Without `outdir` it falls back to `$TMPDIR`/`/tmp`, which on HPC is often
+> RAM-backed (tmpfs) and can crash a large model with a **"Bus error"
+> (SIGBUS)** — pass `outdir=` on scratch/large disk if you hit that.
+
+### `model/` directory — file formats
+
+A saved model is a small **self-contained directory** of uncompressed NumPy
+arrays plus one JSON. Arrays are stored uncompressed on purpose so `load()` can
+**memory-map** them (`mmap_mode='r'`) and score chunk-by-chunk without ever
+holding the full `(n_sites × n_types)` table in RAM.
+
+```
+model/
+├── meta.json            # all scalars + axis + per-channel layout
+├── cg_log_theta.npy     # float32 (n_cg,  n_types)  = log(theta)   CpG channel
+├── cg_log1m_theta.npy   # float32 (n_cg,  n_types)  = log(1-theta) CpG channel
+├── cg_sites.npy         # int32   (n_cg,)           reference-row index per site
+├── ch_log_theta.npy     # float32 (n_ch,  n_types)  = log(theta)   CpH channel
+├── ch_log1m_theta.npy   # float32 (n_ch,  n_types)  = log(1-theta) CpH channel
+└── ch_sites.npy         # int32   (n_ch,)           reference-row index per site
+```
+
+Only the channels that have sites are written (a CG-only model has no `ch_*`).
+
+**`meta.json` fields**
+
+| Field | Meaning |
+|-------|---------|
+| `format` / `version` | `"cytozip.CellTypeClassifier"` / schema version (`3`). |
+| `alpha0_cg`,`beta0_cg`,`alpha0_ch`,`beta0_ch` | the Beta shrinkage prior actually used per channel. |
+| `lambda_cg`,`lambda_ch` | CpG/CpH log-space channel weights. |
+| `mc_col`,`cov_col`,`context_col` | column names expected in the `.cz` inputs. |
+| `cell_types` | ordered list of class names → this is the **column order** of the `*_log_theta.npy` matrices and of `predict_proba`. |
+| `cell_counts` | per-type reference cell counts (or `null`) for the abundance prior. |
+| `chunk_keys` | ordered list of chunk keys, e.g. `[["chr1"], ["chr2"], ...]` — the reference axis order. |
+| `chunk_lens` | per-chunk reference row count (aligned to `chunk_keys`); `sum == n_full`. |
+| `n_full` | total number of reference cytosines (the full all-C axis length). |
+| `cg`,`ch` | per-channel layout (or `null`): `alpha0`,`beta0`,`n_sites`, and `chunks = {chunk_id: [lo, hi]}` where `chunk_id` is the **index into `chunk_keys`** and `[lo, hi)` is the row range of that chunk inside the channel's concatenated arrays. |
+
+**How to read the arrays directly**
+
+```python
+import json, numpy as np, os
+d = os.path.expanduser("~/out/model")
+meta = json.load(open(f"{d}/meta.json"))
+types = meta["cell_types"]                    # column order
+
+lt = np.load(f"{d}/cg_log_theta.npy", mmap_mode="r")   # (n_cg, n_types) float32
+si = np.load(f"{d}/cg_sites.npy")                       # (n_cg,) int32
+
+theta = np.exp(lt[:])                          # methylation frequency per site×type
+# site i belongs to chromosome/chunk via meta['cg']['chunks']:
+#   for chunk_id, (lo, hi) in meta['cg']['chunks'].items():
+#       chrom = meta['chunk_keys'][int(chunk_id)][0]
+#       si[lo:hi] are that chrom's reference-row indices for these sites
+```
+
+- `*_log_theta.npy[i, t]` = `log(theta[site i, type t])` → `exp` to get the
+  methylation frequency (0–1) of cell type `t` at that site.
+- `*_log1m_theta.npy` = `log(1 - theta)` (precomputed only to speed scoring;
+  it is recoverable as `log1p(-exp(log_theta))`).
+- `*_sites.npy[i]` = the **row index within that chromosome's reference axis**
+  of site `i` (i.e. which reference cytosine). Map to a genomic coordinate by
+  reading the same `build_ref` reference `.cz` chunk at that row (or, more
+  conveniently, use `site_importance(reference=...)`).
+
+Because `load()` only mmaps these, a model can be **10s of GB on disk yet score
+with a small RAM footprint**; pruning at fit time (`top_*` / `min_range_*`) is
+the main lever to shrink both.
+
+### Biological interpretation — `site_importance()`
+
+`clf.site_importance(reference=None, top=None, include_theta=True)` ranks the
+model's kept cytosines by how discriminative they are and returns a
+`pandas.DataFrame` sorted by importance. **Importance is exactly the signal
+`fit()` selects on**: the across-cell-type methylation-frequency range
+`theta.max - theta.min`. Large values = differentially methylated across cell
+types (the biologically meaningful markers).
+
+```python
+imp = clf.site_importance(reference="ref.cz", top=1000)   # top 1000 markers
+imp.to_csv("top_sites.csv", index=False)
+```
+
+Output columns:
+
+| Column | Meaning |
+|--------|---------|
+| `context` | `CG` or `CH`. |
+| `chrom` | chromosome (from the model's chunk key). |
+| `ref_row` | index within that chromosome's reference axis (= `*_sites.npy` value). |
+| `importance` | `theta.max - theta.min` across cell types (bigger = more discriminative). |
+| `top_type` | cell type with the **highest** methylation at that site. |
+| `min_type` | cell type with the **lowest** methylation there. |
+| `pos`,`strand`,`ref_context` | genomic coordinate / context (only when `reference=` is given). |
+| one column per cell type | that type's `theta` (methylation frequency), when `include_theta=True`. |
+
+Typical uses: group by `context` for CG vs CH markers; annotate `pos` against
+genes/enhancers/DMRs; for a target cell type, filter `top_type == <type>` with
+high `importance` to get that type's characteristic (hyper-methylated) markers.
+For large models pass `top=` to bound the table.
+
+### Per-cell-type motif FASTA — `top_cytosine_fasta()`
+
+`top_cytosine_fasta(importance, genome, ...)` turns a `site_importance` table
+(built with `reference=` so it has `pos`/`strand`) into flanking-sequence
+FASTA: for each cell type and each context (CG / CH), it takes the `top_n` most
+important cytosines and extracts `flank` bp on each side from a genome FASTA
+(minus-strand sites are reverse-complemented so the C stays centred). Feed the
+per-type files to a motif finder (MEME/HOMER).
+
+```python
+from cytozip.model import top_cytosine_fasta
+
+imp = clf.site_importance(reference="ref.cz")            # must include pos/strand
+top_cytosine_fasta(
+    imp, genome="genome.fa",          # indexed (.fai beside it) or pysam.FastaFile
+    flank=50, top_n=200,              # window = 2*flank+1 bp, top 200 per (type, context)
+    group_col="top_type",             # or "min_type"
+    out_fasta="~/out/top_motifs.fa",  # one combined FASTA
+    split_dir="~/out/motifs")         # + one FASTA per <cell_type>.<context>.fa
+```
+
+FASTA headers encode everything: `>{cell_type}|{context}|{chrom}:{pos}:{strand}|imp={importance}`.
+Needs `pysam` (reads the genome via a `.fai` index); `pos_base` defaults to 1
+(1-based coordinates), and edge windows are dropped unless
+`drop_incomplete=False`.
+
+### Other predict-time options
+
+- `max_query_cg` / `max_query_ch` (on `predict*`): randomly keep at most that
+  many of the query's **covered** cytosines per channel (downsampling); `None`
+  uses all. Re-drawn per cell.
+- `prior_alpha` + `cell_counts`: temper the abundance prior (`0` = uniform).
+- `abstain_threshold`: label a cell `'unassigned'` when top probability is below it.
+
+## Bulk deconvolution (`deconvolve` / `deconvolve_bulk`)
+
+The **same** cell-type pseudobulk reference used for classification can also
+**deconvolve a bulk sample into cell-type fractions**. Instead of asking "which
+single type is this cell?", deconvolution asks "what mixture of cell types
+produced this bulk?" — given a bulk **WGBS** `.cz` (or a methylation-**array**
+beta profile) and the per-type reference frequencies `theta[c,t]`, it solves
+for fractions `f_t` such that `bulk_beta[c] ≈ sum_t f_t * theta[c,t]`.
+
+### Method in one paragraph
+
+At the model's discriminative (marker) sites, the bulk methylation level
+`beta[c] = mc/cov` is modelled as a **coverage-weighted linear mixture** of the
+reference cell types. The fractions are found by **constrained least squares**:
+non-negativity (`f_t ≥ 0`) via NNLS, plus (by default) a **sum-to-one**
+equality `sum_t f_t = 1` via SLSQP — a Houseman/CIBERSORT-style reference-based
+deconvolution. Deep sites weigh more (`weight = cov`); a methylation array
+(beta only, no coverage) falls back to ordinary least squares.
+
+### Entry points
+
+- **`CellTypeClassifier.deconvolve()`** — one bulk → a `pandas.Series` of
+  fractions (index = cell types); `.attrs['r2']` / `.attrs['n_sites']` report
+  fit quality. Also `deconvolve_batch()` (many bulks → a fractions DataFrame)
+  and `deconvolve_multicell()` (many bulks packed in one cat `.cz`).
+- **`deconvolve_bulk(...)`** — one-shot wrapper that fits (or reuses a saved
+  model) and deconvolves, mirroring `predict_cell_type(...)`.
+
+### Quick start
+
+```python
+from cytozip.model import CellTypeClassifier, deconvolve_bulk
+
+# --- A) one-shot: fit reference + deconvolve + write fractions.csv ---
+frac = deconvolve_bulk(
+    query="bulk_wgbs.cz",                 # a .cz / dir / table / cat .cz / beta array
+    pseudobulks="pseudobulk_dir/",        # or {cell_type: path} dict
+    reference="ref.cz",                   # build_ref .cz (pos/strand/context)
+    contexts="cg",                        # "cg" (default) | "ch" | "cg+ch"
+    top_cg=50000,                         # prune markers to keep the model small
+    outdir="~/out")                       # writes model + fractions.csv here
+
+# --- B) explicit: reuse a fitted/saved model ---
+clf = CellTypeClassifier.load("~/out/model")     # mmap-ed, low RAM
+frac = clf.deconvolve("bulk_wgbs.cz", contexts="cg")
+print(frac)                    # Series: fraction per cell type (sums to 1)
+print(frac.attrs["r2"], frac.attrs["n_sites"])   # fit quality
+
+# many bulks at once -> DataFrame (rows = samples, cols = types + r2 + n_sites)
+frac_df = clf.deconvolve_batch(["bulkA.cz", "bulkB.cz"], contexts="cg", n_jobs=-1)
+```
+
+### Options
+
+| Option | Meaning |
+|--------|---------|
+| `contexts` | `'cg'` (default; the only choice for arrays, and the usual one for WGBS), `'ch'`, or `'cg+ch'` to use both channels jointly. |
+| `weight_by_cov` | weight each site by its bulk coverage (weighted LS). Default `True`; ignored for array beta input (no coverage). |
+| `sum_to_one` | constrain fractions to sum to 1 (default `True`). `False` → plain NNLS (fractions need not sum to 1). |
+| `allow_unknown` | with `sum_to_one=True`, relax to `sum ≤ 1` and report the remainder as an extra **`'unknown'`** fraction (an unmodelled compartment). |
+| `min_cov` | only use bulk sites with `cov ≥ this` (default 1). |
+| `n_jobs` | threads for `deconvolve_batch` / `deconvolve_multicell`. |
+
+### Methylation-array (beta) input
+
+An array (e.g. Illumina 450K/EPIC) has no coverage — pass a **full-axis 1-D
+beta `np.ndarray`** aligned to the reference axis; it is treated as unit
+coverage (`beta = mc/cov`), so weighting falls back to ordinary least squares.
+Use `contexts='cg'` (arrays are CpG-only).
+
+```python
+import numpy as np
+beta = np.load("array_beta_full_axis.npy")   # length == n reference cytosines
+frac = clf.deconvolve(beta, contexts="cg")
+```
+
+### `query` forms & outputs
+
+`deconvolve` / `deconvolve_bulk` accept the same auto-detected `query` forms as
+`predict_cell_type` — a single `.cz`, a **cat** multi-sample `.cz`, a
+**directory**, a `[sample_id, cz_path]` **table**, a `{sample_id: path}` dict /
+list, a preloaded `(mc, cov)` pair, or (bulk-only) a full-axis **beta** array.
+A single sample returns a `Series`; anything batch-like returns a DataFrame
+(rows = samples; columns = cell-type fractions [+ `'unknown'`] then `r2`,
+`n_sites`). With `outdir=`, fractions are written to `<outdir>/fractions.csv`
+and the fitted model reused from `<outdir>/model` if already complete.
+
+## Peak calling from methylation (`call_peaks` / `call_peaks_bdg`)
+
+CpG **hypomethylation** marks open chromatin / regulatory elements, so the
+per-site **unmethylated count** `umc = cov - mc` can be used as an ATAC-like
+signal and fed to **MACS3** for peak calling. Two routes are provided (both in
+`cytozip/dmr.py`), and both run on a **pseudobulk** single-track `.cz` (merge
+same-type cells first with `merge_cz`; single cells are too sparse).
+
+> **Always pass a coverage control** (`control='cov'`). `umc` is confounded by
+> depth and CpG density; using total `cov` as the MACS3 input track makes peaks
+> reflect *local unmethylation enrichment* (`umc/cov` above the global rate),
+> not just deeply covered / CpG-island regions.
+
+### Two routes
+
+| | `call_peaks` (pseudo-reads) | `call_peaks_bdg` (bedGraph) |
+|---|---|---|
+| How | expands each site into `umc` pseudo-reads → `macs3 callpeak` | difference-array pileup → `macs3 bdgopt`→`bdgcmp`→`bdgpeakcall` |
+| Memory | grows with `sum(umc)` (large on deep pseudobulks) | `O(n_sites)`, independent of `sum(umc)` |
+| Output | `<name>_peaks.narrowPeak` (+ MACS3 files) | `<name>_peaks.narrowPeak` |
+| Use when | small/medium tracks, want full MACS3 output | deep pseudobulks (recommended) |
+
+### Quick start
+
+```python
+import cytozip as czip
+
+# A) pseudo-read route + coverage control
+czip.call_peaks(
+    input="pseudobulk.cz", reference="mm10.allc.cz",
+    index="mm10.CGN.index",        # CpG-only (CpH is a different signal)
+    control="cov",                 # coverage control track (macs3 -c) — recommended
+    genome_size="mm", fragment_size=300, qvalue=0.05,
+    name="celltypeA")
+
+# B) memory-efficient bedGraph route (preferred for deep pseudobulks)
+czip.call_peaks_bdg(
+    input="pseudobulk.cz", reference="mm10.allc.cz",
+    index="mm10.CGN.index", control="cov",
+    ext=300, method="ppois", cutoff=2.0,   # cutoff = -log10(p) for ppois
+    name="celltypeA")
+```
+
+CLI:
+
+```bash
+czip call_peaks     -I pseudobulk.cz -r mm10.allc.cz -s mm10.CGN.index \
+                    --control cov -g mm -n celltypeA
+czip call_peaks_bdg -I pseudobulk.cz -r mm10.allc.cz --index mm10.CGN.index \
+                    --control cov --ext 300 --cutoff 2.0 -n celltypeA
+```
+
+### Key options
+
+| Option | Meaning |
+|--------|---------|
+| `signal` | `'unmeth'` = `cov-mc` (default, open-chromatin proxy) or `'meth'` = `mc`. |
+| `control` | coverage-bias control track: `'cov'` (recommended) / `'mc'`. `call_peaks` also accepts `None` (genome background only, less specific); `call_peaks_bdg` always uses one. |
+| `index` | context-filter index (e.g. a CpG-only `index_context` output) — use CpG for open chromatin. |
+| `min_cov` | drop sites with `cov <` this (default 1). |
+| `fragment_size` / `ext` | bp each site's count is spread over (default 300). |
+| `qvalue` (`call_peaks`) | MACS3 `callpeak -q` cutoff. |
+| `method` / `cutoff` / `min_len` / `max_gap` (`call_peaks_bdg`) | `bdgcmp` score method (`ppois`…), `bdgpeakcall` score cutoff, min peak length (default `ext`), max merge gap (default `ext//2`). |
+
+`to_bedgraph(...)` additionally dumps a per-site `unmeth` / `meth` /
+`frac_unmeth` bedGraph for browsers or manual `macs3 bdgpeakcall`.
+
+> MACS3's Poisson model is an approximation to `umc ~ Binomial(cov, 1-p)`, so
+> treat the reported p/q values as ranking thresholds, not exact FDR.
+
 ## To-Do List
-- Peak calling using umc
-- Cell type prediction using Bayes model
+- [x] Peak calling using umc (see "Peak calling from methylation" above)
+- [x] Cell type prediction using Bayes model (see "Cell-type prediction" above)
+- [x] Bulk deconvolution into cell-type fractions (see "Bulk deconvolution" above)
 - Online cz visualizing tool: modify pyGenomeTrack to support .cz file

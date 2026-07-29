@@ -2,7 +2,7 @@
 
 ## 1. 模型与参数化
 
-每个位点 $i$ 有覆盖 $n_i$、甲基化计数 $k_i$。假设位点真实甲基化率 $p_i \sim \text{Beta}(\alpha, \beta)$，观测 $k_i \mid p_i \sim \text{Binomial}(n_i, p_i)$。
+每个位点 $i$ 有覆盖 $n_i$ 、甲基化计数 $k_i$ 。假设位点真实甲基化率 $p_i \sim \text{Beta}(\alpha, \beta)$ ，观测 $k_i \mid p_i \sim \text{Binomial}(n_i, p_i)$ 。
 
 用两个更好解释的参数：
 
@@ -28,7 +28,7 @@ $$
 \operatorname{Var}(k_i) = n_i\, \mu(1-\mu)\, \bigl[\, 1 + (n_i - 1)\rho \,\bigr]
 $$
 
-比纯 Binomial 多了过离散因子 $[1 + (n_i - 1)\rho]$——这正是"用 cov 校正"的来源。$\rho = 0$ 退化为 Binomial。
+比纯 Binomial 多了过离散因子 $[1 + (n_i - 1)\rho]$ ——这正是"用 cov 校正"的来源。 $\rho = 0$ 退化为 Binomial。
 
 ## 3. 矩估计（可处理不等覆盖，推荐）
 
@@ -50,13 +50,13 @@ $$
 E\!\left[\frac{(k_i - n_i \mu)^2}{n_i \mu(1-\mu)}\right] = 1 + (n_i - 1)\rho
 $$
 
-所以 $E[X] = N + \rho \sum_i (n_i - 1)$（$N$ = 位点数）。令 $X = E[X]$ 解出
+所以 $E[X] = N + \rho \sum_i (n_i - 1)$ （ $N$ = 位点数）。令 $X = E[X]$ 解出
 
 $$
 \boxed{\ \hat\rho = \frac{X - N}{\sum_i (n_i - 1)}\ }
 $$
 
-（更严的自由度修正把分子 $N$ 换成 $N-1$，即 Tarone 1979 的形式；数据量大时差别可忽略。）
+（更严的自由度修正把分子 $N$ 换成 $N-1$ ，即 Tarone 1979 的形式；数据量大时差别可忽略。）
 
 **转成 α, β**：
 
@@ -68,13 +68,13 @@ $$
 
 ## 4. 等价的"频率方差"直觉版（覆盖近似相等时）
 
-设 $f_i = k_i / n_i$，则
+设 $f_i = k_i / n_i$ ，则
 
 $$
 \operatorname{Var}(f_i) = \mu(1-\mu)\left[\frac{1}{n_i} + \left(1 - \frac{1}{n_i}\right)\rho\right]
 $$
 
-若各位点覆盖 $\approx \bar n$，用观测方差 $s^2 = \operatorname{Var}(f_i)$ 解：
+若各位点覆盖 $\approx \bar n$ ，用观测方差 $s^2 = \operatorname{Var}(f_i)$ 解：
 
 $$
 \hat\rho = \frac{\dfrac{s^2}{\mu(1-\mu)} - \dfrac{1}{\bar n}}{1 - \dfrac{1}{\bar n}}
@@ -84,24 +84,24 @@ $$
 
 ## 5. 边界与实现要点
 
-- **裁剪** $\hat\rho \in (\epsilon,\ 1-\epsilon)$：
-  - $\hat\rho \le 0$（欠离散 / 被抽样噪声压过）→ 令 $\rho \to \epsilon$，即 $\kappa$ 很大（强 prior）；
-  - $\hat\rho \to 1$ → $\kappa \to 0$（几乎无收缩）。
-- $\hat\mu$ 也裁剪到 $(\epsilon, 1-\epsilon)$，避免 $\log$ 发散。
-- **过滤 $n_i = 0$**，最好 $n_i \ge 2$（$n_i = 1$ 对 $\sum(n_i - 1)$ 无贡献且噪声大）。
+- **裁剪** $\hat\rho \in (\epsilon,\ 1-\epsilon)$ ：
+  - $\hat\rho \le 0$ （欠离散 / 被抽样噪声压过）→ 令 $\rho \to \epsilon$ ，即 $\kappa$ 很大（强 prior）；
+  - $\hat\rho \to 1$ → $\kappa \to 0$ （几乎无收缩）。
+- $\hat\mu$ 也裁剪到 $(\epsilon, 1-\epsilon)$ ，避免 $\log$ 发散。
+- **过滤 $n_i = 0$**，最好 $n_i \ge 2$ （ $n_i = 1$ 对 $\sum(n_i - 1)$ 无贡献且噪声大）。
 - **CpG / CpH 分开各估一套**（背景完全不同）。
 - 在**深测序 pseudobulk 参考**上估，而非浅测序 query cell。
 
 ## 附：与 ALLCools 的区别
 
-ALLCools（`calculate_posterior_mc_frac`）用的是**纯 Beta 矩估计**：直接对观测率 $f_i = mc/cov$ 求均值 $\mu$ 和方差 $\sigma^2$，套用
+ALLCools（`calculate_posterior_mc_frac`）用的是**纯 Beta 矩估计**：直接对观测率 $f_i = mc/cov$ 求均值 $\mu$ 和方差 $\sigma^2$ ，套用
 
 $$
 \alpha = \mu\left[\frac{\mu(1-\mu)}{\sigma^2} - 1\right], \qquad
 \beta = \alpha\left(\frac{1}{\mu} - 1\right)
 $$
 
-它**没有扣除 binomial 抽样噪声**（$\sigma^2$ 里混了抽样方差），所以在低覆盖数据上会高估方差、低估浓度 $\kappa$。上面的 Beta-Binomial 版本通过第 2 节的过离散因子对覆盖做了校正。
+它**没有扣除 binomial 抽样噪声**（ $\sigma^2$ 里混了抽样方差），所以在低覆盖数据上会高估方差、低估浓度 $\kappa$ 。上面的 Beta-Binomial 版本通过第 2 节的过离散因子对覆盖做了校正。
 
 > 说明：当前 `ALLCools/mcds/utilities.py` 里的 `calculate_posterior_mc_frac` 已改为本文第 3 节的 Beta-Binomial 矩估计实现；下方 `calculate_posterior_mc_frac_deprecated` 保留的是旧的纯 Beta-MoM。
 
@@ -120,21 +120,21 @@ $$
 - **旧方法**把整个 $\operatorname{Var}(f_i)$ 都当作 Beta 离散，于是**高估方差、低估浓度 $\kappa$**——先验被当成"比真实更宽"，收缩太弱。
 - **新方法**用第 2 节的过离散因子 $[1+(n_i-1)\rho]$ 显式扣掉了 $1/n_i$ 那一项，得到的是**真实的位点间离散 $\rho$**。
 
-覆盖越低（$n_i$ 越小），抽样噪声项越大，旧方法的偏差越严重——而单细胞甲基化恰恰是低覆盖场景。
+覆盖越低（ $n_i$ 越小），抽样噪声项越大，旧方法的偏差越严重——而单细胞甲基化恰恰是低覆盖场景。
 
 ### 6.2 正确处理不等覆盖（按 $n_i$ 加权）
 
-- 旧方法对每个位点的 $f_i$ **等权**求均值/方差：一个 $cov=1$ 的位点（$f_i$ 只能取 0 或 1，噪声极大）和一个 $cov=100$ 的位点被同等对待。
-- 新方法的 $\hat\mu=\sum k_i/\sum n_i$ 是**按覆盖加权**的池化估计，$X$ 统计量对每个 $n_i$ 单独加权，天然地让高覆盖位点贡献更多、低覆盖位点贡献更少。
+- 旧方法对每个位点的 $f_i$ **等权**求均值/方差：一个 $cov=1$ 的位点（ $f_i$ 只能取 0 或 1，噪声极大）和一个 $cov=100$ 的位点被同等对待。
+- 新方法的 $\hat\mu=\sum k_i/\sum n_i$ 是**按覆盖加权**的池化估计， $X$ 统计量对每个 $n_i$ 单独加权，天然地让高覆盖位点贡献更多、低覆盖位点贡献更少。
 
 ### 6.3 均值估计更稳、无 $0/0$ 病态
 
-- 旧方法先对每个位点算 $f_i=mc/cov$ 再平均，$cov=0$ 会产生 `NaN`、$cov$ 很小时 $f_i$ 抖动剧烈。
-- 新方法先求和再相除（$\sum k_i / \sum n_i$），对 $cov=0$ 的位点自然免疫，估计更平滑。
+- 旧方法先对每个位点算 $f_i=mc/cov$ 再平均， $cov=0$ 会产生 `NaN`、 $cov$ 很小时 $f_i$ 抖动剧烈。
+- 新方法先求和再相除（ $\sum k_i / \sum n_i$ ），对 $cov=0$ 的位点自然免疫，估计更平滑。
 
 ### 6.4 参数有明确、可解释的物理含义
 
-新方法把先验拆成 $\mu$（背景甲基化水平）和 $\rho$（位点内相关 / 过离散），二者都可解释、可分别裁剪；CpG / CpH 背景差异也能自然体现在各自的 $\rho$ 上。
+新方法把先验拆成 $\mu$ （背景甲基化水平）和 $\rho$ （位点内相关 / 过离散），二者都可解释、可分别裁剪；CpG / CpH 背景差异也能自然体现在各自的 $\rho$ 上。
 
 ### 6.5 下游后验一致
 
@@ -142,7 +142,7 @@ $$
 
 ### 6.6 什么时候两者差别不大
 
-当所有位点覆盖都很高且大致相等（$n_i \gg 1$、$\bar n$ 接近）时，抽样噪声项 $1/n_i \to 0$，两种方法趋于一致。**差别主要出现在低覆盖、覆盖高度不均的数据上**——也就是单细胞甲基化的典型情形，因此推荐新方法。
+当所有位点覆盖都很高且大致相等（ $n_i \gg 1$ 、 $\bar n$ 接近）时，抽样噪声项 $1/n_i \to 0$ ，两种方法趋于一致。**差别主要出现在低覆盖、覆盖高度不均的数据上**——也就是单细胞甲基化的典型情形，因此推荐新方法。
 
 ### 局限与注意
 
@@ -312,7 +312,7 @@ The same Beta-Binomial MoM is used in two places, with different pooling axes:
 
 ## 8. 后验甲基化分数（Posterior methylation fraction）
 
-有了每个细胞的 Beta 先验 $\text{Beta}(\alpha,\beta)$（第 3 节的矩估计）后，某位点/特征观测到 $mc$ 个甲基化、覆盖 $cov$，由 Beta–Binomial 的**共轭性**得到该位点真实甲基化率的后验：
+有了每个细胞的 Beta 先验 $\text{Beta}(\alpha,\beta)$ （第 3 节的矩估计）后，某位点/特征观测到 $mc$ 个甲基化、覆盖 $cov$ ，由 Beta–Binomial 的**共轭性**得到该位点真实甲基化率的后验：
 
 $$
 p \mid mc, cov \ \sim\ \text{Beta}\bigl(\alpha + mc,\ \beta + cov - mc\bigr)
@@ -338,17 +338,17 @@ $$
 
 覆盖 $cov$ 越低，权重 $w$ 越小，越向背景 $\mu$ 收缩，从而**扣除低覆盖的抽样噪声**；覆盖越高越保留观测本身。这正是它比原始分数 $mc/cov$ 更稳的原因。
 
-**可选的按细胞归一化（ALLCools 口径）**：$\widehat{p}_{\text{post}} / \mu$，使 $cov=0$ 的特征归一化率恒为 1（即"无信息"）。
+**可选的按细胞归一化（ALLCools 口径）**： $\widehat{p}_{\text{post}} / \mu$ ，使 $cov=0$ 的特征归一化率恒为 1（即"无信息"）。
 
 **cytozip 实现要点**（`features.py`）：
 
-- `score='posterior_frac'` 时 `.X` 存**未归一化**的后验均值 $\dfrac{mc+\alpha}{cov+\alpha+\beta}$（尺度仍在 $[0,1]$，与 `frac` 可比）。
-- 仅在**覆盖到的条目**（$cov>0$）上计算；未覆盖条目保持隐式 0（与 `frac` 相同的稀疏结构）。
-- $\alpha,\beta$ 为**每个细胞一套**（对该细胞的所有特征池化），写入 `adata.obs['alpha','beta','prior_mean','rho']`；退化细胞（$\alpha/\beta$ 为 NaN）回退到原始分数 $mc/cov$。
+- `score='posterior_frac'` 时 `.X` 存**未归一化**的后验均值 $\dfrac{mc+\alpha}{cov+\alpha+\beta}$ （尺度仍在 $[0,1]$ ，与 `frac` 可比）。
+- 仅在**覆盖到的条目**（ $cov>0$ ）上计算；未覆盖条目保持隐式 0（与 `frac` 相同的稀疏结构）。
+- $\alpha,\beta$ 为**每个细胞一套**（对该细胞的所有特征池化），写入 `adata.obs['alpha','beta','prior_mean','rho']`；退化细胞（ $\alpha/\beta$ 为 NaN）回退到原始分数 $mc/cov$ 。
 
 ## 9. 高变特征累加量与离散度（HVF：`hvf_n_cov` / `hvf_sum` / `hvf_sum_sq`、var、dispersion、normalized dispersion）
 
-为了在**不重新读取矩阵**（甚至跨多个文件合并）的前提下选出高变特征（HVF），对每个特征 $j$ 存三个**可加**的累加量。设 $f_{ij}$ 为细胞 $i$ 在特征 $j$ 上的甲基化分数（默认用第 8 节的后验均值，退化细胞回退原始 $mc/cov$；也可设 `hvf_frac='raw'` 直接用 $mc/cov$），只在覆盖到的细胞（$cov_{ij}>0$）上累加：
+为了在**不重新读取矩阵**（甚至跨多个文件合并）的前提下选出高变特征（HVF），对每个特征 $j$ 存三个**可加**的累加量。设 $f_{ij}$ 为细胞 $i$ 在特征 $j$ 上的甲基化分数（默认用第 8 节的后验均值，退化细胞回退原始 $mc/cov$ ；也可设 `hvf_frac='raw'` 直接用 $mc/cov$ ），只在覆盖到的细胞（ $cov_{ij}>0$ ）上累加：
 
 $$
 \text{hvf\_n\_cov}_j = \sum_i \mathbb{1}(cov_{ij}>0), \qquad
@@ -371,13 +371,13 @@ $$
 \text{disp}_j = \frac{\text{var}_j}{\text{mean}_j}
 $$
 
-**归一化离散度（normalized dispersion，scanpy 'seurat' 口径）**：把所有特征按 $\text{mean}$ 分到 $K$ 个箱（例如 $K=20$），在**每个箱内**对 dispersion 做 z-score，避免只挑到高均值特征：
+**归一化离散度（normalized dispersion，scanpy 'seurat' 口径）**：把所有特征按 $\text{mean}$ 分到 $K$ 个箱（例如 $K=20$ ），在**每个箱内**对 dispersion 做 z-score，避免只挑到高均值特征：
 
 $$
 \text{ndisp}_j = \frac{\text{disp}_j - \mu_{b(j)}}{\sigma_{b(j)}}
 $$
 
-其中 $b(j)$ 是特征 $j$ 所在的均值箱，$\mu_{b},\sigma_{b}$ 是该箱内 dispersion 的均值与标准差。最后取 $\text{ndisp}$ 最高的 top-$n$ 个特征作为 HVF。
+其中 $b(j)$ 是特征 $j$ 所在的均值箱， $\mu_{b},\sigma_{b}$ 是该箱内 dispersion 的均值与标准差。最后取 $\text{ndisp}$ 最高的 top-$n$ 个特征作为 HVF。
 
 **为什么只存三个累加量**：`mean/var/dispersion` 都能由 $(\text{hvf\_n\_cov},\text{hvf\_sum},\text{hvf\_sum\_sq})$ 精确重构，而这三者可加 —— 所以合并多个 `.h5ad`（例如 `AnnDataCollection.from_files(..., var_agg='sum')`）后能在**合并后的全体细胞**上正确重算 HVF。**注意**：`mean/var/dispersion` 本身**不可加**，不要直接对它们求和；尤其 `normalized dispersion` 依赖全体特征的分箱，必须**最后一步**统一计算。覆盖细胞数少于阈值（如 `min_cells`）的特征在选择时置为不合格。
 
@@ -462,17 +462,17 @@ where $b(j)$ is feature $j$'s mean-bin and $\mu_{b},\sigma_{b}$ are the mean and
 
 ## 10. 参考频率的 Beta 收缩估计（`estimate_theta`）
 
-对每个判别性位点 $c$、候选类型 $t$，用第 3 节的矩估计先验 $\text{Beta}(\alpha_0,\beta_0)$ 对参考甲基化频率做**收缩估计**（等价于第 8 节的后验均值）：
+对每个判别性位点 $c$ 、候选类型 $t$ ，用第 3 节的矩估计先验 $\text{Beta}(\alpha_0,\beta_0)$ 对参考甲基化频率做**收缩估计**（等价于第 8 节的后验均值）：
 
 $$
 \theta_{c,t} = \frac{m_{c,t} + \alpha_0}{n_{c,t} + \alpha_0 + \beta_0}
 $$
 
-其中 $m_{c,t}$ 为该类型在位点 $c$ 的甲基化计数、$n_{c,t}$ 为覆盖。要求 $\alpha_0,\beta_0>0$，从而 $\theta\in(0,1)$ 开区间，$\log\theta$、$\log(1-\theta)$ 不发散。频率**保持连续、绝不二值化**——判别信号恰恰藏在中间频率里。
+其中 $m_{c,t}$ 为该类型在位点 $c$ 的甲基化计数、 $n_{c,t}$ 为覆盖。要求 $\alpha_0,\beta_0>0$ ，从而 $\theta\in(0,1)$ 开区间， $\log\theta$ 、 $\log(1-\theta)$ 不发散。频率**保持连续、绝不二值化**——判别信号恰恰藏在中间频率里。
 
 ## 11. CpG / CpH 双通道
 
-CpG 与 CpH 的背景甲基化完全不同，故建成**两个独立通道**，各自有自己的频率与收缩先验（$\alpha_0,\beta_0$ 由 `estimate_beta_prior` 在**该通道池化的参考计数**上分别估计）。CpG/CpH 的划分来自 `context` 列的第 2 个碱基：$G\Rightarrow$ CpG（如 `CGN`），$A/C/T\Rightarrow$ CpH（如 `CAC`），其它（如 `CNN`）两者都不属于、丢弃。因此**单个装了所有胞嘧啶的 `.cz` 就够了**，无需预先拆成 CG / CH 两个文件；context 通常来自单独的 `build_ref` 参考（`reference=`，含 `pos, strand, context`），因为细胞类型文件一般只存 `mc`/`cov`。
+CpG 与 CpH 的背景甲基化完全不同，故建成**两个独立通道**，各自有自己的频率与收缩先验（ $\alpha_0,\beta_0$ 由 `estimate_beta_prior` 在**该通道池化的参考计数**上分别估计）。CpG/CpH 的划分来自 `context` 列的第 2 个碱基： $G\Rightarrow$ CpG（如 `CGN`）， $A/C/T\Rightarrow$ CpH（如 `CAC`），其它（如 `CNN`）两者都不属于、丢弃。因此**单个装了所有胞嘧啶的 `.cz` 就够了**，无需预先拆成 CG / CH 两个文件；context 通常来自单独的 `build_ref` 参考（`reference=`，含 `pos, strand, context`），因为细胞类型文件一般只存 `mc`/`cov`。
 
 ## 12. 判别性位点选择（`_select_discriminative`）
 
@@ -482,17 +482,17 @@ $$
 s_c = \max_t \theta_{c,t} - \min_t \theta_{c,t}
 $$
 
-各类型分歧最大的位点携带最多分类信息，而甲基化恒定（$s_c\approx 0$）的位点无信息、丢弃。`top=None` 时保留所有 $s_c \ge \text{min\_range}$ 的位点；`top` 为整数则取分数最高的 top-$N$；`top` 为 $(0,1]$ 的浮点则取最高的那一比例。CpG / CpH 各自独立选择。
+各类型分歧最大的位点携带最多分类信息，而甲基化恒定（ $s_c\approx 0$ ）的位点无信息、丢弃。`top=None` 时保留所有 $s_c \ge \text{min\_range}$ 的位点；`top` 为整数则取分数最高的 top-$N$ ；`top` 为 $(0,1]$ 的浮点则取最高的那一比例。CpG / CpH 各自独立选择。
 
 ## 13. 位点似然打分（每通道）
 
-query 细胞在位点 $c$ 观测到 $mc_c$ 个甲基化、$cov_c$ 次覆盖（$umc_c = cov_c - mc_c$ 为未甲基化）。在类型 $t$ 下，把每个位点当作 **Bernoulli** 观测并在选中的判别位点上聚合对数似然：
+query 细胞在位点 $c$ 观测到 $mc_c$ 个甲基化、 $cov_c$ 次覆盖（ $umc_c = cov_c - mc_c$ 为未甲基化）。在类型 $t$ 下，把每个位点当作 **Bernoulli** 观测并在选中的判别位点上聚合对数似然：
 
 $$
 \ell_t = \sum_c \Bigl[\, mc_c\,\log\theta_{c,t} + (cov_c - mc_c)\,\log(1-\theta_{c,t}) \,\Bigr]
 $$
 
-实现上预存 $\log\theta$ 与 $\log(1-\theta)$ 矩阵（$n_\text{sites}\times n_\text{types}$），打分即两次矩阵-向量乘：$\ell = mc \cdot \log\theta + umc \cdot \log(1-\theta)$。
+实现上预存 $\log\theta$ 与 $\log(1-\theta)$ 矩阵（ $n_\text{sites}\times n_\text{types}$ ），打分即两次矩阵-向量乘： $\ell = mc \cdot \log\theta + umc \cdot \log(1-\theta)$ 。
 
 ## 14. 通道合并、丰度先验与后验
 
@@ -503,7 +503,7 @@ $$
 $$
 
 - $\lambda_\text{cg},\lambda_\text{ch}$ 为通道权重（默认各 1）。CpH 位点远多于 CpG，容易隐性主导；可调低 $\lambda_\text{ch}$ 再平衡。
-- **丰度 / 温度先验**：$\pi_t \propto N_t^{\,\text{prior\_alpha}}$，其中 $N_t$ 为该类型的参考细胞数。`prior_alpha=0` → 均匀先验；`prior_alpha=1` → 纯丰度先验；未提供 `cell_counts` 时恒为均匀先验 $\pi_t = 1/T$。
+- **丰度 / 温度先验**： $\pi_t \propto N_t^{\,\text{prior\_alpha}}$ ，其中 $N_t$ 为该类型的参考细胞数。`prior_alpha=0` → 均匀先验；`prior_alpha=1` → 纯丰度先验；未提供 `cell_counts` 时恒为均匀先验 $\pi_t = 1/T$ 。
 
 对类型做**数值稳定的 softmax** 得到标定后的后验概率：
 
@@ -511,9 +511,71 @@ $$
 P(t \mid \text{cell}) = \frac{\exp(\log\text{post}_t - \max_{t'}\log\text{post}_{t'})}{\sum_{t''}\exp(\log\text{post}_{t''} - \max_{t'}\log\text{post}_{t'})}
 $$
 
-**预测与弃权**：取 $\hat t = \arg\max_t P(t\mid\text{cell})$，置信度为 $\max_t P$。若给定 `abstain_threshold` 且最高概率低于它，则标签置为 `'unassigned'`（弃权）。
+**预测与弃权**：取 $\hat t = \arg\max_t P(t\mid\text{cell})$ ，置信度为 $\max_t P$ 。若给定 `abstain_threshold` 且最高概率低于它，则标签置为 `'unassigned'`（弃权）。
 
-**接口**：`CellTypeClassifier.fit()` 在 pseudobulk 上估计并选点，`predict` / `predict_proba` / `predict_batch` 打分；`save` / `load` 用单个 `.npz`（不 pickle，仅存 $\log\theta$、$\log(1-\theta)$、掩码、判别位点索引与元数据 JSON）。`predict_cell_type(...)` 是"拟合 + 预测一个细胞"的一步式便捷封装。
+**接口**：`CellTypeClassifier.fit()` 在 pseudobulk 上估计并选点，`predict` / `predict_proba` / `predict_batch` 打分；`save` / `load` 用单个 `.npz`（不 pickle，仅存 $\log\theta$ 、 $\log(1-\theta)$ 、掩码、判别位点索引与元数据 JSON）。`predict_cell_type(...)` 是"拟合 + 预测一个细胞"的一步式便捷封装。
+
+## 15. Bulk 去卷积（`deconvolve` / `deconvolve_bulk`，参考型细胞比例估计）
+
+同一份参考频率矩阵 $\theta_{c,t}$ （第 10 节）还能反过来用：给定一个 **bulk** 样本（bulk WGBS 或甲基化芯片）在各位点的甲基化水平，估计它由各细胞类型按什么**比例** $f_t$ 混合而成——即参考型甲基化去卷积（Houseman / CIBERSORT 一类）。
+
+**混合模型**：bulk 在位点 $c$ 的甲基化水平是各类型频率按比例的线性混合：
+
+$$
+\beta_c \approx \sum_t f_t\, \theta_{c,t}, \qquad f_t \ge 0,\ \sum_t f_t = 1
+$$
+
+其中 WGBS 的 $\beta_c = mc_c / cov_c$ ，芯片则直接是 β 值。
+
+**求解（约束加权最小二乘）**：以 bulk 覆盖为权重 $w_c$ （芯片无覆盖时取 $w_c=1$ ，退化为普通最小二乘），令 $A = \sqrt{w}\odot\Theta$ 、 $b = \sqrt{w}\odot\beta$ ，求解
+
+$$
+\hat f = \arg\min_{f}\ \lVert A f - b \rVert^2 \quad \text{s.t.}\quad f_t \ge 0,\ \textstyle\sum_t f_t = 1
+$$
+
+- **非负性**由 NNLS 保证；**和为 1**（`sum_to_one=True`，默认）由 SLSQP 施加等式约束，得到一个完整单纯形上的解。深覆盖位点权重更大（ $w_c = cov_c$ ），因此比未加权更稳健。
+- **未知成分**（`allow_unknown=True`）：把等式放宽为 $\sum_t f_t \le 1$ ，余量 $1 - \sum_t f_t$ 作为参考里没有的"unknown"细胞类型单独报告——适用于参考不完整的样本。
+- `sum_to_one=False` 则退化为纯 NNLS（比例不必和为 1），仅作诊断用。
+
+**位点选择即 marker 选择**：去卷积只用第 12 节选出的判别性位点（跨类型极差 $s_c$ 大者），这正是细胞类型 marker；`contexts` 可选只用 `'cg'`（默认，兼容芯片；WGBS 惯例亦然）、`'ch'` 或 `'cg+ch'` 两通道联合。仅使用 bulk 实际覆盖（ $cov_c \ge$ `min_cov`）的位点。
+
+**拟合优度**：报告（加权）判定系数
+
+$$
+R^2 = 1 - \frac{\sum_c w_c\,(\hat\beta_c - \beta_c)^2}{\sum_c w_c\,(\beta_c - \bar\beta)^2},\qquad \hat\beta_c = \sum_t \hat f_t\,\theta_{c,t}
+$$
+
+用于判断混合模型对该 bulk 的解释力。
+
+**接口**：`CellTypeClassifier.deconvolve()`（单个 bulk → 比例 `Series`）、`deconvolve_batch()`（多个 bulk → 比例 DataFrame）、`deconvolve_multicell()`（一个 cat `.cz` 内打包的多个 bulk）；`deconvolve_bulk(...)` 是"拟合参考 + 去卷积"的一步式便捷封装，与 `predict_cell_type(...)` 用法对齐。
+
+## 16. 用未甲基化计数模拟 ATAC 做 peak calling（`call_peaks` / `call_peaks_bdg`）
+
+**生物学原理**：CpG 低甲基化区（hypomethylation / mCG valley）标记开放染色质与调控元件（启动子/增强子），是 snmC-seq 推断开放染色质的公认原理。于是把每个位点的**未甲基化计数** $umc_c = cov_c - mc_c$ 当作类 ATAC 的"reads 数"信号，用 MACS3 找 peak。
+
+**关键：覆盖对照**。 $umc = cov - mc$ 与测序深度、CpG 密度强共线，直接找 peak 会把深覆盖 / CpG island 区误判为 peak。因此把**总覆盖 $cov$ 作为 control（input）轨**，让 peak 反映 umc 相对期望的**局部富集**（即局部 unmeth 比例高于全局），而非原始深度。全局未甲基化率
+
+$$
+r = \frac{\sum_c umc_c}{\sum_c cov_c}
+$$
+
+给出每个位点的**期望未甲基化 pileup** $\;\widehat{umc}(x) = r\cdot cov_\text{pileup}(x)$ （均匀甲基化零假设下）。
+
+**两条实现路线**：
+
+1. **伪 read 路线 `call_peaks`**：每个位点按 $umc_c$ 展开成 $umc_c$ 条长 `fragment_size`、以位点为中心的伪 reads（BED），`control='cov'` 时同样把 $cov_c$ 展开成 control BED；喂给 `macs3 callpeak --nomodel --extsize fragment_size -q <qvalue> [-c control]`。直观、可直接出 `.narrowPeak`，但伪 reads 总数 $=\sum_c umc_c$ ，深 pseudobulk 会很大。
+
+2. **bedGraph 路线 `call_peaks_bdg`（省内存，推荐深 pseudobulk）**：用**差分数组**把每个位点的计数摊到 $[x-\text{ext}/2,\ x+\text{ext}/2)$ 并求和，直接得到分段常值 pileup（内存 $O(n_\text{sites})$ ，与 $\sum umc$ 无关）。treatment = $umc$ pileup，control(lambda) = $cov$ pileup $\times r$ ；再依次
+
+$$
+\texttt{bdgopt (}\times r\texttt{)} \;\to\; \texttt{bdgcmp -m ppois} \;\to\; \texttt{bdgpeakcall}
+$$
+
+其中 `ppois` 对每个位点给出观测 pileup 相对期望 lambda 的 **Poisson 检验** $-\log_{10} p$ 分数，`bdgpeakcall -c <cutoff> -l <min\_len> -g <max\_gap>` 阈值化并合并成 peak。
+
+**注意点**：只用 **CpG**（`index=` 限定；CpH 是另一套信号）；必须在 **pseudobulk**（合并同类型细胞的单轨 `.cz`）上做，单细胞太稀疏（两函数都强制单轨）；MACS3 的 Poisson 背景模型对 $umc\sim\text{Binomial}(cov,1-p)$ 只是近似，q/p 值作排序阈值用、不宜当精确 FDR。
+
+**接口**：`call_peaks(..., control='cov')`（伪 read + 覆盖对照）与 `call_peaks_bdg(..., control='cov')`（bedGraph + `bdgcmp`/`bdgpeakcall`），均支持 `signal='unmeth'|'meth'`、`index=`（context 过滤）、`min_cov`。
 
 ---
 
@@ -575,5 +637,67 @@ $$
 **Prediction and abstention**: take $\hat t = \arg\max_t P(t\mid\text{cell})$ with confidence $\max_t P$. If `abstain_threshold` is given and the top probability is below it, the label becomes `'unassigned'` (abstention).
 
 **API**: `CellTypeClassifier.fit()` estimates and selects sites on the pseudobulks; `predict` / `predict_proba` / `predict_batch` score cells; `save` / `load` use a single `.npz` (no pickling — only $\log\theta$, $\log(1-\theta)$, masks, discriminative-site indices, and a JSON metadata string). `predict_cell_type(...)` is a one-shot "fit + predict one cell" convenience wrapper.
+
+## 15. Bulk deconvolution (`deconvolve` / `deconvolve_bulk`, reference-based fraction estimation)
+
+The same reference frequency matrix $\theta_{c,t}$ (Section 10) can be used the other way round: given a **bulk** sample (bulk WGBS or a methylation array) with a methylation level at each site, estimate the **fractions** $f_t$ of each cell type it is a mixture of — i.e. reference-based methylation deconvolution (Houseman / CIBERSORT style).
+
+**Mixture model**: the bulk level at site $c$ is a fraction-weighted linear mixture of the per-type frequencies:
+
+$$
+\beta_c \approx \sum_t f_t\, \theta_{c,t}, \qquad f_t \ge 0,\ \sum_t f_t = 1
+$$
+
+with $\beta_c = mc_c / cov_c$ for WGBS, or the array beta value directly.
+
+**Solve (constrained weighted least squares)**: weighting each site by the bulk coverage $w_c$ (or $w_c=1$ for arrays, recovering ordinary least squares), let $A = \sqrt{w}\odot\Theta$ and $b = \sqrt{w}\odot\beta$ and solve
+
+$$
+\hat f = \arg\min_{f}\ \lVert A f - b \rVert^2 \quad \text{s.t.}\quad f_t \ge 0,\ \textstyle\sum_t f_t = 1
+$$
+
+- **Non-negativity** is enforced by NNLS; **sum-to-one** (`sum_to_one=True`, default) is imposed by SLSQP as an equality constraint, giving a solution on the full simplex. Deeply covered sites carry more weight ($w_c = cov_c$), so the fit is more robust than unweighted.
+- **Unknown compartment** (`allow_unknown=True`): relax the equality to $\sum_t f_t \le 1$ and report the remainder $1 - \sum_t f_t$ as an ``unknown`` cell type absent from the reference — useful when the reference is incomplete.
+- `sum_to_one=False` reduces to plain NNLS (fractions need not sum to 1), for diagnostics only.
+
+**Site selection is marker selection**: deconvolution uses only the discriminative sites from Section 12 (large across-type range $s_c$), which are exactly the cell-type markers; `contexts` chooses `'cg'` (default, the only option for arrays and the usual one for WGBS), `'ch'`, or `'cg+ch'` (both channels jointly). Only sites the bulk actually covers ($cov_c \ge$ `min_cov`) are used.
+
+**Goodness of fit**: the (weighted) coefficient of determination
+
+$$
+R^2 = 1 - \frac{\sum_c w_c\,(\hat\beta_c - \beta_c)^2}{\sum_c w_c\,(\beta_c - \bar\beta)^2},\qquad \hat\beta_c = \sum_t \hat f_t\,\theta_{c,t}
+$$
+
+reports how well the mixture explains the bulk.
+
+**API**: `CellTypeClassifier.deconvolve()` (one bulk → a fraction `Series`), `deconvolve_batch()` (many bulks → a fraction DataFrame), `deconvolve_multicell()` (many bulks packed in one cat `.cz`); `deconvolve_bulk(...)` is a one-shot "fit reference + deconvolve" convenience wrapper mirroring `predict_cell_type(...)`.
+
+## 16. Peak calling from unmethylated counts, ATAC-style (`call_peaks` / `call_peaks_bdg`)
+
+**Biological rationale**: CpG hypomethylation (mCG valleys) marks open chromatin and regulatory elements (promoters/enhancers) — the standard way to infer open chromatin from snmC-seq. So the per-site **unmethylated count** $umc_c = cov_c - mc_c$ is used as an ATAC-like "read count" signal and fed to MACS3 for peak calling.
+
+**Key: a coverage control**. $umc = cov - mc$ is strongly confounded by sequencing depth and cytosine density, so calling peaks on it directly flags deeply covered / CpG-island regions. Passing the total coverage $cov$ as the **control (input) track** makes peaks reflect a genuine **local enrichment** of unmethylation (local unmeth fraction above the global rate) rather than raw depth. The global unmethylation rate
+
+$$
+r = \frac{\sum_c umc_c}{\sum_c cov_c}
+$$
+
+gives the **expected unmethylated pileup** $\;\widehat{umc}(x) = r\cdot cov_\text{pileup}(x)$ under a uniform-methylation null.
+
+**Two implementations**:
+
+1. **Pseudo-read route `call_peaks`**: each site is expanded into $umc_c$ reads of length `fragment_size` centred on it (BED); with `control='cov'` the coverage $cov_c$ is expanded the same way as a control BED; both go to `macs3 callpeak --nomodel --extsize fragment_size -q <qvalue> [-c control]`. Intuitive and emits `.narrowPeak` directly, but the read count is $\sum_c umc_c$, which explodes on deep pseudobulks.
+
+2. **bedGraph route `call_peaks_bdg` (memory-efficient, preferred for deep pseudobulks)**: a **difference array** spreads each site's count over $[x-\text{ext}/2,\ x+\text{ext}/2)$ and sums, yielding a piecewise-constant pileup in $O(n_\text{sites})$ memory (independent of $\sum umc$). Treatment = $umc$ pileup, control (lambda) = $cov$ pileup $\times r$; then
+
+$$
+\texttt{bdgopt (}\times r\texttt{)} \;\to\; \texttt{bdgcmp -m ppois} \;\to\; \texttt{bdgpeakcall}
+$$
+
+where `ppois` scores each position by the **Poisson p-value** ($-\log_{10} p$) of the observed pileup against the expected lambda, and `bdgpeakcall -c <cutoff> -l <min_len> -g <max_gap>` thresholds and merges into peaks.
+
+**Caveats**: use **CpG only** (`index=`; CpH is a different signal); run on a **pseudobulk** (a single-track `.cz` of merged same-type cells) — single cells are too sparse (both functions enforce a single track); MACS3's Poisson background is only an approximation to $umc\sim\text{Binomial}(cov, 1-p)$, so treat p/q as ranking thresholds, not exact FDR.
+
+**API**: `call_peaks(..., control='cov')` (pseudo-reads + coverage control) and `call_peaks_bdg(..., control='cov')` (bedGraph + `bdgcmp`/`bdgpeakcall`); both take `signal='unmeth'|'meth'`, `index=` (context filter), and `min_cov`.
 
 

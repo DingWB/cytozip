@@ -18,8 +18,10 @@ Sibling modules:
                            / index_regions / aggregate).
   - :mod:`cytozip.merge`:  per-cell .cz merging (``merge_cz``,
                            ``merge_cell_type``, Fisher-test mode).
-  - :mod:`cytozip.dmr`:    peak calling (``call_peaks``, ``to_bedgraph``)
-                           and DMR analysis (``call_dmr``, ``call_dmr_ch``,
+  - :mod:`cytozip.peaks`:  ATAC-style peak calling from methylation
+                           (``call_peaks``, ``call_peaks_bdg``,
+                           ``to_bedgraph``).
+  - :mod:`cytozip.dmr`:    DMR analysis (``call_dmr``, ``call_dmr_ch``,
                            ``call_dmr_array``, ``annot_dmr``).
 
 @author: DingWB

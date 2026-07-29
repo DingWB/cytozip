@@ -230,6 +230,13 @@
       <option value="ALL" selected>All C</option>
     </select>
   </div>
+  <div class="field">
+    <label>Value</label>
+    <select id="newValType" title="Show methylated or unmethylated (1 − mC) fraction">
+      <option value="meth" selected>Methylated</option>
+      <option value="unmeth">Unmethylated (1 − mC)</option>
+    </select>
+  </div>
 </div>
 
 <div class="panel" style="background:#272b3d;">
@@ -678,6 +685,7 @@ function onSavedTrackPick() {
   $('newName').value = e.name;
   $('newUrl').value = e.url;
   if (e.ctx) $('newCtx').value = e.ctx;
+  $('newValType').value = e.valType || 'meth';
   addTrack();
 }
 
@@ -687,11 +695,12 @@ async function addTrack() {
   const url = $('newUrl').value.trim();
   const name = $('newName').value.trim() || `track ${state.tracks.length + 1}`;
   const ctx = $('newCtx').value;
+  const valType = $('newValType').value;
   if (!url) { setStatus('Enter a track .cz URL.', true); return; }
   try {
     setStatus(`Opening track “${name}”…`);
-    const tr = await openCzTrack({ name, url, ctx });
-    saveTrack({ name, url, ctx });
+    const tr = await openCzTrack({ name, url, ctx, valType });
+    saveTrack({ name, url, ctx, valType });
     buildTrackRows();
     setStatus(tr.mismatch ? `Added “${name}”. ${tr.mismatch}` : `Added track “${name}”. Rendering ${locusText(state.locus)}…`, !!tr.mismatch);
     render();
@@ -701,7 +710,7 @@ async function addTrack() {
 }
 
 // Open a single methylation .cz track and push it into state (no UI side effects).
-async function openCzTrack({ name, url, ctx = 'ALL', group = '' }) {
+async function openCzTrack({ name, url, ctx = 'ALL', valType = 'meth', group = '' }) {
   if (!state.refReader) throw new Error('Load the reference first.');
   if (!url) throw new Error('missing URL');
   const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
@@ -710,7 +719,7 @@ async function openCzTrack({ name, url, ctx = 'ALL', group = '' }) {
   const track = {
     id: ++state.trackSeq, kind: 'mc',
     name: named, url, reader,
-    ctx: ctx || 'ALL', group: group || '',
+    ctx: ctx || 'ALL', valType: valType || 'meth', group: group || '',
     color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nMc % PALETTE.length],
     mismatch: validateAgainstRef(reader),
   };
@@ -957,6 +966,10 @@ function buildTrackRows() {
              ${['CG','CH','CHG','CHH','ALL'].map(c =>
                `<option value="${c}" ${c === t.ctx ? 'selected' : ''}>${c === 'ALL' ? 'All C' : c}</option>`).join('')}
            </select>
+           <select class="valsel" title="Methylated or unmethylated (1 − mC) fraction">
+             ${[['meth','mC'],['unmeth','1−mC']].map(([v,lab]) =>
+               `<option value="${v}" ${v === (t.valType || 'meth') ? 'selected' : ''}>${lab}</option>`).join('')}
+           </select>
          </div>`
       : '';
     label.innerHTML =
@@ -969,6 +982,8 @@ function buildTrackRows() {
     label.querySelector('.del').onclick = () => removeTrack(t.id);
     const ctxSel = label.querySelector('.ctxsel');
     if (ctxSel) ctxSel.onchange = (e) => { t.ctx = e.target.value; render(); };
+    const valSel = label.querySelector('.valsel');
+    if (valSel) valSel.onchange = (e) => { t.valType = e.target.value; render(); };
     t.metaEl = label.querySelector('.meta');
 
     const view = document.createElement('div');
@@ -1203,7 +1218,8 @@ function drawTrack(track, qi, vals, dst) {
     for (let px = 0; px < W; px++) {
       const c = sumCov[px];
       if (!c) continue;
-      const level = sumMc[px] / c;
+      let level = sumMc[px] / c;
+      if (track.valType === 'unmeth') level = 1 - level;
       if (level > maxLevel) maxLevel = level;
       bars.push({ x: px, bw: 1, level, cov: c });
     }
@@ -1227,7 +1243,8 @@ function drawTrack(track, qi, vals, dst) {
       if (!c) continue;
       const bpS = binStart0 + b * res, bpE = bpS + res;
       const x0 = (bpS - start) / span * w, x1 = (bpE - start) / span * w;
-      const level = binMc[b] / c;
+      let level = binMc[b] / c;
+      if (track.valType === 'unmeth') level = 1 - level;
       if (level > maxLevel) maxLevel = level;
       bars.push({ x: x0, bw: Math.max(1, x1 - x0), level, cov: c });
       const px0 = Math.max(0, Math.floor(x0)), px1 = Math.min(W, Math.ceil(x1));
@@ -1262,11 +1279,13 @@ function drawTrack(track, qi, vals, dst) {
   if (live) track._draw = { start, end, W, sumMc, sumCov };
 
   const meanM = totCov ? (totMc / totCov) : 0;
+  const meanShown = track.valType === 'unmeth' ? (1 - meanM) : meanM;
+  const valTag = track.valType === 'unmeth' ? '1−mC' : 'mC';
   const resLabel = res ? ` · ${res} bp bins` : '';
   const scaleLabel = state.yScale === 'auto' ? ` · y≤${(scaleMax * 100).toFixed(0)}%` : '';
   if (live && track.metaEl) {
     track.metaEl.textContent = nSites
-      ? `${fmtInt(nSites)} covered · mean ${(meanM * 100).toFixed(1)}% · ${track.ctx}${resLabel}${scaleLabel}`
+      ? `${fmtInt(nSites)} covered · mean ${(meanShown * 100).toFixed(1)}% ${valTag} · ${track.ctx}${resLabel}${scaleLabel}`
       : `no covered ${track.ctx} sites here`;
   }
 }
@@ -1654,7 +1673,7 @@ function currentStateObject() {
     y: state.yScale !== '1' ? state.yScale : undefined,
     colors: Object.keys(state.colorMap).length ? state.colorMap : undefined,
     t: state.tracks.filter(t => t.kind === 'mc')
-      .map(t => ({ n: t.name, u: t.url, c: t.ctx, grp: t.group || undefined })),
+      .map(t => ({ n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined })),
   };
 }
 let _urlTimer = null, _restoring = false;
@@ -1682,7 +1701,7 @@ async function applyStateObject(st) {
     if (Array.isArray(st.t) && st.t.length) {
       if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
       for (const r of st.t) {
-        try { await openCzTrack({ name: r.n, url: r.u, ctx: r.c, group: r.grp || '' }); }
+        try { await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '' }); }
         catch (e) { /* skip a track that fails to open */ }
       }
       buildTrackRows();
@@ -1814,9 +1833,11 @@ function updateHover(e) {
   const px = Math.floor((e.clientX - rect.left) / rect.width * track._draw.W);
   const d = track._draw;
   if (px < 0 || px >= d.W || !d.sumCov[px]) { hv.style.display = 'none'; return; }
-  const level = d.sumMc[px] / d.sumCov[px];
+  let level = d.sumMc[px] / d.sumCov[px];
+  const valTag = track.valType === 'unmeth' ? '1−mC' : 'mC';
+  if (track.valType === 'unmeth') level = 1 - level;
   const bp = Math.round(d.start + (px + 0.5) / d.W * (d.end - d.start));
-  hv.textContent = `${track.name} · ~${fmtInt(bp)} · ${(level * 100).toFixed(0)}% mC · cov ${Math.round(d.sumCov[px])}`;
+  hv.textContent = `${track.name} · ~${fmtInt(bp)} · ${(level * 100).toFixed(0)}% ${valTag} · cov ${Math.round(d.sumCov[px])}`;
   hv.style.left = (e.clientX + 12) + 'px';
   hv.style.top = (e.clientY + 12) + 'px';
   hv.style.display = 'block';

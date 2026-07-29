@@ -39,16 +39,18 @@ _LAZY_EXPORTS = {
     'merge_cz': 'merge', 'merge_cell_type': 'merge',
     # pivot.py — per-cell pivot matrices (fraction / fisher)
     'pivot_fraction': 'pivot', 'pivot_fisher': 'pivot',
-    # dmr.py — peak calling / DMR analysis
-    'call_peaks': 'dmr', 'to_bedgraph': 'dmr',
+    # dmr.py — DMR analysis
     'call_dmr_array': 'dmr', 'annot_dmr': 'dmr', 'call_dmr': 'dmr',
     'call_dmr_ch': 'dmr',
     'call_dmr_one_vs_rest': 'dmr',
     'merge_dmr_results': 'dmr',
     'consensus_dmr': 'dmr',
+    # peaks.py — ATAC-style peak calling from methylation
+    'call_peaks': 'peaks', 'call_peaks_bdg': 'peaks', 'to_bedgraph': 'peaks',
     # model.py — site-likelihood cell-type classifier
     'CellTypeClassifier': 'model', 'predict_cell_type': 'model',
-    'estimate_theta': 'model',
+    'deconvolve_bulk': 'model',
+    'estimate_theta': 'model', 'top_cytosine_fasta': 'model',
 }
 
 # Submodules that can be accessed as cytozip.cz / cytozip.allc
@@ -217,7 +219,10 @@ def _build_parser():
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
     p.add_argument('-K', '--chunk_order', default=None, help='filter/order by chunk-key value (e.g. chr1)')
     p.add_argument('--cov_col', default=None,
-                   help='if given, drop rows where this column is 0 (allc convention)')
+                   help="Name of a column from cz header['columns'] (such as cov). When given, rows where the column "
+                        "is zero are dropped before writing (allc convention). Default "
+                        "``None`` keeps all rows (suitable for array data, where 0 is "
+                        "a valid beta value). if given, drop rows where this column is 0 (allc convention)")
     p.add_argument('--allc_format', action='store_true',
                    help='append a 7th mc_flag=1 column to produce the '
                         'standard ALLCools allc.tsv.gz 7-column layout')
@@ -694,6 +699,7 @@ def _build_parser():
     p.add_argument('-O', '--output', default=None, help='output directory for MACS3 results')
     p.add_argument('-n', '--name', default='peaks', help='name prefix for output files')
     p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth'], help='signal type: unmeth=(cov-mc), meth=mc')
+    p.add_argument('--control', default=None, choices=['cov', 'mc'], help='coverage-bias control track for macs3 -c (cov recommended); default none')
     p.add_argument('--index', default=None, help='index file for context filtering (e.g., CpG-only)')
     p.add_argument('--genome_size', default='mm', help='genome size for MACS3 (hs/mm/integer)')
     p.add_argument('--fragment_size', type=int, default=300, help='pseudo-read fragment size (bp)')
@@ -702,6 +708,25 @@ def _build_parser():
     p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
     p.add_argument('--keep_bed', action='store_true', help='keep intermediate pseudo-reads BED')
     p.add_argument('--macs3_args', default='', help='additional MACS3 arguments (quoted string)')
+    p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
+    p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
+
+    # ---- call_peaks_bdg ------------------------------------------------------
+    p = sub.add_parser('call_peaks_bdg', help='Call peaks from methylation .cz via MACS3 bedGraph back-end (memory-efficient, coverage-controlled)', formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, help='input .cz file (mc/cov)')
+    p.add_argument('-r', '--reference', required=True, help='reference .cz file (pos/strand/context)')
+    p.add_argument('-O', '--output', default=None, help='output directory for peak results')
+    p.add_argument('-n', '--name', default='peaks', help='name prefix for output files')
+    p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth'], help='treatment signal: unmeth=(cov-mc), meth=mc')
+    p.add_argument('--control', default='cov', choices=['cov', 'mc'], help='coverage-bias control (lambda) track (default cov)')
+    p.add_argument('--index', default=None, help='index file for context filtering (e.g., CpG-only)')
+    p.add_argument('--ext', type=int, default=300, help='bp each site count is spread over (pileup extension)')
+    p.add_argument('--method', default='ppois', help='macs3 bdgcmp score method (ppois/qpois/FE/logLR/...)')
+    p.add_argument('--cutoff', type=float, default=2.0, help='bdgpeakcall score cutoff (-log10 p for ppois)')
+    p.add_argument('--min_len', type=int, default=None, help='minimum peak length (default ext)')
+    p.add_argument('--max_gap', type=int, default=None, help='max gap to merge peaks (default ext//2)')
+    p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
+    p.add_argument('--keep_bdg', action='store_true', help='keep intermediate bedGraph tracks')
     p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
     p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
 
@@ -1111,7 +1136,7 @@ def main():
             **forward)
 
     elif cmd == 'call_peaks':
-        from .dmr import call_peaks
+        from .peaks import call_peaks
         mc_col = args.mc_col
         cov_col = args.cov_col
         if mc_col is not None and mc_col.isdigit():
@@ -1120,7 +1145,8 @@ def main():
             cov_col = int(cov_col)
         call_peaks(input=args.input, reference=args.reference,
                    output=args.output, name=args.name,
-                   signal=args.signal, index=args.index,
+                   signal=args.signal, control=args.control,
+                   index=args.index,
                    genome_size=args.genome_size,
                    fragment_size=args.fragment_size,
                    qvalue=args.qvalue, broad=args.broad,
@@ -1128,8 +1154,25 @@ def main():
                    macs3_args=args.macs3_args,
                    mc_col=mc_col, cov_col=cov_col)
 
+    elif cmd == 'call_peaks_bdg':
+        from .peaks import call_peaks_bdg
+        mc_col = args.mc_col
+        cov_col = args.cov_col
+        if mc_col is not None and mc_col.isdigit():
+            mc_col = int(mc_col)
+        if cov_col is not None and cov_col.isdigit():
+            cov_col = int(cov_col)
+        call_peaks_bdg(input=args.input, reference=args.reference,
+                       output=args.output, name=args.name,
+                       signal=args.signal, control=args.control,
+                       index=args.index, ext=args.ext, method=args.method,
+                       cutoff=args.cutoff, min_len=args.min_len,
+                       max_gap=args.max_gap, min_cov=args.min_cov,
+                       keep_bdg=args.keep_bdg,
+                       mc_col=mc_col, cov_col=cov_col)
+
     elif cmd == 'to_bedgraph':
-        from .dmr import to_bedgraph
+        from .peaks import to_bedgraph
         mc_col = args.mc_col
         cov_col = args.cov_col
         if mc_col is not None and mc_col.isdigit():
