@@ -25,7 +25,7 @@ E[k_i] = n_i \mu
 $$
 
 $$
-\operatorname{Var}(k_i) = n_i\, \mu(1-\mu)\, \bigl[\, 1 + (n_i - 1)\rho \,\bigr]
+\mathrm{Var}(k_i) = n_i\, \mu(1-\mu)\, \bigl[\, 1 + (n_i - 1)\rho \,\bigr]
 $$
 
 比纯 Binomial 多了过离散因子 $[1 + (n_i - 1)\rho]$ ——这正是"用 cov 校正"的来源。 $\rho = 0$ 退化为 Binomial。
@@ -71,10 +71,10 @@ $$
 设 $f_i = k_i / n_i$ ，则
 
 $$
-\operatorname{Var}(f_i) = \mu(1-\mu)\left[\frac{1}{n_i} + \left(1 - \frac{1}{n_i}\right)\rho\right]
+\mathrm{Var}(f_i) = \mu(1-\mu)\left[\frac{1}{n_i} + \left(1 - \frac{1}{n_i}\right)\rho\right]
 $$
 
-若各位点覆盖 $\approx \bar n$ ，用观测方差 $s^2 = \operatorname{Var}(f_i)$ 解：
+若各位点覆盖 $\approx \bar n$ ，用观测方差 $s^2 = \mathrm{Var}(f_i)$ 解：
 
 $$
 \hat\rho = \frac{\dfrac{s^2}{\mu(1-\mu)} - \dfrac{1}{\bar n}}{1 - \dfrac{1}{\bar n}}
@@ -114,10 +114,10 @@ $$
 观测率 $f_i = k_i/n_i$ 的方差包含两部分：
 
 $$
-\operatorname{Var}(f_i) = \underbrace{\mu(1-\mu)\rho}_{\text{生物学真实离散}} + \underbrace{\frac{\mu(1-\mu)(1-\rho)}{n_i}}_{\text{binomial 抽样噪声}}
+\mathrm{Var}(f_i) = \underbrace{\mu(1-\mu)\rho}_{\text{生物学真实离散}} + \underbrace{\frac{\mu(1-\mu)(1-\rho)}{n_i}}_{\text{binomial 抽样噪声}}
 $$
 
-- **旧方法**把整个 $\operatorname{Var}(f_i)$ 都当作 Beta 离散，于是**高估方差、低估浓度 $\kappa$**——先验被当成"比真实更宽"，收缩太弱。
+- **旧方法**把整个 $\mathrm{Var}(f_i)$ 都当作 Beta 离散，于是**高估方差、低估浓度 $\kappa$**——先验被当成"比真实更宽"，收缩太弱。
 - **新方法**用第 2 节的过离散因子 $[1+(n_i-1)\rho]$ 显式扣掉了 $1/n_i$ 那一项，得到的是**真实的位点间离散 $\rho$**。
 
 覆盖越低（ $n_i$ 越小），抽样噪声项越大，旧方法的偏差越严重——而单细胞甲基化恰恰是低覆盖场景。
@@ -178,7 +178,7 @@ E[k_i] = n_i \mu
 $$
 
 $$
-\operatorname{Var}(k_i) = n_i\, \mu(1-\mu)\, \bigl[\, 1 + (n_i - 1)\rho \,\bigr]
+\mathrm{Var}(k_i) = n_i\, \mu(1-\mu)\, \bigl[\, 1 + (n_i - 1)\rho \,\bigr]
 $$
 
 Compared with a plain Binomial, there is an extra over-dispersion factor $[1 + (n_i - 1)\rho]$ — this is exactly where the "coverage correction" comes from. $\rho = 0$ degenerates to a Binomial.
@@ -224,10 +224,10 @@ $$
 Let $f_i = k_i / n_i$, then
 
 $$
-\operatorname{Var}(f_i) = \mu(1-\mu)\left[\frac{1}{n_i} + \left(1 - \frac{1}{n_i}\right)\rho\right]
+\mathrm{Var}(f_i) = \mu(1-\mu)\left[\frac{1}{n_i} + \left(1 - \frac{1}{n_i}\right)\rho\right]
 $$
 
-If all sites have coverage $\approx \bar n$, solve using the observed variance $s^2 = \operatorname{Var}(f_i)$:
+If all sites have coverage $\approx \bar n$, solve using the observed variance $s^2 = \mathrm{Var}(f_i)$:
 
 $$
 \hat\rho = \frac{\dfrac{s^2}{\mu(1-\mu)} - \dfrac{1}{\bar n}}{1 - \dfrac{1}{\bar n}}
@@ -267,10 +267,10 @@ It **does not remove the binomial sampling noise** ($\sigma^2$ mixes in the samp
 The variance of the observed rate $f_i = k_i/n_i$ has two parts:
 
 $$
-\operatorname{Var}(f_i) = \underbrace{\mu(1-\mu)\rho}_{\text{true biological dispersion}} + \underbrace{\frac{\mu(1-\mu)(1-\rho)}{n_i}}_{\text{binomial sampling noise}}
+\mathrm{Var}(f_i) = \underbrace{\mu(1-\mu)\rho}_{\text{true biological dispersion}} + \underbrace{\frac{\mu(1-\mu)(1-\rho)}{n_i}}_{\text{binomial sampling noise}}
 $$
 
-- **Old method** treats the whole $\operatorname{Var}(f_i)$ as Beta dispersion, so it **over-estimates the variance and under-estimates the concentration $\kappa$** — the prior is treated as "wider than reality" and shrinkage is too weak.
+- **Old method** treats the whole $\mathrm{Var}(f_i)$ as Beta dispersion, so it **over-estimates the variance and under-estimates the concentration $\kappa$** — the prior is treated as "wider than reality" and shrinkage is too weak.
 - **New method** uses the over-dispersion factor $[1+(n_i-1)\rho]$ of Section 2 to explicitly subtract the $1/n_i$ term, recovering the **true between-site dispersion $\rho$**.
 
 The lower the coverage (smaller $n_i$), the larger the sampling-noise term, and the worse the old method's bias — and single-cell methylation is exactly the low-coverage regime.

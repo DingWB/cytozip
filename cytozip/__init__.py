@@ -96,6 +96,31 @@ def _dtype_or_none(s):
     return None if s == 'None' else s
 
 
+def _int_or_float_or_none(s):
+    """Parse a top-site selector: 'None' → None, '20000' → int, '0.1' → float."""
+    if s is None or str(s).lower() in ('none', ''):
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return float(s)
+
+
+def _float_or_none(s):
+    """Parse 'None' → None, otherwise a float."""
+    if s is None or str(s).lower() in ('none', ''):
+        return None
+    return float(s)
+
+
+def _int_or_none(s):
+    """Parse 'None' → None, otherwise an int."""
+    if s is None or str(s).lower() in ('none', ''):
+        return None
+    return int(s)
+
+
+
 def _str2bool(s):
     """Parse 'true'/'false' (and common synonyms) → bool."""
     if isinstance(s, bool):
@@ -826,6 +851,97 @@ def _build_parser():
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel processes (CPUs)')
 
+    # ---- model.py: predict_cell_type ---------------------------------------
+    p = sub.add_parser('predict_cell_type',
+                       help='Classify query cell(s) against cell-type pseudobulk references',
+                       formatter_class=_fmt)
+    p.add_argument('-q', '--query', required=True,
+                   help='query cell(s): a single .cz, a cat multi-cell .cz, a directory of .cz, '
+                        'or a 2-column [cell_id, cz_path] table')
+    p.add_argument('-s', '--pseudobulks', default=None,
+                   help='per-type pseudobulk .cz: a directory (file stem = cell type). '
+                        'Optional if -o/--outdir already holds a trained model')
+    p.add_argument('-e', '--reference', default=None,
+                   help='build_ref reference .cz supplying per-row context (CpG/CpH split)')
+    p.add_argument('-o', '--outdir', default=None,
+                   help='write/reuse the fitted model under <outdir>/model and predictions '
+                        '(predictions.csv + predict_proba.csv) to <outdir>')
+    p.add_argument('--cell_counts', default=None,
+                   help='optional 2-column [cell_type, count] TSV for the abundance prior')
+    p.add_argument('--prior_alpha', type=float, default=0.0,
+                   help='abundance-prior strength (0=uniform; needs --cell_counts)')
+    p.add_argument('--lambda_cg', type=float, default=1.0, help='CpG channel log-weight')
+    p.add_argument('--lambda_ch', type=float, default=1.0, help='CpH channel log-weight')
+    p.add_argument('--max_query_cg', type=_int_or_none, default=None,
+                   help='randomly keep at most this many covered CpG sites per query cell')
+    p.add_argument('--max_query_ch', type=_int_or_none, default=None,
+                   help='randomly keep at most this many covered CpH sites per query cell')
+    p.add_argument('--alpha0_cg', type=_float_or_none, default=None, help='CpG Beta-prior alpha0 (auto if None)')
+    p.add_argument('--beta0_cg', type=_float_or_none, default=None, help='CpG Beta-prior beta0 (auto if None)')
+    p.add_argument('--alpha0_ch', type=_float_or_none, default=None, help='CpH Beta-prior alpha0 (auto if None)')
+    p.add_argument('--beta0_ch', type=_float_or_none, default=None, help='CpH Beta-prior beta0 (auto if None)')
+    p.add_argument('--prior_min_cov', type=int, default=2,
+                   help='min coverage for a site to enter empirical prior estimation')
+    p.add_argument('--top_cg', type=_int_or_float_or_none, default=None,
+                   help='keep top-N (int) or top-fraction (float in (0,1]) discriminative CpG sites')
+    p.add_argument('--top_ch', type=_int_or_float_or_none, default=None,
+                   help='keep top-N (int) or top-fraction (float in (0,1]) discriminative CpH sites')
+    p.add_argument('--min_range_cg', type=float, default=0.0,
+                   help='keep a CpG site only if its across-type frequency range exceeds this')
+    p.add_argument('--min_range_ch', type=float, default=0.0,
+                   help='keep a CpH site only if its across-type frequency range exceeds this')
+    p.add_argument('--mc_col', default='mc', help='methylated-count column name')
+    p.add_argument('--cov_col', default='cov', help='coverage column name')
+    p.add_argument('--context_col', default='context', help='context column name (in the reference)')
+    p.add_argument('--abstain_threshold', type=_float_or_none, default=None,
+                   help="label a cell 'unassigned' when its top probability is below this")
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='parallel .cz readers / per-cell scoring threads')
+
+    # ---- model.py: deconvolve_bulk -----------------------------------------
+    p = sub.add_parser('deconvolve_bulk',
+                       help='Deconvolve bulk sample(s) into cell-type fractions',
+                       formatter_class=_fmt)
+    p.add_argument('-q', '--query', required=True,
+                   help='bulk sample(s): a single .cz, a cat multi-sample .cz, a directory of .cz, '
+                        'or a 2-column [sample_id, cz_path] table')
+    p.add_argument('-s', '--pseudobulks', default=None,
+                   help='per-type pseudobulk .cz: a directory (file stem = cell type). '
+                        'Optional if -o/--outdir already holds a trained model')
+    p.add_argument('-e', '--reference', default=None,
+                   help='build_ref reference .cz supplying per-row context (CpG/CpH split)')
+    p.add_argument('-o', '--outdir', default=None,
+                   help='write/reuse the fitted model under <outdir>/model and write '
+                        'fractions.csv to <outdir>')
+    p.add_argument('--contexts', default='cg',
+                   help="cytosine contexts to use: 'cg', 'ch', or 'cg+ch'")
+    p.add_argument('--weight_by_cov', type=_str2bool, default=True,
+                   help='weight each site by its bulk coverage (weighted least squares)')
+    p.add_argument('--sum_to_one', type=_str2bool, default=True,
+                   help='constrain the fractions to sum to 1')
+    p.add_argument('--allow_unknown', type=_str2bool, default=False,
+                   help="relax to sum<=1 and report the remainder as an 'unknown' fraction")
+    p.add_argument('--min_cov', type=int, default=1, help='only use bulk sites with coverage >= this')
+    p.add_argument('--alpha0_cg', type=_float_or_none, default=None, help='CpG Beta-prior alpha0 (auto if None)')
+    p.add_argument('--beta0_cg', type=_float_or_none, default=None, help='CpG Beta-prior beta0 (auto if None)')
+    p.add_argument('--alpha0_ch', type=_float_or_none, default=None, help='CpH Beta-prior alpha0 (auto if None)')
+    p.add_argument('--beta0_ch', type=_float_or_none, default=None, help='CpH Beta-prior beta0 (auto if None)')
+    p.add_argument('--prior_min_cov', type=int, default=2,
+                   help='min coverage for a site to enter empirical prior estimation')
+    p.add_argument('--top_cg', type=_int_or_float_or_none, default=None,
+                   help='keep top-N (int) or top-fraction (float in (0,1]) discriminative CpG sites')
+    p.add_argument('--top_ch', type=_int_or_float_or_none, default=None,
+                   help='keep top-N (int) or top-fraction (float in (0,1]) discriminative CpH sites')
+    p.add_argument('--min_range_cg', type=float, default=0.0,
+                   help='keep a CpG site only if its across-type frequency range exceeds this')
+    p.add_argument('--min_range_ch', type=float, default=0.0,
+                   help='keep a CpH site only if its across-type frequency range exceeds this')
+    p.add_argument('--mc_col', default='mc', help='methylated-count column name')
+    p.add_argument('--cov_col', default='cov', help='coverage column name')
+    p.add_argument('--context_col', default='context', help='context column name (in the reference)')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='parallel .cz readers / per-sample threads')
+
     return parser
 
 
@@ -1241,6 +1357,46 @@ def main():
                       score=args.score,
                       score_cutoff=args.score_cutoff,
                       jobs=args.jobs)
+
+    elif cmd == 'predict_cell_type':
+        from .model import predict_cell_type
+        cell_counts = None
+        if args.cell_counts:
+            import pandas as pd
+            _cc = pd.read_csv(args.cell_counts, sep='\t', header=None, comment='#')
+            cell_counts = {str(k): int(v)
+                           for k, v in zip(_cc.iloc[:, 0], _cc.iloc[:, 1])}
+        predict_cell_type(
+            query=args.query, pseudobulks=args.pseudobulks,
+            reference=args.reference, cell_counts=cell_counts,
+            prior_alpha=args.prior_alpha,
+            lambda_cg=args.lambda_cg, lambda_ch=args.lambda_ch,
+            max_query_cg=args.max_query_cg, max_query_ch=args.max_query_ch,
+            alpha0_cg=args.alpha0_cg, beta0_cg=args.beta0_cg,
+            alpha0_ch=args.alpha0_ch, beta0_ch=args.beta0_ch,
+            prior_min_cov=args.prior_min_cov,
+            top_cg=args.top_cg, top_ch=args.top_ch,
+            min_range_cg=args.min_range_cg, min_range_ch=args.min_range_ch,
+            mc_col=args.mc_col, cov_col=args.cov_col,
+            context_col=args.context_col,
+            abstain_threshold=args.abstain_threshold,
+            n_jobs=args.jobs, outdir=args.outdir)
+
+    elif cmd == 'deconvolve_bulk':
+        from .model import deconvolve_bulk
+        deconvolve_bulk(
+            query=args.query, pseudobulks=args.pseudobulks,
+            reference=args.reference, contexts=args.contexts,
+            weight_by_cov=args.weight_by_cov, sum_to_one=args.sum_to_one,
+            allow_unknown=args.allow_unknown, min_cov=args.min_cov,
+            alpha0_cg=args.alpha0_cg, beta0_cg=args.beta0_cg,
+            alpha0_ch=args.alpha0_ch, beta0_ch=args.beta0_ch,
+            prior_min_cov=args.prior_min_cov,
+            top_cg=args.top_cg, top_ch=args.top_ch,
+            min_range_cg=args.min_range_cg, min_range_ch=args.min_range_ch,
+            mc_col=args.mc_col, cov_col=args.cov_col,
+            context_col=args.context_col,
+            n_jobs=args.jobs, outdir=args.outdir)
 
 
 if __name__ == "__main__":

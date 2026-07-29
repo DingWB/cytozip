@@ -617,13 +617,29 @@ def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
 class CellTypeClassifier:
     """Site-likelihood (naive-Bayes) cell-type classifier for methylation .cz.
 
-    Estimate per-site methylation frequencies from cell-type pseudobulk
-    ``.cz`` files, then score query cells by aggregated per-cytosine
-    Bernoulli log-likelihood in the CpG and CpH channels. Each input ``.cz``
-    holds *all* cytosines (CpG + CpH) as ``mc``/``cov``; the CpG vs CpH split
-    comes from the ``context`` column, read from a ``build_ref`` ``reference``
-    ``.cz`` (the cell-type files usually store only ``mc``/``cov``), so no
-    pre-splitting into separate CG / CH files is needed.
+    Purpose
+    -------
+    Assign a cell type to a **shallow / low-coverage** single cell (few reads
+    per cytosine) by comparing its methylation pattern against a panel of
+    **deep** cell-type pseudobulk references. It answers: *of the candidate
+    cell types, which one most likely produced the methylation observed in
+    this cell?*
+
+    How it works
+    ------------
+    1. ``fit`` reads each cell-type pseudobulk ``.cz`` and estimates, for
+       every discriminative cytosine, the reference methylation frequency
+       ``theta[c, t]`` of type ``t`` (Beta-shrinkage of ``mc``/``cov``).
+    2. ``predict`` scores a query cell as the aggregated per-cytosine
+       Bernoulli log-likelihood of its ``mc``/``cov`` under each type, in two
+       independent channels (CpG and CpH), then a softmax over types gives
+       calibrated probabilities (supporting abstention).
+
+    Each input ``.cz`` holds *all* cytosines (CpG + CpH) as ``mc``/``cov``;
+    the CpG vs CpH split comes from the ``context`` column, read from a
+    ``build_ref`` ``reference`` ``.cz`` (the cell-type files usually store
+    only ``mc``/``cov``), so no pre-splitting into separate CG / CH files is
+    needed.
 
     Parameters
     ----------
@@ -634,6 +650,25 @@ class CellTypeClassifier:
     mc_col, cov_col, context_col : str
         Column names for methylated count, coverage, and sequence context
         in the ``.cz`` files.
+
+    Attributes
+    ----------
+    cell_types : list of str
+        The candidate cell-type labels, in the column order used by every
+        ``(n_types,)`` score / probability vector. Set by :meth:`fit` from the
+        keys of ``pseudobulks``.
+    cell_counts : dict {cell_type: int} or None
+        How many reference cells were pooled into each cell-type pseudobulk
+        (i.e. the abundance of each type in the reference atlas). It is
+        **not** used to fit the frequencies; it only feeds the optional
+        *abundance prior* at predict time: when ``prior_alpha > 0`` the
+        classifier favours more abundant types via ``pi_t ∝ cell_counts[t] **
+        prior_alpha`` (see :meth:`_log_prior`). ``None`` (default) -> a uniform
+        prior over types (every type equally likely a priori). Set by
+        :meth:`fit` from its ``cell_counts=`` argument.
+    alpha0_cg, beta0_cg, alpha0_ch, beta0_ch : float or None
+        The Beta-shrinkage pseudocounts actually used per channel (either the
+        user override or the value auto-estimated in :meth:`fit`).
     """
 
     def __init__(self, lambda_cg=1.0, lambda_ch=1.0,
@@ -721,11 +756,13 @@ class CellTypeClassifier:
 
         Parameters
         ----------
-        pseudobulks : dict {cell_type: path}
+        pseudobulks : dict {cell_type: path} or str
             Per-type pseudobulk ``.cz`` files, each holding *all* cytosines
             (CpG + CpH) as ``mc``/``cov`` aligned to a common reference axis.
-            These typically store **only** ``mc``/``cov`` (no ``pos`` /
-            ``context``), in which case ``reference`` is required.
+            Either a ``{cell_type: path}`` dict or a **directory** of such
+            ``.cz`` files (each file's stem is the cell-type name). These
+            typically store **only** ``mc``/``cov`` (no ``pos`` / ``context``),
+            in which case ``reference`` is required.
         reference : str or None
             Path to the ``build_ref`` reference ``.cz`` (with ``pos, strand,
             context``) supplying the per-row ``context`` used to split CpG
@@ -733,9 +770,12 @@ class CellTypeClassifier:
             files themselves carry a ``context_col`` column; otherwise pass
             the reference here.
         cell_counts : dict {cell_type: int}, optional
-            Number of reference cells per type, used for the abundance /
-            tempered prior at predict time. ``None`` (default) -> uniform
-            prior only.
+            Number of reference cells pooled into each cell-type pseudobulk
+            (the abundance of each type in the reference atlas). Stored on the
+            model and used **only** at predict time to build the optional
+            abundance prior (``pi_t ∝ cell_counts[t] ** prior_alpha`` when
+            ``prior_alpha > 0``); it does not affect the fitted frequencies.
+            ``None`` (default) -> uniform prior only.
         top_cg, top_ch : None, int, or float, optional
             Discriminative-site selection for each channel. ``None`` keeps
             all sites with range > ``min_range_*``; an int keeps the top-N
@@ -779,9 +819,7 @@ class CellTypeClassifier:
         -------
         self
         """
-        if not pseudobulks:
-            raise ValueError(
-                "pseudobulks must be a non-empty {cell_type: path} dict.")
+        pseudobulks = self._resolve_pseudobulks(pseudobulks)
         self.alpha0_cg = None if alpha0_cg is None else float(alpha0_cg)
         self.beta0_cg = None if beta0_cg is None else float(beta0_cg)
         self.alpha0_ch = None if alpha0_ch is None else float(alpha0_ch)
@@ -1328,8 +1366,132 @@ class CellTypeClassifier:
             max_query_cg=max_query_cg, max_query_ch=max_query_ch)
         return pd.Series(self._softmax(logpost.values), index=self.cell_types)
 
+    @staticmethod
+    def _resolve_pseudobulks(pseudobulks):
+        """Resolve ``pseudobulks`` into a ``{cell_type: path}`` dict.
+
+        Accepts either a ``{cell_type: path}`` dict (returned as a shallow
+        copy) or a directory containing per-cell-type ``.cz`` files (each
+        file's stem becomes the cell-type name).
+        """
+        if isinstance(pseudobulks, dict):
+            if not pseudobulks:
+                raise ValueError("pseudobulks dict is empty.")
+            return dict(pseudobulks)
+        if isinstance(pseudobulks, str):
+            d = os.path.abspath(os.path.expanduser(pseudobulks))
+            if os.path.isdir(d):
+                files = sorted(glob.glob(os.path.join(d, '*.cz')))
+                if not files:
+                    raise ValueError(
+                        f"no .cz files found in pseudobulk dir {d!r}")
+                return {_cz_stem(f): f for f in files}
+        raise ValueError(
+            "pseudobulks must be a {cell_type: path} dict or a directory of "
+            f".cz files; got {type(pseudobulks)!r}.")
+
+    @staticmethod
+    def _resolve_queries(query):
+        """Resolve ``query`` into ``(kind, resolved)``.
+
+        ``kind`` is ``'single'`` (with a path or ``(mc, cov)`` arrays),
+        ``'multicell'`` (with a cat ``.cz`` path), or ``'batch'`` (with a
+        ``{cell_id: path}`` dict). Accepts:
+
+        * a preloaded ``(mc, cov)`` array pair -> single;
+        * a single ``.cz`` file path -> single;
+        * a **concatenated (cat) multi-cell ``.cz``** (chunk keys carry a cell
+          dimension) -> ``'multicell'``;
+        * a directory of ``.cz`` files -> batch (file stem = cell id);
+        * a table (``pandas.DataFrame`` or delimited file) whose first two
+          columns are ``[cell_id, cz_path]`` -> batch;
+        * a ``{cell_id: path}`` dict or a list of paths -> batch.
+        """
+        if query is None:
+            raise ValueError("query is required.")
+        # preloaded (mc, cov) arrays -> single
+        if (isinstance(query, (tuple, list)) and len(query) == 2
+                and all(isinstance(x, np.ndarray) for x in query)):
+            return 'single', query
+        if isinstance(query, pd.DataFrame):
+            if query.shape[1] < 2:
+                raise ValueError(
+                    "query DataFrame needs >= 2 columns [cell_id, cz_path].")
+            return 'batch', {str(cid): str(p) for cid, p
+                             in zip(query.iloc[:, 0], query.iloc[:, 1])}
+        if isinstance(query, dict):
+            return 'batch', dict(query)
+        if isinstance(query, (list, tuple)):
+            return 'batch', _as_id_map(list(query))
+        if isinstance(query, str):
+            q = _abspath(query)
+            if os.path.isdir(q):
+                files = sorted(glob.glob(os.path.join(q, '*.cz')))
+                if not files:
+                    raise ValueError(f"no .cz files found in query dir {q!r}")
+                return 'batch', {_cz_stem(f): f for f in files}
+            if q.endswith('.cz'):
+                return ('multicell', q) if _cz_is_multicell(q) else ('single', q)
+            return 'batch', _read_query_table(q)  # any other file -> table
+        raise ValueError(f"unsupported query type: {type(query)!r}.")
+
     def predict(self, query, prior_alpha=0.0, abstain_threshold=None,
-                max_query_cg=None, max_query_ch=None):
+                max_query_cg=None, max_query_ch=None, n_jobs=None):
+        """Predict cell type(s) for any query, dispatching on its form.
+
+        Mirrors :func:`predict_cell_type`'s ``query`` handling: the shape of
+        the return value depends on what ``query`` is.
+
+        Parameters
+        ----------
+        query : str, (mc, cov) tuple, list, dict, or pandas.DataFrame
+            The cell(s) to predict, in any of these forms:
+
+            * a single all-cytosine ``.cz`` file (or a preloaded ``(mc, cov)``
+              array pair) -> a single prediction ``dict``;
+            * a **concatenated (cat) ``.cz``** holding many cells (auto-
+              detected) -> ``(labels, proba)`` like :meth:`predict_multicell`;
+            * a **directory** of ``.cz`` files (each file's stem is the cell
+              id), a ``{cell_id: path}`` dict, a list of ``.cz`` paths, or a
+              **table** (``pandas.DataFrame`` or delimited file whose first
+              two columns are ``[cell_id, cz_path]``) -> ``(labels, proba)``
+              like :meth:`predict_batch`.
+        prior_alpha : float
+            Abundance-prior temperature (default 0 -> uniform prior).
+        abstain_threshold : float or None
+            If given and the top probability is below it, the label becomes
+            ``'unassigned'`` (abstention).
+        max_query_cg, max_query_ch : int or None
+            If given, randomly keep at most this many of the query cell's
+            covered (``cov > 0``) CpG / CpH cytosines when scoring. ``None``
+            (default) uses every covered site. See :meth:`log_posterior`.
+        n_jobs : int or None, optional
+            Threads used to score cells in parallel for batch / multi-cell
+            queries (ignored for a single cell). ``None``/``1`` -> serial.
+
+        Returns
+        -------
+        dict or (pandas.DataFrame, pandas.DataFrame)
+            A single prediction ``dict`` (``label``, ``confidence``, ``proba``,
+            ``log_posterior``) for a single-cell query, else ``(labels,
+            proba)`` DataFrames for a batch / multi-cell query.
+        """
+        kind, q = self._resolve_queries(query)
+        if kind == 'single':
+            return self._predict_single(
+                q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
+                max_query_cg=max_query_cg, max_query_ch=max_query_ch)
+        if kind == 'multicell':
+            return self.predict_multicell(
+                q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
+                max_query_cg=max_query_cg, max_query_ch=max_query_ch,
+                n_jobs=n_jobs)
+        return self.predict_batch(
+            q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
+            max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs)
+
+    def _predict_single(self, query, prior_alpha=0.0, abstain_threshold=None,
+                        max_query_cg=None, max_query_ch=None):
         """Predict the most likely cell type for one query cell.
 
         Parameters
@@ -1391,10 +1553,10 @@ class CellTypeClassifier:
 
         def _predict_one(item):
             cid, path = item
-            res = self.predict(path, prior_alpha=prior_alpha,
-                               abstain_threshold=abstain_threshold,
-                               max_query_cg=max_query_cg,
-                               max_query_ch=max_query_ch)
+            res = self._predict_single(path, prior_alpha=prior_alpha,
+                                       abstain_threshold=abstain_threshold,
+                                       max_query_cg=max_query_cg,
+                                       max_query_ch=max_query_ch)
             return cid, res['label'], res['confidence'], res['proba'].rename(cid)
 
         n_workers = _resolve_n_jobs(n_jobs)
@@ -2103,26 +2265,11 @@ def _model_store_complete(model_dir):
 
 
 def _resolve_pseudobulks(pseudobulks):
-    """Resolve ``pseudobulks`` into a ``{cell_type: path}`` dict.
+    """Backward-compatible module-level alias.
 
-    Accepts either a ``{cell_type: path}`` dict (returned as a shallow copy)
-    or a directory containing per-cell-type ``.cz`` files (each file's stem
-    becomes the cell-type name).
+    Deprecated: use :meth:`CellTypeClassifier._resolve_pseudobulks`.
     """
-    if isinstance(pseudobulks, dict):
-        if not pseudobulks:
-            raise ValueError("pseudobulks dict is empty.")
-        return dict(pseudobulks)
-    if isinstance(pseudobulks, str):
-        d = os.path.abspath(os.path.expanduser(pseudobulks))
-        if os.path.isdir(d):
-            files = sorted(glob.glob(os.path.join(d, '*.cz')))
-            if not files:
-                raise ValueError(f"no .cz files found in pseudobulk dir {d!r}")
-            return {_cz_stem(f): f for f in files}
-    raise ValueError(
-        "pseudobulks must be a {cell_type: path} dict or a directory of "
-        f".cz files; got {type(pseudobulks)!r}.")
+    return CellTypeClassifier._resolve_pseudobulks(pseudobulks)
 
 
 def _read_query_table(path):
@@ -2142,47 +2289,11 @@ def _read_query_table(path):
 
 
 def _resolve_queries(query):
-    """Resolve ``query`` into ``('single', path_or_arrays)`` or
-    ``('batch', {cell_id: path})``.
+    """Backward-compatible module-level alias.
 
-    Accepts:
-
-    * a preloaded ``(mc, cov)`` array pair -> single;
-    * a single ``.cz`` file path -> single;
-    * a **concatenated (cat) multi-cell ``.cz``** (chunk keys carry a cell
-      dimension) -> ``'multicell'``;
-    * a directory of ``.cz`` files -> batch (file stem = cell id);
-    * a table (``pandas.DataFrame`` or delimited file) whose first two
-      columns are ``[cell_id, cz_path]`` -> batch;
-    * a ``{cell_id: path}`` dict or a list of paths -> batch.
+    Deprecated: use :meth:`CellTypeClassifier._resolve_queries`.
     """
-    if query is None:
-        raise ValueError("query is required.")
-    # preloaded (mc, cov) arrays -> single
-    if (isinstance(query, (tuple, list)) and len(query) == 2
-            and all(isinstance(x, np.ndarray) for x in query)):
-        return 'single', query
-    if isinstance(query, pd.DataFrame):
-        if query.shape[1] < 2:
-            raise ValueError(
-                "query DataFrame needs >= 2 columns [cell_id, cz_path].")
-        return 'batch', {str(cid): str(p)
-                         for cid, p in zip(query.iloc[:, 0], query.iloc[:, 1])}
-    if isinstance(query, dict):
-        return 'batch', dict(query)
-    if isinstance(query, (list, tuple)):
-        return 'batch', _as_id_map(list(query))
-    if isinstance(query, str):
-        q = _abspath(query)
-        if os.path.isdir(q):
-            files = sorted(glob.glob(os.path.join(q, '*.cz')))
-            if not files:
-                raise ValueError(f"no .cz files found in query dir {q!r}")
-            return 'batch', {_cz_stem(f): f for f in files}
-        if q.endswith('.cz'):
-            return ('multicell', q) if _cz_is_multicell(q) else ('single', q)
-        return 'batch', _read_query_table(q)  # any other file -> table
-    raise ValueError(f"unsupported query type: {type(query)!r}.")
+    return CellTypeClassifier._resolve_queries(query)
 
 
 # ==========================================================
@@ -2227,6 +2338,18 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
         ``build_ref`` reference ``.cz`` supplying the per-row ``context``
         (required when the ``pseudobulks`` files lack a context column). See
         :meth:`CellTypeClassifier.fit`.
+    cell_counts : dict {cell_type: int} or None, optional
+        Number of reference cells pooled into each cell-type pseudobulk (the
+        abundance of each type in the reference atlas). Only used together
+        with ``prior_alpha`` to build the abundance prior at predict time; it
+        does **not** affect the fitted frequencies. ``None`` (default) ->
+        uniform prior. Keys must match the ``pseudobulks`` cell types.
+    prior_alpha : float, optional
+        Strength of the abundance prior (``pi_t ∝ cell_counts[t] **
+        prior_alpha``). ``0.0`` (default) -> uniform prior over types (ignore
+        ``cell_counts``); ``1.0`` -> full abundance prior (types weighted by
+        their reference cell counts); values in between temper it. Has no
+        effect when ``cell_counts`` is ``None``.
     max_query_cg, max_query_ch : int or None
         If given, randomly keep at most this many of each query cell's covered
         (``cov > 0``) CpG / CpH cytosines when scoring (drawn independently
@@ -2275,13 +2398,13 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
             f"found existing model at {model_dir}; skipping fit and loading it")
         clf = CellTypeClassifier.load(model_dir)
     else:
-        pseudobulks = _resolve_pseudobulks(pseudobulks)
         clf = CellTypeClassifier(
             lambda_cg=lambda_cg, lambda_ch=lambda_ch,
             mc_col=mc_col, cov_col=cov_col, context_col=context_col)
         # Route the memmap store straight to real disk (<outdir>/model) so a
         # large model never spills into a small/RAM-backed /tmp (-> SIGBUS).
-        # Without outdir it falls back to a system temp dir.
+        # Without outdir it falls back to a system temp dir. ``fit`` accepts a
+        # {cell_type: path} dict or a directory of .cz files directly.
         clf.fit(pseudobulks=pseudobulks, reference=reference,
                 cell_counts=cell_counts, top_cg=top_cg, top_ch=top_ch,
                 min_range_cg=min_range_cg, min_range_ch=min_range_ch,
@@ -2292,39 +2415,27 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
         if outdir is not None:
             clf.save(model_dir)
 
-    kind, q = _resolve_queries(query)
-    if kind == 'single':
-        res = clf.predict(q, prior_alpha=prior_alpha,
-                          abstain_threshold=abstain_threshold,
-                          max_query_cg=max_query_cg, max_query_ch=max_query_ch)
-        if outdir is not None:
-            cid = _cz_stem(q) if isinstance(q, str) else 'query'
-            labels = pd.DataFrame(
-                [[res['label'], res['confidence']]],
-                index=[cid], columns=['label', 'confidence'])
-            labels.index.name = 'cell_id'
-            proba = res['proba'].rename(cid).to_frame().T
-            proba.index.name = 'cell_id'
-            labels.to_csv(os.path.join(outdir, 'predictions.csv'))
-            proba.to_csv(os.path.join(outdir, 'predict_proba.csv'))
-            logger.info(f"wrote predictions to {outdir}")
-        return res
-
-    if kind == 'multicell':
-        labels, proba = clf.predict_multicell(
-            q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
-            max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs)
-    else:
-        labels, proba = clf.predict_batch(
-            q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
-            max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs)
+    # ``predict`` dispatches on the query form (single / cat multi-cell /
+    # directory / dict / table), returning a dict for a single cell or
+    # (labels, proba) DataFrames otherwise.
+    result = clf.predict(
+        query, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
+        max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs)
     if outdir is not None:
+        if isinstance(result, dict):
+            cid = _cz_stem(query) if isinstance(query, str) else 'query'
+            labels = pd.DataFrame(
+                [[result['label'], result['confidence']]],
+                index=[cid], columns=['label', 'confidence'])
+            proba = result['proba'].rename(cid).to_frame().T
+        else:
+            labels, proba = result
         labels.index.name = 'cell_id'
         proba.index.name = 'cell_id'
         labels.to_csv(os.path.join(outdir, 'predictions.csv'))
         proba.to_csv(os.path.join(outdir, 'predict_proba.csv'))
         logger.info(f"wrote predictions to {outdir}")
-    return labels, proba
+    return result
 
 
 # ==========================================================
