@@ -365,7 +365,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     allc_path = os.path.abspath(os.path.expanduser(input))
     if not os.path.exists(allc_path + '.tbi'):
         raise ValueError("index file .tbi not existed, please create index first.")
-    logger.info(allc_path)
+    # logger.info(allc_path)
     import pysam
     tbi = pysam.TabixFile(allc_path)
     contigs = tbi.contigs

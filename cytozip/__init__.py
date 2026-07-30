@@ -890,11 +890,16 @@ def _build_parser():
                    help='keep a CpG site only if its across-type frequency range exceeds this')
     p.add_argument('--min_range_ch', type=float, default=0.0,
                    help='keep a CpH site only if its across-type frequency range exceeds this')
+    p.add_argument('--top_per_class', type=_int_or_none, default=None,
+                   help='balanced per-cell-type marker selection: keep this many one-vs-rest '
+                        'high + low markers per type per channel (replaces --top_cg/--top_ch)')
     p.add_argument('--mc_col', default='mc', help='methylated-count column name')
     p.add_argument('--cov_col', default='cov', help='coverage column name')
     p.add_argument('--context_col', default='context', help='context column name (in the reference)')
     p.add_argument('--abstain_threshold', type=_float_or_none, default=None,
                    help="label a cell 'unassigned' when its top probability is below this")
+    p.add_argument('--contexts', default='cg+ch',
+                   help="cytosine context(s) to classify on: 'cg', 'ch', or 'both'/'cg+ch'")
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='parallel .cz readers / per-cell scoring threads')
 
@@ -1377,9 +1382,11 @@ def main():
             prior_min_cov=args.prior_min_cov,
             top_cg=args.top_cg, top_ch=args.top_ch,
             min_range_cg=args.min_range_cg, min_range_ch=args.min_range_ch,
+            top_per_class=args.top_per_class,
             mc_col=args.mc_col, cov_col=args.cov_col,
             context_col=args.context_col,
             abstain_threshold=args.abstain_threshold,
+            contexts=args.contexts,
             n_jobs=args.jobs, outdir=args.outdir)
 
     elif cmd == 'deconvolve_bulk':

@@ -750,8 +750,9 @@ class CellTypeClassifier:
 
     def fit(self, pseudobulks, reference=None, cell_counts=None,
             top_cg=None, top_ch=None, min_range_cg=0.0, min_range_ch=0.0,
+            top_per_class=None,
             alpha0_cg=None, beta0_cg=None, alpha0_ch=None, beta0_ch=None,
-            prior_min_cov=2, n_jobs=None, outdir=None):
+            prior_min_cov=2, contexts='cg+ch', n_jobs=None, outdir=None):
         """Estimate per-type methylation frequencies from cell-type ``.cz`` files.
 
         Parameters
@@ -786,6 +787,19 @@ class CellTypeClassifier:
             non-discriminative score-0 sites — where every cell type shares
             the same theta — since those cancel in the softmax and cannot
             affect the prediction).
+        top_per_class : int or None, optional
+            Balanced, per-cell-type marker selection. When set (e.g. ``2000``),
+            **replaces** the global ``top_cg`` / ``top_ch`` ranking with a
+            one-vs-rest scheme: for every cell type, keep the ``top_per_class``
+            sites where that type is the *uniquely* highest-methylated (by the
+            gap ``max - 2nd-highest`` across types) plus ``top_per_class`` where
+            it is the *uniquely* lowest (gap ``2nd-lowest - min``), in each
+            channel, then take the union. This guarantees each type — including
+            **subtly different, dominant types** (e.g. D1 vs D2 vs hybrid MSN) —
+            contributes its own discriminative markers instead of being starved
+            by a global top-fraction that is dominated by coarse
+            (neuron-vs-glia) contrasts. ``None`` (default) uses the global
+            ``top_cg`` / ``top_ch`` selection.
         alpha0_cg, beta0_cg : float or None, optional
             Beta-prior pseudocounts for the CpG channel. ``None`` (default)
             -> estimate them empirically from the pooled reference counts of
@@ -798,6 +812,13 @@ class CellTypeClassifier:
         prior_min_cov : int, optional
             Minimum coverage for a reference site to enter the empirical prior
             estimation (passed to :func:`estimate_beta_prior`; default 2).
+        contexts : str, optional
+            Which cytosine context channel(s) to actually fit: ``'cg'``,
+            ``'ch'``, or ``'both'`` / ``'cg+ch'`` (default, fit both). Fitting
+            a single context skips the other channel entirely (no sites read,
+            selected, or stored for it), so the model is smaller and faster to
+            build. A model fit on one context can only be scored on that
+            context.
         n_jobs : int or None, optional
             Threads used to read/decode the pseudobulk ``.cz`` files in
             parallel across cell types (reads/decompression release the GIL).
@@ -820,6 +841,7 @@ class CellTypeClassifier:
         self
         """
         pseudobulks = self._resolve_pseudobulks(pseudobulks)
+        use_ctx = self._resolve_contexts(contexts)
         self.alpha0_cg = None if alpha0_cg is None else float(alpha0_cg)
         self.beta0_cg = None if beta0_cg is None else float(beta0_cg)
         self.alpha0_ch = None if alpha0_ch is None else float(alpha0_ch)
@@ -838,6 +860,13 @@ class CellTypeClassifier:
             ctx_source, self.context_col, None)
         cg_mask, ch_mask = _context_masks(ctx)
         del ctx  # free the (n_full x 3-byte) context array early
+        # Restrict to the requested context channel(s): dropping a mask to
+        # all-False makes n_cg / n_ch below 0, so every downstream pass skips
+        # that channel (nothing read, selected, or stored for it).
+        if 'cg' not in use_ctx:
+            cg_mask = np.zeros_like(cg_mask)
+        if 'ch' not in use_ctx:
+            ch_mask = np.zeros_like(ch_mask)
         n_full = int(sum(int(chunk_lens[k]) for k in chunk_keys))
 
         # Per-chunk row span on the full axis, plus per-chunk (offset, count)
@@ -987,19 +1016,54 @@ class CellTypeClassifier:
         # Parallel across cell types; only the per-chunk max/min update touches
         # the shared arrays, so it is guarded by a lock (the costly decompress
         # + estimate_theta run concurrently outside it).
+        per_class = top_per_class is not None
+        kpc = int(top_per_class) if per_class else 0
+        # For per-class (one-vs-rest) selection we also track, per site, which
+        # type is the extreme high/low (argmax/argmin) and the runner-up value
+        # (2nd max / 2nd min) so the OvR gap of the winning type is available.
+        amax_cg = amin_cg = tmax2_cg = tmin2_cg = None
+        amax_ch = amin_ch = tmax2_ch = tmin2_ch = None
         tmax_cg = tmin_cg = tmax_ch = tmin_ch = None
         if n_cg > 0:
             tmax_cg = np.full(n_cg, -np.inf, dtype=np.float32)
             tmin_cg = np.full(n_cg, np.inf, dtype=np.float32)
+            if per_class:
+                tmax2_cg = np.full(n_cg, -np.inf, dtype=np.float32)
+                tmin2_cg = np.full(n_cg, np.inf, dtype=np.float32)
+                amax_cg = np.full(n_cg, -1, dtype=np.int32)
+                amin_cg = np.full(n_cg, -1, dtype=np.int32)
         if n_ch > 0:
             tmax_ch = np.full(n_ch, -np.inf, dtype=np.float32)
             tmin_ch = np.full(n_ch, np.inf, dtype=np.float32)
+            if per_class:
+                tmax2_ch = np.full(n_ch, -np.inf, dtype=np.float32)
+                tmin2_ch = np.full(n_ch, np.inf, dtype=np.float32)
+                amax_ch = np.full(n_ch, -1, dtype=np.int32)
+                amin_ch = np.full(n_ch, -1, dtype=np.int32)
 
         logger.info(
             f"PASS B: scoring cross-type theta range over {len(cell_types)} "
-            f"cell types ({n_cg:,} CG + {n_ch:,} CH sites)...")
+            f"cell types ({n_cg:,} CG + {n_ch:,} CH sites)"
+            + (f", per-class top {kpc}" if per_class else "") + "...")
+
+        def _update_extreme(seg, th, j, tmax, tmin, tmax2, tmin2, amax, amin):
+            # Running max/min plus 2nd-max/2nd-min and their argmax/argmin type,
+            # correct under any type-processing order (each type seen once/site).
+            hi = tmax[seg]
+            gt1 = th > hi
+            gt2 = (~gt1) & (th > tmax2[seg])
+            tmax2[seg] = np.where(gt1, hi, np.where(gt2, th, tmax2[seg]))
+            amax[seg] = np.where(gt1, j, amax[seg])
+            tmax[seg] = np.where(gt1, th, hi)
+            lo = tmin[seg]
+            lt1 = th < lo
+            lt2 = (~lt1) & (th < tmin2[seg])
+            tmin2[seg] = np.where(lt1, lo, np.where(lt2, th, tmin2[seg]))
+            amin[seg] = np.where(lt1, j, amin[seg])
+            tmin[seg] = np.where(lt1, th, lo)
 
         def _range_one(t):
+            j = cell_types.index(t)
             r, mi, ci = _open(t)
             try:
                 for k, s, e in chunk_spans:
@@ -1018,8 +1082,13 @@ class CellTypeClassifier:
                                 th = np.full(nk, mean_cg, dtype=np.float32)
                             seg = slice(off, off + nk)
                             with _lock:
-                                np.maximum(tmax_cg[seg], th, out=tmax_cg[seg])
-                                np.minimum(tmin_cg[seg], th, out=tmin_cg[seg])
+                                if per_class:
+                                    _update_extreme(
+                                        seg, th, j, tmax_cg, tmin_cg,
+                                        tmax2_cg, tmin2_cg, amax_cg, amin_cg)
+                                else:
+                                    np.maximum(tmax_cg[seg], th, out=tmax_cg[seg])
+                                    np.minimum(tmin_cg[seg], th, out=tmin_cg[seg])
                     if n_ch > 0:
                         off, nk = ch_off[k]
                         if nk:
@@ -1031,26 +1100,64 @@ class CellTypeClassifier:
                                 th = np.full(nk, mean_ch, dtype=np.float32)
                             seg = slice(off, off + nk)
                             with _lock:
-                                np.maximum(tmax_ch[seg], th, out=tmax_ch[seg])
-                                np.minimum(tmin_ch[seg], th, out=tmin_ch[seg])
+                                if per_class:
+                                    _update_extreme(
+                                        seg, th, j, tmax_ch, tmin_ch,
+                                        tmax2_ch, tmin2_ch, amax_ch, amin_ch)
+                                else:
+                                    np.maximum(tmax_ch[seg], th, out=tmax_ch[seg])
+                                    np.minimum(tmin_ch[seg], th, out=tmin_ch[seg])
             finally:
                 r.close()
 
         _map(_range_one, cell_types, desc="PASS B (theta range)")
         logger.info("PASS B done; selecting discriminative sites...")
+
+        def _select_per_class(tmax, tmin, tmax2, tmin2, amax, amin, min_range):
+            # Union of, per type, the top-kpc sites where it is uniquely highest
+            # (gap = max - 2nd-max) and the top-kpc where it is uniquely lowest
+            # (gap = 2nd-min - min), among sites whose overall range passes
+            # ``min_range``.
+            valid = (tmax - tmin) > min_range
+            gap_hi = np.where(np.isfinite(tmax2), tmax - tmax2, tmax - tmin)
+            gap_lo = np.where(np.isfinite(tmin2), tmin2 - tmin, tmax - tmin)
+            keep = set()
+            for j in range(len(cell_types)):
+                ih = np.where(valid & (amax == j))[0]
+                if ih.size:
+                    order = ih[np.argsort(gap_hi[ih])[::-1][:kpc]]
+                    keep.update(order.tolist())
+                il = np.where(valid & (amin == j))[0]
+                if il.size:
+                    order = il[np.argsort(gap_lo[il])[::-1][:kpc]]
+                    keep.update(order.tolist())
+            return np.array(sorted(keep), dtype=np.int64)
+
         sites_cg = sites_ch = None
         if n_cg > 0:
-            score = tmax_cg - tmin_cg
-            del tmax_cg, tmin_cg
-            sites_cg = _select_from_score(
-                score, top=top_cg, min_range=min_range_cg)
-            del score
+            if per_class:
+                sites_cg = _select_per_class(
+                    tmax_cg, tmin_cg, tmax2_cg, tmin2_cg,
+                    amax_cg, amin_cg, min_range_cg)
+                del tmax_cg, tmin_cg, tmax2_cg, tmin2_cg, amax_cg, amin_cg
+            else:
+                score = tmax_cg - tmin_cg
+                del tmax_cg, tmin_cg
+                sites_cg = _select_from_score(
+                    score, top=top_cg, min_range=min_range_cg)
+                del score
         if n_ch > 0:
-            score = tmax_ch - tmin_ch
-            del tmax_ch, tmin_ch
-            sites_ch = _select_from_score(
-                score, top=top_ch, min_range=min_range_ch)
-            del score
+            if per_class:
+                sites_ch = _select_per_class(
+                    tmax_ch, tmin_ch, tmax2_ch, tmin2_ch,
+                    amax_ch, amin_ch, min_range_ch)
+                del tmax_ch, tmin_ch, tmax2_ch, tmin2_ch, amax_ch, amin_ch
+            else:
+                score = tmax_ch - tmin_ch
+                del tmax_ch, tmin_ch
+                sites_ch = _select_from_score(
+                    score, top=top_ch, min_range=min_range_ch)
+                del score
 
         # Map selected compact-axis indices back to per-chunk local rows (into
         # the chunk's mc/cov) and output-row ranges.
@@ -1268,10 +1375,20 @@ class CellTypeClassifier:
                     cov = np.where(keep, cov, 0)
                     new_parts.append((lo, hi, mc, cov))
                 parts = new_parts
+        # Only covered sites (cov > 0) contribute: an uncovered site has
+        # mc == 0 and cov == 0, so mc*log_theta + (cov-mc)*log1m_theta == 0.
+        # Gathering just those rows turns the dense GEMV over *every* selected
+        # site into a tiny one over the (usually <1%) covered sites, reading
+        # only those rows from the memmapped log-theta tables.
         acc = None
         for lo, hi, mc, cov in parts:
-            umc = cov - mc
-            part = mc @ lt[lo:hi] + umc @ l1[lo:hi]
+            nz = np.flatnonzero(cov)
+            if nz.size == 0:
+                continue  # nothing covered in this chunk -> zero contribution
+            gidx = lo + nz
+            m = mc[nz]
+            umc = cov[nz] - m
+            part = m @ lt[gidx] + umc @ l1[gidx]
             acc = part if acc is None else acc + part
         return acc
 
@@ -1304,7 +1421,7 @@ class CellTypeClassifier:
             query, self.mc_col, self.cov_col, needed, self._chunk_lens)
 
     def log_posterior(self, query, prior_alpha=0.0,
-                      max_query_cg=None, max_query_ch=None):
+                      max_query_cg=None, max_query_ch=None, contexts='cg+ch'):
         """Unnormalized log-posterior per cell type: pandas Series.
 
         Parameters
@@ -1321,28 +1438,42 @@ class CellTypeClassifier:
             every covered site (no downsampling). When the query has fewer
             covered sites than the cap, all of them are used. A fresh random
             draw is made per call.
+        contexts : str, optional
+            Which cytosine context(s) to score on: ``'cg'``, ``'ch'``, or
+            ``'both'`` / ``'cg+ch'`` (default, use both channels). Selecting a
+            single context ignores the other channel entirely.
         """
         if self.cell_types is None:
             raise RuntimeError("call fit() before predicting.")
         query_chunks = self._query_chunks(query)
         return self._log_posterior_from_chunks(
-            query_chunks, prior_alpha, max_query_cg, max_query_ch)
+            query_chunks, prior_alpha, max_query_cg, max_query_ch, contexts)
 
     def _log_posterior_from_chunks(self, query_chunks, prior_alpha=0.0,
-                                   max_query_cg=None, max_query_ch=None):
+                                   max_query_cg=None, max_query_ch=None,
+                                   contexts='cg+ch'):
         """Log-posterior from a pre-built ``{chunk_key: (mc, cov)}`` map."""
+        use = self._resolve_contexts(contexts)
+        if 'cg' in use and self._cg is None:
+            raise ValueError(
+                "contexts requested 'cg' but the model has no CpG channel "
+                "(none fitted); pass contexts='ch'.")
+        if 'ch' in use and self._ch is None:
+            raise ValueError(
+                "contexts requested 'ch' but the model has no CpH channel "
+                "(none fitted); pass contexts='cg'.")
         max_query_cg = None if max_query_cg is None else int(max_query_cg)
         max_query_ch = None if max_query_ch is None else int(max_query_ch)
         rng = (np.random.default_rng()
                if (max_query_cg is not None
                    or max_query_ch is not None) else None)
         logpost = self._log_prior(prior_alpha)
-        if self._cg is not None:
+        if 'cg' in use and self._cg is not None:
             part = self._score(self._cg, query_chunks,
                                downsample=max_query_cg, rng=rng)
             if part is not None:
                 logpost = logpost + self.lambda_cg * part
-        if self._ch is not None:
+        if 'ch' in use and self._ch is not None:
             part = self._score(self._ch, query_chunks,
                                downsample=max_query_ch, rng=rng)
             if part is not None:
@@ -1359,11 +1490,12 @@ class CellTypeClassifier:
         return p
 
     def predict_proba(self, query, prior_alpha=0.0,
-                      max_query_cg=None, max_query_ch=None):
+                      max_query_cg=None, max_query_ch=None, contexts='cg+ch'):
         """Softmax posterior probabilities per cell type: pandas Series."""
         logpost = self.log_posterior(
             query, prior_alpha,
-            max_query_cg=max_query_cg, max_query_ch=max_query_ch)
+            max_query_cg=max_query_cg, max_query_ch=max_query_ch,
+            contexts=contexts)
         return pd.Series(self._softmax(logpost.values), index=self.cell_types)
 
     @staticmethod
@@ -1436,7 +1568,8 @@ class CellTypeClassifier:
         raise ValueError(f"unsupported query type: {type(query)!r}.")
 
     def predict(self, query, prior_alpha=0.0, abstain_threshold=None,
-                max_query_cg=None, max_query_ch=None, n_jobs=None):
+                max_query_cg=None, max_query_ch=None, n_jobs=None,
+                contexts='cg+ch'):
         """Predict cell type(s) for any query, dispatching on its form.
 
         Mirrors :func:`predict_cell_type`'s ``query`` handling: the shape of
@@ -1468,6 +1601,9 @@ class CellTypeClassifier:
         n_jobs : int or None, optional
             Threads used to score cells in parallel for batch / multi-cell
             queries (ignored for a single cell). ``None``/``1`` -> serial.
+        contexts : str, optional
+            Which cytosine context(s) to score on: ``'cg'``, ``'ch'``, or
+            ``'both'`` / ``'cg+ch'`` (default, use both channels).
 
         Returns
         -------
@@ -1480,18 +1616,21 @@ class CellTypeClassifier:
         if kind == 'single':
             return self._predict_single(
                 q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
-                max_query_cg=max_query_cg, max_query_ch=max_query_ch)
+                max_query_cg=max_query_cg, max_query_ch=max_query_ch,
+                contexts=contexts)
         if kind == 'multicell':
             return self.predict_multicell(
                 q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
                 max_query_cg=max_query_cg, max_query_ch=max_query_ch,
-                n_jobs=n_jobs)
+                n_jobs=n_jobs, contexts=contexts)
         return self.predict_batch(
             q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
-            max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs)
+            max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs,
+            contexts=contexts)
 
     def _predict_single(self, query, prior_alpha=0.0, abstain_threshold=None,
-                        max_query_cg=None, max_query_ch=None):
+                        max_query_cg=None, max_query_ch=None,
+                        contexts='cg+ch'):
         """Predict the most likely cell type for one query cell.
 
         Parameters
@@ -1516,7 +1655,8 @@ class CellTypeClassifier:
         """
         logpost = self.log_posterior(
             query, prior_alpha,
-            max_query_cg=max_query_cg, max_query_ch=max_query_ch)
+            max_query_cg=max_query_cg, max_query_ch=max_query_ch,
+            contexts=contexts)
         proba = pd.Series(self._softmax(logpost.values), index=self.cell_types)
         top = proba.idxmax()
         conf = float(proba.max())
@@ -1527,14 +1667,15 @@ class CellTypeClassifier:
                 'proba': proba, 'log_posterior': logpost}
 
     def predict_batch(self, queries, prior_alpha=0.0, abstain_threshold=None,
-                      max_query_cg=None, max_query_ch=None, n_jobs=None):
+                      max_query_cg=None, max_query_ch=None, n_jobs=None,
+                      contexts='cg+ch'):
         """Predict many cells at once.
 
         Parameters
         ----------
         queries : dict {cell_id: path} or list of paths
             One all-cytosine ``.cz`` per query cell.
-        prior_alpha, abstain_threshold, max_query_cg, max_query_ch :
+        prior_alpha, abstain_threshold, max_query_cg, max_query_ch, contexts :
             see :meth:`predict`.
         n_jobs : int or None, optional
             Threads used to score cells in parallel. ``None``/``1`` -> serial;
@@ -1556,7 +1697,8 @@ class CellTypeClassifier:
             res = self._predict_single(path, prior_alpha=prior_alpha,
                                        abstain_threshold=abstain_threshold,
                                        max_query_cg=max_query_cg,
-                                       max_query_ch=max_query_ch)
+                                       max_query_ch=max_query_ch,
+                                       contexts=contexts)
             return cid, res['label'], res['confidence'], res['proba'].rename(cid)
 
         n_workers = _resolve_n_jobs(n_jobs)
@@ -1575,7 +1717,8 @@ class CellTypeClassifier:
         return labels, proba
 
     def predict_multicell(self, path, prior_alpha=0.0, abstain_threshold=None,
-                          max_query_cg=None, max_query_ch=None, n_jobs=None):
+                          max_query_cg=None, max_query_ch=None, n_jobs=None,
+                          contexts='cg+ch'):
         """Predict every cell packed in one concatenated (cat) ``.cz`` file.
 
         A ``catcz`` output stacks many single-cell ``.cz`` into one file,
@@ -1590,7 +1733,7 @@ class CellTypeClassifier:
         path : str
             A multi-cell (cat) ``.cz`` aligned to the same reference axis the
             model was fit on.
-        prior_alpha, abstain_threshold, max_query_cg, max_query_ch :
+        prior_alpha, abstain_threshold, max_query_cg, max_query_ch, contexts :
             see :meth:`predict`.
         n_jobs : int or None, optional
             Threads used to score cells in parallel (each worker opens its own
@@ -1666,7 +1809,8 @@ class CellTypeClassifier:
             finally:
                 rr.close()
             logpost = self._log_posterior_from_chunks(
-                query_chunks, prior_alpha, max_query_cg, max_query_ch)
+                query_chunks, prior_alpha, max_query_cg, max_query_ch,
+                contexts)
             proba = self._softmax(logpost.values)
             top = int(np.argmax(proba))
             conf = float(proba[top])
@@ -1786,11 +1930,14 @@ class CellTypeClassifier:
     def _resolve_contexts(contexts):
         """Normalize ``contexts`` into an ordered list of ``'cg'``/``'ch'``.
 
-        Accepts a string (``'cg'``, ``'ch'``, ``'cg+ch'``, ``'cg,ch'``) or an
-        iterable of such names (case-insensitive).
+        Accepts a string (``'cg'``, ``'ch'``, ``'both'``, ``'cg+ch'``,
+        ``'cg,ch'``) or an iterable of such names (case-insensitive).
         """
         if isinstance(contexts, str):
-            parts = contexts.lower().replace('+', ',').replace(' ', ',')
+            s = contexts.lower().strip()
+            if s == 'both':
+                s = 'cg,ch'
+            parts = s.replace('+', ',').replace(' ', ',')
             contexts = [p for p in parts.split(',') if p]
         contexts = [str(c).lower() for c in contexts]
         seen, ordered = set(), []
@@ -2304,9 +2451,10 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
                       alpha0_cg=None, beta0_cg=None,
                       alpha0_ch=None, beta0_ch=None, prior_min_cov=2,
                       top_cg=None, top_ch=None,
-                      min_range_cg=0.0, min_range_ch=0.0,
+                      min_range_cg=0.0, min_range_ch=0.0, top_per_class=None,
                       mc_col='mc', cov_col='cov', context_col='context',
-                      abstain_threshold=None, n_jobs=None, outdir=None):
+                      abstain_threshold=None, contexts='cg+ch',
+                      n_jobs=None, outdir=None, prefix=''):
     """One-shot convenience wrapper: fit cell-type files and predict cell(s).
 
     Fit per-type methylation frequencies from ``pseudobulks`` and predict the
@@ -2356,6 +2504,12 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
         per cell). ``None`` (default) uses every covered site. This is a
         predict-time knob forwarded to :meth:`CellTypeClassifier.predict` /
         :meth:`CellTypeClassifier.predict_batch`.
+    contexts : str, optional
+        Which cytosine context(s) to classify on: ``'cg'``, ``'ch'``, or
+        ``'both'`` / ``'cg+ch'`` (default, use both channels). The model is
+        always fit on both contexts; this only selects which channel(s) score
+        the query, so one trained model can be reused for cg-only, ch-only, or
+        combined classification.
     outdir : str or None, optional
         If given, create the directory (if needed) and write the fitted model
         to ``<outdir>/model`` (a memory-mappable directory) plus the
@@ -2369,6 +2523,12 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
         complete saved model (``meta.json`` plus the per-channel ``.npy``
         arrays), fitting is **skipped** and that model is loaded and reused
         directly (so ``pseudobulks``/``reference`` need not be re-supplied).
+    prefix : str, optional
+        Prepended to the output filenames, i.e. ``<outdir>/<prefix>predictions.csv``
+        and ``<outdir>/<prefix>predict_proba.csv``. Default ``''`` (no prefix).
+        Pass a distinct prefix (e.g. ``'miseq_'``) when predicting a different
+        query batch with the same model so its predictions do not overwrite an
+        earlier batch's. Ignored when ``outdir`` is ``None``.
     n_jobs : int or None, optional
         Threads used to read pseudobulks and (for batch queries) score cells
         in parallel. ``None``/``1`` -> serial; ``-1`` -> all CPUs.
@@ -2408,9 +2568,10 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
         clf.fit(pseudobulks=pseudobulks, reference=reference,
                 cell_counts=cell_counts, top_cg=top_cg, top_ch=top_ch,
                 min_range_cg=min_range_cg, min_range_ch=min_range_ch,
+                top_per_class=top_per_class,
                 alpha0_cg=alpha0_cg, beta0_cg=beta0_cg,
                 alpha0_ch=alpha0_ch, beta0_ch=beta0_ch,
-                prior_min_cov=prior_min_cov,
+                prior_min_cov=prior_min_cov, contexts=contexts,
                 n_jobs=n_jobs, outdir=model_dir)
         if outdir is not None:
             clf.save(model_dir)
@@ -2420,7 +2581,8 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
     # (labels, proba) DataFrames otherwise.
     result = clf.predict(
         query, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
-        max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs)
+        max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs,
+        contexts=contexts)
     if outdir is not None:
         if isinstance(result, dict):
             cid = _cz_stem(query) if isinstance(query, str) else 'query'
@@ -2432,8 +2594,8 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
             labels, proba = result
         labels.index.name = 'cell_id'
         proba.index.name = 'cell_id'
-        labels.to_csv(os.path.join(outdir, 'predictions.csv'))
-        proba.to_csv(os.path.join(outdir, 'predict_proba.csv'))
+        labels.to_csv(os.path.join(outdir, f'{prefix}predictions.csv'))
+        proba.to_csv(os.path.join(outdir, f'{prefix}predict_proba.csv'))
         logger.info(f"wrote predictions to {outdir}")
     return result
 
@@ -2510,7 +2672,8 @@ def deconvolve_bulk(query=None, pseudobulks=None, reference=None,
                 min_range_cg=min_range_cg, min_range_ch=min_range_ch,
                 alpha0_cg=alpha0_cg, beta0_cg=beta0_cg,
                 alpha0_ch=alpha0_ch, beta0_ch=beta0_ch,
-                prior_min_cov=prior_min_cov, n_jobs=n_jobs, outdir=model_dir)
+                prior_min_cov=prior_min_cov, contexts=contexts,
+                n_jobs=n_jobs, outdir=model_dir)
         if outdir is not None:
             clf.save(model_dir)
 
