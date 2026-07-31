@@ -1323,7 +1323,7 @@ function buildTrackRows() {
   rr.innerHTML = `<div class="label"><div class="tname">Position</div>
     <div class="meta" id="rulerMeta"></div></div>`;
   const rv = document.createElement('div');
-  rv.className = 'view'; rv.dataset.ruler = '1'; rv.style.height = '30px';
+  rv.className = 'view'; rv.dataset.ruler = '1'; rv.style.minHeight = '30px';
   const rc = document.createElement('canvas');
   rv.appendChild(rc); rr.appendChild(rv); host.appendChild(rr);
   state.rulerCanvas = rc; state.rulerView = rv;
@@ -1406,7 +1406,7 @@ function createTrackRow(t, grp, gColors) {
 
   const view = document.createElement('div');
   view.className = 'view';
-  view.style.height = trackHeight(t) + 'px';   // definite height up front (avoids blank lower half on rebuild)
+  view.style.minHeight = trackHeight(t) + 'px';   // min height; the row (and canvas) stretch to fit a taller label so there's no blank below the plot
   const canvas = document.createElement('canvas');
   view.appendChild(canvas);
   t.canvas = canvas; t.view = view;
@@ -1608,8 +1608,8 @@ function setSelectedColor(color) {
 function setSelectedHeight(h) {
   const val = Math.max(MIN_HEIGHT, Math.round(h));
   if (!Number.isFinite(val)) return;
-  // Height is layout/draw-only: update the view height and repaint from cache.
-  for (const t of selectedTracks()) { t.height = val; if (t.view) t.view.style.height = val + 'px'; }
+  // Height is layout/draw-only: update the view min-height and repaint from cache.
+  for (const t of selectedTracks()) { t.height = val; if (t.view) t.view.style.minHeight = val + 'px'; }
   quickRedraw();
 }
 function setSelectedCtx(ctx) {
@@ -1674,16 +1674,15 @@ function openYlimEditor(tracks, anchorEl) {
 function sizeCanvas(canvas, cssH) {
   const dpr = window.devicePixelRatio || 1;
   const view = canvas.parentElement;
-  // The view owns the definite height; the canvas fills it via CSS (absolute,
-  // 100%×100%). Sizing only the backing store keeps element and draw height in
-  // sync, so a taller track never leaves the lower half blank.
-  if (view) view.style.height = cssH + 'px';
+  // Draw at the view's ACTUAL height (the row stretches to fit a taller label),
+  // so the plot fills the whole row with no blank strip below it.
+  const h = (view && view.clientHeight) || cssH;
   const cssW = view ? view.clientWidth : (canvas.clientWidth || 1);
   canvas.width = Math.max(1, Math.round(cssW * dpr));
-  canvas.height = Math.max(1, Math.round(cssH * dpr));
+  canvas.height = Math.max(1, Math.round(h * dpr));
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { ctx, w: cssW, h: cssH };
+  return { ctx, w: cssW, h };
 }
 
 // ── Render everything (serialized) ───────────────────────────────────────────
@@ -2060,8 +2059,8 @@ function drawBigWig(track, feats, dst) {
 
 // ── Draw a BED interval track (row-packed boxes with labels) ─────────────────
 function drawBedTrack(track, feats, dst) {
-  const H = trackHeight(track);
   const live = !dst;
+  const H = dst ? dst.h : ((track.view && track.view.clientHeight) || trackHeight(track));
   const { chrom, start, end } = state.locus;
   const span = end - start;
   const wCss = dst ? dst.w : (track.canvas.parentElement.clientWidth || 1);
@@ -2241,7 +2240,7 @@ function drawGenesCore(track, genes, dst) {
   const live = !dst;
   const { chrom, start, end } = state.locus;
   const span = end - start;
-  const H = trackHeight(track);
+  const H = dst ? dst.h : ((track.view && track.view.clientHeight) || trackHeight(track));
   const wCss = dst ? dst.w : (track.canvas.parentElement.clientWidth || 1);
   const toX = (bp) => (bp - start) / span * wCss;
   const rowH = 16, topPad = 4;
