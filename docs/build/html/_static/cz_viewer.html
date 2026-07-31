@@ -178,6 +178,15 @@
   }
   .label .tname .grip:hover { color: var(--accent); }
   body.row-dragging, body.row-dragging * { cursor: grabbing !important; }
+  /* Floating look for the track row(s) being dragged up/down */
+  .row.row-floating {
+    position: relative; z-index: 60;
+    box-shadow: 0 8px 20px rgba(28,30,38,.28);
+    opacity: .96; background: #fff;
+    outline: 1px solid rgba(74,144,217,.55);
+    transition: box-shadow .12s ease;
+  }
+  .row.row-floating .label { background: #eaf2fd; }
   /* Per-track y-limit button */
   .label .ylimbtn {
     font-size: 10px; padding: 1px 6px; border: 1px solid var(--border);
@@ -234,6 +243,57 @@
   #ylimPopup button:hover { background: #3a7bc0; }
   #ylimPopup button.secondary { background: #8a8f9c; }
   #ylimPopup button.secondary:hover { background: #767c8a; }
+
+  /* Saved-tracks manager modal */
+  #savedModal {
+    position: fixed; inset: 0; z-index: 130; display: none;
+    background: rgba(20,22,30,.45); align-items: flex-start; justify-content: center;
+  }
+  #savedModal.show { display: flex; }
+  #savedModal .savedbox {
+    background: #fff; margin-top: 6vh; width: min(560px, 92vw); max-height: 82vh;
+    border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.32);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #savedModal .savedhead {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    background: var(--toolbar); color: #eef0f5;
+  }
+  #savedModal .savedtitle { font-weight: 700; font-size: 14px; }
+  #savedModal .savedhint { font-size: 11px; color: #9aa0b2; flex: 1 1 auto; }
+  #savedModal .savedx { cursor: pointer; color: #c3c8d6; font-size: 14px; }
+  #savedModal .savedx:hover { color: #fff; }
+  #savedModal .savedtools {
+    display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  #savedModal .savedtools input[type=text] {
+    flex: 1 1 180px; background: #f5f6f8; border: 1px solid var(--border);
+    color: var(--text); padding: 5px 8px; border-radius: 4px; font-size: 12px; outline: none;
+  }
+  #savedModal .savedtools button {
+    background: #464b63; color: #fff; border: none; padding: 4px 10px;
+    border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  #savedModal .savedtools button:hover { background: #565c78; }
+  #savedModal .savedcount { font-size: 11px; color: var(--muted); margin-left: auto; }
+  #savedModal .savedlist { overflow-y: auto; padding: 6px 0; }
+  #savedModal .savedlist .saveditem {
+    display: flex; align-items: center; gap: 9px; padding: 6px 16px;
+    font-size: 12px; cursor: pointer; border-bottom: 1px solid #f0f1f4;
+  }
+  #savedModal .savedlist .saveditem:hover { background: #f5f8fd; }
+  #savedModal .savedlist .saveditem input { cursor: pointer; flex: 0 0 auto; }
+  #savedModal .savedlist .si-name { font-weight: 600; color: var(--text); }
+  #savedModal .savedlist .si-tag {
+    font-size: 10px; color: #6b7180; background: #eef0f5;
+    padding: 1px 6px; border-radius: 3px; flex: 0 0 auto;
+  }
+  #savedModal .savedlist .si-url {
+    color: var(--muted); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; flex: 1 1 auto;
+  }
+  #savedModal .savedempty { padding: 24px 16px; text-align: center; color: var(--muted); }
 
   /* ── Track toolbar (WashU-style tools + moved controls) ───────────────────── */
   .tracktoolbar {
@@ -369,9 +429,9 @@
       value="https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz" />
   </div>
   <div class="field">
-    <label>Saved tracks (click to add)</label>
+    <label>Saved tracks (add / re-add removed)</label>
     <div style="display:flex;gap:6px;">
-      <select id="savedTracks" style="width:280px"><option value="">— saved .cz tracks —</option></select>
+      <button id="btnSavedTracks" class="secondary" title="Open the saved-tracks manager to re-add tracks you removed">Saved tracks…</button>
       <button id="btnForgetTracks" class="secondary" title="Clear saved tracks">Clear</button>
     </div>
   </div>
@@ -482,6 +542,23 @@
   <button id="selClear" class="secondary" title="Clear selection">Clear</button>
 </div>
 
+<div id="savedModal">
+  <div class="savedbox">
+    <div class="savedhead">
+      <span class="savedtitle">Saved tracks</span>
+      <span class="savedhint">Tick a track to show it, untick to remove it from the view.</span>
+      <span id="savedClose" class="savedx" title="Close">✕</span>
+    </div>
+    <div class="savedtools">
+      <input type="text" id="savedFilter" placeholder="Filter by name / URL…" />
+      <button id="savedAll" class="secondary" title="Show all">Select all</button>
+      <button id="savedNone" class="secondary" title="Remove all">Select none</button>
+      <span id="savedCount" class="savedcount"></span>
+    </div>
+    <div id="savedList" class="savedlist"></div>
+  </div>
+</div>
+
 <script type="module">
 // ─────────────────────────────────────────────────────────────────────────────
 // cytozip browser — remote .cz methylation viewer
@@ -515,6 +592,22 @@ const GENOMES = {
           defaultLocus: 'chr5:52,000,000-52,150,000' },
 };
 const SAVED_TRACKS_KEY = 'czviewer_saved_tracks_v1';
+
+// Region-span guards: loading a very wide window means downloading a lot of
+// data, which can freeze the page. Warn past WARN_SPAN and hard-refuse past
+// MAX_SPAN (the user can't zoom out any further than this).
+const WARN_SPAN = 5_000_000;    // 5 Mb — loading gets slow
+const MAX_SPAN = 10_000_000;    // 10 Mb — hard cap
+function fmtMb(bp) { return (bp / 1e6).toFixed(bp % 1e6 ? 1 : 0) + ' Mb'; }
+// Shrink a locus to MAX_SPAN around its center; returns { locus, capped }.
+function clampLocusSpan(loc) {
+  const span = loc.end - loc.start;
+  if (span <= MAX_SPAN) return { locus: loc, capped: false };
+  const mid = (loc.start + loc.end) / 2;
+  let s = mid - MAX_SPAN / 2, en = mid + MAX_SPAN / 2;
+  if (s < 0) { en -= s; s = 0; }
+  return { locus: { chrom: loc.chrom, start: s, end: en }, capped: true };
+}
 
 // cz_reader.mjs is vendored next to this page (same origin) for stability and
 // offline/CORS-free loading. Resolve it relative to this module's own URL so it
@@ -869,28 +962,87 @@ function saveTrack(entry) {
   refreshSavedTracksUI();
 }
 function refreshSavedTracksUI() {
-  const sel = $('savedTracks');
-  if (!sel) return;
-  const list = loadSavedTracks();
-  sel.innerHTML = '<option value="">— saved .cz tracks —</option>';
-  list.forEach((e, i) => {
-    const opt = document.createElement('option');
-    opt.value = String(i);
-    opt.textContent = `${e.name}  ·  ${e.fmt ? e.fmt.toUpperCase() : (e.ctx || 'ALL')}`;
-    opt.title = e.url;
-    sel.appendChild(opt);
-  });
+  // Keep the manager list in sync when it's open (e.g. after adding a table).
+  if ($('savedModal') && $('savedModal').classList.contains('show')) renderSavedList();
 }
-function onSavedTrackPick() {
-  const sel = $('savedTracks');
-  const i = parseInt(sel.value, 10);
-  sel.value = '';
-  if (Number.isNaN(i)) return;
-  const e = loadSavedTracks()[i];
-  if (!e) return;
-  $('newName').value = e.name;
-  $('newUrl').value = e.url;
-  addTrack(e.ctx || 'ALL', e.valType || 'meth');
+
+// Is a saved entry currently shown in the viewer? (matched by URL)
+function isSavedShown(url) { return state.tracks.some(t => t.url === url); }
+function removeTrackByUrl(url) {
+  const t = state.tracks.find(x => x.url === url);
+  if (t) removeTrack(t.id);
+}
+// Re-add a previously saved track from its stored config.
+async function addSavedEntry(e) {
+  const name = e.name, url = e.url;
+  try {
+    if (e.fmt === 'hic' || isHicUrl(url)) await openHicTrack({ name, url, group: e.group || '' });
+    else if (e.fmt === 'bedpe' || isBedpeUrl(url)) await openBedTrack({ name, url, group: e.group || '', kind: 'bedpe' });
+    else if (e.fmt === 'bw' || isBigWigUrl(url)) await openBigWigTrack({ name, url, group: e.group || '' });
+    else if (e.fmt === 'bed' || isBedUrl(url)) await openBedTrack({ name, url, group: e.group || '', kind: 'bed' });
+    else {
+      if (!state.refReader) { setStatus('Load the reference .cz first before re-adding a methylation track.', true); return false; }
+      if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
+      await openCzTrack({ name, url, ctx: e.ctx || 'ALL', valType: e.valType || 'meth', group: e.group || '' });
+    }
+    buildTrackRows(); render();
+    return true;
+  } catch (err) {
+    setStatus(corsHint(`Failed to add “${name}”: ` + err.message, url), true);
+    return false;
+  }
+}
+
+// ── Saved-tracks manager modal ───────────────────────────────────────────────
+function openSavedPanel() {
+  const m = $('savedModal'); if (!m) return;
+  $('savedFilter').value = '';
+  renderSavedList();
+  m.classList.add('show');
+  $('savedFilter').focus();
+}
+function closeSavedPanel() { const m = $('savedModal'); if (m) m.classList.remove('show'); }
+function renderSavedList() {
+  const host = $('savedList'); if (!host) return;
+  const q = ($('savedFilter').value || '').trim().toLowerCase();
+  const list = loadSavedTracks().filter(e =>
+    !q || (e.name || '').toLowerCase().includes(q) || (e.url || '').toLowerCase().includes(q));
+  host.innerHTML = '';
+  if (!list.length) {
+    host.innerHTML = `<div class="savedempty">${loadSavedTracks().length ? 'No saved tracks match the filter.' : 'No saved tracks yet — add tracks or load a track table first.'}</div>`;
+  } else {
+    for (const e of list) {
+      const shown = isSavedShown(e.url);
+      const item = document.createElement('label');
+      item.className = 'saveditem';
+      const tag = e.fmt ? e.fmt.toUpperCase() : (e.ctx || 'ALL');
+      item.innerHTML =
+        `<input type="checkbox" ${shown ? 'checked' : ''}>` +
+        `<span class="si-name">${escapeHtml(e.name || e.url)}</span>` +
+        `<span class="si-tag">${escapeHtml(tag)}</span>` +
+        `<span class="si-url" title="${escapeHtml(e.url)}">${escapeHtml(e.url)}</span>`;
+      const cb = item.querySelector('input');
+      cb.onchange = async () => {
+        cb.disabled = true;
+        if (cb.checked) { if (!isSavedShown(e.url)) await addSavedEntry(e); }
+        else removeTrackByUrl(e.url);
+        renderSavedList();
+      };
+      host.appendChild(item);
+    }
+  }
+  const total = loadSavedTracks().length, shownN = loadSavedTracks().filter(e => isSavedShown(e.url)).length;
+  $('savedCount').textContent = `${shownN}/${total} shown`;
+}
+// Show every saved track that isn't already displayed.
+async function savedSelectAll() {
+  for (const e of loadSavedTracks()) if (!isSavedShown(e.url)) await addSavedEntry(e);
+  renderSavedList();
+}
+// Remove every displayed track that came from the saved list.
+function savedSelectNone() {
+  for (const e of loadSavedTracks()) removeTrackByUrl(e.url);
+  renderSavedList();
 }
 
 
@@ -1271,11 +1423,11 @@ async function ingestTrackRows(rows, label) {
   for (const r of rows) {
     let t;
     try {
-      if (isHicUrl(r.url)) { t = await openHicTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'hic' }); ok++; }
-      else if (isBedpeUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe' }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe' }); ok++; }
-      else if (isBigWigUrl(r.url)) { t = await openBigWigTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'bw' }); ok++; }
-      else if (isBedUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed' }); saveTrack({ name: r.name, url: r.url, fmt: 'bed' }); ok++; }
-      else { t = await openCzTrack(r); if (t.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx }); ok++; }
+      if (isHicUrl(r.url)) { t = await openHicTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'hic', group: r.group }); ok++; }
+      else if (isBedpeUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe' }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe', group: r.group }); ok++; }
+      else if (isBigWigUrl(r.url)) { t = await openBigWigTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'bw', group: r.group }); ok++; }
+      else if (isBedUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed' }); saveTrack({ name: r.name, url: r.url, fmt: 'bed', group: r.group }); ok++; }
+      else { t = await openCzTrack(r); if (t.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx, valType: r.valType, group: r.group }); ok++; }
     } catch (e) { failed.push(`${r.name}: ${e.message}`); continue; }
     // Show + render only this new track (O(1) per track). Fall back to a full
     // rebuild when it can't just be appended at the end (e.g. grouped tables).
@@ -1589,6 +1741,7 @@ function attachRowDrag(handle, t) {
       ? new Set(state.selected) : new Set([t.id]);
     _rowDrag = { movingIds, lastKey: orderedTracksForDisplay().map(x => x.id).join(',') };
     document.body.classList.add('row-dragging');
+    applyDragFloating();
     // Capture on #trackwrap (never rebuilt) so the drag survives row rebuilds.
     try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
     wrap.addEventListener('pointermove', onRowDragMove);
@@ -1625,9 +1778,18 @@ function processRowDrag() {
 // dragging stays smooth even with many tracks. Grouped layouts need header
 // bookkeeping, so fall back to a full rebuild there.
 function reorderRowsDom() {
-  if (state.tracks.some(t => t.kind === 'mc' && t.group)) { buildTrackRows(); quickRedraw(); return; }
+  if (state.tracks.some(t => t.kind === 'mc' && t.group)) { buildTrackRows(); quickRedraw(); applyDragFloating(); return; }
   const host = $('tracks');
   for (const t of orderedTracksForDisplay()) if (t.row) host.appendChild(t.row);
+  applyDragFloating();
+}
+// Give the row(s) currently being dragged a raised, semi-transparent look so the
+// user clearly sees which track is moving.
+function applyDragFloating() {
+  const moving = _rowDrag && _rowDrag.movingIds;
+  for (const t of state.tracks) {
+    if (t.row) t.row.classList.toggle('row-floating', !!(moving && moving.has(t.id)));
+  }
 }
 function onRowDragEnd(e) {
   if (!_rowDrag) return;
@@ -1639,6 +1801,7 @@ function onRowDragEnd(e) {
   try { wrap.releasePointerCapture(e.pointerId); } catch (_) {}
   document.body.classList.remove('row-dragging');
   _rowDrag = null;
+  applyDragFloating();
   syncUrlState();
 }
 function deleteSelected() {
@@ -1809,6 +1972,16 @@ async function renderNow() {
   if (!state.locus || state.tracks.length === 0) return;
   const gen = ++state.gen;
   const { chrom, start, end } = state.locus;
+  const span = end - start;
+
+  // Hard span guard (safety net for session loads / URL state): refuse to fetch
+  // data for a window wider than MAX_SPAN so the page can't be frozen by a huge
+  // download. Keep the ruler so the user still sees where they are.
+  if (span > MAX_SPAN) {
+    drawRuler(); updateRulerMeta();
+    setStatus(`Region ${fmtMb(span)} exceeds the ${fmtMb(MAX_SPAN)} limit — tracks are not loaded. Zoom in to view data.`, true);
+    return;
+  }
 
   // Only enforce the chromosome check against a loaded reference .cz.
   if (state.refReader && !state.chroms.includes(chrom)) {
@@ -1848,7 +2021,8 @@ async function renderNow() {
   };
   await Promise.all(Array.from({ length: Math.min(MAX_TRACK_WORKERS, drawOrder.length) }, worker));
   if (gen !== state.gen) return;
-  setStatus(`${locusText(state.locus)} · ${state.tracks.length} track(s) · span ${fmtInt(Math.round(end - start))} bp`);
+  const slow = span > WARN_SPAN ? ` · ⚠ large region (${fmtMb(span)}), loading may be slow` : '';
+  setStatus(`${locusText(state.locus)} · ${state.tracks.length} track(s) · span ${fmtInt(Math.round(span))} bp${slow}`, slow ? true : false);
   syncUrlState();
   updateMarks();
 }
@@ -2102,14 +2276,14 @@ function drawTrack(track, qi, vals, dst) {
     : ((track.ylim === 'auto' || state.yScale === 'auto') ? ` · y≤${(scaleMax * 100).toFixed(0)}%` : '');
   // Full description (kept for image export, which has no dropdown controls) vs.
   // the short on-screen text (context/value/ylim are already shown by the
-  // controls, so the label only needs covered / mean / resolution).
+  // controls, so the label only needs mean / resolution).
   track._metaFull = nSites
-    ? `${fmtInt(nSites)} covered · mean ${(meanShown * 100).toFixed(1)}% ${valTag} · ${track.ctx}${resLabel}${scaleLabel}`
-    : `no covered ${track.ctx} sites here`;
+    ? `mean ${(meanShown * 100).toFixed(1)}% ${valTag} · ${track.ctx}${resLabel}${scaleLabel}`
+    : `no ${track.ctx} signal here`;
   if (live && track.metaEl) {
     track.metaEl.textContent = nSites
-      ? `${fmtInt(nSites)} covered · mean ${(meanShown * 100).toFixed(1)}%${resLabel}`
-      : `no covered ${track.ctx} sites here`;
+      ? `mean ${(meanShown * 100).toFixed(1)}%${resLabel}`
+      : `no ${track.ctx} signal here`;
   }
 }
 
@@ -2369,11 +2543,15 @@ function drawGenesCore(track, genes, dst) {
   // Number of visible rows is driven by the (draggable) track height.
   const maxRows = Math.max(1, Math.floor((H - topPad * 2) / rowH));
 
+  // Only lay out genes that actually overlap the visible window; otherwise a
+  // gene sitting entirely off-screen (left or right) would still leak its
+  // label clamped to the panel edge.
+  const visGenes = genes.filter(gd => gd.txEnd > start && gd.txStart < end);
   // Greedy row packing; reserve room for the left/over label.
   // (genes are pre-sorted by txStart when fetched.)
   const rowFree = [];   // right-most used px per row
   const placed = [];
-  for (const gd of genes) {
+  for (const gd of visGenes) {
     const x0 = toX(gd.txStart), x1 = toX(gd.txEnd);
     const label = String(gd.name || gd.id || '');
     const labelW = label.length * CHAR_W + 6;
@@ -2439,8 +2617,8 @@ function drawGenesCore(track, genes, dst) {
 
   if (live && track.metaEl) {
     const src = `${track.geneSet || 'refGene'} · WashU eg API`;
-    track.metaEl.textContent = genes.length
-      ? `${fmtInt(genes.length)} genes${placed.length < genes.length ? ` (${genes.length - placed.length} hidden)` : ''} · ${src}`
+    track.metaEl.textContent = visGenes.length
+      ? `${fmtInt(visGenes.length)} genes${placed.length < visGenes.length ? ` (${visGenes.length - placed.length} hidden)` : ''} · ${src}`
       : `no genes in view · ${src}`;
   }
 }
@@ -2979,6 +3157,11 @@ function attachPanZoom(view) {
     const factor = e.deltaY < 0 ? 0.8 : 1.25;         // wheel up = zoom in
     const anchor = start + frac * span;
     let newSpan = Math.max(20, span * factor);
+    if (factor > 1 && newSpan > MAX_SPAN && span >= MAX_SPAN) {
+      setStatus(`Region is capped at ${fmtMb(MAX_SPAN)} — zooming out further is disabled to keep the browser responsive.`, true);
+      return;
+    }
+    newSpan = Math.min(newSpan, MAX_SPAN);            // never exceed the hard cap
     let s = anchor - frac * newSpan, en = anchor + (1 - frac) * newSpan;
     if (s < 0) { en -= s; s = 0; }
     state.locus = { chrom, start: s, end: en };
@@ -3086,9 +3269,15 @@ function zoomBy(factor) {
   if (!state.locus) return;
   const { chrom, start, end } = state.locus;
   const mid = (start + end) / 2, span = (end - start) * factor;
+  if (factor > 1 && span > MAX_SPAN && (end - start) >= MAX_SPAN) {
+    setStatus(`Region is capped at ${fmtMb(MAX_SPAN)} — zooming out further is disabled to keep the browser responsive.`, true);
+    return;
+  }
   let s = mid - span / 2, en = mid + span / 2;
   if (s < 0) { en -= s; s = 0; }
-  state.locus = { chrom, start: s, end: en };
+  const { locus, capped } = clampLocusSpan({ chrom, start: s, end: en });
+  state.locus = locus;
+  if (capped) setStatus(`Region capped at ${fmtMb(MAX_SPAN)} — this is the maximum viewable window.`, true);
   syncLocusInput(); render();
 }
 
@@ -3252,7 +3441,12 @@ $('geneSet').onchange = () => {
     addGeneTrack();
   }
 };
-$('savedTracks').onchange = onSavedTrackPick;
+$('btnSavedTracks').onclick = openSavedPanel;
+$('savedClose').onclick = closeSavedPanel;
+$('savedModal').addEventListener('click', (e) => { if (e.target.id === 'savedModal') closeSavedPanel(); });
+$('savedFilter').addEventListener('input', renderSavedList);
+$('savedAll').onclick = savedSelectAll;
+$('savedNone').onclick = savedSelectNone;
 $('btnForgetTracks').onclick = () => {
   try { localStorage.removeItem(SAVED_TRACKS_KEY); } catch {}
   refreshSavedTracksUI();
@@ -3264,7 +3458,13 @@ async function goToLocusOrGene() {
   const text = $('locus').value.trim();
   if (!text) return;
   const l = parseLocus(text);
-  if (l) { state.locus = l; render(); return; }
+  if (l) {
+    if (l.end - l.start > MAX_SPAN) {
+      setStatus(`Region ${fmtMb(l.end - l.start)} is too large — the maximum is ${fmtMb(MAX_SPAN)}. Enter a smaller window.`, true);
+      return;
+    }
+    state.locus = l; render(); return;
+  }
   if (state.genome) {
     setStatus(`Searching gene “${text}”…`);
     try {
@@ -3272,7 +3472,8 @@ async function goToLocusOrGene() {
       if (gene) {
         const len = Math.max(1, gene.txEnd - gene.txStart);
         const pad = Math.max(1000, Math.round(len * 0.15));
-        state.locus = { chrom: gene.chrom, start: Math.max(0, gene.txStart - pad), end: gene.txEnd + pad };
+        const raw = { chrom: gene.chrom, start: Math.max(0, gene.txStart - pad), end: gene.txEnd + pad };
+        state.locus = clampLocusSpan(raw).locus;
         syncLocusInput(); render();
         setStatus(`${gene.name} · ${gene.collection || 'gene'} · ${gene.strand || ''} · ${locusText(state.locus)}`);
         return;
@@ -3326,6 +3527,7 @@ setTool(state.tool);
 // Keyboard shortcuts (ignored while typing in a field): P/Z/V/M pick a tool,
 // S saves the session, C clears marks. Case-insensitive, no modifier keys.
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('savedModal').classList.contains('show')) { closeSavedPanel(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = (e.target && e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'select' || tag === 'textarea' || (e.target && e.target.isContentEditable)) return;
