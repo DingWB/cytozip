@@ -293,6 +293,15 @@
     color: var(--muted); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis;
     white-space: nowrap; flex: 1 1 auto;
   }
+  #savedModal .savedlist .saveditem.grouped { padding-left: 30px; }
+  #savedModal .savedlist .savedgroup {
+    display: flex; align-items: center; gap: 9px; padding: 7px 16px;
+    font-size: 12px; font-weight: 700; color: #3a3f57; cursor: pointer;
+    background: #eef1f6; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+  #savedModal .savedlist .savedgroup:hover { background: #e6ebf3; }
+  #savedModal .savedlist .savedgroup input { cursor: pointer; flex: 0 0 auto; }
+  #savedModal .savedlist .savedgroup .sg-count { margin-left: auto; font-weight: 600; font-size: 10.5px; color: var(--muted); }
   #savedModal .savedempty { padding: 24px 16px; text-align: center; color: var(--muted); }
 
   /* ── Track toolbar (WashU-style tools + moved controls) ───────────────────── */
@@ -408,6 +417,9 @@
         <option value="500">500 bp</option>
         <option value="1000">1000 bp</option>
         <option value="5000">5000 bp</option>
+        <option value="10000">10 kb</option>
+        <option value="25000">25 kb</option>
+        <option value="100000">100 kb</option>
       </select>
     </label>
   </div>
@@ -615,7 +627,7 @@ function clampLocusSpan(loc) {
 const MODULE_URL = new URL('cz_reader.mjs', import.meta.url).href;
 
 // Default track heights (px). Height is set via the selection bar's input.
-const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150, bw: 60, bed: 40, bedpe: 90, hic: 160 };
+const DEFAULT_HEIGHT = { seq: 30, mc: 60, gene: 150, bw: 60, bed: 40, bedpe: 90, hic: 160 };
 const MIN_HEIGHT = 22;
 // Below this track height the label hides the descriptive meta text (covered /
 // mean / resolution) and keeps only the name + context/value/ylim controls.
@@ -1005,16 +1017,26 @@ function closeSavedPanel() { const m = $('savedModal'); if (m) m.classList.remov
 function renderSavedList() {
   const host = $('savedList'); if (!host) return;
   const q = ($('savedFilter').value || '').trim().toLowerCase();
-  const list = loadSavedTracks().filter(e =>
-    !q || (e.name || '').toLowerCase().includes(q) || (e.url || '').toLowerCase().includes(q));
+  const all = loadSavedTracks();
+  const list = all.filter(e =>
+    !q || (e.name || '').toLowerCase().includes(q) || (e.url || '').toLowerCase().includes(q)
+       || (e.group || '').toLowerCase().includes(q));
   host.innerHTML = '';
   if (!list.length) {
-    host.innerHTML = `<div class="savedempty">${loadSavedTracks().length ? 'No saved tracks match the filter.' : 'No saved tracks yet — add tracks or load a track table first.'}</div>`;
+    host.innerHTML = `<div class="savedempty">${all.length ? 'No saved tracks match the filter.' : 'No saved tracks yet — add tracks or load a track table first.'}</div>`;
   } else {
+    // Bucket entries by their Group column (unnamed group shown last).
+    const order = [], byGroup = new Map();
     for (const e of list) {
+      const g = e.group || '';
+      if (!byGroup.has(g)) { byGroup.set(g, []); order.push(g); }
+      byGroup.get(g).push(e);
+    }
+    order.sort((a, b) => (a === '' ? 1 : 0) - (b === '' ? 1 : 0));
+    const addItem = (e, grouped) => {
       const shown = isSavedShown(e.url);
       const item = document.createElement('label');
-      item.className = 'saveditem';
+      item.className = 'saveditem' + (grouped ? ' grouped' : '');
       const tag = e.fmt ? e.fmt.toUpperCase() : (e.ctx || 'ALL');
       item.innerHTML =
         `<input type="checkbox" ${shown ? 'checked' : ''}>` +
@@ -1029,9 +1051,31 @@ function renderSavedList() {
         renderSavedList();
       };
       host.appendChild(item);
+    };
+    for (const g of order) {
+      const entries = byGroup.get(g);
+      if (g) {
+        const shownCount = entries.filter(e => isSavedShown(e.url)).length;
+        const hdr = document.createElement('label');
+        hdr.className = 'savedgroup';
+        hdr.innerHTML =
+          `<input type="checkbox" ${shownCount === entries.length ? 'checked' : ''}>` +
+          `<span class="sg-name">${escapeHtml(g)}</span>` +
+          `<span class="sg-count">${shownCount}/${entries.length} shown</span>`;
+        const gcb = hdr.querySelector('input');
+        gcb.indeterminate = shownCount > 0 && shownCount < entries.length;
+        gcb.onchange = async () => {
+          gcb.disabled = true;
+          if (gcb.checked) { for (const e of entries) if (!isSavedShown(e.url)) await addSavedEntry(e); }
+          else for (const e of entries) removeTrackByUrl(e.url);
+          renderSavedList();
+        };
+        host.appendChild(hdr);
+      }
+      for (const e of entries) addItem(e, !!g);
     }
   }
-  const total = loadSavedTracks().length, shownN = loadSavedTracks().filter(e => isSavedShown(e.url)).length;
+  const total = all.length, shownN = all.filter(e => isSavedShown(e.url)).length;
   $('savedCount').textContent = `${shownN}/${total} shown`;
 }
 // Show every saved track that isn't already displayed.
@@ -1708,11 +1752,42 @@ function toggleGroupSelection(grp) {
   updateSelBar();
 }
 // Move the selected tracks up/down by one position (dir = -1 up, +1 down).
+// When one or more whole named groups are selected, move by GROUP unit so a
+// group jumps above/below the neighbouring group (the display re-groups tracks,
+// so per-track swaps of a full group would otherwise be undone).
 function moveSelected(dir) {
   if (!state.selected.size) return;
+  const sel = state.selected;
+  const anchored = state.tracks.filter(t => t.kind === 'seq' || t.kind === 'gene');
+  const data = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');
+  const groupOrder = [];
+  for (const t of data) { const g = t.group || ''; if (!groupOrder.includes(g)) groupOrder.push(g); }
+  const blocks = groupOrder.map(g => ({ g, tracks: data.filter(t => (t.group || '') === g) }));
+
+  const selData = data.filter(t => sel.has(t.id));
+  const fullGroups = blocks.filter(b => b.g && b.tracks.every(t => sel.has(t.id)));
+  const groupMove = fullGroups.length && selData.length &&
+    selData.every(t => fullGroups.some(b => b.g === (t.group || '')));
+
+  if (groupMove) {
+    const selSet = new Set(fullGroups.map(b => b.g));
+    if (dir < 0) {
+      for (let i = 1; i < blocks.length; i++)
+        if (selSet.has(blocks[i].g) && !selSet.has(blocks[i - 1].g))
+          [blocks[i - 1], blocks[i]] = [blocks[i], blocks[i - 1]];
+    } else {
+      for (let i = blocks.length - 2; i >= 0; i--)
+        if (selSet.has(blocks[i].g) && !selSet.has(blocks[i + 1].g))
+          [blocks[i], blocks[i + 1]] = [blocks[i + 1], blocks[i]];
+    }
+    state.tracks = [...anchored, ...blocks.flatMap(b => b.tracks)];
+    reorderRowsDom();
+    syncUrlState();
+    return;
+  }
+
   const ordered = orderedTracksForDisplay();
   const n = ordered.length;
-  const sel = state.selected;
   if (dir < 0) {
     for (let i = 1; i < n; i++)
       if (sel.has(ordered[i].id) && !sel.has(ordered[i - 1].id))
