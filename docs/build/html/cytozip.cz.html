@@ -190,7 +190,17 @@
 <p class="caption" role="heading"><span class="caption-text">Cytozip Genome Browser</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="cz_viewer.html">Genome Browser</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cz_viewer.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cz_viewer.html#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#quick-start">Quick start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#supported-remote-file-formats">Supported remote file formats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#toolbar-tools-and-keyboard-shortcuts">Toolbar tools and keyboard shortcuts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#working-with-tracks">Working with tracks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#genome-gene-search-and-marks">Genome, gene search, and marks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#exporting">Exporting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#session-and-sharing">Session and sharing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#share-a-session-via-a-remote-json-url">Share a session via a remote JSON URL</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -281,6 +291,7 @@
 </li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.check_cz"><code class="docutils literal notranslate"><span class="pre">check_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -325,10 +336,8 @@
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
@@ -359,18 +368,34 @@
 <li class="toctree-l4"><a class="reference internal" href="cytozip.model.html">cytozip.model module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.cell_types"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_types</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.cell_counts"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_counts</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.close"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.site_importance"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.site_importance()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.deconvolve_bulk"><code class="docutils literal notranslate"><span class="pre">deconvolve_bulk()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.top_cytosine_fasta"><code class="docutils literal notranslate"><span class="pre">top_cytosine_fasta()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.peaks.html">cytozip.peaks module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.call_peaks_bdg"><code class="docutils literal notranslate"><span class="pre">call_peaks_bdg()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -1084,7 +1109,7 @@ writing via <code class="docutils literal notranslate"><span class="pre">pysam.t
 <dd class="field-even"><p>bool</p>
 </dd>
 <dt class="field-odd">param cov_col<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Name of a numeric column. When given, rows where the column
+<dd class="field-odd"><p>Name of a column from cz header[‘columns’] (such as cov). When given, rows where the column
 is zero are dropped before writing (allc convention). Default
 <code class="docutils literal notranslate"><span class="pre">None</span></code> keeps all rows (suitable for array data, where 0 is
 a valid beta value).</p>
@@ -1423,11 +1448,16 @@ first chunk.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="cytozip.cz.aggregate">
-<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">aggregate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intersect</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">formats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['H',</span> <span class="pre">'H']</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#aggregate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.aggregate" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">aggregate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intersect</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">formats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['H',</span> <span class="pre">'H']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#aggregate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.aggregate" title="Link to this definition"></a></dt>
 <dd><p>Aggregate a given genomic region on a .cz file, for example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">time</span> <span class="o">-</span><span class="n">f</span> <span class="s2">&quot;</span><span class="si">%e</span><span class="s2">    %M      %P&quot;</span> <span class="n">cytozip</span> <span class="n">aggregate</span> <span class="o">-</span><span class="n">I</span> <span class="n">test</span><span class="o">.</span><span class="n">cz</span> <span class="o">-</span><span class="n">O</span> <span class="n">test_gene</span><span class="o">.</span><span class="n">cz</span>                <span class="o">-</span><span class="n">s</span> <span class="n">mm10_with_chrL</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">genes_flank2k</span><span class="o">.</span><span class="n">index</span>
 </pre></div>
 </div>
+<p>Supports both a single per-cell <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (<code class="docutils literal notranslate"><span class="pre">chunk_dims=['chrom']</span></code>) and a
+<code class="docutils literal notranslate"><span class="pre">catcz</span></code>’d multi-cell <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (<code class="docutils literal notranslate"><span class="pre">chunk_dims=['chrom',</span> <span class="pre">'cell_id']</span></code>). The
+region <code class="docutils literal notranslate"><span class="pre">index</span></code> is keyed by chromosome only; for a catted input each
+<code class="docutils literal notranslate"><span class="pre">(chrom,</span> <span class="pre">cell_id)</span></code> chunk is aggregated against the chromosome’s region
+index and written back under its full key.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1438,6 +1468,9 @@ first chunk.</p></li>
 <li><p><strong>exclude</strong></p></li>
 <li><p><strong>batch_size</strong></p></li>
 <li><p><strong>formats</strong></p></li>
+<li><p><strong>jobs</strong> (<em>int</em>) – Number of parallel worker processes across chunks (default 1).
+A catted file has <code class="docutils literal notranslate"><span class="pre">n_chroms</span> <span class="pre">*</span> <span class="pre">n_cells</span></code> chunks, so <code class="docutils literal notranslate"><span class="pre">jobs</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>
+gives a near-linear speed-up on multi-cell inputs.</p></li>
 </ul>
 </dd>
 </dl>
@@ -1497,6 +1530,39 @@ column, the reference <code class="docutils literal notranslate"><span class="pr
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="cytozip.cz.check_cz">
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">check_cz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#check_cz"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.check_cz" title="Link to this definition"></a></dt>
+<dd><p>Check whether a local .cz file was written completely.</p>
+<p>A .cz file is finalized by <a class="reference internal" href="#cytozip.cz.Writer.close" title="cytozip.cz.Writer.close"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Writer.close()</span></code></a>, which (1) writes the
+real file size into the header <code class="docutils literal notranslate"><span class="pre">total_size</span></code> field and (2) appends the
+28-byte EOF marker.  Both are only present on a clean close, so a file
+is considered complete iff <em>all</em> of the following hold:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>the file exists and is at least <code class="docutils literal notranslate"><span class="pre">_CZ_MIN_SIZE</span></code> bytes,</p></li>
+<li><p>the first 4 bytes are the <code class="docutils literal notranslate"><span class="pre">CZIP</span></code> magic,</p></li>
+<li><p>the header <code class="docutils literal notranslate"><span class="pre">total_size</span></code> field is non-zero and, together with the
+28-byte EOF marker, equals the actual on-disk file size (catches
+truncation / mid-write crashes).  <code class="docutils literal notranslate"><span class="pre">total_size</span></code> stores the offset
+of the EOF marker (data end), so <code class="docutils literal notranslate"><span class="pre">total_size</span> <span class="pre">+</span> <span class="pre">28</span> <span class="pre">==</span> <span class="pre">file</span> <span class="pre">size</span></code>,</p></li>
+<li><p>the final 28 bytes match the <code class="docutils literal notranslate"><span class="pre">_cz_eof</span></code> sentinel.</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Path to a local .cz file (<code class="docutils literal notranslate"><span class="pre">file://</span></code> prefix and <code class="docutils literal notranslate"><span class="pre">~</span></code> are accepted).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(True,</span> <span class="pre">&quot;ok&quot;)</span></code> if complete, otherwise <code class="docutils literal notranslate"><span class="pre">(False,</span> <span class="pre">reason)</span></code> where
+<em>reason</em> describes the first failed check.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(bool, str)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="cytozip.cz.dtype_func">
 <span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">dtype_func</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fmt_char</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#dtype_func"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.dtype_func" title="Link to this definition"></a></dt>
 <dd><p>Return a type-casting function for a given struct format character.</p>
@@ -1508,8 +1574,28 @@ representable value of the format (e.g. 255 for ‘B’, 65535 for ‘H’).</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="cytozip.cz.extract">
-<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#extract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.extract" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<span class="sig-prename descclassname"><span class="pre">cytozip.cz.</span></span><span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/cz.html#extract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.cz.extract" title="Link to this definition"></a></dt>
+<dd><p>Extract the index-selected rows of every chunk into a new <code class="docutils literal notranslate"><span class="pre">.cz</span></code>.</p>
+<p>Supports both a single per-cell <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (<code class="docutils literal notranslate"><span class="pre">chunk_dims=['chrom']</span></code>) and a
+<code class="docutils literal notranslate"><span class="pre">catcz</span></code>’d multi-cell <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (<code class="docutils literal notranslate"><span class="pre">chunk_dims=['chrom',</span> <span class="pre">'cell_id']</span></code>). The
+1-D coordinate <code class="docutils literal notranslate"><span class="pre">index</span></code> is keyed by chromosome only; for a catted input
+each <code class="docutils literal notranslate"><span class="pre">(chrom,</span> <span class="pre">cell_id)</span></code> chunk is filtered against the chromosome’s
+index and written back under its full key, so the per-cell structure is
+preserved.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> (<em>path</em>) – Input <code class="docutils literal notranslate"><span class="pre">.cz</span></code>, output <code class="docutils literal notranslate"><span class="pre">.cz</span></code>, and 1-D coordinate index <code class="docutils literal notranslate"><span class="pre">.cz</span></code>.</p></li>
+<li><p><strong>output</strong> (<em>path</em>) – Input <code class="docutils literal notranslate"><span class="pre">.cz</span></code>, output <code class="docutils literal notranslate"><span class="pre">.cz</span></code>, and 1-D coordinate index <code class="docutils literal notranslate"><span class="pre">.cz</span></code>.</p></li>
+<li><p><strong>index</strong> (<em>path</em>) – Input <code class="docutils literal notranslate"><span class="pre">.cz</span></code>, output <code class="docutils literal notranslate"><span class="pre">.cz</span></code>, and 1-D coordinate index <code class="docutils literal notranslate"><span class="pre">.cz</span></code>.</p></li>
+<li><p><strong>batch_size</strong> (<em>int</em>) – Kept for API compatibility (each chunk is now written in one call).</p></li>
+<li><p><strong>jobs</strong> (<em>int</em>) – Number of parallel worker processes across chunks (default 1). A
+catted file has <code class="docutils literal notranslate"><span class="pre">n_chroms</span> <span class="pre">*</span> <span class="pre">n_cells</span></code> chunks, so <code class="docutils literal notranslate"><span class="pre">jobs</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> gives
+a near-linear speed-up on multi-cell inputs.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="cytozip.cz.get_dtfuncs">

@@ -18,6 +18,7 @@ Submodules
    cytozip.index
    cytozip.merge
    cytozip.model
+   cytozip.peaks
    cytozip.pivot
 
 Module contents

@@ -375,7 +375,7 @@
     <input type="text" class="name" id="newName" value="UWA7648 NAC" />
   </div>
   <div class="field">
-    <label>New track URL — .cz (mc/cov, shares reference) or .bw / .bigwig</label>
+    <label>New track URL — .cz (mc/cov, shares reference), .bw / .bigwig, .bed, .bedpe or .hic</label>
     <input type="text" class="url" id="newUrl"
       value="https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz" />
   </div>
@@ -526,7 +526,7 @@ const SAVED_TRACKS_KEY = 'czviewer_saved_tracks_v1';
 const MODULE_URL = new URL('cz_reader.mjs', import.meta.url).href;
 
 // Default track heights (px). Users can drag the bottom edge to resize.
-const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150, bw: 60 };
+const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150, bw: 60, bed: 40, bedpe: 90, hic: 160 };
 const MIN_HEIGHT = 22;
 function trackHeight(t) { return t.height || DEFAULT_HEIGHT[t.kind] || 100; }
 
@@ -864,7 +864,7 @@ function refreshSavedTracksUI() {
   list.forEach((e, i) => {
     const opt = document.createElement('option');
     opt.value = String(i);
-    opt.textContent = `${e.name}  ·  ${e.fmt === 'bw' ? 'BigWig' : (e.ctx || 'ALL')}`;
+    opt.textContent = `${e.name}  ·  ${e.fmt ? e.fmt.toUpperCase() : (e.ctx || 'ALL')}`;
     opt.title = e.url;
     sel.appendChild(opt);
   });
@@ -887,24 +887,28 @@ function onSavedTrackPick() {
 async function addTrack() {
   const url = $('newUrl').value.trim();
   const name = $('newName').value.trim() || `track ${state.tracks.length + 1}`;
-  if (!url) { setStatus('Enter a track URL (.cz or .bw/.bigwig).', true); return; }
-  // BigWig signal tracks are self-contained — no reference .cz needed.
-  if (isBigWigUrl(url)) {
+  if (!url) { setStatus('Enter a track URL (.cz, .bw, .bed, .bedpe or .hic).', true); return; }
+  // Self-contained formats need no reference .cz.
+  if (isHicUrl(url) || isBedpeUrl(url) || isBigWigUrl(url) || isBedUrl(url)) {
     try {
-      setStatus(`Opening BigWig “${name}”…`);
-      await openBigWigTrack({ name, url });
-      saveTrack({ name, url, fmt: 'bw' });
+      setStatus(`Opening “${name}”…`);
+      let fmt;
+      if (isHicUrl(url)) { await openHicTrack({ name, url }); fmt = 'hic'; }
+      else if (isBedpeUrl(url)) { await openBedTrack({ name, url, kind: 'bedpe' }); fmt = 'bedpe'; }
+      else if (isBigWigUrl(url)) { await openBigWigTrack({ name, url }); fmt = 'bw'; }
+      else { await openBedTrack({ name, url, kind: 'bed' }); fmt = 'bed'; }
+      saveTrack({ name, url, fmt });
       buildTrackRows();
       setStatus(state.locus
-        ? `Added BigWig “${name}”. Rendering…`
-        : `Added BigWig “${name}”. Enter a locus (chr:start-end) or pick a Genome to view it.`);
+        ? `Added ${fmt.toUpperCase()} “${name}”. Rendering…`
+        : `Added ${fmt.toUpperCase()} “${name}”. Enter a locus (chr:start-end) or pick a Genome to view it.`);
       render();
     } catch (e) {
-      setStatus(corsHint('Failed to open BigWig: ' + e.message, url), true);
+      setStatus(corsHint(`Failed to open ${name}: ` + e.message, url), true);
     }
     return;
   }
-  if (!state.refReader) { setStatus('Load the reference first (or use a .bw URL).', true); return; }
+  if (!state.refReader) { setStatus('Load the reference first (or use a .bw/.bed/.bedpe/.hic URL).', true); return; }
   const ctx = $('newCtx').value;
   const valType = $('newValType').value;
   try {
@@ -998,6 +1002,126 @@ async function bwGetFeatures(track, chrom, start, end, scale) {
     } catch (_) { /* try the next naming convention */ }
   }
   return [];
+}
+
+// ── BED / BEDPE / .hic remote formats ────────────────────────────────────────
+function chromNameVariants(chrom) {
+  return [...new Set([chrom, chrom.replace(/^chr/, ''), chrom.startsWith('chr') ? chrom : ('chr' + chrom)])];
+}
+function isBedpeUrl(url) { return /\.bedpe(\.gz)?(?:[?#].*)?$/i.test(String(url)); }
+function isBedUrl(url) { return /\.bed(\.gz)?(?:[?#].*)?$/i.test(String(url)) && !isBedpeUrl(url); }
+function isHicUrl(url) { return /\.hic(?:[?#].*)?$/i.test(String(url)); }
+
+let _tabixLibs = null;
+async function getTabixLibs() {
+  if (!_tabixLibs) {
+    const [{ TabixIndexedFile }, { RemoteFile }] = await Promise.all([
+      import('https://esm.sh/@gmod/tabix@1'),
+      import('https://esm.sh/generic-filehandle@3'),
+    ]);
+    _tabixLibs = { TabixIndexedFile, RemoteFile };
+  }
+  return _tabixLibs;
+}
+
+function parseBedLine(line) {
+  const c = line.split('\t');
+  if (c.length < 3) return null;
+  const start = parseInt(c[1], 10), end = parseInt(c[2], 10);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return { chrom: c[0], start, end, name: c[3] || '', score: c[4] != null ? parseFloat(c[4]) : null, strand: c[5] || '' };
+}
+function parseBedpeLine(line) {
+  const c = line.split('\t');
+  if (c.length < 6) return null;
+  const s1 = parseInt(c[1], 10), e1 = parseInt(c[2], 10), s2 = parseInt(c[4], 10), e2 = parseInt(c[5], 10);
+  if ([s1, e1, s2, e2].some(v => !Number.isFinite(v))) return null;
+  return { chrom1: c[0], start1: s1, end1: e1, chrom2: c[3], start2: s2, end2: e2, name: c[6] || '', score: c[7] != null ? parseFloat(c[7]) : null };
+}
+
+// Open a remote BED or BEDPE track. Only bgzip + tabix-indexed files are
+// accepted so the data is read by HTTP Range (never fully downloaded).
+async function openBedTrack({ name, url, group = '', kind = 'bed' }) {
+  if (!url) throw new Error('missing URL');
+  const gz = /\.gz(?:[?#].*)?$/i.test(url);
+  if (!gz) {
+    throw new Error(`plain ${kind === 'bedpe' ? '.bedpe' : '.bed'} is not supported (it would require a full download) — ` +
+      `bgzip + tabix-index it (e.g. "bgzip file.${kind} && tabix -p bed file.${kind}.gz") and use the .gz URL`);
+  }
+  const named = name || url.split('/').pop();
+  const nData = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene').length;
+  const track = {
+    id: ++state.trackSeq, kind, name: named, url, group: group || '',
+    color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length],
+    tabix: null,
+  };
+  const { TabixIndexedFile, RemoteFile } = await getTabixLibs();
+  track.tabix = new TabixIndexedFile({
+    filehandle: new RemoteFile(url, { fetch: (u, o) => fetch(u, o) }),
+    tbiFilehandle: new RemoteFile(url + '.tbi', { fetch: (u, o) => fetch(u, o) }),
+  });
+  await track.tabix.getReferenceSequenceNames();       // validates the index, fails early
+  state.tracks.push(track);
+  return track;
+}
+async function bedGetFeatures(track, chrom, start, end) {
+  let names = [];
+  try { names = await track.tabix.getReferenceSequenceNames(); } catch (_) {}
+  const cand = chromNameVariants(chrom).filter(n => !names.length || names.includes(n));
+  const out = [];
+  for (const nm of (cand.length ? cand : chromNameVariants(chrom))) {
+    try {
+      await track.tabix.getLines(nm, Math.max(0, Math.floor(start)), Math.ceil(end), (line) => {
+        const f = track.kind === 'bedpe' ? parseBedpeLine(line) : parseBedLine(line);
+        if (f) out.push(f);
+      });
+      if (out.length) break;
+    } catch (_) { /* try next naming */ }
+  }
+  return out;
+}
+
+// Open a remote .hic (Juicebox) contact matrix via @gmod/hic.
+let _hicLib = null;
+async function getHicLib() {
+  if (!_hicLib) {
+    const mod = await import('https://esm.sh/@gmod/hic@3');
+    _hicLib = mod.default || mod.HicStraw || mod;
+  }
+  return _hicLib;
+}
+async function openHicTrack({ name, url, group = '' }) {
+  if (!url) throw new Error('missing URL');
+  const HicStraw = await getHicLib();
+  // Pass the URL so HicStraw builds its own file handle; requests still flow
+  // through our wrapped global fetch (CORS proxy + Range).
+  const straw = new HicStraw({ url });
+  let resolutions = [], norms = ['NONE'];
+  try { const meta = await straw.getMetaData(); if (meta && Array.isArray(meta.resolutions)) resolutions = meta.resolutions.slice(); } catch (_) {}
+  try { const n = await straw.getNormalizationOptions(); if (Array.isArray(n) && n.length) norms = n; } catch (_) {}
+  const named = name || url.split('/').pop();
+  const track = {
+    id: ++state.trackSeq, kind: 'hic', name: named, url, straw, group: group || '',
+    resolutions: (resolutions.length ? resolutions : [2500000, 1000000, 500000, 250000, 100000, 50000, 25000, 10000, 5000, 1000]).sort((a, b) => a - b),
+    norm: norms.includes('KR') ? 'KR' : (norms.includes('VC') ? 'VC' : 'NONE'),
+    color: '#b2182b',
+  };
+  state.tracks.push(track);
+  return track;
+}
+async function hicGetRecords(track, chrom, start, end) {
+  const span = Math.max(1, end - start);
+  const target = 300;                                  // ~ bins across the window
+  let binsize = track.resolutions[track.resolutions.length - 1];
+  for (const r of track.resolutions) { if (span / r <= target) { binsize = r; break; } }
+  const base = { start: Math.max(0, Math.floor(start)), end: Math.ceil(end) };
+  for (const nm of chromNameVariants(chrom)) {
+    try {
+      const recs = await track.straw.getContactRecords(track.norm, { ...base, chr: nm }, { ...base, chr: nm }, 'BP', binsize);
+      if (recs) return { recs, binsize };
+    } catch (_) { /* try next naming */ }
+  }
+  return { recs: [], binsize };
 }
 
 // ── Track table & color palette (file OR url; csv / tsv / xlsx / json) ────────
@@ -1127,18 +1251,20 @@ function applyColorMap(map, label) {
 // Open every track row into the viewer.
 async function ingestTrackRows(rows, label) {
   if (!rows.length) { setStatus(`No track rows found in ${label}.`, true); return; }
-  // Only need the .cz reader module if some rows are .cz (BigWig is standalone).
-  if (rows.some(r => !isBigWigUrl(r.url)) && !state.CzReader) {
+  const isSpecial = (u) => isHicUrl(u) || isBedpeUrl(u) || isBigWigUrl(u) || isBedUrl(u);
+  // Only need the .cz reader module if some rows are plain .cz.
+  if (rows.some(r => !isSpecial(r.url)) && !state.CzReader) {
     const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader;
   }
   setStatus(`Opening ${rows.length} track(s) from ${label}…`);
   let ok = 0, mism = 0; const failed = [];
   for (const r of rows) {
     try {
-      if (isBigWigUrl(r.url)) {
-        await openBigWigTrack({ name: r.name, url: r.url, group: r.group });
-        saveTrack({ name: r.name, url: r.url, fmt: 'bw' }); ok++;
-      } else {
+      if (isHicUrl(r.url)) { await openHicTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'hic' }); ok++; }
+      else if (isBedpeUrl(r.url)) { await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe' }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe' }); ok++; }
+      else if (isBigWigUrl(r.url)) { await openBigWigTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'bw' }); ok++; }
+      else if (isBedUrl(r.url)) { await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed' }); saveTrack({ name: r.name, url: r.url, fmt: 'bed' }); ok++; }
+      else {
         const tr = await openCzTrack(r); if (tr.mismatch) mism++;
         saveTrack({ name: r.name, url: r.url, ctx: r.ctx }); ok++;
       }
@@ -1280,6 +1406,7 @@ function buildTrackRows() {
 
     const view = document.createElement('div');
     view.className = 'view';
+    view.style.height = trackHeight(t) + 'px';   // definite height up front (avoids blank lower half on rebuild)
     const canvas = document.createElement('canvas');
     view.appendChild(canvas);
     t.canvas = canvas; t.view = view;
@@ -1339,7 +1466,8 @@ function attachHeightResize(handle, t) {
     if (dragId !== e.pointerId) return;
     e.stopPropagation();
     t.height = Math.max(MIN_HEIGHT, Math.round(h0 + (e.clientY - startY)));
-    render();
+    if (t.view) t.view.style.height = t.height + 'px';
+    quickRedraw();                                   // repaint from cache (no network) at the new height
   });
   const end = (e) => {
     if (dragId !== e.pointerId) return;
@@ -1501,8 +1629,9 @@ function setSelectedVal(v) {
 // ── Y-axis limit editor (single track via its button, or many via the bar) ───
 function applyYlim(tracks, ylim) {
   for (const t of tracks) if (t.kind === 'mc' || t.kind === 'bw') t.ylim = ylim;
+  // ylim only rescales existing data — rebuild rows then repaint from cache.
   buildTrackRows();
-  render();
+  quickRedraw();
 }
 function openYlimEditor(tracks, anchorEl) {
   const mcTracks = tracks.filter(t => t.kind === 'mc' || t.kind === 'bw');
@@ -1549,9 +1678,14 @@ function openYlimEditor(tracks, anchorEl) {
 // ── Canvas sizing (HiDPI) ────────────────────────────────────────────────────
 function sizeCanvas(canvas, cssH) {
   const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.parentElement.clientWidth;
+  const view = canvas.parentElement;
+  // Give the view a definite height so the canvas element can't fall back to its
+  // (dpr-scaled) backing-store height, which left the lower half blank on resize.
+  if (view) view.style.height = cssH + 'px';
+  const cssW = view.clientWidth;
   canvas.width = Math.max(1, Math.round(cssW * dpr));
   canvas.height = Math.max(1, Math.round(cssH * dpr));
+  canvas.style.width = cssW + 'px';
   canvas.style.height = cssH + 'px';
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1597,6 +1731,9 @@ function quickRedraw() {
       if (t.kind === 'seq') drawSeqCore(t);
       else if (t.kind === 'gene') { if (t._genes) drawGenesCore(t, t._genes); }
       else if (t.kind === 'bw' && t._bwData) drawBigWig(t, t._bwData);
+      else if (t.kind === 'bed' && t._bedData) drawBedTrack(t, t._bedData);
+      else if (t.kind === 'bedpe' && t._bedData) drawBedpeTrack(t, t._bedData);
+      else if (t.kind === 'hic' && t._hicData) drawHicTrack(t, t._hicData);
       else if (t.kind === 'mc' && t._data) drawTrack(t, t._data.qi, t._data.vals);
     } catch (_) { /* ignore during fast repaint */ }
   }
@@ -1654,6 +1791,16 @@ async function renderNow() {
         if (gen !== state.gen) return;
         t._bwData = feats;
         drawBigWig(t, feats);
+      } else if (t.kind === 'bed' || t.kind === 'bedpe') {
+        const feats = await bedGetFeatures(t, chrom, start, end);
+        if (gen !== state.gen) return;
+        t._bedData = feats;
+        if (t.kind === 'bedpe') drawBedpeTrack(t, feats); else drawBedTrack(t, feats);
+      } else if (t.kind === 'hic') {
+        const data = await hicGetRecords(t, chrom, start, end);
+        if (gen !== state.gen) return;
+        t._hicData = data;
+        drawHicTrack(t, data);
       } else {
         if (!qi) return;
         const vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
@@ -1876,6 +2023,110 @@ function drawBigWig(track, feats, dst) {
     track.metaEl.textContent = feats.length
       ? `${fmtInt(feats.length)} intervals · max ${fmtLv(dataMax)}${Array.isArray(track.ylim) ? ` · y[${scaleMin}–${scaleMax}]` : ''}`
       : 'no signal in view';
+  }
+}
+
+// ── Draw a BED interval track (row-packed boxes with labels) ─────────────────
+function drawBedTrack(track, feats, dst) {
+  const H = trackHeight(track);
+  const live = !dst;
+  const { chrom, start, end } = state.locus;
+  const span = end - start;
+  const wCss = dst ? dst.w : (track.canvas.parentElement.clientWidth || 1);
+  const toX = (bp) => (bp - start) / span * wCss;
+  const rowH = 12, topPad = 4, CHAR_W = 6;
+  const maxRows = Math.max(1, Math.floor((H - topPad * 2) / rowH));
+  const sorted = feats.slice().sort((a, b) => a.start - b.start);
+  const rowFree = [], placed = [];
+  for (const f of sorted) {
+    const x0 = toX(f.start), x1 = toX(f.end);
+    const label = String(f.name || '');
+    const extentR = Math.max(x1, x0 + (label ? label.length * CHAR_W + 6 : 0));
+    let row = rowFree.findIndex(r => x0 > r + 3);
+    if (row < 0) row = rowFree.length;
+    if (row >= maxRows) continue;
+    rowFree[row] = extentR;
+    placed.push({ f, row, x0, x1, label });
+  }
+  const { ctx, w, h } = dst || sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+  const rgb = hexToRgb(track.color);
+  ctx.font = '10px sans-serif'; ctx.textBaseline = 'middle';
+  for (const p of placed) {
+    const yMid = topPad + p.row * rowH + rowH / 2;
+    const bx0 = Math.max(-2, p.x0), bx1 = Math.min(w + 2, p.x1);
+    ctx.fillStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+    ctx.fillRect(bx0, yMid - 3, Math.max(1, bx1 - bx0), 6);
+    if (p.label && (p.x1 - p.x0) > 22) {
+      ctx.fillStyle = '#3a3f57'; ctx.textAlign = 'left';
+      ctx.fillText(p.label, Math.max(2, p.x0) + 2, yMid);
+    }
+  }
+  ctx.textAlign = 'left';
+  if (live) track._bed = { placed, rowH, topPad, wCss };
+  if (live && track.metaEl) {
+    track.metaEl.textContent = feats.length
+      ? `${fmtInt(feats.length)} features${placed.length < feats.length ? ` (${feats.length - placed.length} hidden)` : ''}`
+      : 'no features in view';
+  }
+}
+
+// ── Draw a BEDPE track as arcs connecting paired anchors ─────────────────────
+function drawBedpeTrack(track, feats, dst) {
+  const H = trackHeight(track);
+  const live = !dst;
+  const { chrom, start, end } = state.locus;
+  const span = end - start;
+  const { ctx, w, h } = dst || sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+  const toX = (bp) => (bp - start) / span * w;
+  const rgb = hexToRgb(track.color);
+  ctx.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.7)`;
+  ctx.lineWidth = 1.2;
+  const baseY = h - 2, topY = 3;
+  let n = 0;
+  for (const f of feats) {
+    if (f.chrom1 !== chrom || f.chrom2 !== chrom) continue;   // only intra-chrom loops on this chrom
+    const a = (f.start1 + f.end1) / 2, b = (f.start2 + f.end2) / 2;
+    const xa = toX(a), xb = toX(b);
+    if ((xa < 0 && xb < 0) || (xa > w && xb > w)) continue;
+    const mid = (xa + xb) / 2, rx = Math.abs(xb - xa) / 2;
+    const ry = Math.max(2, Math.min(baseY - topY, rx));
+    ctx.beginPath();
+    ctx.ellipse(mid, baseY, rx, ry, 0, Math.PI, 2 * Math.PI);   // upper half arc
+    ctx.stroke();
+    n++;
+  }
+  if (live && track.metaEl) track.metaEl.textContent = n ? `${fmtInt(n)} pairs` : 'no pairs in view';
+}
+
+// ── Draw a Hi-C contact matrix as a pyramid heatmap ──────────────────────────
+function drawHicTrack(track, data, dst) {
+  const H = trackHeight(track);
+  const live = !dst;
+  const { start, end } = state.locus;
+  const span = end - start;
+  const { ctx, w, h } = dst || sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+  const recs = data.recs || [], binsize = data.binsize || 1;
+  if (!recs.length) { if (live && track.metaEl) track.metaEl.textContent = 'no contacts in view'; return; }
+  let maxC = 0; for (const r of recs) if (r.counts > maxC) maxC = r.counts;
+  const denom = Math.log1p(maxC) || 1;
+  const rgb = hexToRgb(track.color);
+  const toX = (bp) => (bp - start) / span * w;
+  const binPx = Math.max(1, (binsize / span) * w);
+  for (const r of recs) {
+    const p1 = r.bin1 * binsize, p2 = r.bin2 * binsize;
+    const x = toX((p1 + p2) / 2 + binsize / 2);
+    const y = (Math.abs(p2 - p1) / span) * h;
+    if (y > h) continue;
+    const a = Math.min(1, Math.log1p(r.counts) / denom);
+    ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${(0.12 + 0.88 * a).toFixed(3)})`;
+    ctx.fillRect(x - binPx / 2, y, binPx, Math.max(1, binPx));
+  }
+  if (live && track.metaEl) {
+    const bl = binsize >= 1000 ? `${binsize / 1000}kb` : `${binsize}bp`;
+    track.metaEl.textContent = `${fmtInt(recs.length)} contacts · ${bl} bins · ${track.norm} · max ${maxC}`;
   }
 }
 
@@ -2190,9 +2441,9 @@ async function composeExportSvg() {
     }
     const t = ri.t, h = ri.h;
     // Label: swatch (mc) + name
-    if (t.kind === 'mc' || t.kind === 'bw') { rec.fillStyle = t.color || '#333'; rec.fillRect(4, y + 6, 10, 10); }
+    if (t.kind !== 'seq' && t.kind !== 'gene') { rec.fillStyle = t.color || '#333'; rec.fillRect(4, y + 6, 10, 10); }
     rec.fillStyle = '#1c1e26'; rec.font = 'bold 12px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
-    rec.fillText(t.name, (t.kind === 'mc' || t.kind === 'bw') ? 18 : 5, y + 12);
+    rec.fillText(t.name, (t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5, y + 12);
     // Track content
     rec.save(); rec.translate(labelW, y);
     const dst = { ctx: rec, w: viewW, h };
@@ -2200,12 +2451,31 @@ async function composeExportSvg() {
       if (t.kind === 'seq') await drawSeqTrack(t, state.gen, dst);
       else if (t.kind === 'gene') await drawGeneTrack(t, state.gen, dst);
       else if (t.kind === 'bw' && t._bwData) drawBigWig(t, t._bwData, dst);
+      else if (t.kind === 'bed' && t._bedData) drawBedTrack(t, t._bedData, dst);
+      else if (t.kind === 'bedpe' && t._bedData) drawBedpeTrack(t, t._bedData, dst);
+      else if (t.kind === 'hic' && t._hicData) drawHicTrack(t, t._hicData, dst);
       else if (t.kind === 'mc' && t._data) drawTrack(t, t._data.qi, t._data.vals, dst);
     } catch (_) { /* skip a track that fails to draw */ }
     rec.restore();
     rec.strokeStyle = '#e6e8ee'; rec.lineWidth = 1;
     rec.beginPath(); rec.moveTo(0, y + h + 0.5); rec.lineTo(totalW, y + h + 0.5); rec.stroke();
     y += h;
+  }
+  // Region marks over the track area, so they appear in the exported image.
+  if (state.locus && state.marks && state.marks.length) {
+    const { chrom, start, end } = state.locus, span = (end - start) || 1;
+    for (const m of state.marks) {
+      if (m.chrom !== chrom) continue;
+      const f0 = (m.start - start) / span, f1 = (m.end - start) / span;
+      if (f1 < 0 || f0 > 1) continue;
+      const x0 = labelW + Math.max(0, f0) * viewW, x1 = labelW + Math.min(1, f1) * viewW;
+      const rgb = hexToRgb(toHexColor(m.color));
+      rec.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.20)`;
+      rec.fillRect(x0, rulerH, Math.max(1, x1 - x0), total - rulerH);
+      rec.strokeStyle = m.color; rec.lineWidth = 1;
+      rec.beginPath(); rec.moveTo(x0 + 0.5, rulerH); rec.lineTo(x0 + 0.5, total); rec.stroke();
+      rec.beginPath(); rec.moveTo(x1 - 0.5, rulerH); rec.lineTo(x1 - 0.5, total); rec.stroke();
+    }
   }
   return { svg: rec.toSvg(), width: totalW, height: total };
 }
@@ -2305,10 +2575,10 @@ function currentStateObject() {
     ra: state.resAuto || undefined,
     y: state.yScale !== '1' ? state.yScale : undefined,
     colors: Object.keys(state.colorMap).length ? state.colorMap : undefined,
-    t: state.tracks.filter(t => t.kind === 'mc' || t.kind === 'bw')
-      .map(t => (t.kind === 'bw'
-        ? { k: 'bw', n: t.name, u: t.url, grp: t.group || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined }
-        : { n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined })),
+    t: state.tracks.filter(t => ['mc', 'bw', 'bed', 'bedpe', 'hic'].includes(t.kind))
+      .map(t => (t.kind === 'mc'
+        ? { n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined }
+        : { k: t.kind, n: t.name, u: t.url, grp: t.group || undefined, yl: (t.kind === 'bw' && Array.isArray(t.ylim)) ? t.ylim : undefined })),
   };
 }
 let _urlTimer = null, _restoring = false;
@@ -2335,10 +2605,14 @@ async function applyStateObject(st) {
     if (st.ref) { $('refUrl').value = st.ref; await loadReference(); }
     if (st.l) { const lo = parseLocus(st.l); if (lo) { state.locus = lo; syncLocusInput(); } }
     if (Array.isArray(st.t) && st.t.length) {
-      if (st.t.some(r => r.k !== 'bw' && !isBigWigUrl(r.u)) && !state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
+      const needsCz = st.t.some(r => !r.k && !isHicUrl(r.u) && !isBedpeUrl(r.u) && !isBigWigUrl(r.u) && !isBedUrl(r.u));
+      if (needsCz && !state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
       for (const r of st.t) {
         try {
-          if (r.k === 'bw' || isBigWigUrl(r.u)) await openBigWigTrack({ name: r.n, url: r.u, group: r.grp || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          if (r.k === 'hic' || isHicUrl(r.u)) await openHicTrack({ name: r.n, url: r.u, group: r.grp || '' });
+          else if (r.k === 'bedpe' || isBedpeUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', kind: 'bedpe' });
+          else if (r.k === 'bw' || isBigWigUrl(r.u)) await openBigWigTrack({ name: r.n, url: r.u, group: r.grp || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          else if (r.k === 'bed' || isBedUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', kind: 'bed' });
           else await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
         }
         catch (e) { /* skip a track that fails to open */ }
@@ -2356,6 +2630,30 @@ async function restoreFromUrl() {
   let st; try { st = JSON.parse(decodeURIComponent(h)); } catch { return false; }
   await applyStateObject(st);
   return true;
+}
+// Load a shared session directly from a remote JSON URL, e.g.
+//   cz_viewer.html?session=https://host/ftp/my_session.json
+// (also accepts ?s=… or #session=…). Reads through the wrapped fetch so the
+// CORS proxy + Range handling apply.
+async function restoreFromSessionUrl() {
+  const params = new URLSearchParams(location.search);
+  let url = (params.get('session') || params.get('s') || '').trim();
+  if (!url) {
+    const m = /^#?session=(.+)$/i.exec(location.hash);
+    if (m) url = decodeURIComponent(m[1]).trim();
+  }
+  if (!url || !/^https?:\/\//i.test(url)) return false;
+  try {
+    setStatus(`Loading shared session from ${url}…`);
+    const resp = await fetch(url, { cache: 'no-cache' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    await applyStateObject(await resp.json());
+    setStatus(`Loaded shared session from ${url.split('/').pop() || url}.`);
+    return true;
+  } catch (e) {
+    setStatus(corsHint('Failed to load shared session: ' + e.message, url), true);
+    return false;
+  }
 }
 function saveSession() {
   triggerDownload(new Blob([JSON.stringify(currentStateObject(), null, 2)], { type: 'application/json' }),
@@ -2561,6 +2859,19 @@ function geneAtEvent(track, e) {
   }
   return best;
 }
+function bedAtEvent(track, e) {
+  if (!track._bed) return null;
+  const rect = track.view.getBoundingClientRect();
+  const px = (e.clientX - rect.left) / rect.width * track._bed.wCss;
+  const py = e.clientY - rect.top;
+  const { placed, rowH, topPad } = track._bed;
+  const row = Math.floor((py - topPad) / rowH);
+  for (const p of placed) {
+    if (p.row !== row) continue;
+    if (px >= p.x0 - 2 && px <= p.x1 + 2) return p;
+  }
+  return null;
+}
 function updateHover(e) {
   const hv = $('hover');
   const track = state.tracks.find(t => t.view && t.view.contains(e.target));
@@ -2577,6 +2888,19 @@ function updateHover(e) {
     hv.style.top = (e.clientY + 12) + 'px';
     hv.style.display = 'block';
     track.view.style.cursor = 'pointer';
+    return;
+  }
+
+  // BED interval: show the feature under the cursor.
+  if (track.kind === 'bed') {
+    const p = bedAtEvent(track, e);
+    if (!p) { hv.style.display = 'none'; return; }
+    const f = p.f;
+    hv.textContent = `${f.name || '(feature)'} · ${state.locus.chrom}:${fmtInt(f.start)}-${fmtInt(f.end)}` +
+      `${f.score != null && !Number.isNaN(f.score) ? ` · ${f.score}` : ''}${f.strand ? ` · ${f.strand}` : ''}`;
+    hv.style.left = (e.clientX + 12) + 'px';
+    hv.style.top = (e.clientY + 12) + 'px';
+    hv.style.display = 'block';
     return;
   }
 
@@ -2667,7 +2991,7 @@ $('yScaleSel').onchange = () => {
   // The toolbar Y control is a bulk setter: apply it to every mc track's ylim.
   const yl = state.yScale === 'auto' ? 'auto' : [0, 1];
   for (const t of state.tracks) if (t.kind === 'mc') t.ylim = Array.isArray(yl) ? [...yl] : yl;
-  buildTrackRows(); render();
+  buildTrackRows(); quickRedraw();
 };
 $('btnSaveSession').onclick = saveSession;
 $('sessionFile').onchange = loadSessionFile;
@@ -2776,8 +3100,13 @@ refreshSavedTracksUI();
 setStatus('Ready. Pick a Genome to auto-load its DNA sequence + gene tracks, then search a ' +
           'locus (chr:start-end) or a gene name. Add methylation data with “+ Add cz track” ' +
           'or a track table; export as SVG/PNG/PDF; save/share via the URL or Session JSON.');
-// Restore a shared view from the URL hash, else start on the default genome.
-restoreFromUrl().then((restored) => { if (!restored) onGenomeChange(); });
+// Restore order: a remote session JSON (?session=URL) wins, then an inline URL
+// hash, else start on the default genome.
+(async () => {
+  if (await restoreFromSessionUrl()) return;
+  if (await restoreFromUrl()) return;
+  onGenomeChange();
+})();
 
 
 </script>

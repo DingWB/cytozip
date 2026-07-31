@@ -24,7 +24,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="cytozip.pivot module" href="cytozip.pivot.html" />
+    <link rel="next" title="cytozip.peaks module" href="cytozip.peaks.html" />
     <link rel="prev" title="cytozip.merge module" href="cytozip.merge.html" /> 
 </head>
 
@@ -190,7 +190,17 @@
 <p class="caption" role="heading"><span class="caption-text">Cytozip Genome Browser</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="cz_viewer.html">Genome Browser</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cz_viewer.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cz_viewer.html#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#quick-start">Quick start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#supported-remote-file-formats">Supported remote file formats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#toolbar-tools-and-keyboard-shortcuts">Toolbar tools and keyboard shortcuts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#working-with-tracks">Working with tracks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#genome-gene-search-and-marks">Genome, gene search, and marks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#exporting">Exporting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#session-and-sharing">Session and sharing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#share-a-session-via-a-remote-json-url">Share a session via a remote JSON URL</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -281,6 +291,7 @@
 </li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.check_cz"><code class="docutils literal notranslate"><span class="pre">check_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -325,10 +336,8 @@
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
@@ -359,18 +368,34 @@
 <li class="toctree-l4 current"><a class="current reference internal" href="#">cytozip.model module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.cell_types"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_types</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.cell_counts"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_counts</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.close"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#cytozip.model.CellTypeClassifier.site_importance"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.site_importance()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.model.deconvolve_bulk"><code class="docutils literal notranslate"><span class="pre">deconvolve_bulk()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#cytozip.model.top_cytosine_fasta"><code class="docutils literal notranslate"><span class="pre">top_cytosine_fasta()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.peaks.html">cytozip.peaks module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.call_peaks_bdg"><code class="docutils literal notranslate"><span class="pre">call_peaks_bdg()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -460,77 +485,287 @@ column, <code class="docutils literal notranslate"><span class="pre">reference</
 </section>
 <dl class="py class">
 <dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cytozip.model.</span></span><span class="sig-name descname"><span class="pre">CellTypeClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambda_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambda_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mc_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mc'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cov'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'context'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cytozip.model.</span></span><span class="sig-name descname"><span class="pre">CellTypeClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lambda_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambda_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mc_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mc'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cov'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'context'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Site-likelihood (naive-Bayes) cell-type classifier for methylation .cz.</p>
-<p>Estimate per-site methylation frequencies from cell-type pseudobulk
-<code class="docutils literal notranslate"><span class="pre">.cz</span></code> files, then score query cells by aggregated per-cytosine
-Bernoulli log-likelihood in the CpG and CpH channels. Each input <code class="docutils literal notranslate"><span class="pre">.cz</span></code>
-holds <em>all</em> cytosines (CpG + CpH) as <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>; the CpG vs CpH split
-comes from the <code class="docutils literal notranslate"><span class="pre">context</span></code> column, read from a <code class="docutils literal notranslate"><span class="pre">build_ref</span></code> <code class="docutils literal notranslate"><span class="pre">reference</span></code>
-<code class="docutils literal notranslate"><span class="pre">.cz</span></code> (the cell-type files usually store only <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>), so no
-pre-splitting into separate CG / CH files is needed.</p>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading"></a></h2>
+<p>Assign a cell type to a <strong>shallow / low-coverage</strong> single cell (few reads
+per cytosine) by comparing its methylation pattern against a panel of
+<strong>deep</strong> cell-type pseudobulk references. It answers: <em>of the candidate
+cell types, which one most likely produced the methylation observed in
+this cell?</em></p>
+</section>
+<section id="how-it-works">
+<h2>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fit</span></code> reads each cell-type pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> and estimates, for
+every discriminative cytosine, the reference methylation frequency
+<code class="docutils literal notranslate"><span class="pre">theta[c,</span> <span class="pre">t]</span></code> of type <code class="docutils literal notranslate"><span class="pre">t</span></code> (Beta-shrinkage of <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">predict</span></code> scores a query cell as the aggregated per-cytosine
+Bernoulli log-likelihood of its <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code> under each type, in two
+independent channels (CpG and CpH), then a softmax over types gives
+calibrated probabilities (supporting abstention).</p></li>
+</ol>
+<p>Each input <code class="docutils literal notranslate"><span class="pre">.cz</span></code> holds <em>all</em> cytosines (CpG + CpH) as <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>;
+the CpG vs CpH split comes from the <code class="docutils literal notranslate"><span class="pre">context</span></code> column, read from a
+<code class="docutils literal notranslate"><span class="pre">build_ref</span></code> <code class="docutils literal notranslate"><span class="pre">reference</span></code> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (the cell-type files usually store
+only <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>), so no pre-splitting into separate CG / CH files is
+needed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">param lambda_cg<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Log-space channel weights (default 1 each). CpH sites are far more
+numerous and often dominate implicitly; lower <code class="docutils literal notranslate"><span class="pre">lambda_ch</span></code> to
+rebalance.</p>
+</dd>
+<dt class="field-even">type lambda_cg<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param lambda_ch<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Log-space channel weights (default 1 each). CpH sites are far more
+numerous and often dominate implicitly; lower <code class="docutils literal notranslate"><span class="pre">lambda_ch</span></code> to
+rebalance.</p>
+</dd>
+<dt class="field-even">type lambda_ch<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param mc_col<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Column names for methylated count, coverage, and sequence context
+in the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files.</p>
+</dd>
+<dt class="field-even">type mc_col<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+<dt class="field-odd">param cov_col<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Column names for methylated count, coverage, and sequence context
+in the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files.</p>
+</dd>
+<dt class="field-even">type cov_col<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+<dt class="field-odd">param context_col<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Column names for methylated count, coverage, and sequence context
+in the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files.</p>
+</dd>
+<dt class="field-even">type context_col<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.cell_types">
+<span class="sig-name descname"><span class="pre">cell_types</span></span><a class="headerlink" href="#cytozip.model.CellTypeClassifier.cell_types" title="Link to this definition"></a></dt>
+<dd><p>The candidate cell-type labels, in the column order used by every
+<code class="docutils literal notranslate"><span class="pre">(n_types,)</span></code> score / probability vector. Set by <a class="reference internal" href="#cytozip.model.CellTypeClassifier.fit" title="cytozip.model.CellTypeClassifier.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code></a> from the
+keys of <code class="docutils literal notranslate"><span class="pre">pseudobulks</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.cell_counts">
+<span class="sig-name descname"><span class="pre">cell_counts</span></span><a class="headerlink" href="#cytozip.model.CellTypeClassifier.cell_counts" title="Link to this definition"></a></dt>
+<dd><p>How many reference cells were pooled into each cell-type pseudobulk
+(i.e. the abundance of each type in the reference atlas). It is
+<strong>not</strong> used to fit the frequencies; it only feeds the optional
+<em>abundance prior</em> at predict time: when <code class="docutils literal notranslate"><span class="pre">prior_alpha</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> the
+classifier favours more abundant types via <code class="docutils literal notranslate"><span class="pre">pi_t</span> <span class="pre">∝</span> <span class="pre">cell_counts[t]</span> <span class="pre">**</span>
+<span class="pre">prior_alpha</span></code> (see <code class="xref py py-meth docutils literal notranslate"><span class="pre">_log_prior()</span></code>). <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt; a uniform
+prior over types (every type equally likely a priori). Set by
+<a class="reference internal" href="#cytozip.model.CellTypeClassifier.fit" title="cytozip.model.CellTypeClassifier.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code></a> from its <code class="docutils literal notranslate"><span class="pre">cell_counts=</span></code> argument.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict {cell_type: int} or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">alpha0_cg,</span> <span class="pre">beta0_cg,</span> <span class="pre">alpha0_ch,</span> <span class="pre">beta0_ch</span></span></dt>
+<dd><p>The Beta-shrinkage pseudocounts actually used per channel (either the
+user override or the value auto-estimated in <a class="reference internal" href="#cytozip.model.CellTypeClassifier.fit" title="cytozip.model.CellTypeClassifier.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code></a>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.close" title="Link to this definition"></a></dt>
+<dd><p>Free memory-mapped arrays and remove the owned temp store, if any.</p>
+<p>Called automatically at garbage-collection; safe to call explicitly.
+After <code class="docutils literal notranslate"><span class="pre">close</span></code> the model can no longer score (its arrays are gone).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.deconvolve">
+<span class="sig-name descname"><span class="pre">deconvolve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_by_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_to_one</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_unknown</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.deconvolve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.deconvolve" title="Link to this definition"></a></dt>
+<dd><p>Deconvolve one bulk sample into cell-type fractions.</p>
+<p>Treats the bulk methylation profile as a mixture of the fitted
+reference cell types and solves for their fractions via constrained
+least squares (<code class="xref py py-func docutils literal notranslate"><span class="pre">_solve_fractions()</span></code>).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>alpha0_cg</strong> (<em>float</em><em> or </em><em>None</em>) – Beta-prior pseudocounts for the CpG channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt;
-estimate them empirically at <code class="docutils literal notranslate"><span class="pre">fit</span></code> time from the pooled reference
-counts of that context via <a class="reference internal" href="#cytozip.model.estimate_beta_prior" title="cytozip.model.estimate_beta_prior"><code class="xref py py-func docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a>
-(Beta-Binomial method of moments). Pass explicit floats to override
-the auto-estimate (both must be given to take effect).</p></li>
-<li><p><strong>beta0_cg</strong> (<em>float</em><em> or </em><em>None</em>) – Beta-prior pseudocounts for the CpG channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt;
-estimate them empirically at <code class="docutils literal notranslate"><span class="pre">fit</span></code> time from the pooled reference
-counts of that context via <a class="reference internal" href="#cytozip.model.estimate_beta_prior" title="cytozip.model.estimate_beta_prior"><code class="xref py py-func docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a>
-(Beta-Binomial method of moments). Pass explicit floats to override
-the auto-estimate (both must be given to take effect).</p></li>
-<li><p><strong>alpha0_ch</strong> (<em>float</em><em> or </em><em>None</em>) – Beta-prior pseudocounts for the CpH channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt;
-auto-estimated like the CpG channel (its own separate prior).</p></li>
-<li><p><strong>beta0_ch</strong> (<em>float</em><em> or </em><em>None</em>) – Beta-prior pseudocounts for the CpH channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt;
-auto-estimated like the CpG channel (its own separate prior).</p></li>
-<li><p><strong>lambda_cg</strong> (<em>float</em>) – Log-space channel weights (default 1 each). CpH sites are far more
-numerous and often dominate implicitly; lower <code class="docutils literal notranslate"><span class="pre">lambda_ch</span></code> to
-rebalance.</p></li>
-<li><p><strong>lambda_ch</strong> (<em>float</em>) – Log-space channel weights (default 1 each). CpH sites are far more
-numerous and often dominate implicitly; lower <code class="docutils literal notranslate"><span class="pre">lambda_ch</span></code> to
-rebalance.</p></li>
-<li><p><strong>prior_min_cov</strong> (<em>int</em>) – Minimum coverage for a reference site to enter the empirical prior
-estimation (passed to <a class="reference internal" href="#cytozip.model.estimate_beta_prior" title="cytozip.model.estimate_beta_prior"><code class="xref py py-func docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a>; default 2).</p></li>
-<li><p><strong>mc_col</strong> (<em>str</em>) – Column names for methylated count, coverage, and sequence context
-in the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files.</p></li>
-<li><p><strong>cov_col</strong> (<em>str</em>) – Column names for methylated count, coverage, and sequence context
-in the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files.</p></li>
-<li><p><strong>context_col</strong> (<em>str</em>) – Column names for methylated count, coverage, and sequence context
-in the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files.</p></li>
+<li><p><strong>query</strong> (<em>str</em><em>, </em><em>np.ndarray</em><em>, or </em><em>(</em><em>mc</em><em>, </em><em>cov</em><em>) </em><em>tuple</em>) – The bulk sample: a WGBS <code class="docutils literal notranslate"><span class="pre">.cz</span></code> path (or preloaded full-axis
+<code class="docutils literal notranslate"><span class="pre">(mc,</span> <span class="pre">cov)</span></code> arrays), or — for a methylation array — a full-axis
+1-D beta <code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> (unit coverage). Must be aligned to the
+reference axis the model was fit on.</p></li>
+<li><p><strong>contexts</strong> (<em>str</em><em> or </em><em>iterable</em><em>, </em><em>optional</em>) – Which cytosine contexts to use: <code class="docutils literal notranslate"><span class="pre">'cg'</span></code> (default; the only choice
+for arrays and the usual one for WGBS), <code class="docutils literal notranslate"><span class="pre">'ch'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'cg+ch'</span></code>
+to use both channels jointly.</p></li>
+<li><p><strong>weight_by_cov</strong> (<em>bool</em><em>, </em><em>optional</em>) – Weight each site by its bulk coverage (weighted least squares).
+Default True; ignored (no coverage) for array beta input.</p></li>
+<li><p><strong>sum_to_one</strong> (<em>bool</em><em>, </em><em>optional</em>) – Constrain the fractions to sum to 1 (default True). False -&gt; plain
+NNLS (fractions need not sum to 1).</p></li>
+<li><p><strong>allow_unknown</strong> (<em>bool</em><em>, </em><em>optional</em>) – With <code class="docutils literal notranslate"><span class="pre">sum_to_one=True</span></code>, relax to <code class="docutils literal notranslate"><span class="pre">sum</span> <span class="pre">&lt;=</span> <span class="pre">1</span></code> and report the
+remainder as an <code class="docutils literal notranslate"><span class="pre">'unknown'</span></code> fraction (an unmodelled compartment).
+Default False.</p></li>
+<li><p><strong>min_cov</strong> (<em>int</em><em>, </em><em>optional</em>) – Only use bulk sites with coverage &gt;= this (default 1).</p></li>
 </ul>
 </dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Cell-type fractions indexed by cell type (plus <code class="docutils literal notranslate"><span class="pre">'unknown'</span></code> when
+<code class="docutils literal notranslate"><span class="pre">allow_unknown</span></code>). <code class="docutils literal notranslate"><span class="pre">.attrs</span></code> carries <code class="docutils literal notranslate"><span class="pre">'r2'</span></code> (fit quality) and
+<code class="docutils literal notranslate"><span class="pre">'n_sites'</span></code> (sites used).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.Series</p>
+</dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.deconvolve_batch">
+<span class="sig-name descname"><span class="pre">deconvolve_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">queries</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_by_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_to_one</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_unknown</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.deconvolve_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.deconvolve_batch" title="Link to this definition"></a></dt>
+<dd><p>Deconvolve many bulk samples at once.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>queries</strong> (<em>dict {sample_id: query}</em><em> or </em><em>list</em>) – One bulk sample per entry (each a <code class="docutils literal notranslate"><span class="pre">.cz</span></code> path, full-axis beta
+<code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code>, or <code class="docutils literal notranslate"><span class="pre">(mc,</span> <span class="pre">cov)</span></code> pair). See <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">deconvolve()</span></code></a>.</p></li>
+<li><p><strong>contexts</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">deconvolve()</span></code></a>.</p></li>
+<li><p><strong>weight_by_cov</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">deconvolve()</span></code></a>.</p></li>
+<li><p><strong>sum_to_one</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">deconvolve()</span></code></a>.</p></li>
+<li><p><strong>allow_unknown</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">deconvolve()</span></code></a>.</p></li>
+<li><p><strong>min_cov</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">deconvolve()</span></code></a>.</p></li>
+<li><p><strong>n_jobs</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Threads used to deconvolve samples in parallel. <code class="docutils literal notranslate"><span class="pre">None</span></code>/<code class="docutils literal notranslate"><span class="pre">1</span></code> -&gt;
+serial; <code class="docutils literal notranslate"><span class="pre">-1</span></code> -&gt; all CPUs.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>One row per sample; columns are the cell-type fractions (plus
+<code class="docutils literal notranslate"><span class="pre">'unknown'</span></code> when <code class="docutils literal notranslate"><span class="pre">allow_unknown</span></code>) followed by <code class="docutils literal notranslate"><span class="pre">'r2'</span></code> and
+<code class="docutils literal notranslate"><span class="pre">'n_sites'</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.deconvolve_multicell">
+<span class="sig-name descname"><span class="pre">deconvolve_multicell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_by_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_to_one</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_unknown</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.deconvolve_multicell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.deconvolve_multicell" title="Link to this definition"></a></dt>
+<dd><p>Deconvolve every bulk sample packed in one concatenated <code class="docutils literal notranslate"><span class="pre">.cz</span></code>.</p>
+<p>Like <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_multicell" title="cytozip.model.CellTypeClassifier.predict_multicell"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict_multicell()</span></code></a>, but each packed sample is deconvolved
+into cell-type fractions instead of being classified. Returns the same
+DataFrame layout as <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve_batch" title="cytozip.model.CellTypeClassifier.deconvolve_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">deconvolve_batch()</span></code></a>.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.fit">
-<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pseudobulks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_counts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.fit" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pseudobulks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_counts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_per_class</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg+ch'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.fit" title="Link to this definition"></a></dt>
 <dd><p>Estimate per-type methylation frequencies from cell-type <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pseudobulks</strong> (<em>dict {cell_type: path}</em>) – Per-type pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files, each holding <em>all</em> cytosines
+<li><p><strong>pseudobulks</strong> (<em>dict {cell_type: path}</em><em> or </em><em>str</em>) – Per-type pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files, each holding <em>all</em> cytosines
 (CpG + CpH) as <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code> aligned to a common reference axis.
-These typically store <strong>only</strong> <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code> (no <code class="docutils literal notranslate"><span class="pre">pos</span></code> /
-<code class="docutils literal notranslate"><span class="pre">context</span></code>), in which case <code class="docutils literal notranslate"><span class="pre">reference</span></code> is required.</p></li>
+Either a <code class="docutils literal notranslate"><span class="pre">{cell_type:</span> <span class="pre">path}</span></code> dict or a <strong>directory</strong> of such
+<code class="docutils literal notranslate"><span class="pre">.cz</span></code> files (each file’s stem is the cell-type name). These
+typically store <strong>only</strong> <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code> (no <code class="docutils literal notranslate"><span class="pre">pos</span></code> / <code class="docutils literal notranslate"><span class="pre">context</span></code>),
+in which case <code class="docutils literal notranslate"><span class="pre">reference</span></code> is required.</p></li>
 <li><p><strong>reference</strong> (<em>str</em><em> or </em><em>None</em>) – Path to the <code class="docutils literal notranslate"><span class="pre">build_ref</span></code> reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (with <code class="docutils literal notranslate"><span class="pre">pos,</span> <span class="pre">strand,</span>
 <span class="pre">context</span></code>) supplying the per-row <code class="docutils literal notranslate"><span class="pre">context</span></code> used to split CpG
 vs CpH. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) only works when the <code class="docutils literal notranslate"><span class="pre">pseudobulks</span></code>
 files themselves carry a <code class="docutils literal notranslate"><span class="pre">context_col</span></code> column; otherwise pass
 the reference here.</p></li>
-<li><p><strong>cell_counts</strong> (<em>dict {cell_type: int}</em><em>, </em><em>optional</em>) – Number of reference cells per type, used for the abundance /
-tempered prior at predict time. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt; uniform
-prior only.</p></li>
+<li><p><strong>cell_counts</strong> (<em>dict {cell_type: int}</em><em>, </em><em>optional</em>) – Number of reference cells pooled into each cell-type pseudobulk
+(the abundance of each type in the reference atlas). Stored on the
+model and used <strong>only</strong> at predict time to build the optional
+abundance prior (<code class="docutils literal notranslate"><span class="pre">pi_t</span> <span class="pre">∝</span> <span class="pre">cell_counts[t]</span> <span class="pre">**</span> <span class="pre">prior_alpha</span></code> when
+<code class="docutils literal notranslate"><span class="pre">prior_alpha</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>); it does not affect the fitted frequencies.
+<code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt; uniform prior only.</p></li>
 <li><p><strong>top_cg</strong> (<em>None</em><em>, </em><em>int</em><em>, or </em><em>float</em><em>, </em><em>optional</em>) – Discriminative-site selection for each channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> keeps
-all sites with range &gt;= <code class="docutils literal notranslate"><span class="pre">min_range_*</span></code>; an int keeps the top-N
+all sites with range &gt; <code class="docutils literal notranslate"><span class="pre">min_range_*</span></code>; an int keeps the top-N
 sites; a float in (0, 1] keeps the top fraction.</p></li>
 <li><p><strong>top_ch</strong> (<em>None</em><em>, </em><em>int</em><em>, or </em><em>float</em><em>, </em><em>optional</em>) – Discriminative-site selection for each channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> keeps
-all sites with range &gt;= <code class="docutils literal notranslate"><span class="pre">min_range_*</span></code>; an int keeps the top-N
+all sites with range &gt; <code class="docutils literal notranslate"><span class="pre">min_range_*</span></code>; an int keeps the top-N
 sites; a float in (0, 1] keeps the top fraction.</p></li>
-<li><p><strong>min_range_cg</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum across-type frequency range to keep a site.</p></li>
-<li><p><strong>min_range_ch</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum across-type frequency range to keep a site.</p></li>
+<li><p><strong>min_range_cg</strong> (<em>float</em><em>, </em><em>optional</em>) – Keep a site only when its across-type frequency range is strictly
+greater than this (default 0.0, which already drops the
+non-discriminative score-0 sites — where every cell type shares
+the same theta — since those cancel in the softmax and cannot
+affect the prediction).</p></li>
+<li><p><strong>min_range_ch</strong> (<em>float</em><em>, </em><em>optional</em>) – Keep a site only when its across-type frequency range is strictly
+greater than this (default 0.0, which already drops the
+non-discriminative score-0 sites — where every cell type shares
+the same theta — since those cancel in the softmax and cannot
+affect the prediction).</p></li>
+<li><p><strong>top_per_class</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Balanced, per-cell-type marker selection. When set (e.g. <code class="docutils literal notranslate"><span class="pre">2000</span></code>),
+<strong>replaces</strong> the global <code class="docutils literal notranslate"><span class="pre">top_cg</span></code> / <code class="docutils literal notranslate"><span class="pre">top_ch</span></code> ranking with a
+one-vs-rest scheme: for every cell type, keep the <code class="docutils literal notranslate"><span class="pre">top_per_class</span></code>
+sites where that type is the <em>uniquely</em> highest-methylated (by the
+gap <code class="docutils literal notranslate"><span class="pre">max</span> <span class="pre">-</span> <span class="pre">2nd-highest</span></code> across types) plus <code class="docutils literal notranslate"><span class="pre">top_per_class</span></code> where
+it is the <em>uniquely</em> lowest (gap <code class="docutils literal notranslate"><span class="pre">2nd-lowest</span> <span class="pre">-</span> <span class="pre">min</span></code>), in each
+channel, then take the union. This guarantees each type — including
+<strong>subtly different, dominant types</strong> (e.g. D1 vs D2 vs hybrid MSN) —
+contributes its own discriminative markers instead of being starved
+by a global top-fraction that is dominated by coarse
+(neuron-vs-glia) contrasts. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) uses the global
+<code class="docutils literal notranslate"><span class="pre">top_cg</span></code> / <code class="docutils literal notranslate"><span class="pre">top_ch</span></code> selection.</p></li>
+<li><p><strong>alpha0_cg</strong> (<em>float</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Beta-prior pseudocounts for the CpG channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
+-&gt; estimate them empirically from the pooled reference counts of
+that context via <a class="reference internal" href="#cytozip.model.estimate_beta_prior" title="cytozip.model.estimate_beta_prior"><code class="xref py py-func docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a> (Beta-Binomial method
+of moments). Pass explicit floats to override the auto-estimate
+(both must be given to take effect).</p></li>
+<li><p><strong>beta0_cg</strong> (<em>float</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Beta-prior pseudocounts for the CpG channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
+-&gt; estimate them empirically from the pooled reference counts of
+that context via <a class="reference internal" href="#cytozip.model.estimate_beta_prior" title="cytozip.model.estimate_beta_prior"><code class="xref py py-func docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a> (Beta-Binomial method
+of moments). Pass explicit floats to override the auto-estimate
+(both must be given to take effect).</p></li>
+<li><p><strong>alpha0_ch</strong> (<em>float</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Beta-prior pseudocounts for the CpH channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt;
+auto-estimated like the CpG channel (its own separate prior).</p></li>
+<li><p><strong>beta0_ch</strong> (<em>float</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Beta-prior pseudocounts for the CpH channel. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt;
+auto-estimated like the CpG channel (its own separate prior).</p></li>
+<li><p><strong>prior_min_cov</strong> (<em>int</em><em>, </em><em>optional</em>) – Minimum coverage for a reference site to enter the empirical prior
+estimation (passed to <a class="reference internal" href="#cytozip.model.estimate_beta_prior" title="cytozip.model.estimate_beta_prior"><code class="xref py py-func docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a>; default 2).</p></li>
+<li><p><strong>contexts</strong> (<em>str</em><em>, </em><em>optional</em>) – Which cytosine context channel(s) to actually fit: <code class="docutils literal notranslate"><span class="pre">'cg'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'ch'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'both'</span></code> / <code class="docutils literal notranslate"><span class="pre">'cg+ch'</span></code> (default, fit both). Fitting
+a single context skips the other channel entirely (no sites read,
+selected, or stored for it), so the model is smaller and faster to
+build. A model fit on one context can only be scored on that
+context.</p></li>
+<li><p><strong>n_jobs</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Threads used to read/decode the pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files in
+parallel across cell types (reads/decompression release the GIL).
+<code class="docutils literal notranslate"><span class="pre">None</span></code>/<code class="docutils literal notranslate"><span class="pre">1</span></code> -&gt; serial (lowest memory); <code class="docutils literal notranslate"><span class="pre">-1</span></code> -&gt; all CPUs.
+Fit streams <strong>chunk by chunk</strong>, so peak memory grows only with the
+number of concurrent workers (each holds one chunk), not with the
+number of cell types.</p></li>
+<li><p><strong>outdir</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Directory for the memory-mapped model store (the <code class="docutils literal notranslate"><span class="pre">log_theta</span></code>
+etc. <code class="docutils literal notranslate"><span class="pre">.npy</span></code> files are written directly here). <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
+uses a system temp dir (<code class="docutils literal notranslate"><span class="pre">$TMPDIR</span></code> / <code class="docutils literal notranslate"><span class="pre">/tmp</span></code>), which on HPC
+nodes is often small or RAM-backed (tmpfs) and can crash with
+<strong>“Bus error” (SIGBUS)</strong> when the model is large. Point this at a
+<strong>scratch / large-disk</strong> path with enough free space (roughly
+<code class="docutils literal notranslate"><span class="pre">n_selected_sites</span> <span class="pre">x</span> <span class="pre">n_types</span> <span class="pre">x</span> <span class="pre">8</span> <span class="pre">bytes</span></code>). When set, the store is
+persistent (not auto-deleted).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -542,13 +777,16 @@ sites; a float in (0, 1] keeps the top fraction.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.load">
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.load" title="Link to this definition"></a></dt>
-<dd><p>Load a model saved by <a class="reference internal" href="#cytozip.model.CellTypeClassifier.save" title="cytozip.model.CellTypeClassifier.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">save()</span></code></a> (no refitting needed).</p>
+<dd><p>Load a model saved by <a class="reference internal" href="#cytozip.model.CellTypeClassifier.save" title="cytozip.model.CellTypeClassifier.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">save()</span></code></a> — arrays are memory-mapped.</p>
 <p>The returned classifier can immediately score a new single-cell
 <code class="docutils literal notranslate"><span class="pre">.cz</span></code> via <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> / <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_batch" title="cytozip.model.CellTypeClassifier.predict_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict_batch()</span></code></a>, as long as the
-query is aligned to the same reference axis used at <code class="docutils literal notranslate"><span class="pre">fit</span></code> time.</p>
+query is aligned to the same reference axis used at <code class="docutils literal notranslate"><span class="pre">fit</span></code> time. The
+per-channel <code class="docutils literal notranslate"><span class="pre">log_theta</span></code> / <code class="docutils literal notranslate"><span class="pre">log1m_theta</span></code> / <code class="docutils literal notranslate"><span class="pre">sites</span></code> arrays are
+<code class="docutils literal notranslate"><span class="pre">mmap</span></code>-ed read-only, so scoring pages in only the chunk in use — the
+whole table never has to fit in RAM.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Path to a <code class="docutils literal notranslate"><span class="pre">.npz</span></code> produced by <a class="reference internal" href="#cytozip.model.CellTypeClassifier.save" title="cytozip.model.CellTypeClassifier.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">save()</span></code></a>.</p>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Path to a model <strong>directory</strong> produced by <a class="reference internal" href="#cytozip.model.CellTypeClassifier.save" title="cytozip.model.CellTypeClassifier.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">save()</span></code></a>.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="#cytozip.model.CellTypeClassifier" title="cytozip.model.CellTypeClassifier">CellTypeClassifier</a></p>
@@ -558,7 +796,7 @@ query is aligned to the same reference axis used at <code class="docutils litera
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.log_posterior">
-<span class="sig-name descname"><span class="pre">log_posterior</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.log_posterior"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.log_posterior" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">log_posterior</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg+ch'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.log_posterior"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.log_posterior" title="Link to this definition"></a></dt>
 <dd><p>Unnormalized log-posterior per cell type: pandas Series.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -566,6 +804,21 @@ query is aligned to the same reference axis used at <code class="docutils litera
 <li><p><strong>query</strong> (<em>str</em><em> or </em><em>(</em><em>mc</em><em>, </em><em>cov</em><em>) </em><em>tuple</em>) – The query cell’s all-cytosine <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (or preloaded full-axis
 <code class="docutils literal notranslate"><span class="pre">(mc,</span> <span class="pre">cov)</span></code> arrays).</p></li>
 <li><p><strong>prior_alpha</strong> (<em>float</em>) – Temperature for the abundance prior (see <code class="xref py py-meth docutils literal notranslate"><span class="pre">_log_prior()</span></code>).</p></li>
+<li><p><strong>max_query_cg</strong> (<em>int</em><em> or </em><em>None</em>) – If given, randomly keep at most this many of the query cell’s
+<em>covered</em> (<code class="docutils literal notranslate"><span class="pre">cov</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>) cytosines in the CpG / CpH channel when
+scoring; the rest contribute nothing. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) uses
+every covered site (no downsampling). When the query has fewer
+covered sites than the cap, all of them are used. A fresh random
+draw is made per call.</p></li>
+<li><p><strong>max_query_ch</strong> (<em>int</em><em> or </em><em>None</em>) – If given, randomly keep at most this many of the query cell’s
+<em>covered</em> (<code class="docutils literal notranslate"><span class="pre">cov</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>) cytosines in the CpG / CpH channel when
+scoring; the rest contribute nothing. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) uses
+every covered site (no downsampling). When the query has fewer
+covered sites than the cap, all of them are used. A fresh random
+draw is made per call.</p></li>
+<li><p><strong>contexts</strong> (<em>str</em><em>, </em><em>optional</em>) – Which cytosine context(s) to score on: <code class="docutils literal notranslate"><span class="pre">'cg'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ch'</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">'both'</span></code> / <code class="docutils literal notranslate"><span class="pre">'cg+ch'</span></code> (default, use both channels). Selecting a
+single context ignores the other channel entirely.</p></li>
 </ul>
 </dd>
 </dl>
@@ -573,37 +826,69 @@ query is aligned to the same reference axis used at <code class="docutils litera
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.predict">
-<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">abstain_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.predict" title="Link to this definition"></a></dt>
-<dd><p>Predict the most likely cell type for one query cell.</p>
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">abstain_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg+ch'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.predict" title="Link to this definition"></a></dt>
+<dd><p>Predict cell type(s) for any query, dispatching on its form.</p>
+<p>Mirrors <a class="reference internal" href="#cytozip.model.predict_cell_type" title="cytozip.model.predict_cell_type"><code class="xref py py-func docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a>’s <code class="docutils literal notranslate"><span class="pre">query</span></code> handling: the shape of
+the return value depends on what <code class="docutils literal notranslate"><span class="pre">query</span></code> is.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>query</strong> (<em>str</em><em> or </em><em>(</em><em>mc</em><em>, </em><em>cov</em><em>) </em><em>tuple</em>) – The query cell’s all-cytosine <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (or preloaded arrays).</p></li>
+<li><p><strong>query</strong> (<em>str</em><em>, </em><em>(</em><em>mc</em><em>, </em><em>cov</em><em>) </em><em>tuple</em><em>, </em><em>list</em><em>, </em><em>dict</em><em>, or </em><em>pandas.DataFrame</em>) – <p>The cell(s) to predict, in any of these forms:</p>
+<ul>
+<li><p>a single all-cytosine <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file (or a preloaded <code class="docutils literal notranslate"><span class="pre">(mc,</span> <span class="pre">cov)</span></code>
+array pair) -&gt; a single prediction <code class="docutils literal notranslate"><span class="pre">dict</span></code>;</p></li>
+<li><p>a <strong>concatenated (cat) ``.cz``</strong> holding many cells (auto-
+detected) -&gt; <code class="docutils literal notranslate"><span class="pre">(labels,</span> <span class="pre">proba)</span></code> like <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_multicell" title="cytozip.model.CellTypeClassifier.predict_multicell"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict_multicell()</span></code></a>;</p></li>
+<li><p>a <strong>directory</strong> of <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files (each file’s stem is the cell
+id), a <code class="docutils literal notranslate"><span class="pre">{cell_id:</span> <span class="pre">path}</span></code> dict, a list of <code class="docutils literal notranslate"><span class="pre">.cz</span></code> paths, or a
+<strong>table</strong> (<code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> or delimited file whose first
+two columns are <code class="docutils literal notranslate"><span class="pre">[cell_id,</span> <span class="pre">cz_path]</span></code>) -&gt; <code class="docutils literal notranslate"><span class="pre">(labels,</span> <span class="pre">proba)</span></code>
+like <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_batch" title="cytozip.model.CellTypeClassifier.predict_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict_batch()</span></code></a>.</p></li>
+</ul>
+</p></li>
 <li><p><strong>prior_alpha</strong> (<em>float</em>) – Abundance-prior temperature (default 0 -&gt; uniform prior).</p></li>
 <li><p><strong>abstain_threshold</strong> (<em>float</em><em> or </em><em>None</em>) – If given and the top probability is below it, the label becomes
 <code class="docutils literal notranslate"><span class="pre">'unassigned'</span></code> (abstention).</p></li>
+<li><p><strong>max_query_cg</strong> (<em>int</em><em> or </em><em>None</em>) – If given, randomly keep at most this many of the query cell’s
+covered (<code class="docutils literal notranslate"><span class="pre">cov</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>) CpG / CpH cytosines when scoring. <code class="docutils literal notranslate"><span class="pre">None</span></code>
+(default) uses every covered site. See <a class="reference internal" href="#cytozip.model.CellTypeClassifier.log_posterior" title="cytozip.model.CellTypeClassifier.log_posterior"><code class="xref py py-meth docutils literal notranslate"><span class="pre">log_posterior()</span></code></a>.</p></li>
+<li><p><strong>max_query_ch</strong> (<em>int</em><em> or </em><em>None</em>) – If given, randomly keep at most this many of the query cell’s
+covered (<code class="docutils literal notranslate"><span class="pre">cov</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>) CpG / CpH cytosines when scoring. <code class="docutils literal notranslate"><span class="pre">None</span></code>
+(default) uses every covered site. See <a class="reference internal" href="#cytozip.model.CellTypeClassifier.log_posterior" title="cytozip.model.CellTypeClassifier.log_posterior"><code class="xref py py-meth docutils literal notranslate"><span class="pre">log_posterior()</span></code></a>.</p></li>
+<li><p><strong>n_jobs</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Threads used to score cells in parallel for batch / multi-cell
+queries (ignored for a single cell). <code class="docutils literal notranslate"><span class="pre">None</span></code>/<code class="docutils literal notranslate"><span class="pre">1</span></code> -&gt; serial.</p></li>
+<li><p><strong>contexts</strong> (<em>str</em><em>, </em><em>optional</em>) – Which cytosine context(s) to score on: <code class="docutils literal notranslate"><span class="pre">'cg'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ch'</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">'both'</span></code> / <code class="docutils literal notranslate"><span class="pre">'cg+ch'</span></code> (default, use both channels).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">{'label',</span> <span class="pre">'confidence',</span> <span class="pre">'proba'</span> <span class="pre">(Series),</span> <span class="pre">'log_posterior'</span>
-<span class="pre">(Series)}</span></code>.</p>
+<dd class="field-even"><p>A single prediction <code class="docutils literal notranslate"><span class="pre">dict</span></code> (<code class="docutils literal notranslate"><span class="pre">label</span></code>, <code class="docutils literal notranslate"><span class="pre">confidence</span></code>, <code class="docutils literal notranslate"><span class="pre">proba</span></code>,
+<code class="docutils literal notranslate"><span class="pre">log_posterior</span></code>) for a single-cell query, else <code class="docutils literal notranslate"><span class="pre">(labels,</span>
+<span class="pre">proba)</span></code> DataFrames for a batch / multi-cell query.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dict</p>
+<dd class="field-odd"><p>dict or (pandas.DataFrame, pandas.DataFrame)</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.predict_batch">
-<span class="sig-name descname"><span class="pre">predict_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">queries</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">abstain_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.predict_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.predict_batch" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">predict_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">queries</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">abstain_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg+ch'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.predict_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.predict_batch" title="Link to this definition"></a></dt>
 <dd><p>Predict many cells at once.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>queries</strong> (<em>dict {cell_id: path}</em><em> or </em><em>list</em><em> of </em><em>paths</em>) – One all-cytosine <code class="docutils literal notranslate"><span class="pre">.cz</span></code> per query cell.</p></li>
-<li><p><strong>prior_alpha</strong> (see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.)</p></li>
-<li><p><strong>abstain_threshold</strong> (see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.)</p></li>
+<li><p><strong>prior_alpha</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>abstain_threshold</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>max_query_cg</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>max_query_ch</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>contexts</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>n_jobs</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Threads used to score cells in parallel. <code class="docutils literal notranslate"><span class="pre">None</span></code>/<code class="docutils literal notranslate"><span class="pre">1</span></code> -&gt; serial;
+<code class="docutils literal notranslate"><span class="pre">-1</span></code> -&gt; all CPUs (see <code class="xref py py-func docutils literal notranslate"><span class="pre">_resolve_n_jobs()</span></code>). Each cell is
+independent and its <code class="docutils literal notranslate"><span class="pre">.cz</span></code> read/decompression releases the GIL,
+so this scales across cores. Output order matches <code class="docutils literal notranslate"><span class="pre">queries</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -617,27 +902,60 @@ cell id; <code class="docutils literal notranslate"><span class="pre">proba</spa
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.predict_multicell">
+<span class="sig-name descname"><span class="pre">predict_multicell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">abstain_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg+ch'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.predict_multicell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.predict_multicell" title="Link to this definition"></a></dt>
+<dd><p>Predict every cell packed in one concatenated (cat) <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file.</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">catcz</span></code> output stacks many single-cell <code class="docutils literal notranslate"><span class="pre">.cz</span></code> into one file,
+appending a cell dimension so chunk keys become e.g.
+<code class="docutils literal notranslate"><span class="pre">('chr1',</span> <span class="pre">'cell1')</span></code> instead of <code class="docutils literal notranslate"><span class="pre">('chr1',)</span></code>. This reads each
+cell’s <code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code> at the model’s selected sites and scores it
+independently, returning <code class="docutils literal notranslate"><span class="pre">(labels,</span> <span class="pre">proba)</span></code> like
+<a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_batch" title="cytozip.model.CellTypeClassifier.predict_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict_batch()</span></code></a> (indexed by the per-cell key).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>str</em>) – A multi-cell (cat) <code class="docutils literal notranslate"><span class="pre">.cz</span></code> aligned to the same reference axis the
+model was fit on.</p></li>
+<li><p><strong>prior_alpha</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>abstain_threshold</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>max_query_cg</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>max_query_ch</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>contexts</strong> – see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>.</p></li>
+<li><p><strong>n_jobs</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Threads used to score cells in parallel (each worker opens its own
+reader; <code class="docutils literal notranslate"><span class="pre">.cz</span></code> decode releases the GIL). <code class="docutils literal notranslate"><span class="pre">None</span></code>/<code class="docutils literal notranslate"><span class="pre">1</span></code> -&gt; serial.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>(labels, proba)</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(pandas.DataFrame, pandas.DataFrame)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.predict_proba">
-<span class="sig-name descname"><span class="pre">predict_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.predict_proba"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.predict_proba" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">predict_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg+ch'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.predict_proba"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.predict_proba" title="Link to this definition"></a></dt>
 <dd><p>Softmax posterior probabilities per cell type: pandas Series.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.save">
 <span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.save" title="Link to this definition"></a></dt>
-<dd><p>Persist the fitted model to a single <code class="docutils literal notranslate"><span class="pre">.npz</span></code> file.</p>
-<p>Stores all hyper-parameters, the reference axis (chunk order +
-length), the CpG/CpH masks and discriminative-site indices, and the
-pre-computed <code class="docutils literal notranslate"><span class="pre">log_theta</span></code> / <code class="docutils literal notranslate"><span class="pre">log1m_theta</span></code> matrices. Nothing is
-pickled — arrays are saved natively and the metadata is a JSON
-string — so <a class="reference internal" href="#cytozip.model.CellTypeClassifier.load" title="cytozip.model.CellTypeClassifier.load"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load()</span></code></a> runs with <code class="docutils literal notranslate"><span class="pre">allow_pickle=False</span></code>.</p>
+<dd><p>Persist the fitted model to a directory of memory-mappable <code class="docutils literal notranslate"><span class="pre">.npy</span></code>.</p>
+<p>Writes <code class="docutils literal notranslate"><span class="pre">&lt;path&gt;/meta.json</span></code> plus, per channel, the concatenated
+<code class="docutils literal notranslate"><span class="pre">{cg,ch}_log_theta.npy</span></code> / <code class="docutils literal notranslate"><span class="pre">_log1m_theta.npy</span></code> / <code class="docutils literal notranslate"><span class="pre">_sites.npy</span></code>
+arrays (uncompressed, so <a class="reference internal" href="#cytozip.model.CellTypeClassifier.load" title="cytozip.model.CellTypeClassifier.load"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load()</span></code></a> can <code class="docutils literal notranslate"><span class="pre">mmap</span></code> them). The arrays
+are copied straight from this model’s on-disk store — nothing is
+pickled and the full table never has to be materialised in RAM.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Output <code class="docutils literal notranslate"><span class="pre">.npz</span></code> path. The exact name is used (no <code class="docutils literal notranslate"><span class="pre">.npz</span></code> is
-auto-appended).</p>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Output <strong>directory</strong> (created if needed). It becomes a
+self-contained, memory-mappable model store.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The path written.</p>
+<dd class="field-even"><p>The directory written.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -645,6 +963,92 @@ auto-appended).</p>
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="cytozip.model.CellTypeClassifier.site_importance">
+<span class="sig-name descname"><span class="pre">site_importance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#CellTypeClassifier.site_importance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.CellTypeClassifier.site_importance" title="Link to this definition"></a></dt>
+<dd><p>Rank the model’s kept cytosines by how discriminative they are.</p>
+<p>Importance is the across-cell-type methylation-frequency range
+<code class="docutils literal notranslate"><span class="pre">theta.max</span> <span class="pre">-</span> <span class="pre">theta.min</span></code> — the very signal <a class="reference internal" href="#cytozip.model.CellTypeClassifier.fit" title="cytozip.model.CellTypeClassifier.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code></a> selected sites
+on. A large value means the site is differentially methylated across
+cell types (biologically interpretable); <code class="docutils literal notranslate"><span class="pre">top_type</span></code> / <code class="docutils literal notranslate"><span class="pre">min_type</span></code>
+name the most / least methylated cell type there. Returns a pandas
+DataFrame with one row per kept site, sorted by importance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>reference</strong> (<em>str</em><em> or </em><em>None</em>) – A <code class="docutils literal notranslate"><span class="pre">build_ref</span></code> reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (with <code class="docutils literal notranslate"><span class="pre">pos</span></code>/<code class="docutils literal notranslate"><span class="pre">strand</span></code>/
+<code class="docutils literal notranslate"><span class="pre">context</span></code>) to annotate each site with its genomic coordinate.
+<code class="docutils literal notranslate"><span class="pre">None</span></code> -&gt; only <code class="docutils literal notranslate"><span class="pre">chrom</span></code> + the reference-row index are given.</p></li>
+<li><p><strong>top</strong> (<em>int</em><em> or </em><em>None</em>) – Keep only the top-N most important sites (across both channels).
+<code class="docutils literal notranslate"><span class="pre">None</span></code> -&gt; all kept sites.</p></li>
+<li><p><strong>include_theta</strong> (<em>bool</em>) – Add one column per cell type holding that type’s methylation
+frequency <code class="docutils literal notranslate"><span class="pre">theta</span></code>. For large models pass <code class="docutils literal notranslate"><span class="pre">top=</span></code> to bound the
+table size.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Columns: <code class="docutils literal notranslate"><span class="pre">context</span></code> (CG/CH), <code class="docutils literal notranslate"><span class="pre">chrom</span></code>, <code class="docutils literal notranslate"><span class="pre">ref_row</span></code>,
+<code class="docutils literal notranslate"><span class="pre">importance</span></code>, <code class="docutils literal notranslate"><span class="pre">top_type</span></code>, <code class="docutils literal notranslate"><span class="pre">min_type</span></code> (+ <code class="docutils literal notranslate"><span class="pre">pos</span></code>/<code class="docutils literal notranslate"><span class="pre">strand</span></code>/
+<code class="docutils literal notranslate"><span class="pre">ref_context</span></code> if <code class="docutils literal notranslate"><span class="pre">reference</span></code> given, + one column per cell type
+if <code class="docutils literal notranslate"><span class="pre">include_theta</span></code>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.model.deconvolve_bulk">
+<span class="sig-prename descclassname"><span class="pre">cytozip.model.</span></span><span class="sig-name descname"><span class="pre">deconvolve_bulk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pseudobulks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_by_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_to_one</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_unknown</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mc_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mc'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cov'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'context'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#deconvolve_bulk"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.deconvolve_bulk" title="Link to this definition"></a></dt>
+<dd><p>One-shot convenience wrapper: fit cell-type references and deconvolve.</p>
+<p>Builds per-type methylation frequencies from <code class="docutils literal notranslate"><span class="pre">pseudobulks</span></code> (the same
+reference signature matrix <a class="reference internal" href="#cytozip.model.predict_cell_type" title="cytozip.model.predict_cell_type"><code class="xref py py-func docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a> uses) and deconvolves
+one or many <strong>bulk</strong> samples (WGBS <code class="docutils literal notranslate"><span class="pre">.cz</span></code> or methylation-array beta) into
+cell-type fractions. See <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a> for the
+deconvolution knobs and <a class="reference internal" href="#cytozip.model.CellTypeClassifier.fit" title="cytozip.model.CellTypeClassifier.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a> for the reference /
+site-selection ones.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query</strong> (<em>str</em><em>, </em><em>np.ndarray</em><em>, </em><em>(</em><em>mc</em><em>, </em><em>cov</em><em>) </em><em>tuple</em><em>, </em><em>list</em><em>, </em><em>dict</em><em>, or </em><em>pandas.DataFrame</em>) – <p>The bulk sample(s) to deconvolve:</p>
+<ul>
+<li><p>a single WGBS <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (or preloaded <code class="docutils literal notranslate"><span class="pre">(mc,</span> <span class="pre">cov)</span></code> arrays, or a
+full-axis beta <code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> for an array) -&gt; a single <code class="docutils literal notranslate"><span class="pre">Series</span></code>;</p></li>
+<li><p>a <strong>concatenated (cat) ``.cz``</strong> holding many samples -&gt; auto-
+detected, returns a fractions <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code>;</p></li>
+<li><p>a <strong>directory</strong> of <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files, a <strong>table</strong> (DataFrame or delimited
+file with <code class="docutils literal notranslate"><span class="pre">[sample_id,</span> <span class="pre">cz_path]</span></code>), a <code class="docutils literal notranslate"><span class="pre">{sample_id:</span> <span class="pre">path}</span></code> dict, or
+a list of paths -&gt; a fractions <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code>.</p></li>
+</ul>
+</p></li>
+<li><p><strong>pseudobulks</strong> (<em>dict</em><em> or </em><em>str</em>) – <code class="docutils literal notranslate"><span class="pre">{cell_type:</span> <span class="pre">path}</span></code> per-type pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files, or a directory
+of them (file stem = cell-type name). See
+<a class="reference internal" href="#cytozip.model.CellTypeClassifier.fit" title="cytozip.model.CellTypeClassifier.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a>.</p></li>
+<li><p><strong>reference</strong> (<em>str</em><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">build_ref</span></code> reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code> supplying the per-row <code class="docutils literal notranslate"><span class="pre">context</span></code>.</p></li>
+<li><p><strong>contexts</strong> – Deconvolution options, see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a>.</p></li>
+<li><p><strong>weight_by_cov</strong> – Deconvolution options, see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a>.</p></li>
+<li><p><strong>sum_to_one</strong> – Deconvolution options, see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a>.</p></li>
+<li><p><strong>allow_unknown</strong> – Deconvolution options, see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a>.</p></li>
+<li><p><strong>min_cov</strong> – Deconvolution options, see <a class="reference internal" href="#cytozip.model.CellTypeClassifier.deconvolve" title="cytozip.model.CellTypeClassifier.deconvolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a>.</p></li>
+<li><p><strong>outdir</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – If given, the fitted model is written to <code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/model</span></code> (and reused
+if already complete) and the fractions to
+<code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/fractions.csv</span></code>.</p></li>
+<li><p><strong>(</strong><strong>remaining</strong><strong>)</strong> – Forwarded to <a class="reference internal" href="#cytozip.model.CellTypeClassifier" title="cytozip.model.CellTypeClassifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a> / <code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A single <code class="docutils literal notranslate"><span class="pre">Series</span></code> of fractions for one bulk sample, else a fractions
+<code class="docutils literal notranslate"><span class="pre">DataFrame</span></code> (one row per sample, cell-type columns + <code class="docutils literal notranslate"><span class="pre">r2</span></code> /
+<code class="docutils literal notranslate"><span class="pre">n_sites</span></code>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.Series or pandas.DataFrame</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -728,29 +1132,134 @@ never hits exactly 0 or 1 (which would make <code class="docutils literal notran
 
 <dl class="py function">
 <dt class="sig sig-object py" id="cytozip.model.predict_cell_type">
-<span class="sig-prename descclassname"><span class="pre">cytozip.model.</span></span><span class="sig-name descname"><span class="pre">predict_cell_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pseudobulks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_counts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambda_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambda_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mc_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mc'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cov'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'context'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">abstain_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#predict_cell_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.predict_cell_type" title="Link to this definition"></a></dt>
-<dd><p>One-shot convenience wrapper: fit cell-type files and predict one cell.</p>
-<p>Given a single-cell query <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (all cytosines) and per-cell-type
-pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files, return the most likely cell type. See
+<span class="sig-prename descclassname"><span class="pre">cytozip.model.</span></span><span class="sig-name descname"><span class="pre">predict_cell_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pseudobulks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_counts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambda_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambda_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta0_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior_min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_cg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_range_ch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_per_class</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mc_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mc'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cov'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'context'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">abstain_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cg+ch'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outdir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#predict_cell_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.predict_cell_type" title="Link to this definition"></a></dt>
+<dd><p>One-shot convenience wrapper: fit cell-type files and predict cell(s).</p>
+<p>Fit per-type methylation frequencies from <code class="docutils literal notranslate"><span class="pre">pseudobulks</span></code> and predict the
+most likely cell type for one or many query cells. See
 <a class="reference internal" href="#cytozip.model.CellTypeClassifier" title="cytozip.model.CellTypeClassifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a> for the parameter semantics.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>query</strong> (<em>str</em><em> or </em><em>(</em><em>mc</em><em>, </em><em>cov</em><em>) </em><em>tuple</em>) – Single-cell all-cytosine <code class="docutils literal notranslate"><span class="pre">.cz</span></code> (or preloaded full-axis arrays).</p></li>
-<li><p><strong>pseudobulks</strong> (<em>dict {cell_type: path}</em>) – Per-type pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files (all cytosines, usually mc/cov-only).</p></li>
+<li><p><strong>query</strong> (<em>str</em><em>, </em><em>(</em><em>mc</em><em>, </em><em>cov</em><em>) </em><em>tuple</em><em>, </em><em>list</em><em>, </em><em>dict</em><em>, or </em><em>pandas.DataFrame</em>) – <p>The cell(s) to predict, in any of these forms:</p>
+<ul>
+<li><p>a single all-cytosine <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file (or preloaded <code class="docutils literal notranslate"><span class="pre">(mc,</span> <span class="pre">cov)</span></code>
+arrays) -&gt; returns a single prediction <code class="docutils literal notranslate"><span class="pre">dict</span></code>;</p></li>
+<li><p>a <strong>concatenated (cat) ``.cz``</strong> holding many cells (chunk keys
+carry a cell dimension) -&gt; auto-detected and expanded, returns
+<code class="docutils literal notranslate"><span class="pre">(labels,</span> <span class="pre">proba)</span></code> like a batch;</p></li>
+<li><p>a <strong>directory</strong> of <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files (each file’s stem is the cell id);</p></li>
+<li><p>a <strong>table</strong> (<code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> or a delimited file) whose first
+two columns are <code class="docutils literal notranslate"><span class="pre">[cell_id,</span> <span class="pre">cz_path]</span></code>;</p></li>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">{cell_id:</span> <span class="pre">path}</span></code> dict or a list of <code class="docutils literal notranslate"><span class="pre">.cz</span></code> paths.</p></li>
+</ul>
+<p>Every form except a single file/array is treated as a <strong>batch</strong> and
+returns <code class="docutils literal notranslate"><span class="pre">(labels,</span> <span class="pre">proba)</span></code> DataFrames.</p>
+</p></li>
+<li><p><strong>pseudobulks</strong> (<em>dict</em><em> or </em><em>str</em>) – Either a <code class="docutils literal notranslate"><span class="pre">{cell_type:</span> <span class="pre">path}</span></code> dict of per-type pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</span></code>
+files (all cytosines, usually mc/cov-only), or a <strong>directory</strong> of
+such <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files (each file’s stem is the cell-type name).</p></li>
 <li><p><strong>reference</strong> (<em>str</em><em> or </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">build_ref</span></code> reference <code class="docutils literal notranslate"><span class="pre">.cz</span></code> supplying the per-row <code class="docutils literal notranslate"><span class="pre">context</span></code>
 (required when the <code class="docutils literal notranslate"><span class="pre">pseudobulks</span></code> files lack a context column). See
 <a class="reference internal" href="#cytozip.model.CellTypeClassifier.fit" title="cytozip.model.CellTypeClassifier.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a>.</p></li>
+<li><p><strong>cell_counts</strong> (<em>dict {cell_type: int}</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Number of reference cells pooled into each cell-type pseudobulk (the
+abundance of each type in the reference atlas). Only used together
+with <code class="docutils literal notranslate"><span class="pre">prior_alpha</span></code> to build the abundance prior at predict time; it
+does <strong>not</strong> affect the fitted frequencies. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) -&gt;
+uniform prior. Keys must match the <code class="docutils literal notranslate"><span class="pre">pseudobulks</span></code> cell types.</p></li>
+<li><p><strong>prior_alpha</strong> (<em>float</em><em>, </em><em>optional</em>) – Strength of the abundance prior (<code class="docutils literal notranslate"><span class="pre">pi_t</span> <span class="pre">∝</span> <span class="pre">cell_counts[t]</span> <span class="pre">**</span>
+<span class="pre">prior_alpha</span></code>). <code class="docutils literal notranslate"><span class="pre">0.0</span></code> (default) -&gt; uniform prior over types (ignore
+<code class="docutils literal notranslate"><span class="pre">cell_counts</span></code>); <code class="docutils literal notranslate"><span class="pre">1.0</span></code> -&gt; full abundance prior (types weighted by
+their reference cell counts); values in between temper it. Has no
+effect when <code class="docutils literal notranslate"><span class="pre">cell_counts</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>max_query_cg</strong> (<em>int</em><em> or </em><em>None</em>) – If given, randomly keep at most this many of each query cell’s covered
+(<code class="docutils literal notranslate"><span class="pre">cov</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>) CpG / CpH cytosines when scoring (drawn independently
+per cell). <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) uses every covered site. This is a
+predict-time knob forwarded to <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a> /
+<a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_batch" title="cytozip.model.CellTypeClassifier.predict_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a>.</p></li>
+<li><p><strong>max_query_ch</strong> (<em>int</em><em> or </em><em>None</em>) – If given, randomly keep at most this many of each query cell’s covered
+(<code class="docutils literal notranslate"><span class="pre">cov</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>) CpG / CpH cytosines when scoring (drawn independently
+per cell). <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) uses every covered site. This is a
+predict-time knob forwarded to <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a> /
+<a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_batch" title="cytozip.model.CellTypeClassifier.predict_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a>.</p></li>
+<li><p><strong>contexts</strong> (<em>str</em><em>, </em><em>optional</em>) – Which cytosine context(s) to classify on: <code class="docutils literal notranslate"><span class="pre">'cg'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ch'</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">'both'</span></code> / <code class="docutils literal notranslate"><span class="pre">'cg+ch'</span></code> (default, use both channels). The model is
+always fit on both contexts; this only selects which channel(s) score
+the query, so one trained model can be reused for cg-only, ch-only, or
+combined classification.</p></li>
+<li><p><strong>outdir</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – If given, create the directory (if needed) and write the fitted model
+to <code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/model</span></code> (a memory-mappable directory) plus the
+predictions to <code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/predictions.csv</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/predict_proba.csv</span></code>. The model’s memory-mapped store is
+written <strong>directly</strong> under <code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/model</span></code> (real disk), so a large
+model never spills into a small or RAM-backed (tmpfs) <code class="docutils literal notranslate"><span class="pre">/tmp</span></code> (which
+would crash with a <strong>“Bus error” (SIGBUS)</strong>). Without <code class="docutils literal notranslate"><span class="pre">outdir</span></code> the
+store falls back to <code class="docutils literal notranslate"><span class="pre">$TMPDIR</span></code> / <code class="docutils literal notranslate"><span class="pre">/tmp</span></code> — pass <code class="docutils literal notranslate"><span class="pre">outdir</span></code> (on real
+disk) if you hit a SIGBUS. If <code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/model</span></code> already holds a
+complete saved model (<code class="docutils literal notranslate"><span class="pre">meta.json</span></code> plus the per-channel <code class="docutils literal notranslate"><span class="pre">.npy</span></code>
+arrays), fitting is <strong>skipped</strong> and that model is loaded and reused
+directly (so <code class="docutils literal notranslate"><span class="pre">pseudobulks</span></code>/<code class="docutils literal notranslate"><span class="pre">reference</span></code> need not be re-supplied).</p></li>
+<li><p><strong>prefix</strong> (<em>str</em><em>, </em><em>optional</em>) – Prepended to the output filenames, i.e. <code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/&lt;prefix&gt;predictions.csv</span></code>
+and <code class="docutils literal notranslate"><span class="pre">&lt;outdir&gt;/&lt;prefix&gt;predict_proba.csv</span></code>. Default <code class="docutils literal notranslate"><span class="pre">''</span></code> (no prefix).
+Pass a distinct prefix (e.g. <code class="docutils literal notranslate"><span class="pre">'miseq_'</span></code>) when predicting a different
+query batch with the same model so its predictions do not overwrite an
+earlier batch’s. Ignored when <code class="docutils literal notranslate"><span class="pre">outdir</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>n_jobs</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Threads used to read pseudobulks and (for batch queries) score cells
+in parallel. <code class="docutils literal notranslate"><span class="pre">None</span></code>/<code class="docutils literal notranslate"><span class="pre">1</span></code> -&gt; serial; <code class="docutils literal notranslate"><span class="pre">-1</span></code> -&gt; all CPUs.</p></li>
 <li><p><strong>(</strong><strong>remaining</strong><strong>)</strong> – Forwarded to <a class="reference internal" href="#cytozip.model.CellTypeClassifier" title="cytozip.model.CellTypeClassifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a> / <code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code> /
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>As returned by <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a>
-(<code class="docutils literal notranslate"><span class="pre">label</span></code>, <code class="docutils literal notranslate"><span class="pre">confidence</span></code>, <code class="docutils literal notranslate"><span class="pre">proba</span></code>, <code class="docutils literal notranslate"><span class="pre">log_posterior</span></code>).</p>
+<dd class="field-even"><p>For a single query: the <a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict" title="cytozip.model.CellTypeClassifier.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a> <code class="docutils literal notranslate"><span class="pre">dict</span></code>
+(<code class="docutils literal notranslate"><span class="pre">label</span></code>, <code class="docutils literal notranslate"><span class="pre">confidence</span></code>, <code class="docutils literal notranslate"><span class="pre">proba</span></code>, <code class="docutils literal notranslate"><span class="pre">log_posterior</span></code>). For a
+batch query: <code class="docutils literal notranslate"><span class="pre">(labels,</span> <span class="pre">proba)</span></code> as in
+<a class="reference internal" href="#cytozip.model.CellTypeClassifier.predict_batch" title="cytozip.model.CellTypeClassifier.predict_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dict</p>
+<dd class="field-odd"><p>dict or (pandas.DataFrame, pandas.DataFrame)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cytozip.model.top_cytosine_fasta">
+<span class="sig-prename descclassname"><span class="pre">cytozip.model.</span></span><span class="sig-name descname"><span class="pre">top_cytosine_fasta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">importance</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">genome</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_fasta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'top_type'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contexts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('CG',</span> <span class="pre">'CH')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pos_base</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uppercase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_incomplete</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/model.html#top_cytosine_fasta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.model.top_cytosine_fasta" title="Link to this definition"></a></dt>
+<dd><p>Extract flanking DNA for each cell type’s top cytosines into FASTA.</p>
+<p>Consumes a <a class="reference internal" href="#cytozip.model.CellTypeClassifier.site_importance" title="cytozip.model.CellTypeClassifier.site_importance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.site_importance()</span></code></a> table (built with
+<code class="docutils literal notranslate"><span class="pre">reference=</span></code> so it carries <code class="docutils literal notranslate"><span class="pre">pos</span></code>/<code class="docutils literal notranslate"><span class="pre">strand</span></code>) and, per cell type and per
+context (CG / CH), takes the <code class="docutils literal notranslate"><span class="pre">top_n</span></code> most important cytosines and pulls
+<code class="docutils literal notranslate"><span class="pre">flank</span></code> bp on each side of the cytosine from a genome FASTA. Minus-strand
+sites are reverse-complemented so the C stays centred and the sequence
+reads 5’-&gt;3’ on the methylated strand.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>importance</strong> (<em>pandas.DataFrame</em>) – Output of <a class="reference internal" href="#cytozip.model.CellTypeClassifier.site_importance" title="cytozip.model.CellTypeClassifier.site_importance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">CellTypeClassifier.site_importance()</span></code></a> with
+<code class="docutils literal notranslate"><span class="pre">reference=</span></code> set (needs columns <code class="docutils literal notranslate"><span class="pre">chrom</span></code>, <code class="docutils literal notranslate"><span class="pre">pos</span></code>, <code class="docutils literal notranslate"><span class="pre">strand</span></code>,
+<code class="docutils literal notranslate"><span class="pre">context</span></code>, <code class="docutils literal notranslate"><span class="pre">importance</span></code> and <code class="docutils literal notranslate"><span class="pre">group_col</span></code>).</p></li>
+<li><p><strong>genome</strong> (<em>str</em><em> or </em><em>pysam.FastaFile</em>) – Indexed genome FASTA (a <code class="docutils literal notranslate"><span class="pre">.fai</span></code> beside it) or an open
+<code class="docutils literal notranslate"><span class="pre">pysam.FastaFile</span></code>.</p></li>
+<li><p><strong>out_fasta</strong> (<em>str</em><em> or </em><em>None</em>) – Write <strong>all</strong> records to this single FASTA (headers encode cell type
+and context).</p></li>
+<li><p><strong>split_dir</strong> (<em>str</em><em> or </em><em>None</em>) – Write <strong>one FASTA per (cell type, context)</strong> as
+<code class="docutils literal notranslate"><span class="pre">&lt;split_dir&gt;/&lt;cell_type&gt;.&lt;context&gt;.fa</span></code> (handy for per-type motif
+discovery, e.g. MEME/HOMER). <code class="docutils literal notranslate"><span class="pre">out_fasta</span></code> and <code class="docutils literal notranslate"><span class="pre">split_dir</span></code> may be
+used together or separately.</p></li>
+<li><p><strong>flank</strong> (<em>int</em>) – bp on each side of the cytosine (window length <code class="docutils literal notranslate"><span class="pre">2*flank</span> <span class="pre">+</span> <span class="pre">1</span></code>).</p></li>
+<li><p><strong>top_n</strong> (<em>int</em>) – Per (cell type, context), keep this many top-importance sites.</p></li>
+<li><p><strong>group_col</strong> (<em>str</em>) – Column defining the cell type (default <code class="docutils literal notranslate"><span class="pre">'top_type'</span></code> = the most
+methylated type; use <code class="docutils literal notranslate"><span class="pre">'min_type'</span></code> for the least methylated).</p></li>
+<li><p><strong>contexts</strong> (<em>iterable</em><em> of </em><em>str</em>) – Which <code class="docutils literal notranslate"><span class="pre">context</span></code> values to include (default <code class="docutils literal notranslate"><span class="pre">('CG',</span> <span class="pre">'CH')</span></code>).</p></li>
+<li><p><strong>pos_base</strong> (<em>int</em>) – 1 if <code class="docutils literal notranslate"><span class="pre">pos</span></code> is 1-based (default), 0 if 0-based.</p></li>
+<li><p><strong>uppercase</strong> (<em>bool</em>) – Upper-case the extracted sequence.</p></li>
+<li><p><strong>drop_incomplete</strong> (<em>bool</em>) – Skip sites whose window runs off a chromosome end (default True).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Also written to <code class="docutils literal notranslate"><span class="pre">out_fasta</span></code> / <code class="docutils literal notranslate"><span class="pre">split_dir</span></code> when given.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of (header, seq) tuples</p>
 </dd>
 </dl>
 </dd></dl>
@@ -762,7 +1271,7 @@ pseudobulk <code class="docutils literal notranslate"><span class="pre">.cz</spa
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="cytozip.merge.html" class="btn btn-neutral float-left" title="cytozip.merge module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="cytozip.pivot.html" class="btn btn-neutral float-right" title="cytozip.pivot module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="cytozip.peaks.html" class="btn btn-neutral float-right" title="cytozip.peaks module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

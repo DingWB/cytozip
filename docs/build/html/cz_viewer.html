@@ -190,7 +190,17 @@
 <p class="caption" role="heading"><span class="caption-text">Cytozip Genome Browser</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Genome Browser</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#quick-start">Quick start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#supported-remote-file-formats">Supported remote file formats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#toolbar-tools-and-keyboard-shortcuts">Toolbar tools and keyboard shortcuts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#working-with-tracks">Working with tracks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#genome-gene-search-and-marks">Genome, gene search, and marks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#exporting">Exporting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#session-and-sharing">Session and sharing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#share-a-session-via-a-remote-json-url">Share a session via a remote JSON URL</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -281,6 +291,7 @@
 </li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.check_cz"><code class="docutils literal notranslate"><span class="pre">check_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -325,10 +336,8 @@
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
@@ -359,18 +368,34 @@
 <li class="toctree-l4"><a class="reference internal" href="cytozip.model.html">cytozip.model module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.cell_types"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_types</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.cell_counts"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_counts</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.close"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.site_importance"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.site_importance()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.deconvolve_bulk"><code class="docutils literal notranslate"><span class="pre">deconvolve_bulk()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.top_cytosine_fasta"><code class="docutils literal notranslate"><span class="pre">top_cytosine_fasta()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.peaks.html">cytozip.peaks module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.call_peaks_bdg"><code class="docutils literal notranslate"><span class="pre">call_peaks_bdg()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -433,24 +458,202 @@ Multiple tracks can share a single reference.</p>
         style="width:100%;height:80vh;border:1px solid #ccc;border-radius:6px;">
 </iframe><section id="usage">
 <h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
+<section id="quick-start">
+<h3>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h3>
 <ol class="arabic simple">
 <li><p>Enter the <strong>reference</strong> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> URL (the coordinate file with a <code class="docutils literal notranslate"><span class="pre">pos</span></code>
 sort column) and click <strong>Load reference</strong>.</p></li>
-<li><p>Click <strong>+ Add track</strong>, giving the URL of a value <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file (<code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>)
-that was built against the same reference. Repeat to stack multiple tracks.</p></li>
+<li><p>Click <strong>+ Add cz track</strong>, giving the URL of a value <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file
+(<code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>) that was built against the same reference. Repeat to stack
+multiple tracks.</p></li>
 <li><p>Type a locus (e.g. <code class="docutils literal notranslate"><span class="pre">chr1:3,000,000-3,050,000</span></code>) and press <strong>Go</strong>. Drag to
-pan, scroll to zoom, and switch the per-track cytosine context
-(CG / CH / CHG / CHH / all).</p></li>
+pan, scroll to zoom (in <em>Zoom</em> mode), and switch the per-track cytosine
+context (CG / CH / CHG / CHH / all).</p></li>
 </ol>
+</section>
+<section id="supported-remote-file-formats">
+<h3>Supported remote file formats<a class="headerlink" href="#supported-remote-file-formats" title="Link to this heading"></a></h3>
+<p>All formats are read <strong>remotely with HTTP Range requests only</strong> — the whole
+file is never downloaded. Add any of them by pasting its URL into
+<strong>New track URL</strong> (the format is detected from the extension), via the
+<strong>Track table</strong>, or by restoring a saved session.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 20%" />
+<col style="width: 64%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Format</p></th>
+<th class="head"><p>Extension</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>cytozip methylation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.cz</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code> value track joined to the shared <strong>reference</strong> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> by
+row index. Requires a reference to be loaded first. Per-track context
+(CG/CH/CHG/CHH/all) and value (mC or 1 − mC).</p></td>
+</tr>
+<tr class="row-odd"><td><p>BigWig</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.bw</span></code> / <code class="docutils literal notranslate"><span class="pre">.bigwig</span></code></p></td>
+<td><p>Self-contained signal track (bar/wiggle). No reference needed.</p></td>
+</tr>
+<tr class="row-even"><td><p>BED</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.bed.gz</span></code> (+ <code class="docutils literal notranslate"><span class="pre">.tbi</span></code>)</p></td>
+<td><p>Interval/annotation track drawn as row-packed boxes with labels. Must be
+<strong>bgzip-compressed and tabix-indexed</strong> so it can be read by range; the
+<code class="docutils literal notranslate"><span class="pre">.tbi</span></code> index is expected next to the file (<code class="docutils literal notranslate"><span class="pre">&lt;url&gt;.tbi</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>BEDPE</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.bedpe.gz</span></code> (+ <code class="docutils literal notranslate"><span class="pre">.tbi</span></code>)</p></td>
+<td><p>Paired-end / loop track drawn as arcs connecting the two anchors. Also
+requires bgzip + tabix (<code class="docutils literal notranslate"><span class="pre">&lt;url&gt;.tbi</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Hi-C</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.hic</span></code></p></td>
+<td><p>Juicebox contact matrix drawn as a pyramid heatmap; the resolution is
+chosen automatically from the view span and KR normalization is used
+when available.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>BED / BEDPE must be <strong>bgzipped and tabix-indexed</strong> (<code class="docutils literal notranslate"><span class="pre">bgzip</span> <span class="pre">file.bed</span> <span class="pre">&amp;&amp;</span>
+<span class="pre">tabix</span> <span class="pre">-p</span> <span class="pre">bed</span> <span class="pre">file.bed.gz</span></code>) — plain uncompressed <code class="docutils literal notranslate"><span class="pre">.bed</span></code>/<code class="docutils literal notranslate"><span class="pre">.bedpe</span></code> are not
+accepted because they cannot be read partially by range.</p>
+</div>
+</section>
+<section id="toolbar-tools-and-keyboard-shortcuts">
+<h3>Toolbar tools and keyboard shortcuts<a class="headerlink" href="#toolbar-tools-and-keyboard-shortcuts" title="Link to this heading"></a></h3>
+<p>The toolbar above the tracks selects the active mouse tool. Each tool has a
+one-letter shortcut (shown in parentheses in its tooltip):</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 10%" />
+<col style="width: 76%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Key</p></th>
+<th class="head"><p>Action</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Pan</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">P</span></code></p></td>
+<td><p>Drag left/right on a track to move along the genome.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Zoom</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Z</span></code></p></td>
+<td><p>Drag to select a region and zoom into it; the mouse <strong>wheel zooms only
+in this mode</strong> (other modes let the page scroll).</p></td>
+</tr>
+<tr class="row-even"><td><p>Select</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">V</span></code></p></td>
+<td><p>Click a track (its left label <strong>or</strong> the plot) to select it; Shift adds a
+range, Ctrl/⌘ toggles one.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Mark</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">M</span></code></p></td>
+<td><p>Drag to highlight a genomic region with the chosen color (swatch next to
+the tool).</p></td>
+</tr>
+<tr class="row-even"><td><p>Save session</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">S</span></code></p></td>
+<td><p>Download the current view + tracks as a JSON session.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Clear marks</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">C</span></code></p></td>
+<td><p>Remove all region marks.</p></td>
+</tr>
+</tbody>
+</table>
+<p>A dashed vertical guide line follows the cursor across <strong>all</strong> tracks to make
+comparing positions easy.</p>
+</section>
+<section id="working-with-tracks">
+<h3>Working with tracks<a class="headerlink" href="#working-with-tracks" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Reorder</strong> tracks by dragging the grip handle (<code class="docutils literal notranslate"><span class="pre">⠿</span></code>) on the left up/down, or
+select some and use the <strong>↑ Up / ↓ Down</strong> buttons in the selection bar.</p></li>
+<li><p><strong>Resize</strong> a track’s height by dragging its bottom edge.</p></li>
+<li><p><strong>Recolor</strong> a track with its color swatch.</p></li>
+<li><p><strong>Per-track Y-limits</strong>: click the <code class="docutils literal notranslate"><span class="pre">y:auto</span></code> button to set <em>Auto</em> or a fixed
+<code class="docutils literal notranslate"><span class="pre">[min,</span> <span class="pre">max]</span></code> range.</p></li>
+<li><p><strong>Select multiple</strong> tracks (Select tool, Shift/Ctrl) to batch-change context,
+value (mC / 1 − mC), color, height, Y-limits, or to delete/move them together.</p></li>
+<li><p><strong>Resolution</strong> bins methylation for speed; choose <strong>Auto</strong> to let the viewer
+pick a bin size from the current span (large views bin coarsely, zoomed-in
+views go per-base).</p></li>
+</ul>
+</section>
+<section id="genome-gene-search-and-marks">
+<h3>Genome, gene search, and marks<a class="headerlink" href="#genome-gene-search-and-marks" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Pick a <strong>Genome</strong> (hg38/hg19/mm10/mm39) to auto-add its reference sequence
+(<code class="docutils literal notranslate"><span class="pre">.2bit</span></code>) and gene-annotation tracks; then search a <strong>gene name</strong> (e.g.
+<code class="docutils literal notranslate"><span class="pre">HOXA13</span></code>) or a coordinate in the locus box.</p></li>
+<li><p>Use the <strong>Mark</strong> tool to highlight regions of interest; marks persist across
+pan/zoom and are <strong>included in exported images</strong>.</p></li>
+</ul>
+</section>
+<section id="exporting">
+<h3>Exporting<a class="headerlink" href="#exporting" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>TSV</strong> exports every loaded methylation track’s per-site values in the
+current window as a matrix (<code class="docutils literal notranslate"><span class="pre">chrom</span></code>, <code class="docutils literal notranslate"><span class="pre">pos</span></code>, <code class="docutils literal notranslate"><span class="pre">context</span></code>, one column per
+track).</p></li>
+<li><p><strong>SVG / PNG / PDF</strong> export the current view as a figure — including any region
+<strong>marks</strong> you have drawn.</p></li>
+</ul>
+</section>
+<section id="session-and-sharing">
+<h3>Session and sharing<a class="headerlink" href="#session-and-sharing" title="Link to this heading"></a></h3>
+<p>The full view (genome, locus, tracks, colors, Y-limits, resolution) is encoded
+in the page URL as you work, so copying the URL shares the exact view. Use
+<strong>Save</strong> (shortcut <code class="docutils literal notranslate"><span class="pre">S</span></code>) to download a JSON session and the session file input
+to restore it later.</p>
+</section>
+<section id="share-a-session-via-a-remote-json-url">
+<h3>Share a session via a remote JSON URL<a class="headerlink" href="#share-a-session-via-a-remote-json-url" title="Link to this heading"></a></h3>
+<p>Instead of pasting a long encoded URL, you can host the session file anywhere
+and hand out a short link. The viewer will fetch that JSON on load and restore
+the whole session automatically — an easy way to publish a ready-made view
+(like your own mini genome-browser site).</p>
+<ol class="arabic">
+<li><p>Build the view you want (reference, tracks, locus, colors, Y-limits, marks…).</p></li>
+<li><p>Click <strong>Save</strong> (shortcut <code class="docutils literal notranslate"><span class="pre">S</span></code>) to download <code class="docutils literal notranslate"><span class="pre">cytozip_session.json</span></code>.</p></li>
+<li><p>Upload that JSON to any web/FTP server that serves it over <strong>HTTPS</strong> with
+CORS enabled (the same requirement as the data files).</p></li>
+<li><p>Share the viewer link with the file’s URL appended as the <code class="docutils literal notranslate"><span class="pre">session</span></code>
+parameter:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>https://your-host/path/cz_viewer.html?session=https://your-host/ftp/my_session.json
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">?s=</span></code> and <code class="docutils literal notranslate"><span class="pre">#session=</span></code> are accepted as aliases. Anyone opening that link
+gets the exact saved view.</p>
+</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The session JSON is fetched over HTTP(S) and is subject to the same
+CORS + HTTP Range requirements as the data files. If the JSON host has no
+CORS headers, the viewer falls back to the configured CORS proxy.</p>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Remote reading works only when the data server sends CORS headers
 (<code class="docutils literal notranslate"><span class="pre">Access-Control-Allow-Origin</span></code>) over <strong>HTTPS</strong>, and supports HTTP Range
 requests. NCBI GEO (<code class="docutils literal notranslate"><span class="pre">ftp.ncbi.nlm.nih.gov</span></code>) is CORS-enabled and works out
 of the box. For servers <strong>without</strong> CORS, host this page on the same origin
-as the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files, or run the bundled <code class="docutils literal notranslate"><span class="pre">docs/serve_viewer.py</span></code> proxy and
+as the data files, or run the bundled <code class="docutils literal notranslate"><span class="pre">docs/serve_viewer.py</span></code> proxy and
 set the page’s <em>CORS proxy prefix</em> field to <code class="docutils literal notranslate"><span class="pre">/proxy?url=</span></code>.</p>
 </div>
+</section>
 </section>
 </section>
 

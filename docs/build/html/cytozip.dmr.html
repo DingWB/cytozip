@@ -190,7 +190,17 @@
 <p class="caption" role="heading"><span class="caption-text">Cytozip Genome Browser</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="cz_viewer.html">Genome Browser</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cz_viewer.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cz_viewer.html#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#quick-start">Quick start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#supported-remote-file-formats">Supported remote file formats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#toolbar-tools-and-keyboard-shortcuts">Toolbar tools and keyboard shortcuts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#working-with-tracks">Working with tracks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#genome-gene-search-and-marks">Genome, gene search, and marks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#exporting">Exporting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#session-and-sharing">Session and sharing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#share-a-session-via-a-remote-json-url">Share a session via a remote JSON URL</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -281,6 +291,7 @@
 </li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.check_cz"><code class="docutils literal notranslate"><span class="pre">check_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -325,10 +336,8 @@
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
@@ -359,18 +368,34 @@
 <li class="toctree-l4"><a class="reference internal" href="cytozip.model.html">cytozip.model module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.cell_types"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_types</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.cell_counts"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_counts</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.close"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="cytozip.model.html#cytozip.model.CellTypeClassifier.site_importance"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.site_importance()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.deconvolve_bulk"><code class="docutils literal notranslate"><span class="pre">deconvolve_bulk()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.model.html#cytozip.model.top_cytosine_fasta"><code class="docutils literal notranslate"><span class="pre">top_cytosine_fasta()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="cytozip.peaks.html">cytozip.peaks module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.call_peaks_bdg"><code class="docutils literal notranslate"><span class="pre">call_peaks_bdg()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="cytozip.peaks.html#cytozip.peaks.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -426,9 +451,6 @@ analysis tools that read from the cytozip .cz format.</p>
 groups of single-cell <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files using a permutation root-mean-square
 (RMS) test (Methylpy / ALLCools style) at each cytosine site, then
 merging adjacent significant sites (DMS) into DMRs.</p></li>
-<li><p><a class="reference internal" href="#cytozip.dmr.call_peaks" title="cytozip.dmr.call_peaks"><code class="xref py py-func docutils literal notranslate"><span class="pre">call_peaks()</span></code></a>: call peaks from a methylation .cz file using MACS3
-by turning unmethylated (cov - mc) or methylated counts into pseudo-reads.</p></li>
-<li><p><a class="reference internal" href="#cytozip.dmr.to_bedgraph" title="cytozip.dmr.to_bedgraph"><code class="xref py py-func docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a>: dump a per-site methylation signal as a bedGraph.</p></li>
 <li><p><a class="reference internal" href="#cytozip.dmr.call_dmr_array" title="cytozip.dmr.call_dmr_array"><code class="xref py py-func docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a>: call DMRs on <strong>methylation array</strong> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> files
 (450K / EPIC / MSA) using a per-probe two-sample test (Welch t on
 M-values, or Mann-Whitney on β) followed by comb-p
@@ -655,10 +677,12 @@ column.  Defaults: first / last data column.</p>
 </dd>
 <dt class="field-odd">param chroms<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Restrict to these chromosomes (matched against the chunk-key’s
-leading dimension).</p>
+leading dimension). Accepts a list of names, a comma-separated
+string (<code class="docutils literal notranslate"><span class="pre">'chr1,chr2'</span></code>), or a path to a chrom-size / <code class="docutils literal notranslate"><span class="pre">.fai</span></code>
+file (or any text file whose first column is the chromosome).</p>
 </dd>
 <dt class="field-even">type chroms<span class="colon">:</span></dt>
-<dd class="field-even"><p>list of str or None</p>
+<dd class="field-even"><p>list of str, str, or None</p>
 </dd>
 <dt class="field-odd">param jobs<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Total CPU cores to use.  Automatically split into worker
@@ -769,8 +793,10 @@ this defaults to 1000 (vs. 250 for BS-seq).</p></li>
 <code class="docutils literal notranslate"><span class="pre">round(max_dist</span> <span class="pre">/</span> <span class="pre">3,</span> <span class="pre">-1)</span></code> (matching the comb-p convention).</p></li>
 <li><p><strong>keep_temp</strong> (<em>bool</em>) – Keep the per-chrom BED + cpv tmp directories under
 <code class="docutils literal notranslate"><span class="pre">&lt;output&gt;.tmp/</span></code>.</p></li>
-<li><p><strong>chroms</strong> (<em>list</em><em> of </em><em>str</em><em> or </em><em>None</em>) – Restrict to these chromosomes (default: every chunk in
-<code class="docutils literal notranslate"><span class="pre">reference</span></code>).</p></li>
+<li><p><strong>chroms</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>str</em><em>, or </em><em>None</em>) – Restrict to these chromosomes (default: every chunk in
+<code class="docutils literal notranslate"><span class="pre">reference</span></code>). Accepts a list of names, a comma-separated string
+(<code class="docutils literal notranslate"><span class="pre">'chr1,chr2'</span></code>), or a path to a chrom-size / <code class="docutils literal notranslate"><span class="pre">.fai</span></code> file (or
+any text file whose first column is the chromosome).</p></li>
 <li><p><strong>probe_pvalues_output</strong> (<em>str</em><em> or </em><em>None</em>) – If given, also dump the per-probe <code class="docutils literal notranslate"><span class="pre">(chrom,</span> <span class="pre">pos,</span> <span class="pre">p,</span> <span class="pre">delta_beta)</span></code>
 TSV here — useful for QQ plots, custom thresholds, or
 external DMR callers (DMRcate / bumphunter).</p></li>
@@ -1215,63 +1241,6 @@ existed).</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="cytozip.dmr.call_peaks">
-<span class="sig-prename descclassname"><span class="pre">cytozip.dmr.</span></span><span class="sig-name descname"><span class="pre">call_peaks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'peaks'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'unmeth'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">genome_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mm'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fragment_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qvalue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">broad</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_bed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">macs3_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mc_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/dmr.html#call_peaks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.dmr.call_peaks" title="Link to this definition"></a></dt>
-<dd><p>Call peaks from a methylation .cz file using MACS3.</p>
-<p>Treats unmethylated counts (cov - mc) at each cytosine site as the
-signal (analogous to ATAC-seq read counts).  For each site with
-unmethylated count <em>u</em>, generates <em>u</em> pseudo-reads (BED intervals)
-of length <code class="docutils literal notranslate"><span class="pre">fragment_size</span></code> centered on the site.  These are then
-fed to <code class="docutils literal notranslate"><span class="pre">macs3</span> <span class="pre">callpeak</span> <span class="pre">--nomodel</span></code>.</p>
-<p>This is useful for identifying regions of low methylation
-(e.g., open chromatin in NOMe-seq, or regulatory elements in WGBS).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>input</strong> (<em>str</em>) – Input .cz file with mc/cov columns.</p></li>
-<li><p><strong>reference</strong> (<em>str</em>) – Reference .cz file with genomic coordinates (pos, strand, context).</p></li>
-<li><p><strong>output</strong> (<em>str</em><em> or </em><em>None</em>) – Output directory for MACS3 results.  Defaults to
-<code class="docutils literal notranslate"><span class="pre">&lt;input_stem&gt;_peaks/</span></code>.</p></li>
-<li><p><strong>name</strong> (<em>str</em>) – Name prefix for MACS3 output files.</p></li>
-<li><p><strong>signal</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">'unmeth'</span></code> uses (cov - mc) as signal;
-<code class="docutils literal notranslate"><span class="pre">'meth'</span></code> uses mc as signal.</p></li>
-<li><p><strong>index</strong> (<em>str</em><em> or </em><em>None</em>) – Path to index file for context filtering (e.g., CpG-only index
-from <code class="docutils literal notranslate"><span class="pre">index_context</span></code>).</p></li>
-<li><p><strong>genome_size</strong> (<em>str</em><em> or </em><em>int</em>) – Genome size for MACS3.  Use <code class="docutils literal notranslate"><span class="pre">'hs'</span></code> for human (~2.7e9),
-<code class="docutils literal notranslate"><span class="pre">'mm'</span></code> for mouse (~1.87e9), or an integer.</p></li>
-<li><p><strong>fragment_size</strong> (<em>int</em>) – Length of each pseudo-read (default 300 bp).</p></li>
-<li><p><strong>qvalue</strong> (<em>float</em>) – MACS3 q-value cutoff (default 0.05).</p></li>
-<li><p><strong>broad</strong> (<em>bool</em>) – If True, call broad peaks (<code class="docutils literal notranslate"><span class="pre">--broad</span></code>).</p></li>
-<li><p><strong>min_cov</strong> (<em>int</em>) – Minimum coverage to include a site (default 1).</p></li>
-<li><p><strong>keep_bed</strong> (<em>bool</em>) – If True, keep the intermediate pseudo-reads BED file.</p></li>
-<li><p><strong>macs3_args</strong> (<em>str</em>) – Additional arguments passed to <code class="docutils literal notranslate"><span class="pre">macs3</span> <span class="pre">callpeak</span></code>.</p></li>
-<li><p><strong>mc_col</strong> (<em>int</em><em> or </em><em>str</em><em> or </em><em>None</em>) – Column index (0-based) or name for the methylation count.
-Defaults to the first data column (index 0, typically <code class="docutils literal notranslate"><span class="pre">'mc'</span></code>).</p></li>
-<li><p><strong>cov_col</strong> (<em>int</em><em> or </em><em>str</em><em> or </em><em>None</em>) – Column index (0-based) or name for the coverage count.
-Defaults to the last data column (index -1, typically <code class="docutils literal notranslate"><span class="pre">'cov'</span></code>).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Path to the output directory containing MACS3 results.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>str</p>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># CpG-only peak calling</span>
-<span class="n">czip</span> <span class="n">call_peaks</span> <span class="o">-</span><span class="n">I</span> <span class="n">cell</span><span class="o">.</span><span class="n">cz</span> <span class="o">-</span><span class="n">r</span> <span class="n">mm10</span><span class="o">.</span><span class="n">allc</span><span class="o">.</span><span class="n">cz</span> <span class="o">-</span><span class="n">s</span> <span class="n">mm10</span><span class="o">.</span><span class="n">CGN</span><span class="o">.</span><span class="n">index</span> \
-     <span class="o">-</span><span class="n">g</span> <span class="n">mm</span> <span class="o">-</span><span class="n">n</span> <span class="n">cell_unmeth</span>
-
-<span class="c1"># Python API</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">cytozip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">czip</span>
-<span class="n">czip</span><span class="o">.</span><span class="n">call_peaks</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="s1">&#39;cell.cz&#39;</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="s1">&#39;mm10.allc.cz&#39;</span><span class="p">,</span>
-                <span class="n">index</span><span class="o">=</span><span class="s1">&#39;mm10.CGN.index&#39;</span><span class="p">,</span> <span class="n">genome_size</span><span class="o">=</span><span class="s1">&#39;mm&#39;</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="cytozip.dmr.consensus_dmr">
 <span class="sig-prename descclassname"><span class="pre">cytozip.dmr.</span></span><span class="sig-name descname"><span class="pre">consensus_dmr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">merged</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by_direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/dmr.html#consensus_dmr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.dmr.consensus_dmr" title="Link to this definition"></a></dt>
 <dd><p>Collapse a long-format merged DMR table into consensus regions.</p>
@@ -1391,39 +1360,6 @@ auto-detects from the <code class="docutils literal notranslate"><span class="pr
 </dd>
 </dl>
 </section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="cytozip.dmr.to_bedgraph">
-<span class="sig-prename descclassname"><span class="pre">cytozip.dmr.</span></span><span class="sig-name descname"><span class="pre">to_bedgraph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'unmeth'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mc_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/dmr.html#to_bedgraph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.dmr.to_bedgraph" title="Link to this definition"></a></dt>
-<dd><p>Export methylation signal from a .cz file as a bedGraph.</p>
-<p>For each cytosine site, writes one bedGraph entry with the chosen
-signal value (unmethylated count or methylation count).
-The output can be loaded into a genome browser or used with
-<code class="docutils literal notranslate"><span class="pre">macs3</span> <span class="pre">bdgpeakcall</span></code> for simple threshold-based peak calling.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>input</strong> (<em>str</em>) – Input .cz file with mc/cov columns.</p></li>
-<li><p><strong>reference</strong> (<em>str</em>) – Reference .cz file with genomic coordinates.</p></li>
-<li><p><strong>output</strong> (<em>str</em><em> or </em><em>None</em>) – Output bedGraph path.  Defaults to <code class="docutils literal notranslate"><span class="pre">&lt;input_stem&gt;.bedgraph</span></code>.</p></li>
-<li><p><strong>signal</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">'unmeth'</span></code> writes (cov - mc); <code class="docutils literal notranslate"><span class="pre">'meth'</span></code> writes mc;
-<code class="docutils literal notranslate"><span class="pre">'frac_unmeth'</span></code> writes (cov - mc) / cov.</p></li>
-<li><p><strong>index</strong> (<em>str</em><em> or </em><em>None</em>) – Path to index file for context filtering.</p></li>
-<li><p><strong>min_cov</strong> (<em>int</em>) – Minimum coverage to include a site.</p></li>
-<li><p><strong>mc_col</strong> (<em>int</em><em> or </em><em>str</em><em> or </em><em>None</em>) – Column index (0-based) or name for the methylation count.
-Defaults to the first data column (index 0, typically <code class="docutils literal notranslate"><span class="pre">'mc'</span></code>).</p></li>
-<li><p><strong>cov_col</strong> (<em>int</em><em> or </em><em>str</em><em> or </em><em>None</em>) – Column index (0-based) or name for the coverage count.
-Defaults to the last data column (index -1, typically <code class="docutils literal notranslate"><span class="pre">'cov'</span></code>).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Path to the output bedGraph file.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>str</p>
-</dd>
-</dl>
 </dd></dl>
 
 </section>

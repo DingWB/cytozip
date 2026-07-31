@@ -187,7 +187,17 @@
 <p class="caption" role="heading"><span class="caption-text">Cytozip Genome Browser</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../cz_viewer.html">Genome Browser</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../cz_viewer.html#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../cz_viewer.html#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#quick-start">Quick start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#supported-remote-file-formats">Supported remote file formats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#toolbar-tools-and-keyboard-shortcuts">Toolbar tools and keyboard shortcuts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#working-with-tracks">Working with tracks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#genome-gene-search-and-marks">Genome, gene search, and marks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#exporting">Exporting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#session-and-sharing">Session and sharing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#share-a-session-via-a-remote-json-url">Share a session via a remote JSON URL</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -278,6 +288,7 @@
 </li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.aggregate"><code class="docutils literal notranslate"><span class="pre">aggregate()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.align_cz"><code class="docutils literal notranslate"><span class="pre">align_cz()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.check_cz"><code class="docutils literal notranslate"><span class="pre">check_cz()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.dtype_func"><code class="docutils literal notranslate"><span class="pre">dtype_func()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.extract"><code class="docutils literal notranslate"><span class="pre">extract()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.cz.html#cytozip.cz.get_dtfuncs"><code class="docutils literal notranslate"><span class="pre">get_dtfuncs()</span></code></a></li>
@@ -322,10 +333,8 @@
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_array"><code class="docutils literal notranslate"><span class="pre">call_dmr_array()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_ch"><code class="docutils literal notranslate"><span class="pre">call_dmr_ch()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_dmr_one_vs_rest"><code class="docutils literal notranslate"><span class="pre">call_dmr_one_vs_rest()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.consensus_dmr"><code class="docutils literal notranslate"><span class="pre">consensus_dmr()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.merge_dmr_results"><code class="docutils literal notranslate"><span class="pre">merge_dmr_results()</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="../../cytozip.dmr.html#cytozip.dmr.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.dmr_accel.html">cytozip.dmr_accel module</a><ul>
@@ -356,18 +365,34 @@
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.model.html">cytozip.model module</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#method-naive-bayes-methylation-frequency-deconvolution">Method (naive-Bayes / methylation-frequency deconvolution)</a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.cell_types"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_types</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.cell_counts"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.cell_counts</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.close"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.close()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.deconvolve_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.deconvolve_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.fit"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.fit()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.load"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.load()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.log_posterior"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.log_posterior()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_batch"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_batch()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_multicell"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_multicell()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.predict_proba"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.predict_proba()</span></code></a></li>
 <li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.save"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.save()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.CellTypeClassifier.site_importance"><code class="docutils literal notranslate"><span class="pre">CellTypeClassifier.site_importance()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.deconvolve_bulk"><code class="docutils literal notranslate"><span class="pre">deconvolve_bulk()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_beta_prior"><code class="docutils literal notranslate"><span class="pre">estimate_beta_prior()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.estimate_theta"><code class="docutils literal notranslate"><span class="pre">estimate_theta()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.predict_cell_type"><code class="docutils literal notranslate"><span class="pre">predict_cell_type()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.model.html#cytozip.model.top_cytosine_fasta"><code class="docutils literal notranslate"><span class="pre">top_cytosine_fasta()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../cytozip.peaks.html">cytozip.peaks module</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.peaks.html#cytozip.peaks.call_peaks"><code class="docutils literal notranslate"><span class="pre">call_peaks()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.peaks.html#cytozip.peaks.call_peaks_bdg"><code class="docutils literal notranslate"><span class="pre">call_peaks_bdg()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../cytozip.peaks.html#cytozip.peaks.to_bedgraph"><code class="docutils literal notranslate"><span class="pre">to_bedgraph()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="../../cytozip.pivot.html">cytozip.pivot module</a><ul>
@@ -433,8 +458,10 @@
 <span class="sd">                           / index_regions / aggregate).</span>
 <span class="sd">  - :mod:`cytozip.merge`:  per-cell .cz merging (``merge_cz``,</span>
 <span class="sd">                           ``merge_cell_type``, Fisher-test mode).</span>
-<span class="sd">  - :mod:`cytozip.dmr`:    peak calling (``call_peaks``, ``to_bedgraph``)</span>
-<span class="sd">                           and DMR analysis (``call_dmr``, ``call_dmr_ch``,</span>
+<span class="sd">  - :mod:`cytozip.peaks`:  ATAC-style peak calling from methylation</span>
+<span class="sd">                           (``call_peaks``, ``call_peaks_bdg``,</span>
+<span class="sd">                           ``to_bedgraph``).</span>
+<span class="sd">  - :mod:`cytozip.dmr`:    DMR analysis (``call_dmr``, ``call_dmr_ch``,</span>
 <span class="sd">                           ``call_dmr_array``, ``annot_dmr``).</span>
 
 <span class="sd">@author: DingWB</span>
@@ -444,7 +471,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.cz</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">Reader</span><span class="p">,</span> <span class="n">Writer</span><span class="p">,</span> <span class="n">get_dtfuncs</span><span class="p">,</span>
-                 <span class="n">_fmt_to_np_dtype</span><span class="p">,</span>
+                 <span class="n">_fmt_to_np_dtype</span><span class="p">,</span> <span class="n">_chrom_axis</span><span class="p">,</span>
                  <span class="n">_all_numeric_formats</span><span class="p">,</span> <span class="n">_pack_chunk_data</span><span class="p">,</span>
                  <span class="n">_write_np_chunks</span><span class="p">,</span> <span class="n">_parse_tabix_lines</span><span class="p">,</span>
                  <span class="n">np</span><span class="p">,</span> <span class="n">pd</span><span class="p">)</span>
@@ -679,7 +706,7 @@
 <a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.allc2cz">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">allc2cz</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">missing_value</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
            <span class="n">formats</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mc&#39;</span><span class="p">,</span> <span class="s1">&#39;cov&#39;</span><span class="p">],</span> <span class="n">chunk_dims</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">],</span>
-           <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="n">ref_pos_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allc_pos_col</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">chrom_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+           <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="n">ref_pos_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allc_pos_col</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">chroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">batch_size</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">sort_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">delta_cols</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="s1">&#39;*.allc.tsv.gz&#39;</span><span class="p">,</span> <span class="n">skip_existing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
            <span class="n">_ref_pos_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -694,10 +721,14 @@
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    input : path</span>
-<span class="sd">        Path to allc.tsv.gz (must have .tbi index), OR a directory containing</span>
-<span class="sd">        many allc.tsv.gz files (batch mode).</span>
+<span class="sd">        One of: (a) a single ``allc.tsv.gz`` (must have a ``.tbi`` index);</span>
+<span class="sd">        (b) a directory containing many ``allc.tsv.gz`` files (batch mode);</span>
+<span class="sd">        (c) an *allc_path table* — a headerless text file whose first column</span>
+<span class="sd">        is the cell ID and second column is the path to that cell&#39;s</span>
+<span class="sd">        ``allc.tsv.gz`` (batch mode; each output is named ``&lt;cell_id&gt;.cz``).</span>
 <span class="sd">    output : path</span>
-<span class="sd">        Output .cz file (single-file mode), or output directory (batch mode).</span>
+<span class="sd">        Output .cz file (single-file mode), or output directory (batch mode:</span>
+<span class="sd">        directory or allc_path table input).</span>
 <span class="sd">    reference : path</span>
 <span class="sd">        path to reference coordinates.</span>
 <span class="sd">    jobs : int</span>
@@ -705,12 +736,13 @@
 <span class="sd">        Ignored when ``input`` is a single file.</span>
 <span class="sd">    pattern : str</span>
 <span class="sd">        Glob pattern used to discover allc files when ``input`` is a directory</span>
-<span class="sd">        (default: ``&#39;*.allc.tsv.gz&#39;``).</span>
+<span class="sd">        (default: ``&#39;*.allc.tsv.gz&#39;``). Ignored for allc_path table input.</span>
 <span class="sd">    skip_existing : bool</span>
 <span class="sd">        In batch mode, skip files whose output .cz already exists (default: True).</span>
 <span class="sd">    formats: list</span>
 <span class="sd">        When reference is provided, we only need to pack mc and cov,</span>
-<span class="sd">        [&#39;H&#39;, &#39;H&#39;] is suggested (H is unsigned short integer, only 2 bytes),</span>
+<span class="sd">        [&#39;H&#39;, &#39;H&#39;] is suggested for pseudobulk data (H is unsigned short integer, only 2 bytes),</span>
+<span class="sd">        and [&#39;B&#39;, &#39;B&#39;] is suggested for single cell data (B is unsigned char, only 1 byte).</span>
 <span class="sd">        if reference is not provided, we also need to pack position (Q is</span>
 <span class="sd">        recommanded), in this case, formats should be [&#39;Q&#39;,&#39;H&#39;,&#39;H&#39;].</span>
 <span class="sd">    columns: list</span>
@@ -729,7 +761,7 @@
 <span class="sd">        index of position column in input input or bed column.</span>
 <span class="sd">    batch_size : int</span>
 <span class="sd">        default is 5000</span>
-<span class="sd">    chrom_order : path</span>
+<span class="sd">    chroms : path</span>
 <span class="sd">        path to chrom_size path or similar file containing chromosomes order,</span>
 <span class="sd">        the first columns should be chromosomes, tab separated and no header.</span>
 <span class="sd">    missing_value : list, optional</span>
@@ -767,7 +799,20 @@
             <span class="n">missing_value</span><span class="o">=</span><span class="n">missing_value</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span>
             <span class="n">chunk_dims</span><span class="o">=</span><span class="n">chunk_dims</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="n">usecols</span><span class="p">,</span>
             <span class="n">ref_pos_col</span><span class="o">=</span><span class="n">ref_pos_col</span><span class="p">,</span> <span class="n">allc_pos_col</span><span class="o">=</span><span class="n">allc_pos_col</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="n">sep</span><span class="p">,</span>
-            <span class="n">chrom_order</span><span class="o">=</span><span class="n">chrom_order</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+            <span class="n">chroms</span><span class="o">=</span><span class="n">chroms</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+            <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">,</span> <span class="n">delta_cols</span><span class="o">=</span><span class="n">delta_cols</span><span class="p">,</span>
+            <span class="n">jobs</span><span class="o">=</span><span class="n">jobs</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="n">pattern</span><span class="p">,</span> <span class="n">skip_existing</span><span class="o">=</span><span class="n">skip_existing</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="c1"># ---- Batch mode: input is an allc_path table (cell_id, allc_path) -----</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span> \
+            <span class="ow">and</span> <span class="n">_looks_like_allc_path_table</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">_allc2cz_batch</span><span class="p">(</span>
+            <span class="n">input_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="n">output</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">,</span>
+            <span class="n">files_map</span><span class="o">=</span><span class="n">_read_allc_path_table</span><span class="p">(</span><span class="nb">input</span><span class="p">),</span>
+            <span class="n">missing_value</span><span class="o">=</span><span class="n">missing_value</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">formats</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span>
+            <span class="n">chunk_dims</span><span class="o">=</span><span class="n">chunk_dims</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="n">usecols</span><span class="p">,</span>
+            <span class="n">ref_pos_col</span><span class="o">=</span><span class="n">ref_pos_col</span><span class="p">,</span> <span class="n">allc_pos_col</span><span class="o">=</span><span class="n">allc_pos_col</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="n">sep</span><span class="p">,</span>
+            <span class="n">chroms</span><span class="o">=</span><span class="n">chroms</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
             <span class="n">sort_col</span><span class="o">=</span><span class="n">sort_col</span><span class="p">,</span> <span class="n">delta_cols</span><span class="o">=</span><span class="n">delta_cols</span><span class="p">,</span>
             <span class="n">jobs</span><span class="o">=</span><span class="n">jobs</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="n">pattern</span><span class="p">,</span> <span class="n">skip_existing</span><span class="o">=</span><span class="n">skip_existing</span><span class="p">,</span>
         <span class="p">)</span>
@@ -777,15 +822,15 @@
     <span class="n">allc_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">allc_path</span> <span class="o">+</span> <span class="s1">&#39;.tbi&#39;</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;index file .tbi not existed, please create index first.&quot;</span><span class="p">)</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">allc_path</span><span class="p">)</span>
+    <span class="c1"># logger.info(allc_path)</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">pysam</span>
     <span class="n">tbi</span> <span class="o">=</span> <span class="n">pysam</span><span class="o">.</span><span class="n">TabixFile</span><span class="p">(</span><span class="n">allc_path</span><span class="p">)</span>
     <span class="n">contigs</span> <span class="o">=</span> <span class="n">tbi</span><span class="o">.</span><span class="n">contigs</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">chrom_order</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">chrom_order</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">chrom_order</span><span class="p">))</span>
-        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">chrom_order</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="n">chroms</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-        <span class="n">all_chroms</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">chroms</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">contigs</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">chroms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">chroms</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">chroms</span><span class="p">))</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">chroms</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">chrom_list</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">all_chroms</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">chrom_list</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">contigs</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">all_chroms</span> <span class="o">=</span> <span class="n">contigs</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1032,27 +1077,100 @@
     <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">basename</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_allc_path_table</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse an *allc_path table* into ``[(cell_id, allc_path), ...]``.</span>
+
+<span class="sd">    The table is a headerless text file whose first column is the cell ID</span>
+<span class="sd">    and second column is the path to that cell&#39;s ``allc.tsv.gz``. Columns</span>
+<span class="sd">    are tab-separated (falls back to any whitespace). ``#`` comment lines</span>
+<span class="sd">    are ignored.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="s1">&#39;#&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;\s+&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="s1">&#39;#&#39;</span><span class="p">,</span>
+                         <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;python&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;allc_path table </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2"> must have &gt;=2 columns &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;(cell_id, allc_path); got </span><span class="si">{</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">itertuples</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_looks_like_allc_path_table</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Heuristically decide whether ``path`` is an allc_path table.</span>
+
+<span class="sd">    True when ``path`` is a plain-text (non-bgzipped) file with no ``.tbi``</span>
+<span class="sd">    index whose first non-comment line has &gt;=2 columns and whose second</span>
+<span class="sd">    column points to an existing file. This distinguishes a</span>
+<span class="sd">    ``(cell_id, allc_path)`` table from a single ``allc.tsv.gz``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">endswith</span><span class="p">((</span><span class="s1">&#39;.gz&#39;</span><span class="p">,</span> <span class="s1">&#39;.bgz&#39;</span><span class="p">,</span> <span class="s1">&#39;.cz&#39;</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s1">&#39;.tbi&#39;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">fh</span><span class="p">:</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span> <span class="ow">or</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="n">parts</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span> <span class="ow">in</span> <span class="n">line</span> <span class="k">else</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+                <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">UnicodeDecodeError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_allc2cz_batch</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-                   <span class="n">pattern</span><span class="o">=</span><span class="s1">&#39;*.allc.tsv.gz&#39;</span><span class="p">,</span> <span class="n">skip_existing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parallel allc -&gt; cz over a directory, sharing the decoded reference.</span>
+                   <span class="n">pattern</span><span class="o">=</span><span class="s1">&#39;*.allc.tsv.gz&#39;</span><span class="p">,</span> <span class="n">skip_existing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                   <span class="n">files_map</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parallel allc -&gt; cz over a directory (or an explicit table), sharing</span>
+<span class="sd">    the decoded reference.</span>
 
 <span class="sd">    Workers are forked from the parent so the pre-decoded reference dict is</span>
 <span class="sd">    shared via copy-on-write (zero extra RSS per worker on Linux).</span>
+
+<span class="sd">    ``files_map`` (optional) is a list of ``(cell_id, allc_path)`` pairs from</span>
+<span class="sd">    an *allc_path table*; when given the output for each cell is named</span>
+<span class="sd">    ``&lt;output_dir&gt;/&lt;cell_id&gt;.cz`` and directory globbing is skipped.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
-    <span class="n">input_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">input_dir</span><span class="p">))</span>
     <span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">output_dir</span><span class="p">))</span>
     <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">files</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)))</span>
-    <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">f</span> <span class="o">+</span> <span class="s1">&#39;.tbi&#39;</span><span class="p">)]</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">files</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No allc files matching </span><span class="si">{</span><span class="n">pattern</span><span class="si">!r}</span><span class="s2"> (with .tbi) found in </span><span class="si">{</span><span class="n">input_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">return</span>
+    <span class="k">if</span> <span class="n">files_map</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Explicit (cell_id, allc_path) list from an allc_path table.</span>
+        <span class="n">out_by_inp</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">cell_id</span><span class="p">,</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">files_map</span><span class="p">:</span>
+            <span class="n">inp</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">inp</span><span class="p">)))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">inp</span> <span class="o">+</span> <span class="s1">&#39;.tbi&#39;</span><span class="p">):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;skip </span><span class="si">{</span><span class="n">cell_id</span><span class="si">}</span><span class="s2">: no .tbi index for </span><span class="si">{</span><span class="n">inp</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">out_by_inp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">cell_id</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;.cz&#39;</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">out_by_inp</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No allc files (with .tbi) found in the provided &quot;</span>
+                           <span class="s2">&quot;allc_path table.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
+        <span class="n">input_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">input_dir</span><span class="p">))</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)))</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">f</span> <span class="o">+</span> <span class="s1">&#39;.tbi&#39;</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">files</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No allc files matching </span><span class="si">{</span><span class="n">pattern</span><span class="si">!r}</span><span class="s2"> (with .tbi) found in </span><span class="si">{</span><span class="n">input_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">out_by_inp</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span>
+                               <span class="n">_strip_allc_suffix</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39;.cz&#39;</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">files</span><span class="p">]</span>
 
+    <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">inp</span> <span class="k">for</span> <span class="n">inp</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">out_by_inp</span><span class="p">]</span>
     <span class="n">job_args</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
-        <span class="n">outp</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">_strip_allc_suffix</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39;.cz&#39;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">inp</span><span class="p">,</span> <span class="n">outp</span> <span class="ow">in</span> <span class="n">out_by_inp</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">skip_existing</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outp</span><span class="p">):</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outp</span><span class="si">}</span><span class="s2"> existed, skip.&quot;</span><span class="p">)</span>
             <span class="k">continue</span>
@@ -1109,12 +1227,79 @@
 
 
 <span class="c1"># ==========================================================</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_extractcg_chunk_worker</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract (and optionally CG-merge) one chunk&#39;s CG records.</span>
+
+<span class="sd">    Returns ``(dim, data_bytes)``. ``dim`` is the FULL input chunk key so a</span>
+<span class="sd">    catted file&#39;s ``cell_id`` axis is preserved; the CGN index is looked up</span>
+<span class="sd">    by chromosome only.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="n">index_path</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">chrom_axis</span><span class="p">,</span> <span class="n">merge_cg</span><span class="p">,</span> <span class="n">vec_merge</span><span class="p">)</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="n">reader</span> <span class="o">=</span> <span class="n">_cz</span><span class="o">.</span><span class="n">_worker_reader</span><span class="p">(</span><span class="n">input_path</span><span class="p">)</span>
+    <span class="n">index_reader</span> <span class="o">=</span> <span class="n">_cz</span><span class="o">.</span><span class="n">_worker_reader</span><span class="p">(</span><span class="n">index_path</span><span class="p">)</span>
+    <span class="n">idx_key</span> <span class="o">=</span> <span class="p">(</span><span class="n">dim</span><span class="p">[</span><span class="n">chrom_axis</span><span class="p">],)</span>
+    <span class="k">if</span> <span class="n">idx_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">dim</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="n">IDs</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">idx_key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">IDs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only support 1D index now!&quot;</span><span class="p">)</span>
+    <span class="n">formats</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">]</span>
+    <span class="n">fmts</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fmts</span>
+    <span class="c1"># for CG, if pos is forward (+), then pos+1 is reverse strand (-)</span>
+    <span class="k">if</span> <span class="n">vec_merge</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">IDs</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dim</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span>
+        <span class="c1"># Gather the indexed rows once, then sum each forward/reverse pair</span>
+        <span class="c1"># column-wise with a single vectorized clip.</span>
+        <span class="n">full</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">full</span><span class="p">[</span><span class="n">IDs</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span>  <span class="c1"># number of (forward, reverse) pairs</span>
+        <span class="k">if</span> <span class="n">m</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dim</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span>
+        <span class="n">_rec_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([</span>
+            <span class="p">(</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">_fmt_to_np_dtype</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">formats</span><span class="p">)])</span>
+        <span class="n">fwd</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[:</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">rev</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_rec_dtype</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">formats</span><span class="p">)):</span>
+            <span class="n">fn</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span>
+            <span class="n">dt</span> <span class="o">=</span> <span class="n">_rec_dtype</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span>
+            <span class="n">summed</span> <span class="o">=</span> <span class="n">fwd</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">+</span> <span class="n">rev</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">summed</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">min</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">max</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dim</span><span class="p">,</span> <span class="n">out</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span>
+    <span class="n">records</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_getRecordsByIds</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">IDs</span><span class="p">)</span>
+    <span class="n">data_parts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">merge_cg</span><span class="p">:</span>
+        <span class="n">dtfuncs</span> <span class="o">=</span> <span class="n">get_dtfuncs</span><span class="p">(</span><span class="n">formats</span><span class="p">)</span>
+        <span class="n">v0</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">records</span><span class="p">):</span>  <span class="c1"># unpacked bytes</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">v0</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">v1</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
+                <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">r1</span> <span class="o">+</span> <span class="n">r2</span> <span class="k">for</span> <span class="n">r1</span><span class="p">,</span> <span class="n">r2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">v1</span><span class="p">)]</span>
+                <span class="n">data_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">fmts</span><span class="p">,</span>
+                                    <span class="o">*</span><span class="p">[</span><span class="n">func</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">func</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtfuncs</span><span class="p">)]))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>  <span class="c1"># unpacked bytes</span>
+            <span class="n">data_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dim</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_parts</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="extractCG">
 <a class="viewcode-back" href="../../cytozip.allc.html#cytozip.allc.extractCG">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">extractCG</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>
-              <span class="n">merge_cg</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+              <span class="n">merge_cg</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extract CG context from .cz file</span>
+
+<span class="sd">    Supports both a single per-cell ``.cz`` (``chunk_dims=[&#39;chrom&#39;]``) and a</span>
+<span class="sd">    ``catcz``&#39;d multi-cell ``.cz`` (``chunk_dims=[&#39;chrom&#39;, &#39;cell_id&#39;]``). The</span>
+<span class="sd">    CGN ``index`` is keyed by chromosome only; for a catted input each</span>
+<span class="sd">    ``(chrom, cell_id)`` chunk is extracted against the chromosome&#39;s index</span>
+<span class="sd">    and written back under its full key, preserving the per-cell structure.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1135,6 +1320,10 @@
 <span class="sd">    merge_cg : bool</span>
 <span class="sd">        after merging, only forward strand would be kept, reverse strand values</span>
 <span class="sd">        would be added to the corresponding forward strand.</span>
+<span class="sd">    jobs : int</span>
+<span class="sd">        Number of parallel worker processes across chunks (default 1). A</span>
+<span class="sd">        catted file has ``n_chroms * n_cells`` chunks, so ``jobs &gt; 1`` gives</span>
+<span class="sd">        a near-linear speed-up on multi-cell inputs.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1144,78 +1333,36 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cz_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
     <span class="n">index_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
-    <span class="n">index_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">index_path</span><span class="p">)</span>
     <span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">cz_path</span><span class="p">)</span>
-    <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">],</span>
-                    <span class="n">columns</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">],</span>
-                    <span class="n">chunk_dims</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">],</span>
-                    <span class="n">message</span><span class="o">=</span><span class="n">index_path</span><span class="p">)</span>
-    <span class="n">dtfuncs</span> <span class="o">=</span> <span class="n">get_dtfuncs</span><span class="p">(</span><span class="n">writer</span><span class="o">.</span><span class="n">formats</span><span class="p">)</span>
+    <span class="n">chrom_axis</span> <span class="o">=</span> <span class="n">_chrom_axis</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span>
     <span class="c1"># Vectorized merge_cg fast path is only exact when every column is an</span>
     <span class="c1"># unsigned integer (np.iinfo(dtype).max then equals the clamp used by</span>
     <span class="c1"># ``int_func``). methylation count columns (mc/cov) are unsigned, so this</span>
     <span class="c1"># covers the real use case; anything else falls back to the per-record loop.</span>
     <span class="n">_vec_merge</span> <span class="o">=</span> <span class="n">merge_cg</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span>
         <span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="s1">&#39;BHILQ&#39;</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])</span>
-    <span class="n">_rec_dtype</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">_vec_merge</span><span class="p">:</span>
-        <span class="n">_rec_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([</span>
-            <span class="p">(</span><span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">_fmt_to_np_dtype</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])])</span>
-    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-        <span class="c1"># print(dim)</span>
-        <span class="n">IDs</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">IDs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only support 1D index now!&quot;</span><span class="p">)</span>
-        <span class="c1"># for CG, if pos is forward (+), then pos+1 is reverse strand (-)</span>
-        <span class="k">if</span> <span class="n">_vec_merge</span><span class="p">:</span>
-            <span class="c1"># Gather the indexed rows once, then sum each forward/reverse pair</span>
-            <span class="c1"># column-wise with a single vectorized clip — no per-record</span>
-            <span class="c1"># struct unpack/pack. Row order matches _getRecordsByIds(IDs).</span>
-            <span class="k">if</span> <span class="n">IDs</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="n">arr</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk2numpy</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index_reader</span><span class="p">)</span>
-            <span class="n">m</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span>  <span class="c1"># number of (forward, reverse) pairs</span>
-            <span class="k">if</span> <span class="n">m</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="n">fwd</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[:</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
-            <span class="n">rev</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
-            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_rec_dtype</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">])):</span>
-                <span class="n">fn</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;f</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span>
-                <span class="n">dt</span> <span class="o">=</span> <span class="n">_rec_dtype</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span>
-                <span class="n">summed</span> <span class="o">=</span> <span class="n">fwd</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">+</span> <span class="n">rev</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-                <span class="n">info</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
-                <span class="n">out</span><span class="p">[</span><span class="n">fn</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">summed</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">min</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">max</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
-            <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span> <span class="n">dim</span><span class="p">)</span>
-            <span class="k">continue</span>
-        <span class="n">records</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">_getRecordsByIds</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">IDs</span><span class="p">)</span>
-        <span class="n">data_parts</span><span class="p">,</span> <span class="n">count</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
-        <span class="k">if</span> <span class="n">merge_cg</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">records</span><span class="p">):</span>  <span class="c1"># unpacked bytes</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">v0</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">reader</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">v1</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">reader</span><span class="o">.</span><span class="n">fmts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
-                    <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">r1</span> <span class="o">+</span> <span class="n">r2</span> <span class="k">for</span> <span class="n">r1</span><span class="p">,</span> <span class="n">r2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">v1</span><span class="p">)]</span>
-                    <span class="n">data_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">writer</span><span class="o">.</span><span class="n">fmts</span><span class="p">,</span>
-                                        <span class="o">*</span><span class="p">[</span><span class="n">func</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">func</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtfuncs</span><span class="p">)]))</span>
-                    <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="n">batch_size</span><span class="p">:</span>
-                    <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_parts</span><span class="p">),</span> <span class="n">dim</span><span class="p">)</span>
-                    <span class="n">data_parts</span><span class="p">,</span> <span class="n">count</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>  <span class="c1"># unpacked bytes</span>
-                <span class="n">data_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
-                <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="n">batch_size</span><span class="p">:</span>
-                    <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_parts</span><span class="p">),</span> <span class="n">dim</span><span class="p">)</span>
-                    <span class="n">data_parts</span><span class="p">,</span> <span class="n">count</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_parts</span><span class="p">),</span> <span class="n">dim</span><span class="p">)</span>
-    <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">Writer</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">],</span>
+                    <span class="n">columns</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">],</span>
+                    <span class="n">chunk_dims</span><span class="o">=</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;chunk_dims&#39;</span><span class="p">],</span>
+                    <span class="n">message</span><span class="o">=</span><span class="n">index_path</span><span class="p">)</span>
+    <span class="n">dims</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
     <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[(</span><span class="n">cz_path</span><span class="p">,</span> <span class="n">index_path</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">chrom_axis</span><span class="p">,</span> <span class="n">merge_cg</span><span class="p">,</span> <span class="n">_vec_merge</span><span class="p">)</span>
+             <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">jobs</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">tasks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">jobs</span><span class="p">))</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">pool</span><span class="o">.</span><span class="n">imap_unordered</span><span class="p">(</span><span class="n">_extractcg_chunk_worker</span><span class="p">,</span> <span class="n">tasks</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
+                <span class="n">dim</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">_extractcg_chunk_worker</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">_cz</span><span class="o">.</span><span class="n">_close_worker_readers</span><span class="p">()</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 
 <span class="c1"># ==========================================================</span>
