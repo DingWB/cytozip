@@ -277,14 +277,15 @@
   body[data-tool=pan] .view:active { cursor: grabbing; }
   body[data-tool=zoom] .view { cursor: crosshair; }
   body[data-tool=select] .view { cursor: pointer; }
+  body[data-tool=select] .label { cursor: pointer; }
   body[data-tool=mark] .view { cursor: crosshair; }
   .rulerrow .view { cursor: ew-resize !important; }
 
   /* Overlay layers spanning all tracks (crosshair, drag band, marks) */
   #trackwrap { position: relative; }
   #crosshair {
-    position: absolute; top: 0; bottom: 0; width: 1px; background: #e0245e;
-    pointer-events: none; display: none; z-index: 42;
+    position: absolute; top: 0; bottom: 0; width: 0; background: none;
+    border-left: 1px dashed #111; pointer-events: none; display: none; z-index: 42;
   }
   #dragband { position: absolute; top: 0; bottom: 0; display: none; z-index: 40; pointer-events: none; }
   #dragband.zoom { background: rgba(74,144,217,.18); border-left: 1px solid var(--accent); border-right: 1px solid var(--accent); }
@@ -321,8 +322,9 @@
     </span>
     <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
       Res
-      <select id="resSel" title="Methylation binning resolution">
+      <select id="resSel" title="Methylation binning resolution (Auto = pick a bin size from the view span)">
         <option value="">None (per-bp)</option>
+        <option value="auto">Auto</option>
         <option value="10">10 bp</option>
         <option value="20">20 bp</option>
         <option value="50">50 bp</option>
@@ -357,9 +359,7 @@
       </select>
     </label>
     <span class="zoombtns" style="margin-left:8px;">
-      <button id="btnSvg" class="secondary" title="Download the current view as vector SVG">SVG</button>
-      <button id="btnPng" class="secondary" title="Download the current view as PNG">PNG</button>
-      <button id="btnPdf" class="secondary" title="Download the current view as PDF">PDF</button>
+      <button id="btnTsv" class="secondary" title="Export all loaded track data in this window as a TSV matrix">TSV</button>
     </span>
   </div>
 </div>
@@ -375,9 +375,16 @@
     <input type="text" class="name" id="newName" value="UWA7648 NAC" />
   </div>
   <div class="field">
-    <label>New track .cz URL (mc/cov, shares reference)</label>
+    <label>New track URL — .cz (mc/cov, shares reference) or .bw / .bigwig</label>
     <input type="text" class="url" id="newUrl"
       value="https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz" />
+  </div>
+  <div class="field">
+    <label>Saved tracks (click to add)</label>
+    <div style="display:flex;gap:6px;">
+      <select id="savedTracks" style="width:280px"><option value="">— saved .cz tracks —</option></select>
+      <button id="btnForgetTracks" class="secondary" title="Clear saved tracks">Clear</button>
+    </div>
   </div>
 </div>
 
@@ -413,31 +420,29 @@
       <button id="btnColorUrl" class="secondary">Load</button>
     </div>
   </div>
-  <div class="field" style="margin-left:auto;">
-    <label>Saved tracks (click to add)</label>
-    <div style="display:flex;gap:6px;">
-      <select id="savedTracks" style="width:280px"><option value="">— saved .cz tracks —</option></select>
-      <button id="btnForgetTracks" class="secondary" title="Clear saved tracks">Clear</button>
-    </div>
-  </div>
 </div>
 
 <div class="status" id="status">Ready. Set the reference URL and click “Load reference”, then “Add track”.</div>
 
 <div class="tracktoolbar" id="trackToolbar">
   <div class="toolgroup" id="toolModes">
-    <button class="toolbtn" data-tool="pan" title="Pan — drag on a track to move along the genome">✋</button>
-    <button class="toolbtn active" data-tool="zoom" title="Zoom — drag on a track to select a region and zoom into it">🔍</button>
-    <button class="toolbtn" data-tool="select" title="Select — click tracks to select them for batch actions">☑</button>
-    <button class="toolbtn" data-tool="mark" title="Mark — drag to highlight a region across all tracks">🖍</button>
+    <button class="toolbtn" data-tool="pan" title="Pan — drag on a track to move along the genome (P)">✋</button>
+    <button class="toolbtn active" data-tool="zoom" title="Zoom — drag on a track to select a region and zoom into it (Z)">🔍</button>
+    <button class="toolbtn" data-tool="select" title="Select — click tracks to select them for batch actions (V)">☑</button>
+    <button class="toolbtn" data-tool="mark" title="Mark — drag to highlight a region across all tracks (M)">🖍</button>
     <input type="color" id="markColor" class="markcolor" value="#ffcc33" title="Mark color">
   </div>
   <span class="toolsep"></span>
   <label class="tlabel">Session
-    <button id="btnSaveSession" title="Download the current session as JSON">Save</button>
+    <button id="btnSaveSession" title="Download the current session as JSON (S)">Save</button>
     <input type="file" id="sessionFile" accept=".json" title="Load a session JSON" style="font-size:11px;max-width:120px;" />
   </label>
-  <button id="btnClearMarks" title="Remove all region marks" style="margin-left:auto;">Clear marks</button>
+  <span class="zoombtns" style="margin-left:auto;">
+    <button id="btnSvg" title="Download the current view as vector SVG">SVG</button>
+    <button id="btnPng" title="Download the current view as PNG">PNG</button>
+    <button id="btnPdf" title="Download the current view as PDF">PDF</button>
+  </span>
+  <button id="btnClearMarks" title="Remove all region marks (C)">Clear marks</button>
 </div>
 
 <div id="trackwrap">
@@ -521,7 +526,7 @@ const SAVED_TRACKS_KEY = 'czviewer_saved_tracks_v1';
 const MODULE_URL = new URL('cz_reader.mjs', import.meta.url).href;
 
 // Default track heights (px). Users can drag the bottom edge to resize.
-const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150 };
+const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150, bw: 60 };
 const MIN_HEIGHT = 22;
 function trackHeight(t) { return t.height || DEFAULT_HEIGHT[t.kind] || 100; }
 
@@ -534,6 +539,7 @@ const state = {
   twoBit: null,         // { genome, tb } cached @gmod/twobit handle
   locus: null,          // {chrom, start, end}
   resolution: null,     // methylation binning: null = per-bp, else bin width in bp
+  resAuto: false,       // when true, pick the bin width from the current view span
   colorMap: {},         // { trackName: colorCode } from an uploaded palette
   yScale: '1',          // mc y-axis: '1' = fixed 0-1, 'auto' = per-track max
   tracks: [],           // {id, kind:'mc'|'seq'|'gene', name, url, reader, color, ctx, canvas, labelEl, metaEl}
@@ -858,7 +864,7 @@ function refreshSavedTracksUI() {
   list.forEach((e, i) => {
     const opt = document.createElement('option');
     opt.value = String(i);
-    opt.textContent = `${e.name}  ·  ${e.ctx || 'ALL'}`;
+    opt.textContent = `${e.name}  ·  ${e.fmt === 'bw' ? 'BigWig' : (e.ctx || 'ALL')}`;
     opt.title = e.url;
     sel.appendChild(opt);
   });
@@ -879,12 +885,28 @@ function onSavedTrackPick() {
 
 
 async function addTrack() {
-  if (!state.refReader) { setStatus('Load the reference first.', true); return; }
   const url = $('newUrl').value.trim();
   const name = $('newName').value.trim() || `track ${state.tracks.length + 1}`;
+  if (!url) { setStatus('Enter a track URL (.cz or .bw/.bigwig).', true); return; }
+  // BigWig signal tracks are self-contained — no reference .cz needed.
+  if (isBigWigUrl(url)) {
+    try {
+      setStatus(`Opening BigWig “${name}”…`);
+      await openBigWigTrack({ name, url });
+      saveTrack({ name, url, fmt: 'bw' });
+      buildTrackRows();
+      setStatus(state.locus
+        ? `Added BigWig “${name}”. Rendering…`
+        : `Added BigWig “${name}”. Enter a locus (chr:start-end) or pick a Genome to view it.`);
+      render();
+    } catch (e) {
+      setStatus(corsHint('Failed to open BigWig: ' + e.message, url), true);
+    }
+    return;
+  }
+  if (!state.refReader) { setStatus('Load the reference first (or use a .bw URL).', true); return; }
   const ctx = $('newCtx').value;
   const valType = $('newValType').value;
-  if (!url) { setStatus('Enter a track .cz URL.', true); return; }
   try {
     setStatus(`Opening track “${name}”…`);
     const tr = await openCzTrack({ name, url, ctx, valType });
@@ -934,6 +956,48 @@ function validateAgainstRef(reader) {
     if (!issues.length) return null;
     return `⚠ coordinates differ from reference (${issues.slice(0, 3).join(', ')}${issues.length > 3 ? '…' : ''}) — join may be wrong`;
   } catch (_) { return null; }
+}
+
+// ── BigWig signal tracks (@gmod/bbi over HTTP Range) ─────────────────────────
+let _bbiLibs = null;
+async function getBbiLibs() {
+  if (!_bbiLibs) {
+    const [{ BigWig }, { RemoteFile }] = await Promise.all([
+      import('https://esm.sh/@gmod/bbi@4'),
+      import('https://esm.sh/generic-filehandle2@2'),
+    ]);
+    _bbiLibs = { BigWig, RemoteFile };
+  }
+  return _bbiLibs;
+}
+function isBigWigUrl(url) { return /\.(bw|bigwig)(?:[?#].*)?$/i.test(String(url)); }
+
+// Open a remote BigWig as a signal track (needs no reference .cz).
+async function openBigWigTrack({ name, url, ylim = 'auto', group = '' }) {
+  if (!url) throw new Error('missing URL');
+  const { BigWig, RemoteFile } = await getBbiLibs();
+  const bw = new BigWig({ filehandle: new RemoteFile(url, { fetch: (u, o) => fetch(u, o) }) });
+  await bw.getHeader();                                // validates the file, fails early on non-bigwig
+  const nData = state.tracks.filter(t => t.kind === 'mc' || t.kind === 'bw').length;
+  const named = name || url.split('/').pop();
+  const track = {
+    id: ++state.trackSeq, kind: 'bw', name: named, url, bw,
+    group: group || '', ylim: Array.isArray(ylim) ? ylim : 'auto',
+    color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length],
+  };
+  state.tracks.push(track);
+  return track;
+}
+// Fetch BigWig intervals for a locus, tolerating chr/no-chr naming differences.
+async function bwGetFeatures(track, chrom, start, end, scale) {
+  const names = [...new Set([chrom, chrom.replace(/^chr/, ''), chrom.startsWith('chr') ? chrom : ('chr' + chrom)])];
+  for (const nm of names) {
+    try {
+      const f = await track.bw.getFeatures(nm, Math.max(0, Math.floor(start)), Math.ceil(end), { scale });
+      if (f) return f;
+    } catch (_) { /* try the next naming convention */ }
+  }
+  return [];
 }
 
 // ── Track table & color palette (file OR url; csv / tsv / xlsx / json) ────────
@@ -1063,12 +1127,22 @@ function applyColorMap(map, label) {
 // Open every track row into the viewer.
 async function ingestTrackRows(rows, label) {
   if (!rows.length) { setStatus(`No track rows found in ${label}.`, true); return; }
-  if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
+  // Only need the .cz reader module if some rows are .cz (BigWig is standalone).
+  if (rows.some(r => !isBigWigUrl(r.url)) && !state.CzReader) {
+    const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader;
+  }
   setStatus(`Opening ${rows.length} track(s) from ${label}…`);
   let ok = 0, mism = 0; const failed = [];
   for (const r of rows) {
-    try { const tr = await openCzTrack(r); if (tr.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx }); ok++; }
-    catch (e) { failed.push(`${r.name}: ${e.message}`); }
+    try {
+      if (isBigWigUrl(r.url)) {
+        await openBigWigTrack({ name: r.name, url: r.url, group: r.group });
+        saveTrack({ name: r.name, url: r.url, fmt: 'bw' }); ok++;
+      } else {
+        const tr = await openCzTrack(r); if (tr.mismatch) mism++;
+        saveTrack({ name: r.name, url: r.url, ctx: r.ctx }); ok++;
+      }
+    } catch (e) { failed.push(`${r.name}: ${e.message}`); }
   }
   buildTrackRows(); render();
   const grouped = rows.some(r => r.group);
@@ -1081,14 +1155,12 @@ async function ingestTrackRows(rows, label) {
 async function onTrackTableFile(ev) {
   const file = ev.target.files && ev.target.files[0]; ev.target.value = '';
   if (!file) return;
-  if (!state.refReader) { setStatus('Load the reference .cz first, then upload a track table.', true); return; }
   try { await ingestTrackRows(tableToTrackRows(await readTable(extOf(file.name), fileIO(file))), file.name); }
   catch (e) { setStatus('Failed to read table: ' + e.message, true); }
 }
 async function onTrackTableUrl() {
   const url = ($('trackTableUrl').value || '').trim();
   if (!url) { setStatus('Enter a track table URL.', true); return; }
-  if (!state.refReader) { setStatus('Load the reference .cz first, then load a track table.', true); return; }
   try {
     const resp = await fetch(url); if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     await ingestTrackRows(tableToTrackRows(await readTable(extOf(url), respIO(resp))), url.split('/').pop() || url);
@@ -1174,7 +1246,11 @@ function buildTrackRows() {
            </select>
            <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
          </div>`
-      : '';
+      : (t.kind === 'bw'
+        ? `<div class="ctrls">
+             <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
+           </div>`
+        : '');
     label.innerHTML =
       `<div class="tname"><span class="grip" title="Drag up/down to move track(s)">⠿</span>` +
       `<input type="color" class="swatch" title="Change track color" value="${toHexColor(t.color)}">` +
@@ -1185,6 +1261,12 @@ function buildTrackRows() {
        ${ctxCtrls}`;
     label.querySelector('.del').onclick = () => removeTrack(t.id);
     attachRowDrag(label.querySelector('.grip'), t);
+    // In select mode, clicking the label background (not a control) selects the track.
+    label.addEventListener('click', (e) => {
+      if (state.tool !== 'select') return;
+      if (e.target.closest('input, select, button, .grip')) return;
+      handleSelectClick(t, e);
+    });
     t.row = row;
     const swatch = label.querySelector('.swatch');
     if (swatch) swatch.oninput = (e) => { t.color = e.target.value; quickRedraw(); };
@@ -1226,13 +1308,13 @@ function escapeHtml(s) {
 // insertion/table order is preserved).
 const GROUP_PALETTE = ['#4a90d9', '#e08214', '#1b7837', '#b2182b', '#762a83', '#01665e', '#c51b7d', '#8a6d3b'];
 function orderedTracksForDisplay() {
-  const nonMc = state.tracks.filter(t => t.kind !== 'mc');
-  const mc = state.tracks.filter(t => t.kind === 'mc');
+  const anchored = state.tracks.filter(t => t.kind === 'seq' || t.kind === 'gene');
+  const data = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');   // mc + bw
   const groupOrder = [];
-  for (const t of mc) { const g = t.group || ''; if (!groupOrder.includes(g)) groupOrder.push(g); }
+  for (const t of data) { const g = t.group || ''; if (!groupOrder.includes(g)) groupOrder.push(g); }
   const grouped = [];
-  for (const g of groupOrder) for (const t of mc) if ((t.group || '') === g) grouped.push(t);
-  return [...nonMc, ...grouped];
+  for (const g of groupOrder) for (const t of data) if ((t.group || '') === g) grouped.push(t);
+  return [...anchored, ...grouped];
 }
 function groupColorMap(ordered) {
   const map = {}; let i = 0;
@@ -1418,13 +1500,13 @@ function setSelectedVal(v) {
 
 // ── Y-axis limit editor (single track via its button, or many via the bar) ───
 function applyYlim(tracks, ylim) {
-  for (const t of tracks) if (t.kind === 'mc') t.ylim = ylim;
+  for (const t of tracks) if (t.kind === 'mc' || t.kind === 'bw') t.ylim = ylim;
   buildTrackRows();
   render();
 }
 function openYlimEditor(tracks, anchorEl) {
-  const mcTracks = tracks.filter(t => t.kind === 'mc');
-  if (!mcTracks.length) { setStatus('Y-limits apply to methylation tracks only.', true); return; }
+  const mcTracks = tracks.filter(t => t.kind === 'mc' || t.kind === 'bw');
+  if (!mcTracks.length) { setStatus('Y-limits apply to methylation / BigWig tracks only.', true); return; }
   const old = document.getElementById('ylimPopup'); if (old) old.remove();
   const first = mcTracks[0];
   const cur = Array.isArray(first.ylim) ? first.ylim : null;
@@ -1514,6 +1596,7 @@ function quickRedraw() {
     try {
       if (t.kind === 'seq') drawSeqCore(t);
       else if (t.kind === 'gene') { if (t._genes) drawGenesCore(t, t._genes); }
+      else if (t.kind === 'bw' && t._bwData) drawBigWig(t, t._bwData);
       else if (t.kind === 'mc' && t._data) drawTrack(t, t._data.qi, t._data.vals);
     } catch (_) { /* ignore during fast repaint */ }
   }
@@ -1565,6 +1648,12 @@ async function renderNow() {
         await drawSeqTrack(t, gen);
       } else if (t.kind === 'gene') {
         await drawGeneTrack(t, gen);
+      } else if (t.kind === 'bw') {
+        const vw = (t.canvas && t.canvas.parentElement.clientWidth) || 1000;
+        const feats = await bwGetFeatures(t, chrom, start, end, vw / Math.max(1, end - start));
+        if (gen !== state.gen) return;
+        t._bwData = feats;
+        drawBigWig(t, feats);
       } else {
         if (!qi) return;
         const vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
@@ -1622,7 +1711,7 @@ function drawTrack(track, qi, vals, dst) {
   let nSites = 0, totMc = 0, totCov = 0;
   const nCommon = Math.min(pos.length, vals.length);
   const rgb = hexToRgb(track.color);
-  const res = state.resolution;   // null → per-bp; otherwise bin width in bp
+  const res = effectiveResolution(w);   // null → per-bp; otherwise bin width in bp
   const alphaFor = (c) => 0.35 + 0.65 * Math.min(1, Math.log10(1 + c) / 1.5);
   const bars = [];   // { x, bw, level, cov }
   let maxLevel = 0;
@@ -1729,6 +1818,65 @@ function drawTrack(track, qi, vals, dst) {
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+// ── Draw a BigWig signal track (bars per pixel column) ───────────────────────
+function drawBigWig(track, feats, dst) {
+  const H = trackHeight(track);
+  const live = !dst;
+  const { ctx, w, h } = dst || sizeCanvas(track.canvas, H);
+  ctx.clearRect(0, 0, w, h);
+  const pad = 6, plotH = h - pad * 2, baseY = h - pad;
+  const { start, end } = state.locus;
+  const span = end - start;
+  const W = Math.max(1, Math.floor(w));
+  const colMax = new Float64Array(W);
+  const colHas = new Uint8Array(W);
+  let dataMax = 0, dataMin = 0;
+  for (const f of feats) {
+    const s = Math.max(f.start, start), e2 = Math.min(f.end, end);
+    if (e2 <= s) continue;
+    const sc = f.score;
+    if (sc > dataMax) dataMax = sc;
+    if (sc < dataMin) dataMin = sc;
+    const px0 = Math.max(0, Math.floor((s - start) / span * W));
+    const px1 = Math.min(W, Math.ceil((e2 - start) / span * W));
+    for (let px = px0; px < px1; px++) {
+      if (!colHas[px] || sc > colMax[px]) colMax[px] = sc;
+      colHas[px] = 1;
+    }
+  }
+  // Y-limits: per-track ylim overrides; 'auto' spans 0..dataMax (or dataMin..max).
+  let scaleMin = 0, scaleMax;
+  if (Array.isArray(track.ylim)) { scaleMin = track.ylim[0]; scaleMax = track.ylim[1]; }
+  else { scaleMin = Math.min(0, dataMin); scaleMax = dataMax || 1; }
+  const scaleSpan = (scaleMax - scaleMin) || 1;
+
+  ctx.strokeStyle = '#eceef2'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#b8bcc8'; ctx.font = '9px sans-serif'; ctx.textBaseline = 'middle';
+  const fmtLv = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : (Math.abs(v) >= 1 ? v.toFixed(1) : v.toFixed(2)));
+  for (const frac of [0, 0.5, 1]) {
+    const y = baseY - frac * plotH;
+    ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); ctx.stroke();
+    ctx.fillText(fmtLv(scaleMin + frac * scaleSpan), 2, y - 5);
+  }
+  const rgb = hexToRgb(track.color);
+  ctx.fillStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+  const y0 = baseY - Math.max(0, Math.min(1, (0 - scaleMin) / scaleSpan)) * plotH;   // zero line for signed data
+  for (let px = 0; px < W; px++) {
+    if (!colHas[px]) continue;
+    const y = baseY - Math.max(0, Math.min(1, (colMax[px] - scaleMin) / scaleSpan)) * plotH;
+    ctx.fillRect(px, Math.min(y, y0), 1, Math.max(1, Math.abs(y0 - y)));
+  }
+  ctx.strokeStyle = '#c9cdd6';
+  ctx.beginPath(); ctx.moveTo(0, baseY + 0.5); ctx.lineTo(w, baseY + 0.5); ctx.stroke();
+
+  if (live) track._bw = { start, end, W, colMax, colHas };
+  if (live && track.metaEl) {
+    track.metaEl.textContent = feats.length
+      ? `${fmtInt(feats.length)} intervals · max ${fmtLv(dataMax)}${Array.isArray(track.ylim) ? ` · y[${scaleMin}–${scaleMax}]` : ''}`
+      : 'no signal in view';
+  }
 }
 
 // ── Draw the reference DNA sequence track (.2bit) ────────────────────────────
@@ -1920,6 +2068,22 @@ function niceStep(span, targetTicks) {
   return 10 * mag;
 }
 
+// Effective methylation bin width (bp). In Auto mode, pick a "nice" bin size so
+// a wide view collapses to ~1 bar per 2 px (fast to draw); narrow views stay
+// per-bp. Otherwise use the fixed Res selection.
+function effectiveResolution(viewW) {
+  if (!state.resAuto) return state.resolution;
+  if (!state.locus) return null;
+  const span = state.locus.end - state.locus.start;
+  const w = viewW || (state.rulerView && state.rulerView.clientWidth) || 1000;
+  const targetBins = Math.max(1, Math.floor(w / 2));
+  let res = Math.ceil(span / targetBins);
+  if (res <= 1) return null;                         // fine enough → per-bp
+  const mag = Math.pow(10, Math.floor(Math.log10(res)));
+  for (const m of [1, 2, 5, 10]) if (m * mag >= res) { res = m * mag; break; }
+  return res;
+}
+
 // ── SVG / PDF export ─────────────────────────────────────────────────────────
 // A minimal Canvas2D-compatible recorder that emits SVG. It implements exactly
 // the subset of the 2D API used by the draw functions, so the SAME drawTrack /
@@ -2026,15 +2190,16 @@ async function composeExportSvg() {
     }
     const t = ri.t, h = ri.h;
     // Label: swatch (mc) + name
-    if (t.kind === 'mc') { rec.fillStyle = t.color || '#333'; rec.fillRect(4, y + 6, 10, 10); }
+    if (t.kind === 'mc' || t.kind === 'bw') { rec.fillStyle = t.color || '#333'; rec.fillRect(4, y + 6, 10, 10); }
     rec.fillStyle = '#1c1e26'; rec.font = 'bold 12px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
-    rec.fillText(t.name, t.kind === 'mc' ? 18 : 5, y + 12);
+    rec.fillText(t.name, (t.kind === 'mc' || t.kind === 'bw') ? 18 : 5, y + 12);
     // Track content
     rec.save(); rec.translate(labelW, y);
     const dst = { ctx: rec, w: viewW, h };
     try {
       if (t.kind === 'seq') await drawSeqTrack(t, state.gen, dst);
       else if (t.kind === 'gene') await drawGeneTrack(t, state.gen, dst);
+      else if (t.kind === 'bw' && t._bwData) drawBigWig(t, t._bwData, dst);
       else if (t.kind === 'mc' && t._data) drawTrack(t, t._data.qi, t._data.vals, dst);
     } catch (_) { /* skip a track that fails to draw */ }
     rec.restore();
@@ -2056,6 +2221,37 @@ function triggerDownload(blob, name) {
   a.href = url; a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+// Export every loaded methylation track's per-site data in the current window as
+// a TSV matrix: columns = chrom, pos, context, then the mC fraction per track.
+// All mc tracks share the reference query (positions/context), so rows align.
+function exportDataTsv() {
+  if (!state.locus) { setStatus('No view to export.', true); return; }
+  const mcTracks = state.tracks.filter(t => t.kind === 'mc' && t._data && t._data.qi && t._data.vals);
+  if (!mcTracks.length) { setStatus('No loaded methylation-track data to export in this window.', true); return; }
+  const qi = mcTracks[0]._data.qi;
+  const pos = qi.positions, recs = qi.records;
+  const n = pos.length;
+  const { chrom } = state.locus;
+  const header = ['chrom', 'pos', 'context', ...mcTracks.map(t => t.name)];
+  const lines = [header.join('\t')];
+  for (let i = 0; i < n; i++) {
+    const ctx = (recs[i] && recs[i][2]) || '';
+    const row = [chrom, Math.round(pos[i]), ctx];
+    for (const t of mcTracks) {
+      const v = t._data.vals[i];
+      const cov = v ? v[1] : 0;
+      if (!cov) { row.push(''); continue; }
+      let lvl = v[0] / cov;
+      if (t.valType === 'unmeth') lvl = 1 - lvl;
+      row.push(lvl.toFixed(4));
+    }
+    lines.push(row.join('\t'));
+  }
+  const base = exportBaseName();
+  triggerDownload(new Blob([lines.join('\n') + '\n'], { type: 'text/tab-separated-values;charset=utf-8' }), base + '.tsv');
+  setStatus(`Exported ${fmtInt(n)} sites × ${mcTracks.length} track(s) → ${base}.tsv`);
 }
 async function downloadView(format) {
   try {
@@ -2106,10 +2302,13 @@ function currentStateObject() {
     ref: state.refUrl || undefined,
     l: state.locus ? locusText(state.locus) : undefined,
     r: state.resolution || undefined,
+    ra: state.resAuto || undefined,
     y: state.yScale !== '1' ? state.yScale : undefined,
     colors: Object.keys(state.colorMap).length ? state.colorMap : undefined,
-    t: state.tracks.filter(t => t.kind === 'mc')
-      .map(t => ({ n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined })),
+    t: state.tracks.filter(t => t.kind === 'mc' || t.kind === 'bw')
+      .map(t => (t.kind === 'bw'
+        ? { k: 'bw', n: t.name, u: t.url, grp: t.group || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined }
+        : { n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined })),
   };
 }
 let _urlTimer = null, _restoring = false;
@@ -2130,14 +2329,18 @@ async function applyStateObject(st) {
       if (st.gs) $('geneSet').value = st.gs;
       await onGenomeChange();
     }
-    if (st.r) { state.resolution = parseInt(st.r, 10); if ($('resSel')) $('resSel').value = String(st.r); }
+    if (st.ra) { state.resAuto = true; state.resolution = null; if ($('resSel')) $('resSel').value = 'auto'; }
+    else if (st.r) { state.resAuto = false; state.resolution = parseInt(st.r, 10); if ($('resSel')) $('resSel').value = String(st.r); }
     if (st.y) { state.yScale = st.y; if ($('yScaleSel')) $('yScaleSel').value = st.y; }
     if (st.ref) { $('refUrl').value = st.ref; await loadReference(); }
     if (st.l) { const lo = parseLocus(st.l); if (lo) { state.locus = lo; syncLocusInput(); } }
     if (Array.isArray(st.t) && st.t.length) {
-      if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
+      if (st.t.some(r => r.k !== 'bw' && !isBigWigUrl(r.u)) && !state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
       for (const r of st.t) {
-        try { await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' }); }
+        try {
+          if (r.k === 'bw' || isBigWigUrl(r.u)) await openBigWigTrack({ name: r.n, url: r.u, group: r.grp || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          else await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+        }
         catch (e) { /* skip a track that fails to open */ }
       }
       buildTrackRows();
@@ -2219,6 +2422,7 @@ function attachPanZoom(view) {
 
   view.addEventListener('wheel', (e) => {
     if (!state.locus) return;
+    if (state.tool !== 'zoom') return;               // only zoom mode zooms with the wheel; others scroll the page
     e.preventDefault();
     const w = view.clientWidth || 1;
     const rect = view.getBoundingClientRect();
@@ -2376,6 +2580,21 @@ function updateHover(e) {
     return;
   }
 
+  // BigWig signal: show the value under the cursor.
+  if (track.kind === 'bw') {
+    if (!track._bw) { hv.style.display = 'none'; return; }
+    const b = track._bw;
+    const rect = track.view.getBoundingClientRect();
+    const px = Math.floor((e.clientX - rect.left) / rect.width * b.W);
+    if (px < 0 || px >= b.W || !b.colHas[px]) { hv.style.display = 'none'; return; }
+    const bp = Math.round(b.start + (px + 0.5) / b.W * (b.end - b.start));
+    hv.textContent = `${track.name} · ~${fmtInt(bp)} · ${b.colMax[px].toPrecision(4)}`;
+    hv.style.left = (e.clientX + 12) + 'px';
+    hv.style.top = (e.clientY + 12) + 'px';
+    hv.style.display = 'block';
+    return;
+  }
+
   if (!track._draw) { hv.style.display = 'none'; return; }
   const rect = track.view.getBoundingClientRect();
   const px = Math.floor((e.clientX - rect.left) / rect.width * track._draw.W);
@@ -2439,6 +2658,7 @@ $('trackTable').onchange = onTrackTableFile;
 $('btnTrackTableUrl').onclick = onTrackTableUrl;
 $('colorFile').onchange = onColorFile;
 $('btnColorUrl').onclick = onColorUrl;
+$('btnTsv').onclick = exportDataTsv;
 $('btnSvg').onclick = () => downloadView('svg');
 $('btnPng').onclick = () => downloadView('png');
 $('btnPdf').onclick = () => downloadView('pdf');
@@ -2505,7 +2725,8 @@ $('zoomIn').onclick = () => zoomBy(0.5);
 $('zoomOut').onclick = () => zoomBy(2);
 $('resSel').onchange = () => {
   const v = $('resSel').value;
-  state.resolution = v ? parseInt(v, 10) : null;
+  if (v === 'auto') { state.resAuto = true; state.resolution = null; }
+  else { state.resAuto = false; state.resolution = v ? parseInt(v, 10) : null; }
   render();
 };
 $('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack(); });
@@ -2533,6 +2754,19 @@ $('markColor').addEventListener('click', (e) => e.stopPropagation());
 $('markColor').addEventListener('input', (e) => { state.markColor = e.target.value; setTool('mark'); });
 $('btnClearMarks').onclick = () => { state.marks = []; updateMarks(); };
 setTool(state.tool);
+
+// Keyboard shortcuts (ignored while typing in a field): P/Z/V/M pick a tool,
+// S saves the session, C clears marks. Case-insensitive, no modifier keys.
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = (e.target && e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'select' || tag === 'textarea' || (e.target && e.target.isContentEditable)) return;
+  const tools = { p: 'pan', z: 'zoom', v: 'select', m: 'mark' };
+  const k = e.key.toLowerCase();
+  if (tools[k]) { setTool(tools[k]); e.preventDefault(); }
+  else if (k === 's') { saveSession(); e.preventDefault(); }
+  else if (k === 'c') { state.marks = []; updateMarks(); setStatus('Cleared marks.'); e.preventDefault(); }
+});
 // Overlay layers are page-fixed relative to #trackwrap, so keep them aligned
 // when the page scrolls and hide the crosshair once the cursor leaves.
 $('trackwrap').addEventListener('mouseleave', () => { $('crosshair').style.display = 'none'; $('hover').style.display = 'none'; });
