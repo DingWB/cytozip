@@ -113,7 +113,14 @@
     display: flex; flex-direction: column; justify-content: center; gap: 3px;
   }
   .label .tname { font-weight: 600; display: flex; align-items: center; gap: 6px; }
-  .label .swatch { width: 11px; height: 11px; border-radius: 2px; flex: 0 0 auto; }
+  .label .swatch {
+    width: 13px; height: 13px; border-radius: 2px; flex: 0 0 auto;
+    padding: 0; border: 1px solid var(--border); background: none;
+    cursor: pointer; -webkit-appearance: none; -moz-appearance: none; appearance: none;
+  }
+  .label .swatch::-webkit-color-swatch-wrapper { padding: 0; }
+  .label .swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
+  .label .swatch::-moz-color-swatch { border: none; border-radius: 2px; }
   .label .meta { font-size: 10.5px; color: var(--muted); }
   .label .ctrls { display: flex; gap: 5px; margin-top: 2px; }
   .label select { font-size: 10.5px; padding: 1px 3px; }
@@ -153,7 +160,64 @@
     border: 2px solid #cfd4de; border-top-color: var(--accent);
     border-radius: 50%; animation: czspin .7s linear infinite; z-index: 15;
   }
-  @keyframes czspin { to { transform: rotate(360deg); } }</style>
+  @keyframes czspin { to { transform: rotate(360deg); } }
+
+  /* Per-track selection checkbox + selected-row highlight */
+  .label .tname .tsel { margin: 0 3px 0 0; cursor: pointer; flex: 0 0 auto; }
+  .row.selected .label { background: #e3eefb; }
+  .row.selected { box-shadow: inset 3px 0 0 var(--accent); }
+  /* Per-track y-limit button */
+  .label .ylimbtn {
+    font-size: 10px; padding: 1px 6px; border: 1px solid var(--border);
+    background: #fff; color: #3a3f57; border-radius: 3px; cursor: pointer;
+    line-height: 1.4; white-space: nowrap;
+  }
+  .label .ylimbtn:hover { background: #eef3fb; border-color: var(--accent); }
+
+  /* Selection action bar (appears when one or more tracks are selected) */
+  #selbar {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: none; align-items: center; gap: 10px; z-index: 80;
+    background: var(--toolbar); color: #eef0f5; padding: 8px 14px;
+    border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.28);
+    border: 1px solid #3a3f57; font-size: 12px; white-space: nowrap;
+  }
+  #selbar.show { display: flex; }
+  #selbar label { display: flex; align-items: center; gap: 5px; color: #c3c8d6; }
+  #selbar #selcount { font-weight: 700; color: #eef0f5; }
+  #selbar button {
+    background: var(--accent); color: #fff; border: none; padding: 4px 10px;
+    border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  #selbar button:hover { background: #3a7bc0; }
+  #selbar button.secondary { background: #464b63; }
+  #selbar button.secondary:hover { background: #565c78; }
+  #selbar button.danger { background: #b2182b; }
+  #selbar button.danger:hover { background: #d0273c; }
+  #selbar input[type=color] { width: 26px; height: 22px; padding: 0; border: none; background: none; cursor: pointer; }
+  #selbar input[type=number] {
+    background: #1a1c28; border: 1px solid #3a3f57; color: #eef0f5;
+    padding: 3px 5px; border-radius: 4px; width: 60px; font-size: 12px;
+  }
+
+  /* Y-limit editor popup */
+  #ylimPopup {
+    position: fixed; z-index: 120; background: #fff; border: 1px solid #c9cdd6;
+    border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.18);
+    padding: 10px 12px; font-size: 12px; color: #1c1e26; min-width: 210px;
+  }
+  #ylimPopup label { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  #ylimPopup input[type=number] {
+    width: 62px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 3px; font-size: 12px;
+  }
+  #ylimPopup .ylimbtns { margin-top: 8px; display: flex; gap: 6px; justify-content: flex-end; }
+  #ylimPopup button {
+    background: var(--accent); color: #fff; border: none; padding: 4px 10px;
+    border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  #ylimPopup button:hover { background: #3a7bc0; }
+  #ylimPopup button.secondary { background: #8a8f9c; }
+  #ylimPopup button.secondary:hover { background: #767c8a; }</style>
 </head>
 <body>
 
@@ -258,7 +322,7 @@
     <div style="display:flex;gap:6px;align-items:center;">
       <input type="file" id="trackTable" accept=".csv,.tsv,.txt,.json,.xlsx,.xls"
         style="font-size:11px;color:#dfe2ea;max-width:140px;" />
-      <input type="text" class="url" id="trackTableUrl" placeholder="https://…/tracks.csv" style="width:170px" />
+      <input type="text" class="url" id="trackTableUrl" placeholder="https://…/tracks.csv" value="https://neomorph.salk.edu/ftp/cz/cz_url.tsv" style="width:170px" />
       <button id="btnTrackTableUrl" class="secondary">Load</button>
     </div>
   </div>
@@ -267,7 +331,7 @@
     <div style="display:flex;gap:6px;align-items:center;">
       <input type="file" id="colorFile" accept=".csv,.tsv,.txt,.json,.xlsx,.xls"
         style="font-size:11px;color:#dfe2ea;max-width:140px;" />
-      <input type="text" class="url" id="colorUrl" placeholder="https://…/colors.csv" style="width:170px" />
+      <input type="text" class="url" id="colorUrl" placeholder="https://…/colors.csv" value="https://neomorph.salk.edu/ftp/cz/Subclass_colors.json" style="width:170px" />
       <button id="btnColorUrl" class="secondary">Load</button>
     </div>
   </div>
@@ -297,6 +361,17 @@
 </div>
 
 <div id="hover"></div>
+
+<div id="selbar">
+  <span id="selcount">0 selected</span>
+  <button id="selUp" class="secondary" title="Move selected track(s) up">↑ Up</button>
+  <button id="selDown" class="secondary" title="Move selected track(s) down">↓ Down</button>
+  <label>Color <input type="color" id="selColor" title="Recolor selected track(s)"></label>
+  <label>Height <input type="number" id="selHeight" min="22" step="1" title="Set height of selected track(s)"></label>
+  <button id="selYlim" title="Set Y-axis limits for selected track(s)">Y-lim…</button>
+  <button id="selDelete" class="danger" title="Remove selected track(s)">Delete</button>
+  <button id="selClear" class="secondary" title="Clear selection">Clear</button>
+</div>
 
 <script type="module">
 // ─────────────────────────────────────────────────────────────────────────────
@@ -356,6 +431,8 @@ const state = {
   tracks: [],           // {id, kind:'mc'|'seq'|'gene', name, url, reader, color, ctx, canvas, labelEl, metaEl}
   gen: 0,               // render generation token (drops stale async draws)
   trackSeq: 0,
+  selected: new Set(),  // ids of currently-selected tracks (for batch actions)
+  lastSelectedId: null, // anchor for Shift-range selection
 };
 
 const $ = (id) => document.getElementById(id);
@@ -710,7 +787,7 @@ async function addTrack() {
 }
 
 // Open a single methylation .cz track and push it into state (no UI side effects).
-async function openCzTrack({ name, url, ctx = 'ALL', valType = 'meth', group = '' }) {
+async function openCzTrack({ name, url, ctx = 'ALL', valType = 'meth', group = '', ylim = 'auto' }) {
   if (!state.refReader) throw new Error('Load the reference first.');
   if (!url) throw new Error('missing URL');
   const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
@@ -720,6 +797,7 @@ async function openCzTrack({ name, url, ctx = 'ALL', valType = 'meth', group = '
     id: ++state.trackSeq, kind: 'mc',
     name: named, url, reader,
     ctx: ctx || 'ALL', valType: valType || 'meth', group: group || '',
+    ylim: Array.isArray(ylim) ? ylim : 'auto',
     color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nMc % PALETTE.length],
     mismatch: validateAgainstRef(reader),
   };
@@ -850,6 +928,17 @@ function normalizeColor(c) {
   if (/^[0-9a-f]{6}$/i.test(c) || /^[0-9a-f]{3}$/i.test(c)) return '#' + c;   // bare hex
   return c;   // already #hex / rgb() / css name
 }
+// Normalize any CSS color to a #rrggbb string usable by <input type="color">.
+function toHexColor(c) {
+  try {
+    const cv = document.createElement('canvas').getContext('2d');
+    cv.fillStyle = '#888888';
+    cv.fillStyle = normalizeColor(c);
+    const v = cv.fillStyle;
+    if (/^#[0-9a-f]{6}$/i.test(v)) return v;
+  } catch (_) {}
+  return '#888888';
+}
 function applyColorMap(map, label) {
   Object.assign(state.colorMap, map);
   let n = 0;
@@ -914,6 +1003,7 @@ function removeTrack(id) {
   if (i < 0) return;
   if (state.tracks[i].reader) state.tracks[i].reader.close();
   state.tracks.splice(i, 1);
+  state.selected.delete(id);
   buildTrackRows();
   render();
 }
@@ -960,6 +1050,7 @@ function buildTrackRows() {
 
     const label = document.createElement('div');
     label.className = 'label';
+    const ylimLabel = Array.isArray(t.ylim) ? `y:${t.ylim[0]}–${t.ylim[1]}` : 'y:auto';
     const ctxCtrls = t.kind === 'mc'
       ? `<div class="ctrls">
            <select class="ctxsel">
@@ -970,20 +1061,30 @@ function buildTrackRows() {
              ${[['meth','mC'],['unmeth','1−mC']].map(([v,lab]) =>
                `<option value="${v}" ${v === (t.valType || 'meth') ? 'selected' : ''}>${lab}</option>`).join('')}
            </select>
+           <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
          </div>`
       : '';
     label.innerHTML =
-      `<div class="tname"><span class="swatch" style="background:${t.color}"></span>` +
-      `<span>${escapeHtml(t.name)}</span>` +
+      `<div class="tname"><input type="checkbox" class="tsel" title="Select track (Shift = range, Ctrl/⌘ = toggle)">` +
+      `<input type="color" class="swatch" title="Change track color" value="${toHexColor(t.color)}">` +
+      `<span class="tnametxt">${escapeHtml(t.name)}</span>` +
       (t.mismatch ? `<span title="${escapeHtml(t.mismatch)}" style="color:#b2182b;cursor:help;">⚠</span>` : '') +
       `<button class="del" title="Remove">×</button></div>
        <div class="meta"></div>
        ${ctxCtrls}`;
     label.querySelector('.del').onclick = () => removeTrack(t.id);
+    const cb = label.querySelector('.tsel');
+    cb.checked = state.selected.has(t.id);
+    cb.addEventListener('click', (e) => { e.stopPropagation(); handleSelectClick(t, e); });
+    t.selCb = cb; t.row = row;
+    const swatch = label.querySelector('.swatch');
+    if (swatch) swatch.oninput = (e) => { t.color = e.target.value; quickRedraw(); };
     const ctxSel = label.querySelector('.ctxsel');
     if (ctxSel) ctxSel.onchange = (e) => { t.ctx = e.target.value; render(); };
     const valSel = label.querySelector('.valsel');
     if (valSel) valSel.onchange = (e) => { t.valType = e.target.value; render(); };
+    const ylimBtn = label.querySelector('.ylimbtn');
+    if (ylimBtn) ylimBtn.onclick = (e) => { e.stopPropagation(); openYlimEditor([t], e.currentTarget); };
     t.metaEl = label.querySelector('.meta');
 
     const view = document.createElement('div');
@@ -1002,6 +1103,10 @@ function buildTrackRows() {
     row.appendChild(label); row.appendChild(view);
     host.appendChild(row);
   }
+  // Drop selection entries for tracks that no longer exist, then refresh the bar.
+  const liveIds = new Set(state.tracks.map(t => t.id));
+  for (const id of [...state.selected]) if (!liveIds.has(id)) state.selected.delete(id);
+  updateSelBar();
 }
 function escapeHtml(s) {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -1052,6 +1157,140 @@ function attachHeightResize(handle, t) {
   };
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
+}
+
+// ── Track selection + batch actions ──────────────────────────────────────────
+function selectedTracks() {
+  return state.tracks.filter(t => state.selected.has(t.id));
+}
+// Checkbox click: Shift = range (in display order), Ctrl/⌘ = toggle, plain = toggle.
+function handleSelectClick(t, e) {
+  const ordered = orderedTracksForDisplay();
+  const ids = ordered.map(x => x.id);
+  if (e.shiftKey && state.lastSelectedId != null) {
+    const a = ids.indexOf(state.lastSelectedId), b = ids.indexOf(t.id);
+    if (a >= 0 && b >= 0) {
+      const [lo, hi] = a < b ? [a, b] : [b, a];
+      for (let i = lo; i <= hi; i++) state.selected.add(ids[i]);
+    } else { state.selected.add(t.id); }
+  } else {
+    if (state.selected.has(t.id)) state.selected.delete(t.id);
+    else state.selected.add(t.id);
+    state.lastSelectedId = t.id;
+  }
+  updateSelBar();
+}
+// Reflect the selection in the DOM (row highlight + checkbox) and the action bar.
+function updateSelBar() {
+  for (const t of state.tracks) {
+    const on = state.selected.has(t.id);
+    if (t.selCb) t.selCb.checked = on;
+    if (t.row) t.row.classList.toggle('selected', on);
+  }
+  const bar = $('selbar');
+  if (!bar) return;
+  const sel = selectedTracks();
+  const n = sel.length;
+  bar.classList.toggle('show', n > 0);
+  const cnt = $('selcount');
+  if (cnt) cnt.textContent = `${n} selected`;
+  // Seed the color/height inputs from the first selected track.
+  if (n) {
+    const c = $('selColor'); if (c) c.value = toHexColor(sel[0].color || '#888888');
+    const h = $('selHeight'); if (h) h.value = trackHeight(sel[0]);
+  }
+}
+function clearSelection() {
+  state.selected.clear();
+  state.lastSelectedId = null;
+  updateSelBar();
+}
+// Move the selected tracks up/down by one position (dir = -1 up, +1 down).
+function moveSelected(dir) {
+  if (!state.selected.size) return;
+  const ordered = orderedTracksForDisplay();
+  const n = ordered.length;
+  const sel = state.selected;
+  if (dir < 0) {
+    for (let i = 1; i < n; i++)
+      if (sel.has(ordered[i].id) && !sel.has(ordered[i - 1].id))
+        [ordered[i - 1], ordered[i]] = [ordered[i], ordered[i - 1]];
+  } else {
+    for (let i = n - 2; i >= 0; i--)
+      if (sel.has(ordered[i].id) && !sel.has(ordered[i + 1].id))
+        [ordered[i], ordered[i + 1]] = [ordered[i + 1], ordered[i]];
+  }
+  state.tracks = ordered;
+  buildTrackRows();
+  render();
+}
+function deleteSelected() {
+  if (!state.selected.size) return;
+  for (const t of selectedTracks()) if (t.reader) t.reader.close();
+  state.tracks = state.tracks.filter(t => !state.selected.has(t.id));
+  state.selected.clear();
+  state.lastSelectedId = null;
+  buildTrackRows();
+  render();
+}
+function setSelectedColor(color) {
+  for (const t of selectedTracks()) t.color = color;
+  buildTrackRows();
+  quickRedraw();
+}
+function setSelectedHeight(h) {
+  const val = Math.max(MIN_HEIGHT, Math.round(h));
+  if (!Number.isFinite(val)) return;
+  for (const t of selectedTracks()) t.height = val;
+  render();
+}
+
+// ── Y-axis limit editor (single track via its button, or many via the bar) ───
+function applyYlim(tracks, ylim) {
+  for (const t of tracks) if (t.kind === 'mc') t.ylim = ylim;
+  buildTrackRows();
+  render();
+}
+function openYlimEditor(tracks, anchorEl) {
+  const mcTracks = tracks.filter(t => t.kind === 'mc');
+  if (!mcTracks.length) { setStatus('Y-limits apply to methylation tracks only.', true); return; }
+  const old = document.getElementById('ylimPopup'); if (old) old.remove();
+  const first = mcTracks[0];
+  const cur = Array.isArray(first.ylim) ? first.ylim : null;
+  const pop = document.createElement('div');
+  pop.id = 'ylimPopup';
+  pop.innerHTML =
+    `<div style="font-weight:700;margin-bottom:8px;">Y-axis limits${mcTracks.length > 1 ? ` · ${mcTracks.length} tracks` : ''}</div>` +
+    `<label><input type="radio" name="ylimMode" value="auto" ${cur ? '' : 'checked'}> Auto (scale to data)</label>` +
+    `<label><input type="radio" name="ylimMode" value="fixed" ${cur ? 'checked' : ''}> Fixed` +
+    ` &nbsp;min <input type="number" id="ylimMin" step="0.01" value="${cur ? cur[0] : 0}">` +
+    ` max <input type="number" id="ylimMax" step="0.01" value="${cur ? cur[1] : 1}"></label>` +
+    `<div class="ylimbtns"><button class="secondary" id="ylimCancel">Cancel</button>` +
+    `<button id="ylimApply">Apply</button></div>`;
+  document.body.appendChild(pop);
+  const r = anchorEl ? anchorEl.getBoundingClientRect() : { left: 100, bottom: 100 };
+  const px = Math.min(r.left, window.innerWidth - pop.offsetWidth - 8);
+  const py = Math.min(r.bottom + 4, window.innerHeight - pop.offsetHeight - 8);
+  pop.style.left = Math.max(4, px) + 'px';
+  pop.style.top = Math.max(4, py) + 'px';
+  const close = () => { pop.remove(); document.removeEventListener('pointerdown', closer, true); };
+  const closer = (ev) => { if (!pop.contains(ev.target)) close(); };
+  setTimeout(() => document.addEventListener('pointerdown', closer, true), 0);
+  pop.querySelector('#ylimCancel').onclick = close;
+  pop.querySelector('#ylimApply').onclick = () => {
+    const mode = pop.querySelector('input[name=ylimMode]:checked').value;
+    if (mode === 'fixed') {
+      const lo = parseFloat(pop.querySelector('#ylimMin').value);
+      const hi = parseFloat(pop.querySelector('#ylimMax').value);
+      if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) {
+        setStatus('Enter a valid Y range (max > min).', true); return;
+      }
+      applyYlim(mcTracks, [lo, hi]);
+    } else {
+      applyYlim(mcTracks, 'auto');
+    }
+    close();
+  };
 }
 
 // ── Canvas sizing (HiDPI) ────────────────────────────────────────────────────
@@ -1143,8 +1382,10 @@ async function renderNow() {
     }
   }
 
-  // Fetch + draw every track in parallel (each has its own reader/endpoint).
-  await Promise.all(state.tracks.map(async (t) => {
+  // Fetch + draw each track. With many tracks (>3) load them sequentially from
+  // top to bottom so the view fills in progressively instead of firing every
+  // network request at once (which can freeze the tab). Few tracks → parallel.
+  const drawOneTrack = async (t) => {
     if (gen !== state.gen) return;
     setTrackLoading(t, true);
     try {
@@ -1164,7 +1405,16 @@ async function renderNow() {
     } finally {
       setTrackLoading(t, false);
     }
-  }));
+  };
+  const drawOrder = orderedTracksForDisplay();
+  if (drawOrder.length > 3) {
+    for (const t of drawOrder) {
+      if (gen !== state.gen) return;
+      await drawOneTrack(t);
+    }
+  } else {
+    await Promise.all(drawOrder.map(drawOneTrack));
+  }
   if (gen !== state.gen) return;
   setStatus(`${locusText(state.locus)} · ${state.tracks.length} track(s) · span ${fmtInt(Math.round(end - start))} bp`);
   syncUrlState();
@@ -1252,21 +1502,32 @@ function drawTrack(track, qi, vals, dst) {
     }
   }
 
-  const scaleMax = state.yScale === 'auto' ? (maxLevel || 1) : 1;
+  // Y-axis limits: a per-track ylim overrides the global toolbar scale.
+  //   ylim = [min, max] → fixed range; 'auto' → 0..dataMax for THIS track;
+  //   unset (legacy sessions) falls back to the global Y setting (0–1 / auto).
+  let scaleMin = 0, scaleMax;
+  if (Array.isArray(track.ylim)) {
+    scaleMin = track.ylim[0]; scaleMax = track.ylim[1];
+  } else if (track.ylim === 'auto') {
+    scaleMax = maxLevel || 1;
+  } else {
+    scaleMax = state.yScale === 'auto' ? (maxLevel || 1) : 1;
+  }
+  const scaleSpan = (scaleMax - scaleMin) || 1;
 
   // Gridlines (0, mid, max) at the current y-axis scale.
   ctx.strokeStyle = '#eceef2'; ctx.lineWidth = 1;
   ctx.fillStyle = '#b8bcc8'; ctx.font = '9px sans-serif'; ctx.textBaseline = 'middle';
-  const fmtLv = (v) => (scaleMax < 0.2 ? v.toFixed(3) : (scaleMax < 1 ? v.toFixed(2) : v.toFixed(1)));
+  const fmtLv = (v) => (scaleSpan < 0.2 ? v.toFixed(3) : (scaleSpan < 1 ? v.toFixed(2) : v.toFixed(1)));
   for (const frac of [0, 0.5, 1]) {
     const y = baseY - frac * plotH;
     ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); ctx.stroke();
-    ctx.fillText(fmtLv(frac * scaleMax), 2, y - 5);
+    ctx.fillText(fmtLv(scaleMin + frac * scaleSpan), 2, y - 5);
   }
 
-  // Bars: height = level / scaleMax; opacity ramps with coverage depth.
+  // Bars: height = (level − min) / span; opacity ramps with coverage depth.
   for (const b of bars) {
-    const barH = Math.min(1, b.level / scaleMax) * plotH;
+    const barH = Math.max(0, Math.min(1, (b.level - scaleMin) / scaleSpan)) * plotH;
     ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(b.cov).toFixed(3)})`;
     ctx.fillRect(b.x, baseY - barH, b.bw, barH);
   }
@@ -1282,7 +1543,9 @@ function drawTrack(track, qi, vals, dst) {
   const meanShown = track.valType === 'unmeth' ? (1 - meanM) : meanM;
   const valTag = track.valType === 'unmeth' ? '1−mC' : 'mC';
   const resLabel = res ? ` · ${res} bp bins` : '';
-  const scaleLabel = state.yScale === 'auto' ? ` · y≤${(scaleMax * 100).toFixed(0)}%` : '';
+  const scaleLabel = Array.isArray(track.ylim)
+    ? ` · y[${scaleMin}–${scaleMax}]`
+    : ((track.ylim === 'auto' || state.yScale === 'auto') ? ` · y≤${(scaleMax * 100).toFixed(0)}%` : '');
   if (live && track.metaEl) {
     track.metaEl.textContent = nSites
       ? `${fmtInt(nSites)} covered · mean ${(meanShown * 100).toFixed(1)}% ${valTag} · ${track.ctx}${resLabel}${scaleLabel}`
@@ -1673,7 +1936,7 @@ function currentStateObject() {
     y: state.yScale !== '1' ? state.yScale : undefined,
     colors: Object.keys(state.colorMap).length ? state.colorMap : undefined,
     t: state.tracks.filter(t => t.kind === 'mc')
-      .map(t => ({ n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined })),
+      .map(t => ({ n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined })),
   };
 }
 let _urlTimer = null, _restoring = false;
@@ -1701,7 +1964,7 @@ async function applyStateObject(st) {
     if (Array.isArray(st.t) && st.t.length) {
       if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
       for (const r of st.t) {
-        try { await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '' }); }
+        try { await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' }); }
         catch (e) { /* skip a track that fails to open */ }
       }
       buildTrackRows();
@@ -1894,7 +2157,13 @@ $('btnColorUrl').onclick = onColorUrl;
 $('btnSvg').onclick = () => downloadView('svg');
 $('btnPng').onclick = () => downloadView('png');
 $('btnPdf').onclick = () => downloadView('pdf');
-$('yScaleSel').onchange = () => { state.yScale = $('yScaleSel').value; render(); };
+$('yScaleSel').onchange = () => {
+  state.yScale = $('yScaleSel').value;
+  // The toolbar Y control is a bulk setter: apply it to every mc track's ylim.
+  const yl = state.yScale === 'auto' ? 'auto' : [0, 1];
+  for (const t of state.tracks) if (t.kind === 'mc') t.ylim = Array.isArray(yl) ? [...yl] : yl;
+  buildTrackRows(); render();
+};
 $('btnSaveSession').onclick = saveSession;
 $('sessionFile').onchange = loadSessionFile;
 $('genomeSel').onchange = onGenomeChange;
@@ -1956,6 +2225,15 @@ $('resSel').onchange = () => {
 };
 $('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack(); });
 window.addEventListener('resize', () => render());
+
+// ── Selection action bar ─────────────────────────────────────────────────────
+$('selUp').onclick = () => moveSelected(-1);
+$('selDown').onclick = () => moveSelected(1);
+$('selColor').oninput = (e) => setSelectedColor(e.target.value);
+$('selHeight').onchange = (e) => setSelectedHeight(parseInt(e.target.value, 10));
+$('selYlim').onclick = (e) => openYlimEditor(selectedTracks(), e.currentTarget);
+$('selDelete').onclick = deleteSelected;
+$('selClear').onclick = clearSelection;
 
 refreshSavedTracksUI();
 setStatus('Ready. Pick a Genome to auto-load its DNA sequence + gene tracks, then search a ' +
