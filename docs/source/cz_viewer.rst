@@ -123,7 +123,8 @@ Working with tracks
 
 - **Reorder** tracks by dragging the grip handle (``⠿``) on the left up/down, or
   select some and use the **↑ Up / ↓ Down** buttons in the selection bar.
-- **Resize** a track's height by dragging its bottom edge.
+- **Resize** a track's height: select it (or several) with the Select tool and
+  type a pixel height into the selection bar's **Height** box.
 - **Recolor** a track with its color swatch.
 - **Per-track Y-limits**: click the ``y:auto`` button to set *Auto* or a fixed
   ``[min, max]`` range.
@@ -131,7 +132,7 @@ Working with tracks
   value (mC / 1 − mC), color, height, Y-limits, or to delete/move them together.
 - **Resolution** bins methylation for speed; choose **Auto** to let the viewer
   pick a bin size from the current span (large views bin coarsely, zoomed-in
-  views go per-base).
+  views go per-base). The active resolution is shown on the left of the ruler.
 
 Genome, gene search, and marks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

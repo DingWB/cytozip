@@ -130,7 +130,7 @@
   }
   .label .del:hover { color: #b2182b; }
   .view { flex: 1 1 auto; position: relative; cursor: crosshair; overflow: hidden; background: #fff; }
-  .view canvas { display: block; width: 100%; height: 100%; }
+  .view canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   .rulerrow .label { background: #eceef2; }
   .rulerrow .view { cursor: ew-resize; }
   /* Height resize handle (bottom edge of each track row) */
@@ -287,6 +287,12 @@
     position: absolute; top: 0; bottom: 0; width: 0; background: none;
     border-left: 1px dashed #111; pointer-events: none; display: none; z-index: 42;
   }
+  /* Draggable divider that resizes the left track-header (label) column */
+  #labelresize {
+    position: absolute; top: 0; bottom: 0; left: var(--track-w);
+    width: 7px; margin-left: -3px; cursor: col-resize; z-index: 45;
+  }
+  #labelresize:hover, #labelresize.dragging { background: rgba(74,144,217,.35); }
   #dragband { position: absolute; top: 0; bottom: 0; display: none; z-index: 40; pointer-events: none; }
   #dragband.zoom { background: rgba(74,144,217,.18); border-left: 1px solid var(--accent); border-right: 1px solid var(--accent); }
   #dragband.mark { background: rgba(255,204,51,.22); border-left: 1px dashed #d4a017; border-right: 1px dashed #d4a017; }
@@ -324,7 +330,7 @@
       Res
       <select id="resSel" title="Methylation binning resolution (Auto = pick a bin size from the view span)">
         <option value="">None (per-bp)</option>
-        <option value="auto">Auto</option>
+        <option value="auto" selected>Auto</option>
         <option value="10">10 bp</option>
         <option value="20">20 bp</option>
         <option value="50">50 bp</option>
@@ -334,33 +340,6 @@
         <option value="5000">5000 bp</option>
       </select>
     </label>
-    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
-      Ctx
-      <select id="newCtx" title="Context for newly added .cz tracks">
-        <option value="CG">CG</option>
-        <option value="CH">CH</option>
-        <option value="CHG">CHG</option>
-        <option value="CHH">CHH</option>
-        <option value="ALL" selected>All C</option>
-      </select>
-    </label>
-    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
-      Val
-      <select id="newValType" title="Show methylated or unmethylated (1 − mC) fraction for newly added tracks">
-        <option value="meth" selected>mC</option>
-        <option value="unmeth">1−mC</option>
-      </select>
-    </label>
-    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
-      Y
-      <select id="yScaleSel" title="Methylation y-axis scale (bulk sets every track)">
-        <option value="1">0–1</option>
-        <option value="auto">Auto</option>
-      </select>
-    </label>
-    <span class="zoombtns" style="margin-left:8px;">
-      <button id="btnTsv" class="secondary" title="Export all loaded track data in this window as a TSV matrix">TSV</button>
-    </span>
   </div>
 </div>
 
@@ -441,6 +420,7 @@
     <button id="btnSvg" title="Download the current view as vector SVG">SVG</button>
     <button id="btnPng" title="Download the current view as PNG">PNG</button>
     <button id="btnPdf" title="Download the current view as PDF">PDF</button>
+    <button id="btnTsv" title="Export the current window's track data as a TSV matrix (respects Res / context / value)">TSV</button>
   </span>
   <button id="btnClearMarks" title="Remove all region marks (C)">Clear marks</button>
 </div>
@@ -449,6 +429,7 @@
   <div id="marklayer"></div>
   <div id="dragband"></div>
   <div id="crosshair"></div>
+  <div id="labelresize" title="Drag to resize the track-header (label) column"></div>
   <div id="tracks">
     <div class="empty hint" id="emptyMsg">
       No tracks yet. Click <b>Load reference</b>, then <b>+ Add cz track</b> to visualize a remote <code>.cz</code> file.
@@ -525,10 +506,15 @@ const SAVED_TRACKS_KEY = 'czviewer_saved_tracks_v1';
 // works whether the page is served from _static/ or the site root.
 const MODULE_URL = new URL('cz_reader.mjs', import.meta.url).href;
 
-// Default track heights (px). Users can drag the bottom edge to resize.
+// Default track heights (px). Height is set via the selection bar's input.
 const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150, bw: 60, bed: 40, bedpe: 90, hic: 160 };
 const MIN_HEIGHT = 22;
 function trackHeight(t) { return t.height || DEFAULT_HEIGHT[t.kind] || 100; }
+
+// Data read-ahead: fetch ±20% beyond the view so small pans stay cached.
+const READAHEAD = 0.2;
+// Concurrent track loads: cap at 8, but never exceed the client's CPU count.
+const MAX_TRACK_WORKERS = Math.max(1, Math.min(8, navigator.hardwareConcurrency || 8));
 
 const state = {
   CzReader: null,
@@ -539,7 +525,7 @@ const state = {
   twoBit: null,         // { genome, tb } cached @gmod/twobit handle
   locus: null,          // {chrom, start, end}
   resolution: null,     // methylation binning: null = per-bp, else bin width in bp
-  resAuto: false,       // when true, pick the bin width from the current view span
+  resAuto: true,        // when true, pick the bin width from the current view span
   colorMap: {},         // { trackName: colorCode } from an uploaded palette
   yScale: '1',          // mc y-axis: '1' = fixed 0-1, 'auto' = per-track max
   tracks: [],           // {id, kind:'mc'|'seq'|'gene', name, url, reader, color, ctx, canvas, labelEl, metaEl}
@@ -683,6 +669,10 @@ async function loadReference() {
     state.refReader = reader;
     state.refUrl = url;
     state.chroms = reader.chunkKeys.map(k => k.split('\t')[0]);
+    // Reference changed: drop the cached reference index and any mc-track data
+    // (joined by row index to the old reference) so they re-fetch.
+    state._qi = null;
+    for (const t of state.tracks) { if (t.kind === 'mc') { t._data = null; t._dataRange = null; } }
     const ms = (performance.now() - t0).toFixed(0);
     setStatus(`Reference loaded in ${ms} ms · ${state.chroms.length} chromosomes · ` +
               `columns [${reader.header.columns.join(', ')}]. Now add a track.`);
@@ -878,13 +868,11 @@ function onSavedTrackPick() {
   if (!e) return;
   $('newName').value = e.name;
   $('newUrl').value = e.url;
-  if (e.ctx) $('newCtx').value = e.ctx;
-  $('newValType').value = e.valType || 'meth';
-  addTrack();
+  addTrack(e.ctx || 'ALL', e.valType || 'meth');
 }
 
 
-async function addTrack() {
+async function addTrack(defCtx = 'ALL', defVal = 'meth') {
   const url = $('newUrl').value.trim();
   const name = $('newName').value.trim() || `track ${state.tracks.length + 1}`;
   if (!url) { setStatus('Enter a track URL (.cz, .bw, .bed, .bedpe or .hic).', true); return; }
@@ -909,8 +897,7 @@ async function addTrack() {
     return;
   }
   if (!state.refReader) { setStatus('Load the reference first (or use a .bw/.bed/.bedpe/.hic URL).', true); return; }
-  const ctx = $('newCtx').value;
-  const valType = $('newValType').value;
+  const ctx = defCtx, valType = defVal;
   try {
     setStatus(`Opening track “${name}”…`);
     const tr = await openCzTrack({ name, url, ctx, valType });
@@ -1244,7 +1231,8 @@ function applyColorMap(map, label) {
   for (const t of state.tracks) {
     if (t.name in state.colorMap) { t.color = normalizeColor(state.colorMap[t.name]); n++; }
   }
-  buildTrackRows(); render();
+  // Colors are draw-only: rebuild rows and repaint from cache (no re-fetch).
+  buildTrackRows(); quickRedraw();
   setStatus(`Applied ${Object.keys(map).length} color(s) from ${label}; recolored ${n} track(s).`);
 }
 
@@ -1259,18 +1247,21 @@ async function ingestTrackRows(rows, label) {
   setStatus(`Opening ${rows.length} track(s) from ${label}…`);
   let ok = 0, mism = 0; const failed = [];
   for (const r of rows) {
+    let t;
     try {
-      if (isHicUrl(r.url)) { await openHicTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'hic' }); ok++; }
-      else if (isBedpeUrl(r.url)) { await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe' }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe' }); ok++; }
-      else if (isBigWigUrl(r.url)) { await openBigWigTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'bw' }); ok++; }
-      else if (isBedUrl(r.url)) { await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed' }); saveTrack({ name: r.name, url: r.url, fmt: 'bed' }); ok++; }
-      else {
-        const tr = await openCzTrack(r); if (tr.mismatch) mism++;
-        saveTrack({ name: r.name, url: r.url, ctx: r.ctx }); ok++;
-      }
-    } catch (e) { failed.push(`${r.name}: ${e.message}`); }
+      if (isHicUrl(r.url)) { t = await openHicTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'hic' }); ok++; }
+      else if (isBedpeUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe' }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe' }); ok++; }
+      else if (isBigWigUrl(r.url)) { t = await openBigWigTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'bw' }); ok++; }
+      else if (isBedUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed' }); saveTrack({ name: r.name, url: r.url, fmt: 'bed' }); ok++; }
+      else { t = await openCzTrack(r); if (t.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx }); ok++; }
+    } catch (e) { failed.push(`${r.name}: ${e.message}`); continue; }
+    // Show + render only this new track (O(1) per track). Fall back to a full
+    // rebuild when it can't just be appended at the end (e.g. grouped tables).
+    setStatus(`Loading ${label}: ${ok}/${rows.length}…`);
+    if (appendTrackRowIfLast(t)) await renderNewTrack(t);
+    else { buildTrackRows(); render(); }
   }
-  buildTrackRows(); render();
+  render();
   const grouped = rows.some(r => r.group);
   setStatus(`Added ${ok}/${rows.length} track(s) from ${label}${grouped ? ' (grouped)' : ''}.` +
     (mism ? ` ⚠ ${mism} have coordinates not matching the reference.` : '') +
@@ -1332,7 +1323,7 @@ function buildTrackRows() {
   rr.innerHTML = `<div class="label"><div class="tname">Position</div>
     <div class="meta" id="rulerMeta"></div></div>`;
   const rv = document.createElement('div');
-  rv.className = 'view'; rv.dataset.ruler = '1';
+  rv.className = 'view'; rv.dataset.ruler = '1'; rv.style.height = '30px';
   const rc = document.createElement('canvas');
   rv.appendChild(rc); rr.appendChild(rv); host.appendChild(rr);
   state.rulerCanvas = rc; state.rulerView = rv;
@@ -1352,79 +1343,89 @@ function buildTrackRows() {
       host.appendChild(gh);
     }
     if (t.kind === 'mc') prevGroup = grp;
-
-    const row = document.createElement('div');
-    row.className = 'row' + (grp ? ' grouped' : '');
-    if (grp) row.style.borderLeft = `4px solid ${gColors[grp]}`;
-
-    const label = document.createElement('div');
-    label.className = 'label';
-    const ylimLabel = Array.isArray(t.ylim) ? `y:${t.ylim[0]}–${t.ylim[1]}` : 'y:auto';
-    const ctxCtrls = t.kind === 'mc'
-      ? `<div class="ctrls">
-           <select class="ctxsel">
-             ${['CG','CH','CHG','CHH','ALL'].map(c =>
-               `<option value="${c}" ${c === t.ctx ? 'selected' : ''}>${c === 'ALL' ? 'All C' : c}</option>`).join('')}
-           </select>
-           <select class="valsel" title="Methylated or unmethylated (1 − mC) fraction">
-             ${[['meth','mC'],['unmeth','1−mC']].map(([v,lab]) =>
-               `<option value="${v}" ${v === (t.valType || 'meth') ? 'selected' : ''}>${lab}</option>`).join('')}
-           </select>
-           <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
-         </div>`
-      : (t.kind === 'bw'
-        ? `<div class="ctrls">
-             <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
-           </div>`
-        : '');
-    label.innerHTML =
-      `<div class="tname"><span class="grip" title="Drag up/down to move track(s)">⠿</span>` +
-      `<input type="color" class="swatch" title="Change track color" value="${toHexColor(t.color)}">` +
-      `<span class="tnametxt">${escapeHtml(t.name)}</span>` +
-      (t.mismatch ? `<span title="${escapeHtml(t.mismatch)}" style="color:#b2182b;cursor:help;">⚠</span>` : '') +
-      `<button class="del" title="Remove">×</button></div>
-       <div class="meta"></div>
-       ${ctxCtrls}`;
-    label.querySelector('.del').onclick = () => removeTrack(t.id);
-    attachRowDrag(label.querySelector('.grip'), t);
-    // In select mode, clicking the label background (not a control) selects the track.
-    label.addEventListener('click', (e) => {
-      if (state.tool !== 'select') return;
-      if (e.target.closest('input, select, button, .grip')) return;
-      handleSelectClick(t, e);
-    });
-    t.row = row;
-    const swatch = label.querySelector('.swatch');
-    if (swatch) swatch.oninput = (e) => { t.color = e.target.value; quickRedraw(); };
-    const ctxSel = label.querySelector('.ctxsel');
-    if (ctxSel) ctxSel.onchange = (e) => { t.ctx = e.target.value; render(); };
-    const valSel = label.querySelector('.valsel');
-    if (valSel) valSel.onchange = (e) => { t.valType = e.target.value; render(); };
-    const ylimBtn = label.querySelector('.ylimbtn');
-    if (ylimBtn) ylimBtn.onclick = (e) => { e.stopPropagation(); openYlimEditor([t], e.currentTarget); };
-    t.metaEl = label.querySelector('.meta');
-
-    const view = document.createElement('div');
-    view.className = 'view';
-    view.style.height = trackHeight(t) + 'px';   // definite height up front (avoids blank lower half on rebuild)
-    const canvas = document.createElement('canvas');
-    view.appendChild(canvas);
-    t.canvas = canvas; t.view = view;
-    attachPanZoom(view);
-
-    const resizer = document.createElement('div');
-    resizer.className = 'resizer';
-    resizer.title = 'Drag to resize track height';
-    attachHeightResize(resizer, t);
-    view.appendChild(resizer);
-
-    row.appendChild(label); row.appendChild(view);
-    host.appendChild(row);
+    host.appendChild(createTrackRow(t, grp, gColors));
   }
   // Drop selection entries for tracks that no longer exist, then refresh the bar.
   const liveIds = new Set(state.tracks.map(t => t.id));
   for (const id of [...state.selected]) if (!liveIds.has(id)) state.selected.delete(id);
   updateSelBar();
+}
+
+// Build one track row element (label + view) and wire all its controls.
+function createTrackRow(t, grp, gColors) {
+  const row = document.createElement('div');
+  row.className = 'row' + (grp ? ' grouped' : '');
+  if (grp) row.style.borderLeft = `4px solid ${gColors[grp]}`;
+
+  const label = document.createElement('div');
+  label.className = 'label';
+  const ylimLabel = Array.isArray(t.ylim) ? `y:${t.ylim[0]}–${t.ylim[1]}` : 'y:auto';
+  const ctxCtrls = t.kind === 'mc'
+    ? `<div class="ctrls">
+         <select class="ctxsel">
+           ${['CG','CH','CHG','CHH','ALL'].map(c =>
+             `<option value="${c}" ${c === t.ctx ? 'selected' : ''}>${c === 'ALL' ? 'All C' : c}</option>`).join('')}
+         </select>
+         <select class="valsel" title="Methylated or unmethylated (1 − mC) fraction">
+           ${[['meth','mC'],['unmeth','1−mC']].map(([v,lab]) =>
+             `<option value="${v}" ${v === (t.valType || 'meth') ? 'selected' : ''}>${lab}</option>`).join('')}
+         </select>
+         <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
+       </div>`
+    : (t.kind === 'bw'
+      ? `<div class="ctrls">
+           <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
+         </div>`
+      : '');
+  label.innerHTML =
+    `<div class="tname"><span class="grip" title="Drag up/down to move track(s)">⠿</span>` +
+    `<input type="color" class="swatch" title="Change track color" value="${toHexColor(t.color)}">` +
+    `<span class="tnametxt">${escapeHtml(t.name)}</span>` +
+    (t.mismatch ? `<span title="${escapeHtml(t.mismatch)}" style="color:#b2182b;cursor:help;">⚠</span>` : '') +
+    `<button class="del" title="Remove">×</button></div>
+     <div class="meta"></div>
+     ${ctxCtrls}`;
+  label.querySelector('.del').onclick = () => removeTrack(t.id);
+  attachRowDrag(label.querySelector('.grip'), t);
+  // In select mode, clicking the label background (not a control) selects the track.
+  label.addEventListener('click', (e) => {
+    if (state.tool !== 'select') return;
+    if (e.target.closest('input, select, button, .grip')) return;
+    handleSelectClick(t, e);
+  });
+  t.row = row;
+  const swatch = label.querySelector('.swatch');
+  if (swatch) swatch.oninput = (e) => { t.color = e.target.value; quickRedraw(); };
+  const ctxSel = label.querySelector('.ctxsel');
+  if (ctxSel) ctxSel.onchange = (e) => { t.ctx = e.target.value; render(); };
+  const valSel = label.querySelector('.valsel');
+  if (valSel) valSel.onchange = (e) => { t.valType = e.target.value; render(); };
+  const ylimBtn = label.querySelector('.ylimbtn');
+  if (ylimBtn) ylimBtn.onclick = (e) => { e.stopPropagation(); openYlimEditor([t], e.currentTarget); };
+  t.metaEl = label.querySelector('.meta');
+
+  const view = document.createElement('div');
+  view.className = 'view';
+  view.style.height = trackHeight(t) + 'px';   // definite height up front (avoids blank lower half on rebuild)
+  const canvas = document.createElement('canvas');
+  view.appendChild(canvas);
+  t.canvas = canvas; t.view = view;
+  attachPanZoom(view);
+  row.appendChild(label); row.appendChild(view);
+  return row;
+}
+// Append a single new track row without rebuilding the others, when it lands at
+// the end of the display order (the common ungrouped case). Returns false if a
+// full rebuild is needed instead.
+function appendTrackRowIfLast(t) {
+  const host = $('tracks');
+  if (!state.rulerView || !host.querySelector('.rulerrow')) return false;
+  const ordered = orderedTracksForDisplay();
+  if (ordered[ordered.length - 1] !== t) return false;
+  if (t.kind === 'mc' && t.group) return false;
+  host.appendChild(createTrackRow(t, '', groupColorMap(ordered)));
+  updateSelBar();
+  return true;
 }
 function escapeHtml(s) {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -1453,30 +1454,8 @@ function groupColorMap(ordered) {
   return map;
 }
 
-// ── Per-track height drag-resize ─────────────────────────────────────────────
-function attachHeightResize(handle, t) {
-  let dragId = null, startY = 0, h0 = 0;
-  handle.addEventListener('pointerdown', (e) => {
-    e.preventDefault(); e.stopPropagation();
-    dragId = e.pointerId; startY = e.clientY; h0 = trackHeight(t);
-    handle.classList.add('dragging');
-    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
-  });
-  handle.addEventListener('pointermove', (e) => {
-    if (dragId !== e.pointerId) return;
-    e.stopPropagation();
-    t.height = Math.max(MIN_HEIGHT, Math.round(h0 + (e.clientY - startY)));
-    if (t.view) t.view.style.height = t.height + 'px';
-    quickRedraw();                                   // repaint from cache (no network) at the new height
-  });
-  const end = (e) => {
-    if (dragId !== e.pointerId) return;
-    dragId = null; handle.classList.remove('dragging');
-    try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
-  };
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
-}
+// ── Per-track height (set via the selection bar's Height input) ──────────────
+// Drag-resize was removed: select one or more tracks, then type a height.
 
 // ── Track selection + batch actions ──────────────────────────────────────────
 function selectedTracks() {
@@ -1570,6 +1549,13 @@ function attachRowDrag(handle, t) {
 function onRowDragMove(e) {
   if (!_rowDrag) return;
   e.preventDefault();
+  _rowDrag.clientY = e.clientY;
+  if (_rowDrag.raf) return;                            // coalesce to one reorder per frame
+  _rowDrag.raf = requestAnimationFrame(() => { _rowDrag.raf = 0; processRowDrag(); });
+}
+function processRowDrag() {
+  if (!_rowDrag) return;
+  const clientY = _rowDrag.clientY;
   const ordered = orderedTracksForDisplay();
   const moving = ordered.filter(x => _rowDrag.movingIds.has(x.id));
   const statics = ordered.filter(x => !_rowDrag.movingIds.has(x.id));
@@ -1577,14 +1563,21 @@ function onRowDragMove(e) {
   let idx = statics.length;
   for (let i = 0; i < statics.length; i++) {
     const r = statics[i].row && statics[i].row.getBoundingClientRect();
-    if (r && e.clientY < r.top + r.height / 2) { idx = i; break; }
+    if (r && clientY < r.top + r.height / 2) { idx = i; break; }
   }
   state.tracks = [...statics.slice(0, idx), ...moving, ...statics.slice(idx)];
   const key = orderedTracksForDisplay().map(x => x.id).join(',');
-  if (key === _rowDrag.lastKey) return;          // no visible change → skip rebuild
+  if (key === _rowDrag.lastKey) return;          // no visible change → skip reorder
   _rowDrag.lastKey = key;
-  buildTrackRows();
-  quickRedraw();
+  reorderRowsDom();
+}
+// Reorder existing row elements in place — keeps canvas content, no redraw, so
+// dragging stays smooth even with many tracks. Grouped layouts need header
+// bookkeeping, so fall back to a full rebuild there.
+function reorderRowsDom() {
+  if (state.tracks.some(t => t.kind === 'mc' && t.group)) { buildTrackRows(); quickRedraw(); return; }
+  const host = $('tracks');
+  for (const t of orderedTracksForDisplay()) if (t.row) host.appendChild(t.row);
 }
 function onRowDragEnd(e) {
   if (!_rowDrag) return;
@@ -1592,6 +1585,7 @@ function onRowDragEnd(e) {
   wrap.removeEventListener('pointermove', onRowDragMove);
   wrap.removeEventListener('pointerup', onRowDragEnd);
   wrap.removeEventListener('pointercancel', onRowDragEnd);
+  if (_rowDrag.raf) cancelAnimationFrame(_rowDrag.raf);
   try { wrap.releasePointerCapture(e.pointerId); } catch (_) {}
   document.body.classList.remove('row-dragging');
   _rowDrag = null;
@@ -1614,8 +1608,9 @@ function setSelectedColor(color) {
 function setSelectedHeight(h) {
   const val = Math.max(MIN_HEIGHT, Math.round(h));
   if (!Number.isFinite(val)) return;
-  for (const t of selectedTracks()) t.height = val;
-  render();
+  // Height is layout/draw-only: update the view height and repaint from cache.
+  for (const t of selectedTracks()) { t.height = val; if (t.view) t.view.style.height = val + 'px'; }
+  quickRedraw();
 }
 function setSelectedCtx(ctx) {
   for (const t of selectedTracks()) if (t.kind === 'mc') t.ctx = ctx;
@@ -1679,14 +1674,13 @@ function openYlimEditor(tracks, anchorEl) {
 function sizeCanvas(canvas, cssH) {
   const dpr = window.devicePixelRatio || 1;
   const view = canvas.parentElement;
-  // Give the view a definite height so the canvas element can't fall back to its
-  // (dpr-scaled) backing-store height, which left the lower half blank on resize.
+  // The view owns the definite height; the canvas fills it via CSS (absolute,
+  // 100%×100%). Sizing only the backing store keeps element and draw height in
+  // sync, so a taller track never leaves the lower half blank.
   if (view) view.style.height = cssH + 'px';
-  const cssW = view.clientWidth;
+  const cssW = view ? view.clientWidth : (canvas.clientWidth || 1);
   canvas.width = Math.max(1, Math.round(cssW * dpr));
   canvas.height = Math.max(1, Math.round(cssH * dpr));
-  canvas.style.width = cssW + 'px';
-  canvas.style.height = cssH + 'px';
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, w: cssW, h: cssH };
@@ -1717,9 +1711,14 @@ async function pump() {
 
 // Interactive (pan/zoom) render: repaint instantly from cached data for a smooth
 // feel, and debounce the (networked) full render until the gesture settles.
-let _fullTimer = null;
+// The cache repaint is throttled to one per animation frame so a fast wheel /
+// drag can't queue dozens of synchronous canvas repaints (which caused jank).
+let _fullTimer = null, _rafPending = false;
 function renderInteractive() {
-  quickRedraw();
+  if (!_rafPending) {
+    _rafPending = true;
+    requestAnimationFrame(() => { _rafPending = false; quickRedraw(); });
+  }
   clearTimeout(_fullTimer);
   _fullTimer = setTimeout(render, 160);
 }
@@ -1738,6 +1737,7 @@ function quickRedraw() {
     } catch (_) { /* ignore during fast repaint */ }
   }
   syncLocusInput();
+  updateRulerMeta();
   updateMarks();
 }
 
@@ -1753,76 +1753,36 @@ async function renderNow() {
   }
   drawRuler();
 
-  // Reference position/context index is only needed for methylation tracks.
+  // Fetch a read-ahead window (±READAHEAD beyond the view) and cache each
+  // track's data by that range, so small pans and incremental table loads only
+  // fetch what a cached range no longer covers.
+  const fr = fetchRange();
+  const { fStart, fEnd } = fr;
   const hasMc = state.tracks.some(t => t.kind === 'mc');
-  let qi = null;
-  if (hasMc) {
+  const mcNeedsFetch = state.tracks.some(t => t.kind === 'mc' && !(t._data && rangeCovers(t._dataRange)));
+  let qi = (state._qi && rangeCovers(state._qi)) ? state._qi.qi : null;
+  if (hasMc && !qi && mcNeedsFetch) {
     if (!state.refReader) {
       setStatus('Load a reference .cz before adding methylation tracks.', true);
     } else {
-      try {
-        const t0 = performance.now();
-        qi = await state.refReader.queryWithIndex(chrom, Math.round(start), Math.round(end));
-        if (gen !== state.gen) return;
-        const tRef = (performance.now() - t0).toFixed(0);
-        const rm = $('rulerMeta');
-        if (rm) rm.textContent = `${fmtInt(qi.positions.length)} C sites · ${tRef} ms`;
-      } catch (e) {
-        setStatus('Reference query failed: ' + e.message, true);
-        return;
-      }
+      try { qi = await ensureQi(gen, chrom, fStart, fEnd); if (gen !== state.gen) return; }
+      catch (e) { setStatus('Reference query failed: ' + e.message, true); return; }
     }
   }
+  updateRulerMeta();
 
-  // Fetch + draw each track. With many tracks (>3) load them sequentially from
-  // top to bottom so the view fills in progressively instead of firing every
-  // network request at once (which can freeze the tab). Few tracks → parallel.
-  const drawOneTrack = async (t) => {
-    if (gen !== state.gen) return;
-    setTrackLoading(t, true);
-    try {
-      if (t.kind === 'seq') {
-        await drawSeqTrack(t, gen);
-      } else if (t.kind === 'gene') {
-        await drawGeneTrack(t, gen);
-      } else if (t.kind === 'bw') {
-        const vw = (t.canvas && t.canvas.parentElement.clientWidth) || 1000;
-        const feats = await bwGetFeatures(t, chrom, start, end, vw / Math.max(1, end - start));
-        if (gen !== state.gen) return;
-        t._bwData = feats;
-        drawBigWig(t, feats);
-      } else if (t.kind === 'bed' || t.kind === 'bedpe') {
-        const feats = await bedGetFeatures(t, chrom, start, end);
-        if (gen !== state.gen) return;
-        t._bedData = feats;
-        if (t.kind === 'bedpe') drawBedpeTrack(t, feats); else drawBedTrack(t, feats);
-      } else if (t.kind === 'hic') {
-        const data = await hicGetRecords(t, chrom, start, end);
-        if (gen !== state.gen) return;
-        t._hicData = data;
-        drawHicTrack(t, data);
-      } else {
-        if (!qi) return;
-        const vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
-        if (gen !== state.gen) return;
-        t._data = { qi, vals };
-        drawTrack(t, qi, vals);
-      }
-    } catch (e) {
-      setStatus(`Track “${t.name}” fetch failed: ` + e.message, true);
-    } finally {
-      setTrackLoading(t, false);
+  // Fetch + draw each track through a bounded worker pool (see MAX_TRACK_WORKERS)
+  // so many tracks load progressively without flooding the network.
+  const c = { gen, chrom, start, end, fStart, fEnd, fr, qi };
+  const drawOrder = orderedTracksForDisplay();
+  let next = 0;
+  const worker = async () => {
+    while (next < drawOrder.length) {
+      if (gen !== state.gen) return;
+      await drawOneTrackCtx(drawOrder[next++], c);
     }
   };
-  const drawOrder = orderedTracksForDisplay();
-  if (drawOrder.length > 3) {
-    for (const t of drawOrder) {
-      if (gen !== state.gen) return;
-      await drawOneTrack(t);
-    }
-  } else {
-    await Promise.all(drawOrder.map(drawOneTrack));
-  }
+  await Promise.all(Array.from({ length: Math.min(MAX_TRACK_WORKERS, drawOrder.length) }, worker));
   if (gen !== state.gen) return;
   setStatus(`${locusText(state.locus)} · ${state.tracks.length} track(s) · span ${fmtInt(Math.round(end - start))} bp`);
   syncUrlState();
@@ -1830,6 +1790,78 @@ async function renderNow() {
 }
 function setTrackLoading(t, on) {
   if (t.view) t.view.classList.toggle('loading', !!on);
+}
+
+// Fetch + draw a single track for a render context c = { gen, chrom, start, end,
+// fStart, fEnd, fr, qi }. Reuses cached data when the read-ahead range covers.
+async function drawOneTrackCtx(t, c) {
+  if (c.gen !== state.gen) return;
+  setTrackLoading(t, true);
+  try {
+    const { gen, chrom, start, end, fStart, fEnd, fr, qi } = c;
+    if (t.kind === 'seq') {
+      await drawSeqTrack(t, gen);
+    } else if (t.kind === 'gene') {
+      await drawGeneTrack(t, gen);
+    } else if (t.kind === 'bw') {
+      if (t._bwData && rangeCovers(t._bwRange)) { drawBigWig(t, t._bwData); return; }
+      const vw = (t.canvas && t.canvas.parentElement.clientWidth) || 1000;
+      const feats = await bwGetFeatures(t, chrom, fStart, fEnd, vw / Math.max(1, end - start));
+      if (gen !== state.gen) return;
+      t._bwData = feats; t._bwRange = fr;
+      drawBigWig(t, feats);
+    } else if (t.kind === 'bed' || t.kind === 'bedpe') {
+      if (t._bedData && rangeCovers(t._bedRange)) { (t.kind === 'bedpe' ? drawBedpeTrack : drawBedTrack)(t, t._bedData); return; }
+      const feats = await bedGetFeatures(t, chrom, fStart, fEnd);
+      if (gen !== state.gen) return;
+      t._bedData = feats; t._bedRange = fr;
+      if (t.kind === 'bedpe') drawBedpeTrack(t, feats); else drawBedTrack(t, feats);
+    } else if (t.kind === 'hic') {
+      if (t._hicData && rangeCovers(t._hicRange)) { drawHicTrack(t, t._hicData); return; }
+      const data = await hicGetRecords(t, chrom, fStart, fEnd);
+      if (gen !== state.gen) return;
+      t._hicData = data; t._hicRange = fr;
+      drawHicTrack(t, data);
+    } else {
+      if (t._data && rangeCovers(t._dataRange)) { drawTrack(t, t._data.qi, t._data.vals); return; }
+      if (!qi) return;
+      const vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
+      if (gen !== state.gen) return;
+      t._data = { qi, vals }; t._dataRange = fr;
+      drawTrack(t, qi, vals);
+    }
+  } catch (e) {
+    setStatus(`Track “${t.name}” fetch failed: ` + e.message, true);
+  } finally {
+    setTrackLoading(t, false);
+  }
+}
+// Get (and cache) the reference index for the read-ahead range.
+async function ensureQi(gen, chrom, fStart, fEnd) {
+  if (state._qi && rangeCovers(state._qi)) return state._qi.qi;
+  if (!state.refReader) return null;
+  const qi = await state.refReader.queryWithIndex(chrom, fStart, fEnd);
+  if (gen !== state.gen) return null;
+  state._qi = { chrom, fStart, fEnd, qi };
+  state._nCsites = qi.positions.length;
+  updateRulerMeta();
+  return qi;
+}
+// Draw just one newly-added track (incremental table loading) without touching
+// or redrawing the others.
+async function renderNewTrack(t) {
+  if (!state.locus) return;
+  const gen = state.gen;
+  const { chrom, start, end } = state.locus;
+  const fr = fetchRange();
+  const { fStart, fEnd } = fr;
+  let qi = null;
+  if (t.kind === 'mc') {
+    if (!state.refReader) { setStatus('Load a reference .cz before adding methylation tracks.', true); return; }
+    try { qi = await ensureQi(gen, chrom, fStart, fEnd); } catch (e) { setStatus('Reference query failed: ' + e.message, true); return; }
+    if (gen !== state.gen) return;
+  }
+  await drawOneTrackCtx(t, { gen, chrom, start, end, fStart, fEnd, fr, qi });
 }
 
 // ── Draw one methylation track (binned by pixel column) ──────────────────────
@@ -2137,12 +2169,13 @@ async function drawSeqTrack(track, gen, dst) {
   const w = dst ? dst.w : (track.canvas.parentElement.clientWidth || 1);
   const { chrom, start, end } = state.locus;
   const perBase = w / (end - start);
-  if (perBase >= 5 && !(dst && track._seqData)) {
-    const s = Math.max(0, Math.floor(start)), e = Math.ceil(end);
+  if (perBase >= 5 && !(dst && track._seqData) && !(track._seqData && rangeCovers(track._seqRange))) {
+    const fr = fetchRange();
+    const s = fr.fStart, e = fr.fEnd;
     const tb = await loadTwoBit(track.genome || state.genome);
     const seq = ((await tb.getSequence(chrom, s, e)) || '').toUpperCase();
     if (gen !== state.gen) return;
-    track._seqData = { s, e, seq };
+    track._seqData = { s, e, seq }; track._seqRange = fr;
   }
   drawSeqCore(track, dst);
 }
@@ -2193,13 +2226,13 @@ function parseCommaInts(s) {
   return String(s).split(',').filter(x => x !== '').map(x => parseInt(x, 10));
 }
 async function drawGeneTrack(track, gen, dst) {
-  const { chrom, start, end } = state.locus;
   let genes;
-  if (dst && track._genes) genes = track._genes;
+  if ((dst && track._genes) || (track._genes && rangeCovers(track._geneRange))) genes = track._genes;
   else {
-    genes = await fetchGenes(track, chrom, start, end);
+    const fr = fetchRange();
+    genes = await fetchGenes(track, fr.chrom, fr.fStart, fr.fEnd);
     if (gen !== state.gen) return;
-    track._genes = genes;
+    track._genes = genes; track._geneRange = fr;
   }
   drawGenesCore(track, genes, dst);
 }
@@ -2333,6 +2366,27 @@ function effectiveResolution(viewW) {
   const mag = Math.pow(10, Math.floor(Math.log10(res)));
   for (const m of [1, 2, 5, 10]) if (m * mag >= res) { res = m * mag; break; }
   return res;
+}
+
+// The read-ahead window (±READAHEAD of the view) that data is fetched for.
+function fetchRange() {
+  const { chrom, start, end } = state.locus;
+  const pad = Math.max(1, Math.round((end - start) * READAHEAD));
+  return { chrom, fStart: Math.max(0, Math.floor(start - pad)), fEnd: Math.ceil(end + pad) };
+}
+// True when a cached range still fully covers the current view.
+function rangeCovers(r) {
+  if (!r || !state.locus) return false;
+  const { chrom, start, end } = state.locus;
+  return r.chrom === chrom && r.fStart <= start && r.fEnd >= end;
+}
+// Show the current (auto) resolution — and C-site count — in the ruler label.
+function updateRulerMeta() {
+  const rm = $('rulerMeta'); if (!rm) return;
+  const res = effectiveResolution();
+  const resTxt = res ? `${res >= 1000 ? (res / 1000) + ' kb' : res + ' bp'} bins${state.resAuto ? ' · auto' : ''}` : 'per-bp';
+  const sites = state._nCsites != null ? `${fmtInt(state._nCsites)} C · ` : '';
+  rm.textContent = sites + 'res: ' + resTxt;
 }
 
 // ── SVG / PDF export ─────────────────────────────────────────────────────────
@@ -2493,35 +2547,74 @@ function triggerDownload(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-// Export every loaded methylation track's per-site data in the current window as
-// a TSV matrix: columns = chrom, pos, context, then the mC fraction per track.
-// All mc tracks share the reference query (positions/context), so rows align.
+// Export the current window's methylation data as a TSV matrix. Honors each
+// track's context (CG/CH/…) and value (mC / 1−mC), and the active Resolution:
+// per-bp → one row per C site; a bin width (fixed or Auto) → one row per window
+// with the mean level per track.
 function exportDataTsv() {
   if (!state.locus) { setStatus('No view to export.', true); return; }
   const mcTracks = state.tracks.filter(t => t.kind === 'mc' && t._data && t._data.qi && t._data.vals);
   if (!mcTracks.length) { setStatus('No loaded methylation-track data to export in this window.', true); return; }
+  const { chrom, start, end } = state.locus;
+  const res = effectiveResolution();                   // null = per-bp; else bin width (bp)
   const qi = mcTracks[0]._data.qi;
   const pos = qi.positions, recs = qi.records;
   const n = pos.length;
-  const { chrom } = state.locus;
-  const header = ['chrom', 'pos', 'context', ...mcTracks.map(t => t.name)];
-  const lines = [header.join('\t')];
-  for (let i = 0; i < n; i++) {
-    const ctx = (recs[i] && recs[i][2]) || '';
-    const row = [chrom, Math.round(pos[i]), ctx];
-    for (const t of mcTracks) {
-      const v = t._data.vals[i];
-      const cov = v ? v[1] : 0;
-      if (!cov) { row.push(''); continue; }
-      let lvl = v[0] / cov;
-      if (t.valType === 'unmeth') lvl = 1 - lvl;
-      row.push(lvl.toFixed(4));
-    }
-    lines.push(row.join('\t'));
-  }
   const base = exportBaseName();
+  const colName = (t) => `${t.name} (${t.ctx}, ${t.valType === 'unmeth' ? '1-mC' : 'mC'})`;
+  const lvlOf = (t, mc, cov) => { let v = mc / cov; if (t.valType === 'unmeth') v = 1 - v; return v.toFixed(4); };
+  let lines, rowCount = 0;
+
+  if (res) {
+    // Bin each track's ctx-matching sites into genome-aligned windows.
+    const binStart0 = Math.floor(start / res) * res;
+    const nBins = Math.max(1, Math.ceil((end - binStart0) / res));
+    const sumMc = mcTracks.map(() => new Float64Array(nBins));
+    const sumCov = mcTracks.map(() => new Float64Array(nBins));
+    for (let i = 0; i < n; i++) {
+      const p = pos[i];
+      if (p < start || p >= end) continue;
+      const b = Math.floor((p - binStart0) / res);
+      if (b < 0 || b >= nBins) continue;
+      const context = recs[i] && recs[i][2];
+      for (let k = 0; k < mcTracks.length; k++) {
+        if (!ctxMatch(context, mcTracks[k].ctx)) continue;
+        const v = mcTracks[k]._data.vals[i]; if (!v || !v[1]) continue;
+        sumMc[k][b] += v[0]; sumCov[k][b] += v[1];
+      }
+    }
+    lines = [['chrom', 'start', 'end', ...mcTracks.map(colName)].join('\t')];
+    for (let b = 0; b < nBins; b++) {
+      const bs = binStart0 + b * res;
+      if (bs + res <= start || bs >= end) continue;
+      const row = [chrom, bs, bs + res];
+      let any = false;
+      for (let k = 0; k < mcTracks.length; k++) {
+        const c = sumCov[k][b];
+        if (!c) { row.push(''); continue; }
+        row.push(lvlOf(mcTracks[k], sumMc[k][b], c)); any = true;
+      }
+      if (any) { lines.push(row.join('\t')); rowCount++; }
+    }
+  } else {
+    // Per-bp: one row per C site; a track's value only where the site matches its context.
+    lines = [['chrom', 'pos', 'context', ...mcTracks.map(colName)].join('\t')];
+    for (let i = 0; i < n; i++) {
+      const p = pos[i];
+      if (p < start || p >= end) continue;
+      const context = (recs[i] && recs[i][2]) || '';
+      const row = [chrom, Math.round(p), context];
+      for (const t of mcTracks) {
+        if (!ctxMatch(context, t.ctx)) { row.push(''); continue; }
+        const v = t._data.vals[i]; const cov = v ? v[1] : 0;
+        if (!cov) { row.push(''); continue; }
+        row.push(lvlOf(t, v[0], cov));
+      }
+      lines.push(row.join('\t')); rowCount++;
+    }
+  }
   triggerDownload(new Blob([lines.join('\n') + '\n'], { type: 'text/tab-separated-values;charset=utf-8' }), base + '.tsv');
-  setStatus(`Exported ${fmtInt(n)} sites × ${mcTracks.length} track(s) → ${base}.tsv`);
+  setStatus(`Exported ${fmtInt(rowCount)} ${res ? `${res} bp windows` : 'sites'} × ${mcTracks.length} track(s) → ${base}.tsv`);
 }
 async function downloadView(format) {
   try {
@@ -2977,7 +3070,7 @@ function showGeneDetail(gd, genome, x, y) {
 
 // ── Wire up controls ─────────────────────────────────────────────────────────
 $('btnLoad').onclick = loadReference;
-$('btnAddTrack').onclick = addTrack;
+$('btnAddTrack').onclick = () => addTrack();
 $('trackTable').onchange = onTrackTableFile;
 $('btnTrackTableUrl').onclick = onTrackTableUrl;
 $('colorFile').onchange = onColorFile;
@@ -2986,13 +3079,6 @@ $('btnTsv').onclick = exportDataTsv;
 $('btnSvg').onclick = () => downloadView('svg');
 $('btnPng').onclick = () => downloadView('png');
 $('btnPdf').onclick = () => downloadView('pdf');
-$('yScaleSel').onchange = () => {
-  state.yScale = $('yScaleSel').value;
-  // The toolbar Y control is a bulk setter: apply it to every mc track's ylim.
-  const yl = state.yScale === 'auto' ? 'auto' : [0, 1];
-  for (const t of state.tracks) if (t.kind === 'mc') t.ylim = Array.isArray(yl) ? [...yl] : yl;
-  buildTrackRows(); quickRedraw();
-};
 $('btnSaveSession').onclick = saveSession;
 $('sessionFile').onchange = loadSessionFile;
 $('genomeSel').onchange = onGenomeChange;
@@ -3095,6 +3181,31 @@ document.addEventListener('keydown', (e) => {
 // when the page scrolls and hide the crosshair once the cursor leaves.
 $('trackwrap').addEventListener('mouseleave', () => { $('crosshair').style.display = 'none'; $('hover').style.display = 'none'; });
 window.addEventListener('scroll', () => { $('crosshair').style.display = 'none'; updateMarks(); }, { passive: true });
+
+// Drag the divider to resize the left track-header (label) column (global width).
+(function () {
+  const h = $('labelresize'), wrap = $('trackwrap');
+  if (!h || !wrap) return;
+  let dragId = null;
+  h.addEventListener('pointerdown', (e) => {
+    dragId = e.pointerId; h.classList.add('dragging');
+    try { h.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
+  });
+  h.addEventListener('pointermove', (e) => {
+    if (dragId !== e.pointerId) return;
+    const x = e.clientX - wrap.getBoundingClientRect().left;
+    document.documentElement.style.setProperty('--track-w', Math.max(90, Math.min(600, Math.round(x))) + 'px');
+  });
+  const end = (e) => {
+    if (dragId !== e.pointerId) return;
+    dragId = null; h.classList.remove('dragging');
+    try { h.releasePointerCapture(e.pointerId); } catch (_) {}
+    quickRedraw();   // view width changed → repaint canvases at their new size
+  };
+  h.addEventListener('pointerup', end);
+  h.addEventListener('pointercancel', end);
+})();
 
 refreshSavedTracksUI();
 setStatus('Ready. Pick a Genome to auto-load its DNA sequence + gene tracks, then search a ' +
