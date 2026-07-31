@@ -123,6 +123,11 @@
   .label .swatch::-moz-color-swatch { border: none; border-radius: 2px; }
   .label .meta { font-size: 10.5px; color: var(--muted); }
   .label .ctrls { display: flex; gap: 5px; margin-top: 2px; }
+  /* Compact label (very short tracks): drop the descriptive text, keep the name
+     and the context/value/ylim controls. */
+  .label.compact { padding: 3px 8px; gap: 1px; }
+  .label.compact .meta { display: none; }
+  .label.compact .ctrls { margin-top: 1px; }
   .label select { font-size: 10.5px; padding: 1px 3px; }
   .label .del {
     cursor: pointer; color: var(--muted); border: none; background: none;
@@ -270,6 +275,11 @@
     border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
   }
   .tracktoolbar #btnSaveSession:hover { background: #565c78; }
+  .tracktoolbar .selbtns button {
+    background: #464b63; color: #fff; border: none; padding: 4px 10px;
+    border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  .tracktoolbar .selbtns button:hover { background: #565c78; }
   .tracktoolbar .zoombtns #zoomOut, .tracktoolbar .zoombtns #zoomIn { font-weight: 700; }
 
   /* Cursor reflects the active tool. Ruler always pans horizontally. */
@@ -412,6 +422,11 @@
     <input type="color" id="markColor" class="markcolor" value="#ffcc33" title="Mark color">
   </div>
   <span class="toolsep"></span>
+  <span class="selbtns tlabel">Select
+    <button id="btnSelAll" title="Select all tracks">All</button>
+    <button id="btnSelNone" title="Deselect all tracks">None</button>
+  </span>
+  <span class="toolsep"></span>
   <label class="tlabel">Session
     <button id="btnSaveSession" title="Download the current session as JSON (S)">Save</button>
     <input type="file" id="sessionFile" accept=".json" title="Load a session JSON" style="font-size:11px;max-width:120px;" />
@@ -509,6 +524,9 @@ const MODULE_URL = new URL('cz_reader.mjs', import.meta.url).href;
 // Default track heights (px). Height is set via the selection bar's input.
 const DEFAULT_HEIGHT = { seq: 30, mc: 118, gene: 150, bw: 60, bed: 40, bedpe: 90, hic: 160 };
 const MIN_HEIGHT = 22;
+// Below this track height the label hides the descriptive meta text (covered /
+// mean / resolution) and keeps only the name + context/value/ylim controls.
+const COMPACT_HEIGHT = 56;
 function trackHeight(t) { return t.height || DEFAULT_HEIGHT[t.kind] || 100; }
 
 // Data read-ahead: fetch ±20% beyond the view so small pans stay cached.
@@ -1340,6 +1358,9 @@ function buildTrackRows() {
       gh.className = 'grouphdr';
       gh.style.borderLeft = `4px solid ${gColors[grp]}`;
       gh.textContent = grp;
+      gh.title = 'Click to select / deselect all tracks in this group';
+      gh.style.cursor = 'pointer';
+      gh.onclick = () => toggleGroupSelection(grp);
       host.appendChild(gh);
     }
     if (t.kind === 'mc') prevGroup = grp;
@@ -1387,6 +1408,12 @@ function createTrackRow(t, grp, gColors) {
      ${ctxCtrls}`;
   label.querySelector('.del').onclick = () => removeTrack(t.id);
   attachRowDrag(label.querySelector('.grip'), t);
+  // Gene tracks: show which annotation set / source is being drawn.
+  if (t.kind === 'gene') {
+    const nt = label.querySelector('.tnametxt');
+    if (nt) nt.title = `Gene annotation set "${t.geneSet || 'refGene'}" for ${t.genome || state.genome || ''} — ` +
+      `source: WashU Epigenome Gateway API (epigenomegateway.org), mirroring UCSC RefSeq / GENCODE.`;
+  }
   // In select mode, clicking the label background (not a control) selects the track.
   label.addEventListener('click', (e) => {
     if (state.tool !== 'select') return;
@@ -1403,6 +1430,8 @@ function createTrackRow(t, grp, gColors) {
   const ylimBtn = label.querySelector('.ylimbtn');
   if (ylimBtn) ylimBtn.onclick = (e) => { e.stopPropagation(); openYlimEditor([t], e.currentTarget); };
   t.metaEl = label.querySelector('.meta');
+  t.labelEl = label;
+  label.classList.toggle('compact', trackHeight(t) < COMPACT_HEIGHT);
 
   const view = document.createElement('div');
   view.className = 'view';
@@ -1503,6 +1532,23 @@ function updateSelBar() {
 function clearSelection() {
   state.selected.clear();
   state.lastSelectedId = null;
+  updateSelBar();
+}
+// Select every track (used by the toolbar "Select All" button).
+function selectAllTracks() {
+  for (const t of state.tracks) state.selected.add(t.id);
+  const ord = orderedTracksForDisplay();
+  if (ord.length) state.lastSelectedId = ord[ord.length - 1].id;
+  updateSelBar();
+}
+// Toggle the whole group: select all its tracks, or clear them if all are on.
+function toggleGroupSelection(grp) {
+  if (!grp) return;
+  const ids = state.tracks.filter(t => t.kind === 'mc' && (t.group || '') === grp).map(t => t.id);
+  if (!ids.length) return;
+  const allSel = ids.every(id => state.selected.has(id));
+  for (const id of ids) { if (allSel) state.selected.delete(id); else state.selected.add(id); }
+  state.lastSelectedId = ids[ids.length - 1];
   updateSelBar();
 }
 // Move the selected tracks up/down by one position (dir = -1 up, +1 down).
@@ -1609,7 +1655,11 @@ function setSelectedHeight(h) {
   const val = Math.max(MIN_HEIGHT, Math.round(h));
   if (!Number.isFinite(val)) return;
   // Height is layout/draw-only: update the view min-height and repaint from cache.
-  for (const t of selectedTracks()) { t.height = val; if (t.view) t.view.style.minHeight = val + 'px'; }
+  for (const t of selectedTracks()) {
+    t.height = val;
+    if (t.view) t.view.style.minHeight = val + 'px';
+    if (t.labelEl) t.labelEl.classList.toggle('compact', val < COMPACT_HEIGHT);
+  }
   quickRedraw();
 }
 function setSelectedCtx(ctx) {
@@ -1654,7 +1704,7 @@ function openYlimEditor(tracks, anchorEl) {
   const closer = (ev) => { if (!pop.contains(ev.target)) close(); };
   setTimeout(() => document.addEventListener('pointerdown', closer, true), 0);
   pop.querySelector('#ylimCancel').onclick = close;
-  pop.querySelector('#ylimApply').onclick = () => {
+  const doApply = () => {
     const mode = pop.querySelector('input[name=ylimMode]:checked').value;
     if (mode === 'fixed') {
       const lo = parseFloat(pop.querySelector('#ylimMin').value);
@@ -1668,6 +1718,17 @@ function openYlimEditor(tracks, anchorEl) {
     }
     close();
   };
+  pop.querySelector('#ylimApply').onclick = doApply;
+  const minEl = pop.querySelector('#ylimMin'), maxEl = pop.querySelector('#ylimMax');
+  // Editing a number implies "Fixed" mode; Enter applies, Escape cancels.
+  const pickFixed = () => { const r = pop.querySelector('input[name=ylimMode][value=fixed]'); if (r) r.checked = true; };
+  if (minEl) minEl.addEventListener('input', pickFixed);
+  if (maxEl) maxEl.addEventListener('input', pickFixed);
+  pop.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); doApply(); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); }
+  });
+  setTimeout(() => { if (minEl) { minEl.focus(); minEl.select(); } }, 0);
 }
 
 // ── Canvas sizing (HiDPI) ────────────────────────────────────────────────────
@@ -1986,9 +2047,15 @@ function drawTrack(track, qi, vals, dst) {
   const scaleLabel = Array.isArray(track.ylim)
     ? ` · y[${scaleMin}–${scaleMax}]`
     : ((track.ylim === 'auto' || state.yScale === 'auto') ? ` · y≤${(scaleMax * 100).toFixed(0)}%` : '');
+  // Full description (kept for image export, which has no dropdown controls) vs.
+  // the short on-screen text (context/value/ylim are already shown by the
+  // controls, so the label only needs covered / mean / resolution).
+  track._metaFull = nSites
+    ? `${fmtInt(nSites)} covered · mean ${(meanShown * 100).toFixed(1)}% ${valTag} · ${track.ctx}${resLabel}${scaleLabel}`
+    : `no covered ${track.ctx} sites here`;
   if (live && track.metaEl) {
     track.metaEl.textContent = nSites
-      ? `${fmtInt(nSites)} covered · mean ${(meanShown * 100).toFixed(1)}% ${valTag} · ${track.ctx}${resLabel}${scaleLabel}`
+      ? `${fmtInt(nSites)} covered · mean ${(meanShown * 100).toFixed(1)}%${resLabel}`
       : `no covered ${track.ctx} sites here`;
   }
 }
@@ -2317,9 +2384,10 @@ function drawGenesCore(track, genes, dst) {
   if (live) track._placed = { placed, rowH, topPad, wCss };
 
   if (live && track.metaEl) {
+    const src = `${track.geneSet || 'refGene'} · WashU eg API`;
     track.metaEl.textContent = genes.length
-      ? `${fmtInt(genes.length)} genes${placed.length < genes.length ? ` (${genes.length - placed.length} hidden)` : ''}`
-      : 'no genes in view';
+      ? `${fmtInt(genes.length)} genes${placed.length < genes.length ? ` (${genes.length - placed.length} hidden)` : ''} · ${src}`
+      : `no genes in view · ${src}`;
   }
 }
 
@@ -2460,7 +2528,7 @@ async function composeExportSvg() {
   const ordered = orderedTracksForDisplay();
   const gColors = groupColorMap(ordered);
   const viewW = Math.round((state.rulerView && state.rulerView.clientWidth) || 800);
-  const labelW = 160, rulerH = 30, hdrH = 18;
+  const labelW = 190, rulerH = 30, hdrH = 18;
 
   let total = rulerH, prevGroup = null;
   const rows = [];
@@ -2497,6 +2565,23 @@ async function composeExportSvg() {
     if (t.kind !== 'seq' && t.kind !== 'gene') { rec.fillStyle = t.color || '#333'; rec.fillRect(4, y + 6, 10, 10); }
     rec.fillStyle = '#1c1e26'; rec.font = 'bold 12px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
     rec.fillText(t.name, (t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5, y + 12);
+    // Sub-label (context / value / y-limit etc.) so the exported image keeps the
+    // header info that is otherwise only visible in the interactive UI.
+    const metaTxt = (t._metaFull || (t.metaEl && t.metaEl.textContent) || '').trim();
+    if (metaTxt) {
+      const tx = (t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5;
+      const maxChars = Math.max(14, Math.floor((labelW - tx - 4) / 5.0));
+      const lines = [];
+      let cur = '';
+      for (const seg of metaTxt.split(' · ')) {
+        const cand = cur ? cur + ' · ' + seg : seg;
+        if (cand.length > maxChars && cur) { lines.push(cur); cur = seg; } else cur = cand;
+      }
+      if (cur) lines.push(cur);
+      rec.fillStyle = '#8a8f9c'; rec.font = '9px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
+      let my = y + 26;
+      for (const ln of lines) { if (my > y + h - 4) break; rec.fillText(ln, tx, my); my += 11; }
+    }
     // Track content
     rec.save(); rec.translate(labelW, y);
     const dst = { ctx: rec, w: viewW, h };
@@ -3151,6 +3236,8 @@ $('selHeight').onchange = (e) => setSelectedHeight(parseInt(e.target.value, 10))
 $('selYlim').onclick = (e) => openYlimEditor(selectedTracks(), e.currentTarget);
 $('selDelete').onclick = deleteSelected;
 $('selClear').onclick = clearSelection;
+$('btnSelAll').onclick = selectAllTracks;
+$('btnSelNone').onclick = clearSelection;
 
 // ── Track toolbar tools (pan / zoom / select / mark) ─────────────────────────
 document.querySelectorAll('#toolModes .toolbtn').forEach(b => {
