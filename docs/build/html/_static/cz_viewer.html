@@ -166,6 +166,13 @@
   .label .tname .tsel { margin: 0 3px 0 0; cursor: pointer; flex: 0 0 auto; }
   .row.selected .label { background: #e3eefb; }
   .row.selected { box-shadow: inset 3px 0 0 var(--accent); }
+  /* Drag-to-reorder grip handle */
+  .label .tname .grip {
+    cursor: grab; color: #b8bcc8; font-size: 13px; line-height: 1;
+    flex: 0 0 auto; padding: 0 1px; user-select: none;
+  }
+  .label .tname .grip:hover { color: var(--accent); }
+  body.row-dragging, body.row-dragging * { cursor: grabbing !important; }
   /* Per-track y-limit button */
   .label .ylimbtn {
     font-size: 10px; padding: 1px 6px; border: 1px solid var(--border);
@@ -199,6 +206,10 @@
     background: #1a1c28; border: 1px solid #3a3f57; color: #eef0f5;
     padding: 3px 5px; border-radius: 4px; width: 60px; font-size: 12px;
   }
+  #selbar select {
+    background: #1a1c28; border: 1px solid #3a3f57; color: #eef0f5;
+    padding: 3px 5px; border-radius: 4px; font-size: 12px;
+  }
 
   /* Y-limit editor popup */
   #ylimPopup {
@@ -217,7 +228,74 @@
   }
   #ylimPopup button:hover { background: #3a7bc0; }
   #ylimPopup button.secondary { background: #8a8f9c; }
-  #ylimPopup button.secondary:hover { background: #767c8a; }</style>
+  #ylimPopup button.secondary:hover { background: #767c8a; }
+
+  /* ── Track toolbar (WashU-style tools + moved controls) ───────────────────── */
+  .tracktoolbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: #eceef2; border-bottom: 1px solid var(--border);
+    padding: 6px 12px;
+  }
+  .tracktoolbar .toolgroup {
+    display: flex; gap: 2px; background: #fff;
+    border: 1px solid var(--border); border-radius: 6px; padding: 2px;
+  }
+  .toolbtn {
+    border: none; background: none; cursor: pointer; font-size: 15px;
+    padding: 3px 9px; border-radius: 4px; line-height: 1; color: #3a3f57;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .toolbtn:hover { background: #e3eefb; }
+  .toolbtn.active { background: var(--accent); color: #fff; }
+  .toolbtn input[type=color] {
+    width: 16px; height: 16px; border: none; background: none; padding: 0; cursor: pointer;
+  }
+  .tracktoolbar .markcolor {
+    width: 22px; height: 22px; border: 1px solid var(--border); border-radius: 4px;
+    background: none; padding: 0; cursor: pointer; align-self: center;
+  }
+  .tracktoolbar .toolsep { width: 1px; height: 22px; background: var(--border); }
+  .tracktoolbar .tlabel { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #6b7180; }
+  .tracktoolbar select {
+    background: #fff; border: 1px solid var(--border); color: var(--text);
+    padding: 3px 5px; border-radius: 4px; font-size: 12px;
+  }
+  .tracktoolbar .zoombtns button, .tracktoolbar #btnClearMarks {
+    background: var(--accent); color: #fff; border: none; padding: 4px 10px;
+    border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  .tracktoolbar .zoombtns button:hover, .tracktoolbar #btnClearMarks:hover { background: #3a7bc0; }
+  .tracktoolbar #btnSaveSession {
+    background: #464b63; color: #fff; border: none; padding: 4px 10px;
+    border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  .tracktoolbar #btnSaveSession:hover { background: #565c78; }
+  .tracktoolbar .zoombtns #zoomOut, .tracktoolbar .zoombtns #zoomIn { font-weight: 700; }
+
+  /* Cursor reflects the active tool. Ruler always pans horizontally. */
+  body[data-tool=pan] .view { cursor: grab; }
+  body[data-tool=pan] .view:active { cursor: grabbing; }
+  body[data-tool=zoom] .view { cursor: crosshair; }
+  body[data-tool=select] .view { cursor: pointer; }
+  body[data-tool=mark] .view { cursor: crosshair; }
+  .rulerrow .view { cursor: ew-resize !important; }
+
+  /* Overlay layers spanning all tracks (crosshair, drag band, marks) */
+  #trackwrap { position: relative; }
+  #crosshair {
+    position: absolute; top: 0; bottom: 0; width: 1px; background: #e0245e;
+    pointer-events: none; display: none; z-index: 42;
+  }
+  #dragband { position: absolute; top: 0; bottom: 0; display: none; z-index: 40; pointer-events: none; }
+  #dragband.zoom { background: rgba(74,144,217,.18); border-left: 1px solid var(--accent); border-right: 1px solid var(--accent); }
+  #dragband.mark { background: rgba(255,204,51,.22); border-left: 1px dashed #d4a017; border-right: 1px dashed #d4a017; }
+  #marklayer { position: absolute; top: 0; bottom: 0; left: 0; right: 0; pointer-events: none; z-index: 38; }
+  .markband { position: absolute; top: 0; bottom: 0; }
+  .markband .mclose {
+    position: absolute; top: 2px; left: 2px; pointer-events: auto; cursor: pointer;
+    background: #fff; border: 1px solid #c9cdd6; border-radius: 3px;
+    font-size: 10px; line-height: 1.2; padding: 0 4px; color: #b2182b;
+  }</style>
 </head>
 <body>
 
@@ -255,8 +333,25 @@
       </select>
     </label>
     <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
+      Ctx
+      <select id="newCtx" title="Context for newly added .cz tracks">
+        <option value="CG">CG</option>
+        <option value="CH">CH</option>
+        <option value="CHG">CHG</option>
+        <option value="CHH">CHH</option>
+        <option value="ALL" selected>All C</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
+      Val
+      <select id="newValType" title="Show methylated or unmethylated (1 − mC) fraction for newly added tracks">
+        <option value="meth" selected>mC</option>
+        <option value="unmeth">1−mC</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
       Y
-      <select id="yScaleSel" title="Methylation y-axis scale">
+      <select id="yScaleSel" title="Methylation y-axis scale (bulk sets every track)">
         <option value="1">0–1</option>
         <option value="auto">Auto</option>
       </select>
@@ -284,23 +379,6 @@
     <input type="text" class="url" id="newUrl"
       value="https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz" />
   </div>
-  <div class="field">
-    <label>Context</label>
-    <select id="newCtx">
-      <option value="CG">CG</option>
-      <option value="CH">CH</option>
-      <option value="CHG">CHG</option>
-      <option value="CHH">CHH</option>
-      <option value="ALL" selected>All C</option>
-    </select>
-  </div>
-  <div class="field">
-    <label>Value</label>
-    <select id="newValType" title="Show methylated or unmethylated (1 − mC) fraction">
-      <option value="meth" selected>Methylated</option>
-      <option value="unmeth">Unmethylated (1 − mC)</option>
-    </select>
-  </div>
 </div>
 
 <div class="panel" style="background:#272b3d;">
@@ -308,7 +386,7 @@
     <label>Genome tracks</label>
     <span style="font-size:11px;color:#9aa0b2;line-height:26px;">auto-added when a Genome is selected</span>
   </div>
-  <div class="field">
+  <div class="field" style="display:none;">
     <label>Gene annotation set</label>
     <input type="text" class="name" id="geneSet" list="geneSetList" value="refGene" style="width:170px" />
     <datalist id="geneSetList"></datalist>
@@ -342,21 +420,34 @@
       <button id="btnForgetTracks" class="secondary" title="Clear saved tracks">Clear</button>
     </div>
   </div>
-  <div class="field">
-    <label>Session (view + tracks)</label>
-    <div style="display:flex;gap:6px;align-items:center;">
-      <button id="btnSaveSession" class="secondary" title="Download the current session as JSON">Save</button>
-      <input type="file" id="sessionFile" accept=".json" title="Load a session JSON"
-        style="font-size:11px;color:#dfe2ea;max-width:120px;" />
-    </div>
-  </div>
 </div>
 
 <div class="status" id="status">Ready. Set the reference URL and click “Load reference”, then “Add track”.</div>
 
-<div id="tracks">
-  <div class="empty hint" id="emptyMsg">
-    No tracks yet. Click <b>Load reference</b>, then <b>+ Add cz track</b> to visualize a remote <code>.cz</code> file.
+<div class="tracktoolbar" id="trackToolbar">
+  <div class="toolgroup" id="toolModes">
+    <button class="toolbtn" data-tool="pan" title="Pan — drag on a track to move along the genome">✋</button>
+    <button class="toolbtn active" data-tool="zoom" title="Zoom — drag on a track to select a region and zoom into it">🔍</button>
+    <button class="toolbtn" data-tool="select" title="Select — click tracks to select them for batch actions">☑</button>
+    <button class="toolbtn" data-tool="mark" title="Mark — drag to highlight a region across all tracks">🖍</button>
+    <input type="color" id="markColor" class="markcolor" value="#ffcc33" title="Mark color">
+  </div>
+  <span class="toolsep"></span>
+  <label class="tlabel">Session
+    <button id="btnSaveSession" title="Download the current session as JSON">Save</button>
+    <input type="file" id="sessionFile" accept=".json" title="Load a session JSON" style="font-size:11px;max-width:120px;" />
+  </label>
+  <button id="btnClearMarks" title="Remove all region marks" style="margin-left:auto;">Clear marks</button>
+</div>
+
+<div id="trackwrap">
+  <div id="marklayer"></div>
+  <div id="dragband"></div>
+  <div id="crosshair"></div>
+  <div id="tracks">
+    <div class="empty hint" id="emptyMsg">
+      No tracks yet. Click <b>Load reference</b>, then <b>+ Add cz track</b> to visualize a remote <code>.cz</code> file.
+    </div>
   </div>
 </div>
 
@@ -366,6 +457,23 @@
   <span id="selcount">0 selected</span>
   <button id="selUp" class="secondary" title="Move selected track(s) up">↑ Up</button>
   <button id="selDown" class="secondary" title="Move selected track(s) down">↓ Down</button>
+  <label>Ctx
+    <select id="selCtx" title="Set context for selected track(s)">
+      <option value="">—</option>
+      <option value="CG">CG</option>
+      <option value="CH">CH</option>
+      <option value="CHG">CHG</option>
+      <option value="CHH">CHH</option>
+      <option value="ALL">All C</option>
+    </select>
+  </label>
+  <label>Val
+    <select id="selVal" title="Methylated / unmethylated for selected track(s)">
+      <option value="">—</option>
+      <option value="meth">mC</option>
+      <option value="unmeth">1−mC</option>
+    </select>
+  </label>
   <label>Color <input type="color" id="selColor" title="Recolor selected track(s)"></label>
   <label>Height <input type="number" id="selHeight" min="22" step="1" title="Set height of selected track(s)"></label>
   <button id="selYlim" title="Set Y-axis limits for selected track(s)">Y-lim…</button>
@@ -433,6 +541,9 @@ const state = {
   trackSeq: 0,
   selected: new Set(),  // ids of currently-selected tracks (for batch actions)
   lastSelectedId: null, // anchor for Shift-range selection
+  tool: 'zoom',         // active track tool: 'pan' | 'zoom' | 'select' | 'mark'
+  marks: [],            // highlighted regions: {chrom, start, end, color}
+  markColor: '#ffcc33', // current mark color
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1065,7 +1176,7 @@ function buildTrackRows() {
          </div>`
       : '';
     label.innerHTML =
-      `<div class="tname"><input type="checkbox" class="tsel" title="Select track (Shift = range, Ctrl/⌘ = toggle)">` +
+      `<div class="tname"><span class="grip" title="Drag up/down to move track(s)">⠿</span>` +
       `<input type="color" class="swatch" title="Change track color" value="${toHexColor(t.color)}">` +
       `<span class="tnametxt">${escapeHtml(t.name)}</span>` +
       (t.mismatch ? `<span title="${escapeHtml(t.mismatch)}" style="color:#b2182b;cursor:help;">⚠</span>` : '') +
@@ -1073,10 +1184,8 @@ function buildTrackRows() {
        <div class="meta"></div>
        ${ctxCtrls}`;
     label.querySelector('.del').onclick = () => removeTrack(t.id);
-    const cb = label.querySelector('.tsel');
-    cb.checked = state.selected.has(t.id);
-    cb.addEventListener('click', (e) => { e.stopPropagation(); handleSelectClick(t, e); });
-    t.selCb = cb; t.row = row;
+    attachRowDrag(label.querySelector('.grip'), t);
+    t.row = row;
     const swatch = label.querySelector('.swatch');
     if (swatch) swatch.oninput = (e) => { t.color = e.target.value; quickRedraw(); };
     const ctxSel = label.querySelector('.ctxsel');
@@ -1198,6 +1307,8 @@ function updateSelBar() {
   if (n) {
     const c = $('selColor'); if (c) c.value = toHexColor(sel[0].color || '#888888');
     const h = $('selHeight'); if (h) h.value = trackHeight(sel[0]);
+    const cx = $('selCtx'); if (cx) cx.value = '';
+    const vv = $('selVal'); if (vv) vv.value = '';
   }
 }
 function clearSelection() {
@@ -1221,8 +1332,60 @@ function moveSelected(dir) {
         [ordered[i], ordered[i + 1]] = [ordered[i + 1], ordered[i]];
   }
   state.tracks = ordered;
+  // Reordering needs no network: rebuild the rows and repaint from cache.
   buildTrackRows();
-  render();
+  quickRedraw();
+  syncUrlState();
+}
+
+// ── Drag-to-reorder (grip handle; moves the whole selection if grabbed track
+// is selected, else just that track). Uses cached repaint so it stays smooth. ─
+let _rowDrag = null;
+function attachRowDrag(handle, t) {
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    const wrap = $('trackwrap');
+    const movingIds = (state.selected.size && state.selected.has(t.id))
+      ? new Set(state.selected) : new Set([t.id]);
+    _rowDrag = { movingIds, lastKey: orderedTracksForDisplay().map(x => x.id).join(',') };
+    document.body.classList.add('row-dragging');
+    // Capture on #trackwrap (never rebuilt) so the drag survives row rebuilds.
+    try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+    wrap.addEventListener('pointermove', onRowDragMove);
+    wrap.addEventListener('pointerup', onRowDragEnd);
+    wrap.addEventListener('pointercancel', onRowDragEnd);
+  });
+}
+function onRowDragMove(e) {
+  if (!_rowDrag) return;
+  e.preventDefault();
+  const ordered = orderedTracksForDisplay();
+  const moving = ordered.filter(x => _rowDrag.movingIds.has(x.id));
+  const statics = ordered.filter(x => !_rowDrag.movingIds.has(x.id));
+  if (!moving.length) return;
+  let idx = statics.length;
+  for (let i = 0; i < statics.length; i++) {
+    const r = statics[i].row && statics[i].row.getBoundingClientRect();
+    if (r && e.clientY < r.top + r.height / 2) { idx = i; break; }
+  }
+  state.tracks = [...statics.slice(0, idx), ...moving, ...statics.slice(idx)];
+  const key = orderedTracksForDisplay().map(x => x.id).join(',');
+  if (key === _rowDrag.lastKey) return;          // no visible change → skip rebuild
+  _rowDrag.lastKey = key;
+  buildTrackRows();
+  quickRedraw();
+}
+function onRowDragEnd(e) {
+  if (!_rowDrag) return;
+  const wrap = $('trackwrap');
+  wrap.removeEventListener('pointermove', onRowDragMove);
+  wrap.removeEventListener('pointerup', onRowDragEnd);
+  wrap.removeEventListener('pointercancel', onRowDragEnd);
+  try { wrap.releasePointerCapture(e.pointerId); } catch (_) {}
+  document.body.classList.remove('row-dragging');
+  _rowDrag = null;
+  syncUrlState();
 }
 function deleteSelected() {
   if (!state.selected.size) return;
@@ -1243,6 +1406,14 @@ function setSelectedHeight(h) {
   if (!Number.isFinite(val)) return;
   for (const t of selectedTracks()) t.height = val;
   render();
+}
+function setSelectedCtx(ctx) {
+  for (const t of selectedTracks()) if (t.kind === 'mc') t.ctx = ctx;
+  buildTrackRows(); render();
+}
+function setSelectedVal(v) {
+  for (const t of selectedTracks()) if (t.kind === 'mc') t.valType = v;
+  buildTrackRows(); render();
 }
 
 // ── Y-axis limit editor (single track via its button, or many via the bar) ───
@@ -1347,6 +1518,7 @@ function quickRedraw() {
     } catch (_) { /* ignore during fast repaint */ }
   }
   syncLocusInput();
+  updateMarks();
 }
 
 async function renderNow() {
@@ -1418,6 +1590,7 @@ async function renderNow() {
   if (gen !== state.gen) return;
   setStatus(`${locusText(state.locus)} · ${state.tracks.length} track(s) · span ${fmtInt(Math.round(end - start))} bp`);
   syncUrlState();
+  updateMarks();
 }
 function setTrackLoading(t, on) {
   if (t.view) t.view.classList.toggle('loading', !!on);
@@ -1995,33 +2168,49 @@ async function loadSessionFile(ev) {
 // Pointer-capture based: state is scoped to each view element (recreated on
 // every buildTrackRows), so there are no accumulating/stuck window listeners.
 function attachPanZoom(view) {
-  let dragId = null, startX = 0, locus0 = null, moved = false;
+  let dragId = null, startX = 0, startClientX = 0, locus0 = null, moved = false, dragTool = null;
+  const isRuler = () => view.dataset.ruler === '1';
 
   view.addEventListener('pointerdown', (e) => {
     if (!state.locus || e.button !== 0) return;
-    dragId = e.pointerId; startX = e.clientX; locus0 = { ...state.locus }; moved = false;
+    dragId = e.pointerId; startX = e.clientX; startClientX = e.clientX;
+    locus0 = { ...state.locus }; moved = false;
+    // The ruler always pans; every other view follows the active tool.
+    dragTool = isRuler() ? 'pan' : state.tool;
     try { view.setPointerCapture(e.pointerId); } catch (_) {}
     e.preventDefault();
   });
   view.addEventListener('pointermove', (e) => {
     if (dragId === e.pointerId && locus0) {
       if (Math.abs(e.clientX - startX) > 3) moved = true;
-      const w = view.clientWidth || 1;
-      const span = locus0.end - locus0.start;
-      const dbp = -(e.clientX - startX) / w * span;
-      let s = locus0.start + dbp, en = locus0.end + dbp;
-      if (s < 0) { en -= s; s = 0; }
-      state.locus = { chrom: locus0.chrom, start: s, end: en };
-      renderInteractive();
+      if (dragTool === 'pan') {
+        const w = view.clientWidth || 1;
+        const span = locus0.end - locus0.start;
+        const dbp = -(e.clientX - startX) / w * span;
+        let s = locus0.start + dbp, en = locus0.end + dbp;
+        if (s < 0) { en -= s; s = 0; }
+        state.locus = { chrom: locus0.chrom, start: s, end: en };
+        renderInteractive();
+      } else if ((dragTool === 'zoom' || dragTool === 'mark') && moved) {
+        showDragBand(startClientX, e.clientX, dragTool);
+      }
     }
     updateHover(e);
+    updateCrosshair(e.clientX);
   });
   const endDrag = (e) => {
-    if (dragId === e.pointerId) {
-      const wasClick = !moved;
-      dragId = null; locus0 = null;
-      try { view.releasePointerCapture(e.pointerId); } catch (_) {}
-      if (wasClick) handleViewClick(view, e);
+    if (dragId !== e.pointerId) return;
+    const wasClick = !moved, finishTool = dragTool, upX = e.clientX;
+    dragId = null; locus0 = null; dragTool = null;
+    hideDragBand();
+    try { view.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (wasClick) {
+      if (finishTool === 'select' && !isRuler()) toggleTrackSelectionByView(view, e);
+      else handleViewClick(view, e);
+    } else if (finishTool === 'zoom') {
+      zoomToPixelRange(view, startClientX, upX);
+    } else if (finishTool === 'mark') {
+      markPixelRange(view, startClientX, upX);
     }
   };
   view.addEventListener('pointerup', endDrag);
@@ -2044,6 +2233,102 @@ function attachPanZoom(view) {
     state.locus = { chrom, start: s, end: en };
     renderInteractive();
   }, { passive: false });
+}
+
+// ── Tool switching ───────────────────────────────────────────────────────────
+function setTool(tool) {
+  state.tool = tool;
+  document.body.dataset.tool = tool;
+  for (const b of document.querySelectorAll('#toolModes .toolbtn'))
+    b.classList.toggle('active', b.dataset.tool === tool);
+}
+
+// Convert an on-screen x (clientX over `view`) to a genomic bp coordinate.
+function pxToBp(view, clientX) {
+  const rect = view.getBoundingClientRect();
+  const frac = (clientX - rect.left) / (rect.width || 1);
+  const { start, end } = state.locus;
+  return start + frac * (end - start);
+}
+// A reference view for mapping bp↔px on the shared overlay layers.
+function refView() {
+  return state.rulerView || (state.tracks[0] && state.tracks[0].view) || null;
+}
+
+// Zoom mode: drag-select a region → set the locus to that range.
+function zoomToPixelRange(view, x0, x1) {
+  if (Math.abs(x1 - x0) < 4 || !state.locus) return;
+  let a = pxToBp(view, Math.min(x0, x1)), b = pxToBp(view, Math.max(x0, x1));
+  a = Math.max(0, a);
+  if (b - a < 10) return;                              // ignore tiny selections
+  state.locus = { chrom: state.locus.chrom, start: a, end: b };
+  syncLocusInput(); render();
+}
+// Mark mode: drag-select a region → store a colored highlight band.
+function markPixelRange(view, x0, x1) {
+  if (Math.abs(x1 - x0) < 4 || !state.locus) return;
+  const a = Math.max(0, pxToBp(view, Math.min(x0, x1))), b = pxToBp(view, Math.max(x0, x1));
+  state.marks.push({ chrom: state.locus.chrom, start: a, end: b, color: state.markColor });
+  updateMarks();
+}
+// Select mode: clicking a track toggles its selection (Shift/Ctrl supported).
+function toggleTrackSelectionByView(view, e) {
+  const track = state.tracks.find(t => t.view === view);
+  if (track) handleSelectClick(track, e);
+}
+
+// ── Shared overlay layers: crosshair, drag band, region marks ────────────────
+function showDragBand(x0, x1, tool) {
+  const b = $('dragband'), wrap = $('trackwrap');
+  if (!b || !wrap) return;
+  const wr = wrap.getBoundingClientRect();
+  b.style.left = (Math.min(x0, x1) - wr.left) + 'px';
+  b.style.width = Math.abs(x1 - x0) + 'px';
+  b.className = tool;
+  b.style.display = 'block';
+}
+function hideDragBand() {
+  const b = $('dragband'); if (b) { b.style.display = 'none'; b.className = ''; }
+}
+// Vertical guide line spanning every track, to compare positions across tracks.
+function updateCrosshair(clientX) {
+  const ch = $('crosshair'), wrap = $('trackwrap');
+  if (!ch || !wrap || !state.locus) return;
+  const wr = wrap.getBoundingClientRect();
+  ch.style.left = (clientX - wr.left) + 'px';
+  ch.style.display = 'block';
+}
+function hexToRgba(hex, a) {
+  const c = hexToRgb(hex);
+  return `rgba(${c.r},${c.g},${c.b},${a})`;
+}
+// Re-layout the mark bands for the current locus (called on every view change).
+function updateMarks() {
+  const layer = $('marklayer'), wrap = $('trackwrap'), rv = refView();
+  if (!layer || !wrap) return;
+  layer.innerHTML = '';
+  if (!state.locus || !rv) return;
+  const wr = wrap.getBoundingClientRect(), vr = rv.getBoundingClientRect();
+  const { chrom, start, end } = state.locus, span = end - start || 1;
+  state.marks.forEach((m, idx) => {
+    if (m.chrom !== chrom) return;
+    const f0 = (m.start - start) / span, f1 = (m.end - start) / span;
+    if (f1 < 0 || f0 > 1) return;
+    const x0 = (vr.left - wr.left) + Math.max(0, f0) * vr.width;
+    const x1 = (vr.left - wr.left) + Math.min(1, f1) * vr.width;
+    const band = document.createElement('div');
+    band.className = 'markband';
+    band.style.left = x0 + 'px';
+    band.style.width = Math.max(1, x1 - x0) + 'px';
+    band.style.background = hexToRgba(m.color, 0.20);
+    band.style.borderLeft = `1px solid ${m.color}`;
+    band.style.borderRight = `1px solid ${m.color}`;
+    const close = document.createElement('span');
+    close.className = 'mclose'; close.textContent = '✕'; close.title = 'Remove mark';
+    close.onclick = () => { state.marks.splice(idx, 1); updateMarks(); };
+    band.appendChild(close);
+    layer.appendChild(band);
+  });
 }
 
 function zoomBy(factor) {
@@ -2229,11 +2514,29 @@ window.addEventListener('resize', () => render());
 // ── Selection action bar ─────────────────────────────────────────────────────
 $('selUp').onclick = () => moveSelected(-1);
 $('selDown').onclick = () => moveSelected(1);
+$('selCtx').onchange = (e) => { if (e.target.value) { setSelectedCtx(e.target.value); e.target.value = ''; } };
+$('selVal').onchange = (e) => { if (e.target.value) { setSelectedVal(e.target.value); e.target.value = ''; } };
 $('selColor').oninput = (e) => setSelectedColor(e.target.value);
 $('selHeight').onchange = (e) => setSelectedHeight(parseInt(e.target.value, 10));
 $('selYlim').onclick = (e) => openYlimEditor(selectedTracks(), e.currentTarget);
 $('selDelete').onclick = deleteSelected;
 $('selClear').onclick = clearSelection;
+
+// ── Track toolbar tools (pan / zoom / select / mark) ─────────────────────────
+document.querySelectorAll('#toolModes .toolbtn').forEach(b => {
+  b.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'markColor') return;   // let the picker open
+    setTool(b.dataset.tool);
+  });
+});
+$('markColor').addEventListener('click', (e) => e.stopPropagation());
+$('markColor').addEventListener('input', (e) => { state.markColor = e.target.value; setTool('mark'); });
+$('btnClearMarks').onclick = () => { state.marks = []; updateMarks(); };
+setTool(state.tool);
+// Overlay layers are page-fixed relative to #trackwrap, so keep them aligned
+// when the page scrolls and hide the crosshair once the cursor leaves.
+$('trackwrap').addEventListener('mouseleave', () => { $('crosshair').style.display = 'none'; $('hover').style.display = 'none'; });
+window.addEventListener('scroll', () => { $('crosshair').style.display = 'none'; updateMarks(); }, { passive: true });
 
 refreshSavedTracksUI();
 setStatus('Ready. Pick a Genome to auto-load its DNA sequence + gene tracks, then search a ' +
