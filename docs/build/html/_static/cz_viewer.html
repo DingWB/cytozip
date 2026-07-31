@@ -418,7 +418,7 @@
     <button class="toolbtn" data-tool="pan" title="Pan — drag on a track to move along the genome (P)">✋</button>
     <button class="toolbtn active" data-tool="zoom" title="Zoom — drag on a track to select a region and zoom into it (Z)">🔍</button>
     <button class="toolbtn" data-tool="select" title="Select — click tracks to select them for batch actions (V)">☑</button>
-    <button class="toolbtn" data-tool="mark" title="Mark — drag to highlight a region across all tracks (M)">🖍</button>
+    <button class="toolbtn" data-tool="mark" title="Mark — drag to highlight a region across all tracks (M). Tip: right-drag marks in any mode.">🖍</button>
     <input type="color" id="markColor" class="markcolor" value="#ffcc33" title="Mark color">
   </div>
   <span class="toolsep"></span>
@@ -503,7 +503,7 @@ const GENE_API = 'https://lambda.epigenomegateway.org/v3';
 const GENOMES = {
   hg38: { twoBit: `${TWOBIT_BASE}/hg38/hg38.2bit`,
           genes: ['refGene', 'gencodeV47', 'gencodeV39'],
-          defaultLocus: 'chr7:27,150,000-27,250,000' },
+          defaultLocus: 'chr15:36,774,203-37,215,384' },
   hg19: { twoBit: `${TWOBIT_BASE}/hg19/hg19.2bit`,
           genes: ['refGene', 'gencodeV47', 'gencodeV39'],
           defaultLocus: 'chr7:27,180,000-27,280,000' },
@@ -529,8 +529,12 @@ const MIN_HEIGHT = 22;
 const COMPACT_HEIGHT = 56;
 function trackHeight(t) { return t.height || DEFAULT_HEIGHT[t.kind] || 100; }
 
-// Data read-ahead: fetch ±20% beyond the view so small pans stay cached.
-const READAHEAD = 0.2;
+// Data read-ahead: fetch ±50% beyond the view so pans stay cached longer
+// (fewer network round-trips at the cost of a bit more data per fetch).
+const READAHEAD = 0.5;
+// Per-reader HTTP range read-ahead: prefetch ~1 MB around a random block so
+// adjacent methylation blocks come along in one request instead of many.
+const READ_AHEAD_BYTES = 1024 * 1024;
 // Concurrent track loads: cap at 8, but never exceed the client's CPU count.
 const MAX_TRACK_WORKERS = Math.max(1, Math.min(8, navigator.hardwareConcurrency || 8));
 
@@ -678,7 +682,7 @@ async function loadReference() {
     }
     setStatus('Opening reference .cz (header + chunk index)…');
     const t0 = performance.now();
-    const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
+    const reader = await state.CzReader.fromUrl(url, { randomReadAhead: READ_AHEAD_BYTES });
     if (reader.header.sortCol === null) {
       reader.close();
       throw new Error('reference must have a sort_col (position) index');
@@ -932,7 +936,7 @@ async function addTrack(defCtx = 'ALL', defVal = 'meth') {
 async function openCzTrack({ name, url, ctx = 'ALL', valType = 'meth', group = '', ylim = 'auto' }) {
   if (!state.refReader) throw new Error('Load the reference first.');
   if (!url) throw new Error('missing URL');
-  const reader = await state.CzReader.fromUrl(url, { randomReadAhead: 256 * 1024 });
+  const reader = await state.CzReader.fromUrl(url, { randomReadAhead: READ_AHEAD_BYTES });
   const nMc = state.tracks.filter(t => t.kind === 'mc').length;
   const named = name || url.split('/').pop();
   const track = {
@@ -1567,9 +1571,9 @@ function moveSelected(dir) {
         [ordered[i], ordered[i + 1]] = [ordered[i + 1], ordered[i]];
   }
   state.tracks = ordered;
-  // Reordering needs no network: rebuild the rows and repaint from cache.
-  buildTrackRows();
-  quickRedraw();
+  // Reordering needs no network or repaint: just move the existing row nodes
+  // (canvas bitmaps are preserved) instead of rebuilding + redrawing everything.
+  reorderRowsDom();
   syncUrlState();
 }
 
@@ -1885,7 +1889,7 @@ async function drawOneTrackCtx(t, c) {
     } else {
       if (t._data && rangeCovers(t._dataRange)) { drawTrack(t, t._data.qi, t._data.vals); return; }
       if (!qi) return;
-      const vals = await t.reader.getRowValues(chrom, qi.rowStart, qi.rowEnd);
+      const vals = await t.reader.getRowValuesColumns(chrom, qi.rowStart, qi.rowEnd);
       if (gen !== state.gen) return;
       t._data = { qi, vals }; t._dataRange = fr;
       drawTrack(t, qi, vals);
@@ -1927,6 +1931,48 @@ async function renderNewTrack(t) {
 // ── Draw one methylation track (binned by pixel column) ──────────────────────
 // `dst` (optional) = { ctx, w, h } to draw into an export recorder instead of
 // the live canvas; when present, live-only side effects (hover data, meta) skip.
+//
+// Per-view geometry (each reference site's target pixel/bin + the per-context
+// site lists) is computed ONCE by getDrawPlan/ctxIndexFor and shared by every
+// mc track, so N tracks no longer each re-scan all sites.
+function getDrawPlan(qi, W, start, span, res) {
+  const sig = `${W}|${start}|${span}|${res || 0}`;
+  if (qi._planSig === sig && qi._plan) return qi._plan;
+  const pos = qi.positions, n = pos.length;
+  const col = new Int32Array(n);
+  let nBins;
+  if (!res) {
+    nBins = W;
+    const sc = W / span;
+    for (let i = 0; i < n; i++) {
+      const px = Math.floor((pos[i] - start) * sc);
+      col[i] = (px < 0 || px >= W) ? -1 : px;
+    }
+  } else {
+    const binStart0 = Math.floor(start / res) * res;
+    nBins = Math.max(1, Math.ceil(span / res));
+    for (let i = 0; i < n; i++) {
+      const b = Math.floor((pos[i] - binStart0) / res);
+      col[i] = (b < 0 || b >= nBins) ? -1 : b;
+    }
+  }
+  const plan = { col, nBins, ctxIdx: new Map() };
+  qi._plan = plan; qi._planSig = sig;
+  return plan;
+}
+// In-range site indices whose reference context matches `filter` (cached on the
+// plan, so tracks sharing a context pay the ctx scan only once per view).
+function ctxIndexFor(plan, qi, filter) {
+  let idx = plan.ctxIdx.get(filter);
+  if (idx) return idx;
+  const recs = qi.records, col = plan.col, n = recs.length;
+  let cnt = 0;
+  for (let i = 0; i < n; i++) if (col[i] >= 0 && ctxMatch(recs[i][2], filter)) cnt++;
+  idx = new Int32Array(cnt);
+  for (let i = 0, k = 0; i < n; i++) if (col[i] >= 0 && ctxMatch(recs[i][2], filter)) idx[k++] = i;
+  plan.ctxIdx.set(filter, idx);
+  return idx;
+}
 function drawTrack(track, qi, vals, dst) {
   const H = trackHeight(track);
   const live = !dst;
@@ -1938,68 +1984,57 @@ function drawTrack(track, qi, vals, dst) {
   const baseY = h - pad;
   const { start, end } = state.locus;
   const span = end - start;
-
-  // Aggregate mc/cov either per pixel column (native, per-bp) or into fixed
-  // genomic bins of `state.resolution` bp. sumMc/sumCov stay pixel-indexed so
-  // the hover tooltip works the same in both modes. Bars are collected first so
-  // we can compute the y-axis max for 'auto' scaling before drawing.
   const W = Math.max(1, Math.floor(w));
+  const res = effectiveResolution(w);   // null → per-bp; otherwise bin width in bp
+  const rgb = hexToRgb(track.color);
+  const alphaFor = (c) => 0.35 + 0.65 * Math.min(1, Math.log10(1 + c) / 1.5);
+
+  // Shared geometry + this track's context-filtered site list.
+  const plan = getDrawPlan(qi, W, start, span, res);
+  const idx = ctxIndexFor(plan, qi, track.ctx);
+  const col = plan.col;
+  const mcArr = vals.columns[0], covArr = vals.columns[1];
+  const nCommon = Math.min(qi.positions.length, vals.n);
+  const unmeth = track.valType === 'unmeth';
+
+  // Aggregate mc/cov per pixel column (per-bp) or into genome-aligned bins.
+  // sumMc/sumCov stay pixel-indexed so the hover tooltip works in both modes.
   const sumMc = new Float64Array(W);
   const sumCov = new Float64Array(W);
-  const pos = qi.positions, recs = qi.records;
-  let nSites = 0, totMc = 0, totCov = 0;
-  const nCommon = Math.min(pos.length, vals.length);
-  const rgb = hexToRgb(track.color);
-  const res = effectiveResolution(w);   // null → per-bp; otherwise bin width in bp
-  const alphaFor = (c) => 0.35 + 0.65 * Math.min(1, Math.log10(1 + c) / 1.5);
-  const bars = [];   // { x, bw, level, cov }
-  let maxLevel = 0;
+  let nSites = 0, totMc = 0, totCov = 0, maxLevel = 0;
+  let binMc = null, binCov = null, nBins = W, binStart0 = 0;
 
   if (!res) {
-    for (let i = 0; i < nCommon; i++) {
-      if (!ctxMatch(recs[i][2], track.ctx)) continue;
-      const cov = vals[i][1];
-      if (!cov) continue;
-      const mc = vals[i][0];
-      const px = Math.floor((pos[i] - start) / span * W);
-      if (px < 0 || px >= W) continue;
-      sumMc[px] += mc; sumCov[px] += cov;
-      nSites++; totMc += mc; totCov += cov;
+    for (let k = 0; k < idx.length; k++) {
+      const i = idx[k];
+      if (i >= nCommon) continue;
+      const cov = covArr[i]; if (!cov) continue;
+      const p = col[i];
+      sumMc[p] += mcArr[i]; sumCov[p] += cov;
+      nSites++; totMc += mcArr[i]; totCov += cov;
     }
     for (let px = 0; px < W; px++) {
-      const c = sumCov[px];
-      if (!c) continue;
-      let level = sumMc[px] / c;
-      if (track.valType === 'unmeth') level = 1 - level;
+      const c = sumCov[px]; if (!c) continue;
+      let level = sumMc[px] / c; if (unmeth) level = 1 - level;
       if (level > maxLevel) maxLevel = level;
-      bars.push({ x: px, bw: 1, level, cov: c });
     }
   } else {
-    const nBins = Math.max(1, Math.ceil(span / res));
-    const binMc = new Float64Array(nBins);
-    const binCov = new Float64Array(nBins);
-    const binStart0 = Math.floor(start / res) * res;   // align bins to genome grid
-    for (let i = 0; i < nCommon; i++) {
-      if (!ctxMatch(recs[i][2], track.ctx)) continue;
-      const cov = vals[i][1];
-      if (!cov) continue;
-      const mc = vals[i][0];
-      const b = Math.floor((pos[i] - binStart0) / res);
-      if (b < 0 || b >= nBins) continue;
-      binMc[b] += mc; binCov[b] += cov;
-      nSites++; totMc += mc; totCov += cov;
+    nBins = plan.nBins;
+    binStart0 = Math.floor(start / res) * res;
+    binMc = new Float64Array(nBins);
+    binCov = new Float64Array(nBins);
+    for (let k = 0; k < idx.length; k++) {
+      const i = idx[k];
+      if (i >= nCommon) continue;
+      const cov = covArr[i]; if (!cov) continue;
+      const b = col[i];
+      binMc[b] += mcArr[i]; binCov[b] += cov;
+      nSites++; totMc += mcArr[i]; totCov += cov;
     }
     for (let b = 0; b < nBins; b++) {
-      const c = binCov[b];
-      if (!c) continue;
-      const bpS = binStart0 + b * res, bpE = bpS + res;
-      const x0 = (bpS - start) / span * w, x1 = (bpE - start) / span * w;
-      let level = binMc[b] / c;
-      if (track.valType === 'unmeth') level = 1 - level;
+      const c = binCov[b]; if (!c) continue;
+      let level = binMc[b] / c; if (unmeth) level = 1 - level;
       if (level > maxLevel) maxLevel = level;
-      bars.push({ x: x0, bw: Math.max(1, x1 - x0), level, cov: c });
-      const px0 = Math.max(0, Math.floor(x0)), px1 = Math.min(W, Math.ceil(x1));
-      for (let px = px0; px < px1; px++) { sumMc[px] = binMc[b]; sumCov[px] = binCov[b]; }
     }
   }
 
@@ -2026,11 +2061,29 @@ function drawTrack(track, qi, vals, dst) {
     ctx.fillText(fmtLv(scaleMin + frac * scaleSpan), 2, y - 5);
   }
 
-  // Bars: height = (level − min) / span; opacity ramps with coverage depth.
-  for (const b of bars) {
-    const barH = Math.max(0, Math.min(1, (b.level - scaleMin) / scaleSpan)) * plotH;
-    ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(b.cov).toFixed(3)})`;
-    ctx.fillRect(b.x, baseY - barH, b.bw, barH);
+  // Bars: drawn directly from the accumulation arrays (no per-bar objects).
+  // Height = (level − min) / span; opacity ramps with coverage depth.
+  if (!res) {
+    for (let px = 0; px < W; px++) {
+      const c = sumCov[px]; if (!c) continue;
+      let level = sumMc[px] / c; if (unmeth) level = 1 - level;
+      const barH = Math.max(0, Math.min(1, (level - scaleMin) / scaleSpan)) * plotH;
+      ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(c).toFixed(3)})`;
+      ctx.fillRect(px, baseY - barH, 1, barH);
+    }
+  } else {
+    for (let b = 0; b < nBins; b++) {
+      const c = binCov[b]; if (!c) continue;
+      const bpS = binStart0 + b * res, bpE = bpS + res;
+      const x0 = (bpS - start) / span * w, x1 = (bpE - start) / span * w;
+      let level = binMc[b] / c; if (unmeth) level = 1 - level;
+      const barH = Math.max(0, Math.min(1, (level - scaleMin) / scaleSpan)) * plotH;
+      ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alphaFor(c).toFixed(3)})`;
+      ctx.fillRect(x0, baseY - barH, Math.max(1, x1 - x0), barH);
+      // Spread bin → pixels for the hover tooltip.
+      const px0 = Math.max(0, Math.floor(x0)), px1 = Math.min(W, Math.ceil(x1));
+      for (let px = px0; px < px1; px++) { sumMc[px] = binMc[b]; sumCov[px] = binCov[b]; }
+    }
   }
 
   // Baseline
@@ -2298,6 +2351,7 @@ async function drawGeneTrack(track, gen, dst) {
     const fr = fetchRange();
     genes = await fetchGenes(track, fr.chrom, fr.fStart, fr.fEnd);
     if (gen !== state.gen) return;
+    genes.sort((a, b) => (a.txStart || 0) - (b.txStart || 0));   // sort once at fetch
     track._genes = genes; track._geneRange = fr;
   }
   drawGenesCore(track, genes, dst);
@@ -2316,7 +2370,7 @@ function drawGenesCore(track, genes, dst) {
   const maxRows = Math.max(1, Math.floor((H - topPad * 2) / rowH));
 
   // Greedy row packing; reserve room for the left/over label.
-  genes.sort((a, b) => (a.txStart || 0) - (b.txStart || 0));
+  // (genes are pre-sorted by txStart when fetched.)
   const rowFree = [];   // right-most used px per row
   const placed = [];
   for (const gd of genes) {
@@ -2663,8 +2717,9 @@ function exportDataTsv() {
       const context = recs[i] && recs[i][2];
       for (let k = 0; k < mcTracks.length; k++) {
         if (!ctxMatch(context, mcTracks[k].ctx)) continue;
-        const v = mcTracks[k]._data.vals[i]; if (!v || !v[1]) continue;
-        sumMc[k][b] += v[0]; sumCov[k][b] += v[1];
+        const vv = mcTracks[k]._data.vals; if (i >= vv.n) continue;
+        const cov = vv.columns[1][i]; if (!cov) continue;
+        sumMc[k][b] += vv.columns[0][i]; sumCov[k][b] += cov;
       }
     }
     lines = [['chrom', 'start', 'end', ...mcTracks.map(colName)].join('\t')];
@@ -2690,9 +2745,10 @@ function exportDataTsv() {
       const row = [chrom, Math.round(p), context];
       for (const t of mcTracks) {
         if (!ctxMatch(context, t.ctx)) { row.push(''); continue; }
-        const v = t._data.vals[i]; const cov = v ? v[1] : 0;
+        const vv = t._data.vals;
+        const cov = i < vv.n ? vv.columns[1][i] : 0;
         if (!cov) { row.push(''); continue; }
-        row.push(lvlOf(t, v[0], cov));
+        row.push(lvlOf(t, vv.columns[0][i], cov));
       }
       lines.push(row.join('\t')); rowCount++;
     }
@@ -2846,18 +2902,22 @@ async function loadSessionFile(ev) {
 // Pointer-capture based: state is scoped to each view element (recreated on
 // every buildTrackRows), so there are no accumulating/stuck window listeners.
 function attachPanZoom(view) {
-  let dragId = null, startX = 0, startClientX = 0, locus0 = null, moved = false, dragTool = null;
+  let dragId = null, startX = 0, startClientX = 0, locus0 = null, moved = false, dragTool = null, dragBtn = 0;
   const isRuler = () => view.dataset.ruler === '1';
 
   view.addEventListener('pointerdown', (e) => {
-    if (!state.locus || e.button !== 0) return;
-    dragId = e.pointerId; startX = e.clientX; startClientX = e.clientX;
+    if (!state.locus) return;
+    if (e.button !== 0 && e.button !== 2) return;      // left drag = tool; right drag = mark
+    dragId = e.pointerId; startX = e.clientX; startClientX = e.clientX; dragBtn = e.button;
     locus0 = { ...state.locus }; moved = false;
-    // The ruler always pans; every other view follows the active tool.
-    dragTool = isRuler() ? 'pan' : state.tool;
+    // Right button always marks a region; the ruler always pans; otherwise the
+    // active tool decides.
+    dragTool = e.button === 2 ? 'mark' : (isRuler() ? 'pan' : state.tool);
     try { view.setPointerCapture(e.pointerId); } catch (_) {}
     e.preventDefault();
   });
+  // Suppress the browser context menu so right-drag can be used to mark.
+  view.addEventListener('contextmenu', (e) => e.preventDefault());
   view.addEventListener('pointermove', (e) => {
     if (dragId === e.pointerId && locus0) {
       if (Math.abs(e.clientX - startX) > 3) moved = true;
@@ -2878,11 +2938,12 @@ function attachPanZoom(view) {
   });
   const endDrag = (e) => {
     if (dragId !== e.pointerId) return;
-    const wasClick = !moved, finishTool = dragTool, upX = e.clientX;
+    const wasClick = !moved, finishTool = dragTool, upX = e.clientX, btn = dragBtn;
     dragId = null; locus0 = null; dragTool = null;
     hideDragBand();
     try { view.releasePointerCapture(e.pointerId); } catch (_) {}
     if (wasClick) {
+      if (btn === 2) return;                            // a bare right-click does nothing
       if (finishTool === 'select' && !isRuler()) toggleTrackSelectionByView(view, e);
       else handleViewClick(view, e);
     } else if (finishTool === 'zoom') {

@@ -910,6 +910,74 @@ class CzReader {
   }
 
   /**
+   * Column-oriented variant of getRowValues: returns each column as a contiguous
+   * typed array (numeric columns as Float64Array, string columns as Array),
+   * avoiding the per-row `[a, b, …]` allocations that stress the GC and hurt
+   * cache locality in hot drawing loops. Assumes a non-DELTA (RAW) value layout.
+   *
+   * @param {string|string[]} dim - chunk_key, e.g. 'chr1'
+   * @param {number} rowStart - inclusive
+   * @param {number} rowEnd   - exclusive
+   * @returns {Promise<{n:number, columns:Array<Float64Array|Array>}>}
+   */
+  async getRowValuesColumns(dim, rowStart, rowEnd) {
+    const fields = this._fields, nf = fields.length;
+    const emptyCols = () => fields.map((f, j) => this._strColMask[j] ? [] : new Float64Array(0));
+    const chunkKey = Array.isArray(dim) ? dim.join('\t') : dim;
+    if (rowEnd <= rowStart) return { n: 0, columns: emptyCols() };
+    const tail = await this._loadChunkTail(chunkKey);
+    const vos = tail.blockVOs;
+    const nblocks = vos.length;
+    if (nblocks === 0) return { n: 0, columns: emptyCols() };
+
+    const fullBytes = await this._fullBlockBytes(chunkKey);
+    const unit = this._unitSize;
+    const byteStart = rowStart * unit;
+    const byteEnd = rowEnd * unit;
+
+    let blockA = Math.floor(byteStart / fullBytes);
+    let blockB = Math.floor((byteEnd - 1) / fullBytes);
+    if (blockA < 0) blockA = 0;
+    if (blockB >= nblocks) blockB = nblocks - 1;
+    if (blockB < blockA) blockB = blockA;
+
+    const firstByte = Math.floor(vos[blockA] / VO_BLOCK_DIVISOR);
+    const lastByte = (blockB + 1 < nblocks)
+      ? Math.floor(vos[blockB + 1] / VO_BLOCK_DIVISOR)
+      : (tail.start + tail.size);
+    const spanBytes = lastByte - firstByte;
+    this._handle.seek(firstByte);
+    const readAhead = blockB > blockA ? spanBytes : this._handle.randomReadAhead;
+    const buf = await this._handle.read(spanBytes, { readAhead });
+    const blocks = await this._decompressBlocksList(buf);
+
+    const total = blocks.reduce((s, b) => s + b.byteLength, 0);
+    const concat = new Uint8Array(total);
+    let p = 0;
+    for (const b of blocks) { concat.set(b, p); p += b.byteLength; }
+
+    const localStart = byteStart - blockA * fullBytes;
+    const localEnd = Math.min(byteEnd - blockA * fullBytes, concat.byteLength);
+    if (localStart >= localEnd) return { n: 0, columns: emptyCols() };
+
+    const n = Math.floor((localEnd - localStart) / unit);
+    const dv = new DataView(concat.buffer, concat.byteOffset + localStart, n * unit);
+    // Per-field byte offset within a record (computed once).
+    const offs = new Array(nf);
+    for (let j = 0, acc = 0; j < nf; j++) { offs[j] = acc; acc += fields[j].size; }
+    const columns = new Array(nf);
+    for (let j = 0; j < nf; j++) columns[j] = this._strColMask[j] ? new Array(n) : new Float64Array(n);
+    for (let j = 0; j < nf; j++) {
+      const read = fields[j].read, off = offs[j], colArr = columns[j], isStr = this._strColMask[j];
+      for (let i = 0; i < n; i++) {
+        const v = read(dv, i * unit + off);
+        colArr[i] = isStr ? v : (typeof v === 'bigint' ? Number(v) : v);
+      }
+    }
+    return { n, columns };
+  }
+
+  /**
    * Binary search on blocks to find the last block whose first record <= target.
    * Only decompresses O(log N) blocks.
    */
