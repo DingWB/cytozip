@@ -2546,6 +2546,14 @@ class SvgRecorder {
   save() { this._stack.push([this._tx, this._ty]); }
   restore() { const s = this._stack.pop(); if (s) { this._tx = s[0]; this._ty = s[1]; } }
   translate(x, y) { this._tx += x; this._ty += y; }
+  // Clip subsequent output to a rectangle (in the CURRENT transform) until
+  // endClip(); mirrors the live canvas's overflow:hidden so track content can't
+  // bleed into the label column.
+  beginClip(x, y, w, h) {
+    const id = 'cx' + (this._clipN = (this._clipN || 0) + 1);
+    this.parts.push(`<clipPath id="${id}"><rect x="${(x + this._tx).toFixed(2)}" y="${(y + this._ty).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}"/></clipPath><g clip-path="url(#${id})">`);
+  }
+  endClip() { this.parts.push('</g>'); }
   beginPath() { this._p = []; }
   moveTo(x, y) { this._p.push(`M${(x + this._tx).toFixed(2)} ${(y + this._ty).toFixed(2)}`); }
   lineTo(x, y) { this._p.push(`L${(x + this._tx).toFixed(2)} ${(y + this._ty).toFixed(2)}`); }
@@ -2638,6 +2646,8 @@ async function composeExportSvg() {
     }
     // Track content
     rec.save(); rec.translate(labelW, y);
+    // Clip to the content column so gene/seq marks never bleed into the header.
+    rec.beginClip(0, 0, viewW, h);
     const dst = { ctx: rec, w: viewW, h };
     try {
       if (t.kind === 'seq') await drawSeqTrack(t, state.gen, dst);
@@ -2648,6 +2658,7 @@ async function composeExportSvg() {
       else if (t.kind === 'hic' && t._hicData) drawHicTrack(t, t._hicData, dst);
       else if (t.kind === 'mc' && t._data) drawTrack(t, t._data.qi, t._data.vals, dst);
     } catch (_) { /* skip a track that fails to draw */ }
+    rec.endClip();
     rec.restore();
     rec.strokeStyle = '#e6e8ee'; rec.lineWidth = 1;
     rec.beginPath(); rec.moveTo(0, y + h + 0.5); rec.lineTo(totalW, y + h + 0.5); rec.stroke();
