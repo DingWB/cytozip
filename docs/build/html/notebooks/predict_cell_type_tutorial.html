@@ -517,7 +517,7 @@
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-cytozip 0.3.9.dev11
+cytozip 0.3.9.dev12
 </pre></div></div>
 </div>
 </section>
@@ -529,7 +529,7 @@ cytozip 0.3.9.dev11
 <li><p><strong>``OUTDIR``</strong> — where everything (model now, predictions later) is written. The model store goes to <code class="docutils literal notranslate"><span class="pre">OUTDIR/model</span></code> (real disk, so a large memmap never spills into a small/RAM <code class="docutils literal notranslate"><span class="pre">/tmp</span></code> → SIGBUS).</p></li>
 </ul>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- annotation level to train / predict at -----------------------------</span>
@@ -566,10 +566,11 @@ cytozip 0.3.9.dev11
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
+level          : Subclass
 pseudobulk dir : /home/x-wding2/Projects/BG/pseudobulk/Subclass/cz
 reference      : /home/x-wding2/Ref/hg38/hg38_with_chrL.allc.cz
-output dir     : /home/x-wding2/Projects/BG/pseudobulk/Subclass/model
-model store    : /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/model
+output dir     : /home/x-wding2/Projects/BG/pseudobulk/Subclass/model_Subclass
+model store    : /home/x-wding2/Projects/BG/pseudobulk/Subclass/model_Subclass/model
 </pre></div></div>
 </div>
 </section>
@@ -635,7 +636,7 @@ model store    : /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/model
 <p><code class="docutils literal notranslate"><span class="pre">cell_counts</span></code> records how many cells belong to each Subclass. It does <strong>not</strong> affect the fitted frequencies; it is stored on the model and only used at <strong>predict</strong> time when <code class="docutils literal notranslate"><span class="pre">prior_alpha</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> (types weighted by <span class="math notranslate nohighlight">\(\pi_t \propto \text{cell\_counts}[t]^{\text{prior\_alpha}}\)</span>).</p>
 <p>The true per-Subclass cell counts come from the atlas annotation table <code class="docutils literal notranslate"><span class="pre">~/Projects/BG/clustering/100kb/annotations.tsv</span></code> — we take <code class="docutils literal notranslate"><span class="pre">value_counts()</span></code> on its <strong>``Subclass``</strong> column. Annotation names use spaces while the <code class="docutils literal notranslate"><span class="pre">.cz</span></code> stems use underscores, so we normalise spaces → underscores before aligning to our cell types. Prediction still defaults to a <strong>uniform</strong> prior (<code class="docutils literal notranslate"><span class="pre">prior_alpha=0</span></code>); set <code class="docutils literal notranslate"><span class="pre">USE_ABUNDANCE_PRIOR</span> <span class="pre">=</span> <span class="pre">True</span></code> to bake the counts into the model.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">USE_ABUNDANCE_PRIOR</span> <span class="o">=</span> <span class="kc">False</span>   <span class="c1"># keep uniform prior by default; set True to bake in the counts</span>
@@ -660,7 +661,7 @@ model store    : /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/model
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-31 Subclasses in annotations; matched 25/32 pseudobulk types
+31 Subclasss in annotations; matched 25/32 pseudobulk types
 unmatched pseudobulk types: [&#39;ACx_MEIS2_GABA&#39;, &#39;Glut&#39;, &#39;OT_Granular_GABA&#39;, &#39;SN_PAX7_GABA&#39;, &#39;STR_D1_MSN&#39;, &#39;STR_D2_MSN&#39;, &#39;STR_Hybrid_MSN&#39;]
 example counts: {&#39;Astrocyte&#39;: 8829, &#39;CN_Cholinergic_GABA&#39;: 360, &#39;CN_GABA-Glut&#39;: 122, &#39;CN_LAMP5-CXCL14_GABA&#39;: 1315, &#39;CN_LAMP5-LHX6_GABA&#39;: 263}
 </pre></div></div>
@@ -694,80 +695,80 @@ example counts: {&#39;Astrocyte&#39;: 8829, &#39;CN_Cholinergic_GABA&#39;: 360, 
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-<span class="ansi-green-fg">2026-07-29 17:04:05.418</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">978</span> - <span class="ansi-bold">CG: Beta prior alpha0=0.76, beta0=0.1652 (mean=0.821, kappa=0.9252)</span>
-<span class="ansi-green-fg">2026-07-29 17:04:05.419</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">982</span> - <span class="ansi-bold">CH: Beta prior alpha0=0.1246, beta0=2.625 (mean=0.045, kappa=2.75)</span>
-<span class="ansi-green-fg">2026-07-29 17:04:06.319</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">998</span> - <span class="ansi-bold">PASS B: scoring cross-type theta range over 32 cell types (58,809,816 CG + 1,141,772,876 CH sites)...</span>
-<span class="ansi-green-fg">2026-07-29 17:11:55.250</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 1/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:55.835</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 2/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:55.890</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 3/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:55.957</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 4/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:56.044</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 5/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:56.192</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 6/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:56.195</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 7/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:56.296</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 8/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:56.705</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 9/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:57.558</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 10/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:57.615</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 11/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:57.861</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 12/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:57.864</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 13/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:57.967</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 14/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:58.066</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 15/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:58.163</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 16/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:11:58.253</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 17/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:00.669</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 18/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:00.916</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 19/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:00.939</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 20/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:00.994</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 21/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:01.072</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 22/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:01.076</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 23/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:01.251</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 24/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:01.295</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 25/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:01.354</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 26/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:01.479</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 27/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:01.677</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 28/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:01.737</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 29/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:02.924</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 30/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:02.982</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 31/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:03.149</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS B (theta range): 32/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:12:03.159</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1040</span> - <span class="ansi-bold">PASS B done; selecting discriminative sites...</span>
-<span class="ansi-green-fg">2026-07-29 17:15:55.918</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1155</span> - <span class="ansi-bold">PASS C: gathering log-theta at 62,958,228 selected sites x 32 cell types...</span>
-<span class="ansi-green-fg">2026-07-29 17:30:24.751</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 1/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:24.893</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 2/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.272</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 3/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.276</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 4/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.510</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 5/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.511</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 6/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.511</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 7/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.514</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 8/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.515</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 9/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.515</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 10/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.515</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 11/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.618</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 12/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.619</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 13/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.619</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 14/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.620</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 15/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.621</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 16/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.622</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 17/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.698</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 18/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.699</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 19/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.699</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 20/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.699</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 21/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.775</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 22/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.776</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 23/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.777</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 24/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.777</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 25/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.779</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 26/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.780</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 27/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.781</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 28/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.784</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 29/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.786</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 30/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.786</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 31/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.788</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">916</span> - <span class="ansi-bold">PASS C (gather log-theta): 32/32 cell types done</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.802</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1160</span> - <span class="ansi-bold">PASS C done; flushing model store to disk...</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.822</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1178</span> - <span class="ansi-bold">CG: 58,809,816 context sites -&gt; 5,876,341 discriminative sites across 32 cell types in 24 chunks</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.823</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1182</span> - <span class="ansi-bold">CH: 1,141,772,876 context sites -&gt; 57,081,887 discriminative sites across 32 cell types in 24 chunks</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.823</span> | <span class="ansi-yellow-intense-fg ansi-bold">WARNING </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1191</span> - <span class="ansi-yellow-intense-fg ansi-bold">model keeps 62,958,228 sites x 32 types (~16.1 GB of log-theta). Pass top_cg/top_ch (e.g. top_cg=20000) or min_range_cg/min_range_ch (&gt;0) to select fewer discriminative sites and cut memory drastically.</span>
-<span class="ansi-green-fg">2026-07-29 17:30:25.946</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">save</span>:<span class="ansi-cyan-fg">2138</span> - <span class="ansi-bold">saved CellTypeClassifier to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/model</span>
+<span class="ansi-green-fg">2026-07-30 23:42:27.244</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1007</span> - <span class="ansi-bold">CG: Beta prior alpha0=0.76, beta0=0.1652 (mean=0.821, kappa=0.9252)</span>
+<span class="ansi-green-fg">2026-07-30 23:42:27.247</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1011</span> - <span class="ansi-bold">CH: Beta prior alpha0=0.1246, beta0=2.625 (mean=0.045, kappa=2.75)</span>
+<span class="ansi-green-fg">2026-07-30 23:42:29.059</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1044</span> - <span class="ansi-bold">PASS B: scoring cross-type theta range over 32 cell types (58,809,816 CG + 1,141,772,876 CH sites)...</span>
+<span class="ansi-green-fg">2026-07-30 23:49:49.986</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 1/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:49:58.785</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 2/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:02.408</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 3/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:13.588</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 4/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:13.717</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 5/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:16.787</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 6/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:17.795</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 7/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:20.643</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 8/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:20.730</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 9/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:23.767</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 10/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:23.840</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 11/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:23.937</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 12/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:24.285</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 13/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:24.339</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 14/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:24.431</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 15/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:24.502</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 16/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:25.236</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 17/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:25.368</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 18/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:25.403</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 19/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:25.471</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 20/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:33.738</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 21/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:33.775</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 22/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:33.841</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 23/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:50:33.982</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 24/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:52:51.769</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 25/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:52:56.103</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 26/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:52:56.570</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 27/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:52:58.589</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 28/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:52:58.591</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 29/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:52:59.914</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 30/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:53:00.119</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 31/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:53:01.878</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS B (theta range): 32/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-30 23:53:01.882</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1114</span> - <span class="ansi-bold">PASS B done; selecting discriminative sites...</span>
+<span class="ansi-green-fg">2026-07-30 23:53:55.166</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1262</span> - <span class="ansi-bold">PASS C: gathering log-theta at 1,200,401,151 selected sites x 32 cell types...</span>
+<span class="ansi-green-fg">2026-07-31 04:04:05.957</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 1/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:05.992</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 2/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:05.994</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 3/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.026</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 4/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.102</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 5/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.125</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 6/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.308</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 7/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.309</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 8/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.309</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 9/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.469</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 10/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.591</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 11/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.592</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 12/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.593</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 13/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.594</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 14/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.594</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 15/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.597</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 16/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.684</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 17/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.685</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 18/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:06.686</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 19/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:07.204</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 20/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:07.205</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 21/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:07.205</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 22/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:07.207</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 23/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 04:04:07.308</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 24/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 05:25:42.681</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 26/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 05:25:42.681</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 25/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 05:25:42.682</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 27/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 05:25:42.683</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 28/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 05:25:42.684</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 29/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 05:25:42.684</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 30/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 05:25:42.685</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 31/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 05:25:42.686</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">run</span>:<span class="ansi-cyan-fg">945</span> - <span class="ansi-bold">PASS C (gather log-theta): 32/32 cell types done</span>
+<span class="ansi-green-fg">2026-07-31 05:25:42.694</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1267</span> - <span class="ansi-bold">PASS C done; flushing model store to disk...</span>
+<span class="ansi-green-fg">2026-07-31 06:50:37.292</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1285</span> - <span class="ansi-bold">CG: 58,809,816 context sites -&gt; 58,763,408 discriminative sites across 32 cell types in 24 chunks</span>
+<span class="ansi-green-fg">2026-07-31 06:50:37.294</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1289</span> - <span class="ansi-bold">CH: 1,141,772,876 context sites -&gt; 1,141,637,743 discriminative sites across 32 cell types in 24 chunks</span>
+<span class="ansi-green-fg">2026-07-31 06:50:37.295</span> | <span class="ansi-yellow-intense-fg ansi-bold">WARNING </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">fit</span>:<span class="ansi-cyan-fg">1298</span> - <span class="ansi-yellow-intense-fg ansi-bold">model keeps 1,200,401,151 sites x 32 types (~307.3 GB of log-theta). Pass top_cg/top_ch (e.g. top_cg=20000) or min_range_cg/min_range_ch (&gt;0) to select fewer discriminative sites and cut memory drastically.</span>
+<span class="ansi-green-fg">2026-07-31 06:50:39.070</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">save</span>:<span class="ansi-cyan-fg">2285</span> - <span class="ansi-bold">saved CellTypeClassifier to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model_Subclass/model</span>
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
@@ -775,8 +776,8 @@ example counts: {&#39;Astrocyte&#39;: 8829, &#39;CN_Cholinergic_GABA&#39;: 360, 
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-trained 32 cell types in 2227.4s
-model saved to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/model
+trained 32 cell types in 26544.6s
+model saved to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model_Subclass/model
 </pre></div></div>
 </div>
 </section>
@@ -806,11 +807,11 @@ model saved to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/model
 <div class="output_area docutils container">
 <div class="highlight"><pre>
 cell types      : 32
-CpG sites kept  : 5876341
-CpH sites kept  : 57081887
+CpG sites kept  : 58763408
+CpH sites kept  : 1141637743
 alpha0/beta0 CG : 0.7600007373931021 / 0.16517915238047134
 alpha0/beta0 CH : 0.12458260023888149 / 2.6251302249570063
-model store size: 16369.1 MB
+model store size: 312104.3 MB
 files           : [&#39;cg_log1m_theta.npy&#39;, &#39;cg_log_theta.npy&#39;, &#39;cg_sites.npy&#39;, &#39;ch_log1m_theta.npy&#39;, &#39;ch_log_theta.npy&#39;, &#39;ch_sites.npy&#39;, &#39;meta.json&#39;]
 </pre></div></div>
 </div>
@@ -830,7 +831,7 @@ files           : [&#39;cg_log1m_theta.npy&#39;, &#39;cg_log_theta.npy&#39;, &#3
 </pre></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- query cells: 2000 single-cell .cz ----------------------------------</span>
@@ -862,7 +863,7 @@ files           : [&#39;cg_log1m_theta.npy&#39;, &#39;cg_log_theta.npy&#39;, &#3
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-<span class="ansi-green-fg">2026-07-29 19:21:46.290</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2274</span> - <span class="ansi-bold">found existing model at /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/model; skipping fit and loading it</span>
+<span class="ansi-green-fg">2026-07-31 06:50:39.094</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2557</span> - <span class="ansi-bold">found existing model at /home/x-wding2/Projects/BG/pseudobulk/Subclass/model_Subclass/model; skipping fit and loading it</span>
 </pre></div></div>
 </div>
 <div class="nboutput docutils container">
@@ -878,7 +879,7 @@ files           : [&#39;cg_log1m_theta.npy&#39;, &#39;cg_log_theta.npy&#39;, &#3
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-<span class="ansi-green-fg">2026-07-29 20:06:31.940</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2326</span> - <span class="ansi-bold">wrote predictions to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model</span>
+<span class="ansi-green-fg">2026-07-31 13:33:20.250</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2599</span> - <span class="ansi-bold">wrote predictions to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model_Subclass</span>
 </pre></div></div>
 </div>
 <div class="nboutput docutils container">
@@ -886,12 +887,13 @@ files           : [&#39;cg_log1m_theta.npy&#39;, &#39;cg_log_theta.npy&#39;, &#3
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-predicted 2000 cells in 2686.1s
-confidence: mean=1.000  median=1.000
+predicted 2000 cells in 24170.1s
+confidence: mean=0.999  median=1.000
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
 <div>
@@ -924,12 +926,12 @@ confidence: mean=1.000  median=1.000
   <tbody>
     <tr>
       <th>UWA7648_CX1819_NAC_1_P1-1-I3-A1</th>
-      <td>STR_D2_MSN</td>
+      <td>STR_D1_MSN</td>
       <td>1.0</td>
     </tr>
     <tr>
       <th>UWA7648_CX1819_NAC_1_P1-1-I3-A10</th>
-      <td>STR_D2_MSN</td>
+      <td>STR_D1_MSN</td>
       <td>1.0</td>
     </tr>
     <tr>
@@ -939,12 +941,12 @@ confidence: mean=1.000  median=1.000
     </tr>
     <tr>
       <th>UWA7648_CX1819_NAC_1_P1-1-I3-A12</th>
-      <td>STR_Hybrid_MSN</td>
+      <td>STR_D2_MSN</td>
       <td>1.0</td>
     </tr>
     <tr>
       <th>UWA7648_CX1819_NAC_1_P1-1-I3-A14</th>
-      <td>STR_D2_MSN</td>
+      <td>STR_D1_MSN</td>
       <td>1.0</td>
     </tr>
   </tbody>
@@ -956,7 +958,7 @@ confidence: mean=1.000  median=1.000
 <h2>8. Validation<a class="headerlink" href="#8.-Validation" title="Link to this heading"></a></h2>
 <p><strong>Do not run yet.</strong> Evaluate the classifier on cells with known labels (e.g. held-out single cells or downsampled pseudobulks): overall accuracy, <strong>macro-F1</strong> (fair to rare types), and the confusion matrix. To be filled in when the labelled query set is provided.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">accuracy_score</span><span class="p">,</span> <span class="n">f1_score</span><span class="p">,</span> <span class="n">confusion_matrix</span><span class="p">,</span>
@@ -1021,14 +1023,14 @@ metadata id column: &#39;cell&#39;; 1927/2000 query cells matched
 
 === overall ===
 evaluated cells  : 1927   classes seen: 20/32
-accuracy         : 0.5112
-F1  macro / micro: 0.7826 / 0.5149
-AUC macro / micro: 0.9053 / 0.7465
-AP  macro / micro: 0.7420 / 0.2933  (PRC)
+accuracy         : 0.6969
+F1  macro / micro: 0.8858 / 0.6971
+AUC macro / micro: 0.9533 / 0.8425
+AP  macro / micro: 0.8552 / 0.5037  (PRC)
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- row-normalised confusion matrix ------------------------------------</span>
@@ -1064,7 +1066,7 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- ROC and Precision-Recall curves (one-vs-rest) ----------------------</span>
@@ -1112,7 +1114,7 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- per-LEVEL one-vs-rest AUC / AP bars --------------------------------</span>
@@ -1147,7 +1149,8 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
 <div>
@@ -1181,10 +1184,10 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
       <td>1</td>
     </tr>
     <tr>
-      <th>Lymphocyte</th>
+      <th>Glut</th>
       <td>1.0000</td>
       <td>1.0000</td>
-      <td>2</td>
+      <td>42</td>
     </tr>
     <tr>
       <th>STR_SST-CHODL_GABA</th>
@@ -1193,10 +1196,28 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
       <td>3</td>
     </tr>
     <tr>
+      <th>STR_RSPO2_GABA</th>
+      <td>1.0000</td>
+      <td>1.0000</td>
+      <td>16</td>
+    </tr>
+    <tr>
       <th>Pericyte</th>
       <td>1.0000</td>
       <td>1.0000</td>
       <td>1</td>
+    </tr>
+    <tr>
+      <th>OPC</th>
+      <td>1.0000</td>
+      <td>1.0000</td>
+      <td>16</td>
+    </tr>
+    <tr>
+      <th>Lymphocyte</th>
+      <td>1.0000</td>
+      <td>1.0000</td>
+      <td>2</td>
     </tr>
     <tr>
       <th>Microglia</th>
@@ -1205,10 +1226,22 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
       <td>46</td>
     </tr>
     <tr>
+      <th>CN_VIP_GABA</th>
+      <td>1.0000</td>
+      <td>1.0000</td>
+      <td>5</td>
+    </tr>
+    <tr>
       <th>CN_LAMP5-LHX6_GABA</th>
       <td>1.0000</td>
       <td>1.0000</td>
       <td>5</td>
+    </tr>
+    <tr>
+      <th>CN_LAMP5-CXCL14_GABA</th>
+      <td>1.0000</td>
+      <td>1.0000</td>
+      <td>2</td>
     </tr>
     <tr>
       <th>CN_Cholinergic_GABA</th>
@@ -1223,76 +1256,46 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
       <td>1</td>
     </tr>
     <tr>
-      <th>CN_LAMP5-CXCL14_GABA</th>
-      <td>0.9997</td>
-      <td>0.6667</td>
-      <td>2</td>
-    </tr>
-    <tr>
-      <th>OPC</th>
-      <td>0.9995</td>
-      <td>0.8889</td>
-      <td>16</td>
-    </tr>
-    <tr>
-      <th>Astrocyte</th>
-      <td>0.9960</td>
-      <td>0.8000</td>
-      <td>60</td>
-    </tr>
-    <tr>
       <th>Oligodendrocyte</th>
-      <td>0.9949</td>
-      <td>0.9909</td>
+      <td>0.9975</td>
+      <td>0.9954</td>
       <td>197</td>
     </tr>
     <tr>
-      <th>STR_RSPO2_GABA</th>
-      <td>0.9062</td>
-      <td>0.8141</td>
-      <td>16</td>
-    </tr>
-    <tr>
-      <th>Glut</th>
-      <td>0.9048</td>
-      <td>0.8137</td>
-      <td>42</td>
-    </tr>
-    <tr>
-      <th>CN_VIP_GABA</th>
-      <td>0.8977</td>
-      <td>0.2467</td>
-      <td>5</td>
+      <th>Astrocyte</th>
+      <td>0.9944</td>
+      <td>0.7407</td>
+      <td>60</td>
     </tr>
     <tr>
       <th>STR_Hybrid_MSN</th>
-      <td>0.8360</td>
-      <td>0.1536</td>
+      <td>0.8654</td>
+      <td>0.1792</td>
       <td>107</td>
     </tr>
     <tr>
+      <th>F_GABA</th>
+      <td>0.8301</td>
+      <td>0.1677</td>
+      <td>6</td>
+    </tr>
+    <tr>
       <th>CN_ST18_GABA</th>
-      <td>0.7429</td>
-      <td>0.5044</td>
+      <td>0.8071</td>
+      <td>0.6283</td>
       <td>70</td>
     </tr>
     <tr>
       <th>STR_D2_MSN</th>
-      <td>0.6755</td>
-      <td>0.4791</td>
+      <td>0.7985</td>
+      <td>0.6841</td>
       <td>649</td>
     </tr>
     <tr>
       <th>STR_D1_MSN</th>
-      <td>0.5915</td>
-      <td>0.4772</td>
+      <td>0.7723</td>
+      <td>0.7087</td>
       <td>694</td>
-    </tr>
-    <tr>
-      <th>F_GABA</th>
-      <td>0.5613</td>
-      <td>0.0046</td>
-      <td>6</td>
     </tr>
   </tbody>
 </table>
@@ -1308,7 +1311,7 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
 <h2>10. Predict &amp; validate on MiSeq cells (SALK045)<a class="headerlink" href="#10.-Predict-&-validate-on-MiSeq-cells-(SALK045)" title="Link to this heading"></a></h2>
 <p>Same trained model, a different query set: <strong>shallow MiSeq</strong> single cells from <code class="docutils literal notranslate"><span class="pre">SALK045</span></code>. We reuse the model under <code class="docutils literal notranslate"><span class="pre">OUTDIR/model</span></code> (symlinked into a separate <code class="docutils literal notranslate"><span class="pre">OUTDIR/miseq_SALK045</span></code> so fitting is skipped and the deep-cell predictions above are not overwritten), classify the MiSeq <code class="docutils literal notranslate"><span class="pre">.cz</span></code>, then score them against the <strong>same</strong> <code class="docutils literal notranslate"><span class="pre">META_TSV</span></code> Subclass labels and redraw the confusion matrix, ROC/PR curves and per-Subclass AUC/AP bars.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- MiSeq query cells: SALK045 single-cell .cz -------------------------</span>
@@ -1346,8 +1349,7 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-<span class="ansi-green-fg">2026-07-30 10:33:00.342</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2397</span> - <span class="ansi-bold">found existing model at /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/miseq_SALK045/model; skipping fit and loading it</span>
-<span class="ansi-green-fg">2026-07-30 10:33:00.342</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2397</span> - <span class="ansi-bold">found existing model at /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/miseq_SALK045/model; skipping fit and loading it</span>
+<span class="ansi-green-fg">2026-07-31 13:34:02.719</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2557</span> - <span class="ansi-bold">found existing model at /home/x-wding2/Projects/BG/pseudobulk/Subclass/model_Subclass/miseq_SALK045/model; skipping fit and loading it</span>
 </pre></div></div>
 </div>
 <div class="nboutput docutils container">
@@ -1363,7 +1365,7 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-<span class="ansi-green-fg">2026-07-30 10:33:00.342</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2397</span> - <span class="ansi-bold">found existing model at /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/miseq_SALK045/model; skipping fit and loading it</span>
+<span class="ansi-green-fg">2026-07-31 15:41:11.132</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2599</span> - <span class="ansi-bold">wrote predictions to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model_Subclass/miseq_SALK045</span>
 </pre></div></div>
 </div>
 <div class="nboutput docutils container">
@@ -1371,45 +1373,13 @@ AP  macro / micro: 0.7420 / 0.2933  (PRC)
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-6126 MiSeq .cz cells in /home/x-wding2/Projects/test_cytozip/miseq/SALK045/cz/
-</pre></div></div>
-</div>
-<div class="nboutput docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area stderr docutils container">
-<div class="highlight"><pre>
-<span class="ansi-green-fg">2026-07-30 13:27:30.626</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2437</span> - <span class="ansi-bold">wrote predictions to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/miseq_SALK045</span>
-<span class="ansi-green-fg">2026-07-30 10:33:00.342</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2397</span> - <span class="ansi-bold">found existing model at /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/miseq_SALK045/model; skipping fit and loading it</span>
-</pre></div></div>
-</div>
-<div class="nboutput docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-6126 MiSeq .cz cells in /home/x-wding2/Projects/test_cytozip/miseq/SALK045/cz/
-</pre></div></div>
-</div>
-<div class="nboutput docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area stderr docutils container">
-<div class="highlight"><pre>
-<span class="ansi-green-fg">2026-07-30 13:27:30.626</span> | <span class="ansi-bold">INFO    </span> | <span class="ansi-cyan-fg">cytozip.model</span>:<span class="ansi-cyan-fg">predict_cell_type</span>:<span class="ansi-cyan-fg">2437</span> - <span class="ansi-bold">wrote predictions to /home/x-wding2/Projects/BG/pseudobulk/Subclass/model/miseq_SALK045</span>
-</pre></div></div>
-</div>
-<div class="nboutput docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-predicted 6126 MiSeq cells in 10470.7s
-confidence: mean=0.917  median=0.998
+predicted 6126 MiSeq cells in 7630.6s
+confidence: mean=0.965  median=1.000
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
 <div>
@@ -1443,34 +1413,34 @@ confidence: mean=0.917  median=0.998
     <tr>
       <th>UWA7648_CX1819_NAC_1_P1-1-I3-A1</th>
       <td>STR_D1_MSN</td>
-      <td>0.988481</td>
+      <td>1.000000</td>
     </tr>
     <tr>
       <th>UWA7648_CX1819_NAC_1_P1-1-I3-A13</th>
       <td>STR_D2_MSN</td>
-      <td>0.997046</td>
+      <td>0.994197</td>
     </tr>
     <tr>
       <th>UWA7648_CX1819_NAC_1_P1-1-I3-A14</th>
       <td>STR_D1_MSN</td>
-      <td>0.998993</td>
+      <td>0.929770</td>
     </tr>
     <tr>
       <th>UWA7648_CX1819_NAC_1_P1-1-I3-A2</th>
-      <td>STR_D1_MSN</td>
-      <td>0.908375</td>
+      <td>STR_D2_MSN</td>
+      <td>0.550327</td>
     </tr>
     <tr>
       <th>UWA7648_CX1819_NAC_1_P1-1-I3-B1</th>
-      <td>OPC</td>
-      <td>0.858020</td>
+      <td>Oligodendrocyte</td>
+      <td>0.998666</td>
     </tr>
   </tbody>
 </table>
 </div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">accuracy_score</span><span class="p">,</span> <span class="n">f1_score</span><span class="p">,</span> <span class="n">confusion_matrix</span><span class="p">,</span>
@@ -1547,16 +1517,16 @@ confidence: mean=0.917  median=0.998
 metadata id column: &#39;cell&#39;; 5967/6126 MiSeq cells matched
 5967/6126 cells evaluable (labelled &amp; label in the 32 model classes); 0 labelled but outside model, 159 unlabelled
 
-=== MiSeq SALK045 overall ===
+=== MiSeq SALK045 overall (Subclass) ===
 evaluated cells  : 5967   classes seen: 22/32
-accuracy         : 0.5304
-F1  macro / micro: 0.4710 / 0.5332
-AUC macro / micro: 0.9420 / 0.9450
-AP  macro / micro: 0.6537 / 0.4888  (PRC)
+accuracy         : 0.6033
+F1  macro / micro: 0.7375 / 0.6043
+AUC macro / micro: 0.9596 / 0.9684
+AP  macro / micro: 0.8221 / 0.5801  (PRC)
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- MiSeq row-normalised confusion matrix ------------------------------</span>
@@ -1584,7 +1554,7 @@ AP  macro / micro: 0.6537 / 0.4888  (PRC)
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- MiSeq ROC and Precision-Recall curves (one-vs-rest) ----------------</span>
@@ -1632,7 +1602,7 @@ AP  macro / micro: 0.6537 / 0.4888  (PRC)
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- MiSeq per-LEVEL one-vs-rest AUC / AP bars --------------------------</span>
@@ -1667,7 +1637,8 @@ AP  macro / micro: 0.6537 / 0.4888  (PRC)
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
 <div>
@@ -1713,117 +1684,117 @@ AP  macro / micro: 0.6537 / 0.4888  (PRC)
       <td>1</td>
     </tr>
     <tr>
-      <th>Microglia</th>
-      <td>0.9999</td>
-      <td>0.9964</td>
-      <td>123</td>
-    </tr>
-    <tr>
-      <th>Lymphocyte</th>
-      <td>0.9997</td>
-      <td>0.8111</td>
-      <td>5</td>
-    </tr>
-    <tr>
       <th>OT_Granular_GABA</th>
-      <td>0.9997</td>
-      <td>0.2000</td>
+      <td>1.0000</td>
+      <td>1.0000</td>
       <td>1</td>
     </tr>
     <tr>
+      <th>Microglia</th>
+      <td>1.0000</td>
+      <td>0.9991</td>
+      <td>123</td>
+    </tr>
+    <tr>
+      <th>CN_LAMP5-LHX6_GABA</th>
+      <td>1.0000</td>
+      <td>0.9874</td>
+      <td>14</td>
+    </tr>
+    <tr>
       <th>CN_LAMP5-CXCL14_GABA</th>
-      <td>0.9992</td>
-      <td>0.8803</td>
+      <td>0.9999</td>
+      <td>0.9797</td>
       <td>13</td>
+    </tr>
+    <tr>
+      <th>Lymphocyte</th>
+      <td>0.9999</td>
+      <td>0.9429</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <th>CN_Cholinergic_GABA</th>
+      <td>0.9998</td>
+      <td>0.7100</td>
+      <td>5</td>
     </tr>
     <tr>
       <th>Oligodendrocyte</th>
       <td>0.9984</td>
-      <td>0.9842</td>
+      <td>0.9790</td>
       <td>549</td>
     </tr>
     <tr>
       <th>Astrocyte</th>
-      <td>0.9977</td>
-      <td>0.9276</td>
+      <td>0.9981</td>
+      <td>0.9146</td>
       <td>184</td>
     </tr>
     <tr>
       <th>OPC</th>
-      <td>0.9948</td>
-      <td>0.7405</td>
+      <td>0.9975</td>
+      <td>0.8384</td>
       <td>54</td>
     </tr>
     <tr>
-      <th>CN_Cholinergic_GABA</th>
-      <td>0.9926</td>
-      <td>0.2718</td>
-      <td>5</td>
-    </tr>
-    <tr>
-      <th>CN_LAMP5-LHX6_GABA</th>
-      <td>0.9909</td>
-      <td>0.4316</td>
-      <td>14</td>
-    </tr>
-    <tr>
       <th>Glut</th>
-      <td>0.9729</td>
-      <td>0.8010</td>
+      <td>0.9930</td>
+      <td>0.9443</td>
       <td>153</td>
     </tr>
     <tr>
-      <th>CN_VIP_GABA</th>
-      <td>0.9703</td>
-      <td>0.6820</td>
-      <td>20</td>
-    </tr>
-    <tr>
       <th>STR_RSPO2_GABA</th>
-      <td>0.9620</td>
-      <td>0.7199</td>
+      <td>0.9895</td>
+      <td>0.9369</td>
       <td>49</td>
     </tr>
     <tr>
+      <th>CN_VIP_GABA</th>
+      <td>0.9829</td>
+      <td>0.8527</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <th>ACx_MEIS2_GABA</th>
+      <td>0.9668</td>
+      <td>0.6683</td>
+      <td>3</td>
+    </tr>
+    <tr>
       <th>STR_Hybrid_MSN</th>
-      <td>0.9445</td>
-      <td>0.5113</td>
+      <td>0.9517</td>
+      <td>0.3811</td>
       <td>327</td>
     </tr>
     <tr>
       <th>STR_SST-CHODL_GABA</th>
-      <td>0.8910</td>
-      <td>0.3737</td>
+      <td>0.9155</td>
+      <td>0.6646</td>
       <td>9</td>
     </tr>
     <tr>
-      <th>ACx_MEIS2_GABA</th>
-      <td>0.8439</td>
-      <td>0.0783</td>
-      <td>3</td>
+      <th>F_GABA</th>
+      <td>0.8653</td>
+      <td>0.1461</td>
+      <td>12</td>
     </tr>
     <tr>
       <th>STR_D1_MSN</th>
-      <td>0.8028</td>
-      <td>0.7059</td>
+      <td>0.8425</td>
+      <td>0.7789</td>
       <td>2274</td>
     </tr>
     <tr>
       <th>CN_ST18_GABA</th>
-      <td>0.7977</td>
-      <td>0.6070</td>
+      <td>0.8058</td>
+      <td>0.6535</td>
       <td>192</td>
     </tr>
     <tr>
-      <th>F_GABA</th>
-      <td>0.7958</td>
-      <td>0.0223</td>
-      <td>12</td>
-    </tr>
-    <tr>
       <th>STR_D2_MSN</th>
-      <td>0.7713</td>
-      <td>0.6356</td>
+      <td>0.8056</td>
+      <td>0.7076</td>
       <td>1977</td>
     </tr>
   </tbody>

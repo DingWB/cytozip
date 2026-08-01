@@ -12,9 +12,7 @@
   {
    "cell_type": "markdown",
    "id": "63bc8cf4-2729-426f-b250-3689df6414eb",
-   "metadata": {
-    "jp-MarkdownHeadingCollapsed": true
-   },
+   "metadata": {},
    "source": [
     "## 1. Installation"
    ]
@@ -78,9 +76,7 @@
   {
    "cell_type": "markdown",
    "id": "86560d66",
-   "metadata": {
-    "jp-MarkdownHeadingCollapsed": true
-   },
+   "metadata": {},
    "source": [
     "## 2. Build reference cz file from a reference genome fasta file\n",
     "The reference holds the genome-wide (chrom, pos, strand, context) axis. Per-cell .cz then store only mc/cov and reuse the reference’s positions, cutting per-cell size by ~5×."
@@ -88,54 +84,55 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 2,
+   "execution_count": 10,
    "id": "e0820610",
-   "metadata": {
-    "scrolled": true
-   },
+   "metadata": {},
    "outputs": [
     {
      "name": "stdout",
      "output_type": "stream",
      "text": [
-      "\u001b[32m2026-07-22 11:34:57.492\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr1\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:34:58.126\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr10\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:34:58.860\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr11\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:34:59.571\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr12\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:00.213\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr13\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:00.779\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr14\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:01.325\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr15\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:01.821\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr16\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:02.279\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr17\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:02.756\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr18\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:03.066\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr19\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:04.575\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr2\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:04.794\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr20\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:05.038\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr21\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:05.320\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr22\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:06.516\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr3\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:07.538\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr4\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:08.498\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr5\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:09.411\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr6\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:10.258\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr7\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:11.095\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr8\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:11.841\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchr9\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:35:12.155\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchrM\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:36:35.493\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchrX\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:36:35.493\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchrL\u001b[0m\n",
-      "\u001b[32m2026-07-22 11:36:35.493\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m66\u001b[0m - \u001b[34m\u001b[1mchrY\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:29.715\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr1\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:30.345\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr10\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:31.093\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr11\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:31.794\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr12\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:32.381\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr13\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:32.967\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr14\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:33.512\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr15\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:33.981\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr16\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:34.431\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr17\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:34.861\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr18\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:35.193\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr19\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:36.629\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr2\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:36.852\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr20\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:37.088\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr21\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:37.366\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr22\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:38.527\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr3\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:39.541\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr4\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:40.507\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr5\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:41.404\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr6\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:42.240\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr7\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:43.007\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr8\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:43.737\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchr9\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:44.057\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchrM\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:45.025\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchrX\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:45.249\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchrL\u001b[0m\n",
+      "\u001b[32m2026-07-31 20:38:45.256\u001b[0m | \u001b[34m\u001b[1mDEBUG   \u001b[0m | \u001b[36mcytozip.allc\u001b[0m:\u001b[36mWriteC\u001b[0m:\u001b[36m68\u001b[0m - \u001b[34m\u001b[1mchrY\u001b[0m\n",
       "\n",
-      "real\t2m3.596s\n",
-      "user\t3m51.014s\n",
-      "sys\t0m12.793s\n"
+      "real\t0m52.982s\n",
+      "user\t3m51.291s\n",
+      "sys\t0m12.102s\n"
      ]
     }
    ],
    "source": [
-    "!time czip build_ref --genome ~/Ref/hg38/hg38_ucsc_with_chrL.fa \\ # reference genome \n",
-    "    --output ~/Ref/hg38/hg38_with_chrL.allc.cz  \\ # output reference cz file \n",
-    "    --jobs 24 \\ # number of CPU \n",
-    "    --chroms ~/Ref/hg38/hg38_ucsc_with_chrL.main.chrom.sizes \\ # restrited to main chromosomes (optional)"
+    "! time czip build_ref --genome ~/Ref/hg38/hg38_ucsc_with_chrL.fa \\\n",
+    "                      --output cytozip_example_data/hg38_with_chrL.allc.cz \\\n",
+    "                      --jobs 24 \\\n",
+    "                      --chroms ~/Ref/hg38/hg38_ucsc_with_chrL.main.chrom.sizes\n",
+    "# --genome reference genome\n",
+    "# --chroms Optional. A .fai or text file whose first column lists the chromosomes to restrict analysis to (typically the main chromosomes).\n",
+    "# hg38_ucsc_with_chrL.main.chrom.sizes can be downloaded from https://figshare.com/ndownloader/files/67164602"
    ]
   },
   {
@@ -143,7 +140,7 @@
    "id": "0cbbad44-0679-46a1-bddd-8923e882c9a6",
    "metadata": {},
    "source": [
-    "The reference .cz file (hg38_with_chrL.allc.cz) can also be downloaded from figshare: https://figshare.com/ndownloader/files/66985196\n",
+    "The reference .cz file (hg38_with_chrL.allc.cz) can also be downloaded from figshare: https://figshare.com/ndownloader/files/67164455\n",
     "<br/>\n",
     "Or directly download it on linux with pyfigshare:\n",
     "```shell\n",
@@ -154,7 +151,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 3,
+   "execution_count": 11,
    "id": "0971b5eb-f0ae-4013-9283-6a35db1684a1",
    "metadata": {},
    "outputs": [
@@ -163,7 +160,7 @@
      "output_type": "stream",
      "text": [
       "magic  :  b'CZIP'\n",
-      "version  :  0.35\n",
+      "version  :  0.39\n",
       "total_size  :  1430352768\n",
       "message  :  /home/x-wding2/Ref/hg38/hg38_ucsc_with_chrL.fa\n",
       "formats  :  ['Q', 'c', '3s']\n",
@@ -176,12 +173,12 @@
     }
    ],
    "source": [
-    "!czip header -I ~/Ref/hg38/hg38_with_chrL.allc.cz"
+    "!czip header -I cytozip_example_data/hg38_with_chrL.allc.cz"
    ]
   },
   {
    "cell_type": "code",
-   "execution_count": 5,
+   "execution_count": 12,
    "id": "9d855961-cc11-47c4-8e11-4554246c9aed",
    "metadata": {},
    "outputs": [
@@ -203,15 +200,13 @@
     }
    ],
    "source": [
-    "! czip view -I ~/Ref/hg38/hg38_with_chrL.allc.cz --show_dims 0 | head"
+    "! czip view -I cytozip_example_data/hg38_with_chrL.allc.cz --show_dims 0 | head"
    ]
   },
   {
    "cell_type": "markdown",
    "id": "23ca79af-e8b4-41f8-a93f-c666bdaee92c",
-   "metadata": {
-    "jp-MarkdownHeadingCollapsed": true
-   },
+   "metadata": {},
    "source": [
     "## 3. Call methylation from bam file and save as .cz format"
    ]
@@ -267,7 +262,7 @@
     "! time czip bam_to_cz --input cytozip_example_data/hg38_bam/UWA7648_CX1819_NAC_1_P10-1-K18-A10.bam \\\n",
     "               --genome ~/Ref/hg38/hg38_ucsc_with_chrL.fa \\\n",
     "               --output cytozip_example_data/hg38_bam/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz \\\n",
-    "               --reference ~/Ref/hg38/hg38_with_chrL.allc.cz \\\n",
+    "               --reference cytozip_example_data/hg38_with_chrL.allc.cz \\\n",
     "               --chroms ~/Ref/hg38/hg38_ucsc_with_chrL.main.chrom.sizes"
    ]
   },
@@ -298,16 +293,14 @@
   {
    "cell_type": "markdown",
    "id": "11eeac77-fd4c-4861-91d3-f6b3063d1ee5",
-   "metadata": {
-    "jp-MarkdownHeadingCollapsed": true
-   },
+   "metadata": {},
    "source": [
     "### 4.1 convert stream input to cz with pipe"
    ]
   },
   {
    "cell_type": "code",
-   "execution_count": 3,
+   "execution_count": 13,
    "id": "f614cd96-9c7b-4907-ac70-c89f1029d8db",
    "metadata": {},
    "outputs": [
@@ -327,7 +320,13 @@
       "  -I INPUT, --input INPUT\n",
       "                        input file (stdin if omitted) (default: None)\n",
       "  -F FORMATS, --formats FORMATS\n",
-      "                        column formats, comma-separated (default: ['B', 'B'])\n",
+      "                        column formats, comma-separated (struct chars).\n",
+      "                        Unsigned ints cap values: B=255, H=65535, I=2^32-1,\n",
+      "                        Q=2^64-1; larger values are truncated (saturated) to\n",
+      "                        the max. Default B for single-cell mc/cov saves space\n",
+      "                        and is safe: counts >255 are usually repeat-region\n",
+      "                        artifacts and downstream ALLCools DMR clips coverage\n",
+      "                        to 50 anyway (default: ['B', 'B'])\n",
       "  -C COLUMNS, --columns COLUMNS\n",
       "                        column names, comma-separated (default: ['mc', 'cov'])\n",
       "  -D CHUNK_DIMS, --chunk_dims CHUNK_DIMS\n",
@@ -348,10 +347,10 @@
       "  -l LEVEL, --level LEVEL\n",
       "                        compression level (default: 6)\n",
       "  --delta_cols DELTA_COLS\n",
-      "                        comma-separated integer column names/indices to store\n",
-      "                        as in-block deltas (shrinks strictly-monotonic columns\n",
-      "                        like pos; trades some query speed for size) (default:\n",
-      "                        None)\n"
+      "                        comma-separated column names or indices (from\n",
+      "                        parameter --columns) to store as in-block deltas\n",
+      "                        (shrinks strictly-monotonic columns like pos; trades\n",
+      "                        some query speed for size) (default: None)\n"
      ]
     }
    ],
@@ -361,7 +360,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 4,
+   "execution_count": 14,
    "id": "6d7b5e21-7e1e-4746-bd59-3c41ac62590b",
    "metadata": {},
    "outputs": [
@@ -432,16 +431,14 @@
   {
    "cell_type": "markdown",
    "id": "2ee049b6-f74d-4e07-886c-1c5858bc06f6",
-   "metadata": {
-    "jp-MarkdownHeadingCollapsed": true
-   },
+   "metadata": {},
    "source": [
     "### 4.2 allc to cz with reference cz as input"
    ]
   },
   {
    "cell_type": "code",
-   "execution_count": 12,
+   "execution_count": 15,
    "id": "56a1d563-5da4-4983-b843-49fb1682729c",
    "metadata": {},
    "outputs": [
@@ -452,10 +449,10 @@
       "usage: czip allc2cz [-h] -I INPUT -O OUTPUT [-r REFERENCE]\n",
       "                    [--missing_value MISSING_VALUE] [-F FORMATS] [-C COLUMNS]\n",
       "                    [-D CHUNK_DIMS] [-u USECOLS] [--ref_pos_col REF_POS_COL]\n",
-      "                    [--allc_pos_col ALLC_POS_COL] [-s SEP]\n",
-      "                    [--chrom_order CHROM_ORDER] [-c BATCH_SIZE]\n",
-      "                    [--sort_col SORT_COL] [--delta_cols DELTA_COLS] [-j JOBS]\n",
-      "                    [--pattern PATTERN] [--no_skip_existing]\n",
+      "                    [--allc_pos_col ALLC_POS_COL] [-s SEP] [--chroms CHROMS]\n",
+      "                    [-c BATCH_SIZE] [--sort_col SORT_COL]\n",
+      "                    [--delta_cols DELTA_COLS] [-j JOBS] [--pattern PATTERN]\n",
+      "                    [--no_skip_existing]\n",
       "\n",
       "options:\n",
       "  -h, --help            show this help message and exit\n",
@@ -471,11 +468,18 @@
       "  --missing_value MISSING_VALUE\n",
       "                        missing value fill (default: [0, 0])\n",
       "  -F FORMATS, --formats FORMATS\n",
-      "                        column formats (default: ['B', 'B'])\n",
+      "                        comma-separated column formats (struct chars). When\n",
+      "                        reference is provided, we only need to pack mc and\n",
+      "                        cov,['H', 'H'] is suggested for pseudobulk data (H is\n",
+      "                        unsigned short integer, only 2 bytes),and ['B', 'B']\n",
+      "                        is suggested for single cell data (B is unsigned char,\n",
+      "                        only 1 byte).if reference is not provided, we also\n",
+      "                        need to pack position (Q isrecommanded), in this case,\n",
+      "                        formats should be ['Q','H','H']. (default: ['B', 'B'])\n",
       "  -C COLUMNS, --columns COLUMNS\n",
-      "                        column names (default: ['mc', 'cov'])\n",
+      "                        column names, comma-separated (default: ['mc', 'cov'])\n",
       "  -D CHUNK_DIMS, --chunk_dims CHUNK_DIMS\n",
-      "                        chunk-key names (default: ['chrom'])\n",
+      "                        chunk-key names, comma-separated (default: ['chrom'])\n",
       "  -u USECOLS, --usecols USECOLS\n",
       "                        column indices to pack (default: [4, 5])\n",
       "  --ref_pos_col REF_POS_COL\n",
@@ -483,8 +487,7 @@
       "  --allc_pos_col ALLC_POS_COL\n",
       "                        position column index in input (default: 1)\n",
       "  -s SEP, --sep SEP     separator (default: )\n",
-      "  --chrom_order CHROM_ORDER\n",
-      "                        chrom order file (default: None)\n",
+      "  --chroms CHROMS       chrom order file (default: None)\n",
       "  -c BATCH_SIZE, --batch_size BATCH_SIZE\n",
       "                        rows per chunk (default: 5000)\n",
       "  --sort_col SORT_COL   column name or index to index via per-block\n",
@@ -531,7 +534,7 @@
     "! rm -f cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz\n",
     "! time czip allc2cz --input cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.allc.tsv.gz \\\n",
     "                    --output cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz \\\n",
-    "                    --reference ~/Ref/hg38/hg38_with_chrL.allc.cz \\\n",
+    "                    --reference cytozip_example_data/hg38_with_chrL.allc.cz \\\n",
     "                    --formats \"B,B\" # for single cell, B is fine (max is 255), please change to H for pseudobulk data"
    ]
   },
@@ -611,7 +614,7 @@
     "# view cz file with coordinates (reference cz)\n",
     "! czip view -I cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz \\\n",
     "            --show_dims 0 \\\n",
-    "            -r ~/Ref/hg38/hg38_with_chrL.allc.cz | head"
+    "            -r cytozip_example_data/hg38_with_chrL.allc.cz | head"
    ]
   },
   {
@@ -651,15 +654,13 @@
     "# query cz file\n",
     "! time czip query -I cytozip_example_data/hg38_allc/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz \\\n",
     "            --chunk_key chr1 --start 14932 --end 14949 \\\n",
-    "            -r ~/Ref/hg38/hg38_with_chrL.allc.cz"
+    "            -r cytozip_example_data/hg38_with_chrL.allc.cz"
    ]
   },
   {
    "cell_type": "markdown",
    "id": "04622657-1dfe-4d83-995c-1712471948e3",
-   "metadata": {
-    "jp-MarkdownHeadingCollapsed": true
-   },
+   "metadata": {},
    "source": [
     "## 5. Python API"
    ]
@@ -880,7 +881,7 @@
    ],
    "source": [
     "r=reader.query(chunk_key=('chr1',),start=14932,end=14949,printout=False,\n",
-    "                    reference=\"~/Ref/hg38/hg38_with_chrL.allc.cz\")\n",
+    "                    reference=\"cytozip_example_data/hg38_with_chrL.allc.cz\")\n",
     "#r.__next__()\n",
     "for record in r:\n",
     "    print(record)"
@@ -909,7 +910,7 @@
    ],
    "source": [
     "data=reader.query_numpy(chunk_key=('chr1',),start=14932,end=14949,\n",
-    "                    reference=\"~/Ref/hg38/hg38_with_chrL.allc.cz\")\n",
+    "                    reference=\"cytozip_example_data/hg38_with_chrL.allc.cz\")\n",
     "data"
    ]
   },
@@ -934,7 +935,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 11,
+   "execution_count": 17,
    "id": "4348a861-d1fd-4500-852e-86aca237e53e",
    "metadata": {},
    "outputs": [
@@ -959,16 +960,16 @@
       "chr1\t14948\t-\tCGC\t1\t1\n",
       "chr1\t14949\t-\tCCG\t0\t1\n",
       "\n",
-      "real\t0m3.682s\n",
-      "user\t0m0.264s\n",
-      "sys\t0m0.177s\n"
+      "real\t0m2.198s\n",
+      "user\t0m0.228s\n",
+      "sys\t0m0.111s\n"
      ]
     }
    ],
    "source": [
     "! time czip query -I https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz \\\n",
     "            --chunk_key chr1 --start 14932 --end 14949 \\\n",
-    "            -r https://neomorph.salk.edu/ftp/bican/hg38_with_chrL.allc.cz"
+    "            -r https://neomorph.salk.edu/ftp/cz/hg38_with_chrL.allc.cz"
    ]
   },
   {
@@ -1405,7 +1406,7 @@
    "source": [
     "from cytozip import Reader\n",
     "cell = Reader(\"cytozip_example_data/hg38_cz/UWA7648_CX1819_NAC_1_P9-1-M14-C14.cz\")\n",
-    "df_cz=cell.to_df(reference=\"~/Ref/hg38/hg38_with_chrL.allc.cz\")\n",
+    "df_cz=cell.to_df(reference=\"cytozip_example_data/hg38_with_chrL.allc.cz\")\n",
     "df_cz.rename(columns={'mc':'mc_cz','cov':'cov_cz'},inplace=True)\n",
     "df_cz.set_index(['chrom','pos','strand','context'],inplace=True)\n",
     "df_cz"

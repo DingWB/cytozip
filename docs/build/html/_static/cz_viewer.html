@@ -429,7 +429,7 @@
   <div class="field">
     <label>Reference .cz URL (coordinates)</label>
     <input type="text" class="url" id="refUrl"
-      value="https://neomorph.salk.edu/ftp/bican/hg38_with_chrL.allc.cz" />
+      value="https://neomorph.salk.edu/ftp/cz/hg38_with_chrL.allc.cz" />
   </div>
   <div class="field">
     <label>New track name</label>
@@ -2347,8 +2347,10 @@ function drawTrack(track, qi, vals, dst) {
   const valTag = track.valType === 'unmeth' ? '1−mC' : 'mC';
   const resLabel = res ? ` · ${res} bp bins` : '';
   const scaleLabel = Array.isArray(track.ylim)
-    ? ` · y[${scaleMin}–${scaleMax}]`
-    : ((track.ylim === 'auto' || state.yScale === 'auto') ? ` · y≤${(scaleMax * 100).toFixed(0)}%` : '');
+    ? ` · y:[${scaleMin}–${scaleMax}]`
+    : ((track.ylim === 'auto' || state.yScale === 'auto')
+        ? ` · y:auto (0–${(scaleMax * 100).toFixed(0)}%)`
+        : ' · y:[0–100%]');
   // Full description (kept for image export, which has no dropdown controls) vs.
   // the short on-screen text (context/value/ylim are already shown by the
   // controls, so the label only needs mean / resolution).
