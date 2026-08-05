@@ -556,7 +556,7 @@ conda install -c bioconda cytozip
 conda create -y -p ~/Software/conda/czbuild -c conda-forge \
     conda-build conda-forge-pinning anaconda-client
 # update meta.yaml (version & sha256sum)
-curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.8.tar.gz | sha256sum
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.9.tar.gz | sha256sum
 
 conda activate ~/Software/conda/czbuild
 rm -rf conda-build

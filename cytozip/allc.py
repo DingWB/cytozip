@@ -922,8 +922,76 @@ def _read_allc_table(path, sep='\t'):
 _DTYPE_MAX = {'B': 2 ** 8 - 1, 'H': 2 ** 16 - 1, 'I': 2 ** 32 - 1, 'Q': 2 ** 64 - 1}
 
 
+def _compare_allc_pair(df1, df2, max_value, drop_zero_cov):
+    """Join two allc DataFrames on (chrom, pos) and return (diff, stats).
+
+    ``stats`` is a dict with per-category counts. Clamping / zero-cov
+    filtering is applied here so the same logic is shared by the whole-file
+    and per-chromosome (tabix) paths.
+    """
+    if drop_zero_cov:
+        df1 = df1[df1['cov'] > 0].copy()
+        df2 = df2[df2['cov'] > 0].copy()
+
+    if max_value is not None:
+        for df in (df1, df2):
+            df['mc'] = df['mc'].clip(upper=max_value)
+            df['cov'] = df['cov'].clip(upper=max_value)
+
+    merged = df1.merge(df2, on=['chrom', 'pos'], how='outer',
+                       suffixes=('_1', '_2'), indicator=True)
+
+    only_in_1 = merged['_merge'] == 'left_only'
+    only_in_2 = merged['_merge'] == 'right_only'
+    both = merged['_merge'] == 'both'
+    mc_diff = both & (merged['mc_1'] != merged['mc_2'])
+    cov_diff = both & (merged['cov_1'] != merged['cov_2'])
+
+    diff_mask = only_in_1 | only_in_2 | mc_diff | cov_diff
+    stats = {
+        'n1': len(df1), 'n2': len(df2),
+        'only_in_1': int(only_in_1.sum()), 'only_in_2': int(only_in_2.sum()),
+        'mc_diff': int(mc_diff.sum()), 'cov_diff': int(cov_diff.sum()),
+    }
+    return merged[diff_mask].copy(), stats
+
+
+def _compare_allc_chrom_worker(args):
+    """Fetch one chromosome from both tabix files and compare it.
+
+    Each worker opens its own ``pysam.TabixFile`` handles (handles are not
+    fork-safe to share), so this runs standalone in a Pool process.
+    """
+    allc1, allc2, chrom, sep, max_value, drop_zero_cov = args
+    import pysam
+    from io import StringIO
+
+    def _fetch_df(path, chrom):
+        tbi = pysam.TabixFile(path)
+        try:
+            if chrom not in tbi.contigs:
+                return pd.DataFrame(columns=_ALLC_COLS)
+            text = '\n'.join(tbi.fetch(chrom))
+        finally:
+            tbi.close()
+        if not text:
+            return pd.DataFrame(columns=_ALLC_COLS)
+        return pd.read_csv(
+            StringIO(text), sep=sep, header=None, names=_ALLC_COLS,
+            dtype={'chrom': str, 'pos': 'int64', 'strand': str,
+                   'context': str, 'mc': 'int64', 'cov': 'int64',
+                   'methylated': 'int8'})
+
+    df1 = _fetch_df(allc1, chrom)
+    df2 = _fetch_df(allc2, chrom)
+    if df1.empty and df2.empty:
+        return None, {'n1': 0, 'n2': 0, 'only_in_1': 0, 'only_in_2': 0,
+                      'mc_diff': 0, 'cov_diff': 0}
+    return _compare_allc_pair(df1, df2, max_value, drop_zero_cov)
+
+
 def compare_allc(allc1, allc2, drop_zero_cov=True, dtype='B',
-                 output=None, sep='\t'):
+                 output=None, sep='\t', chroms=None, jobs=1):
     """
     Compare two allc.tsv[.gz] files and report per-position differences.
 
@@ -969,6 +1037,16 @@ def compare_allc(allc1, allc2, drop_zero_cov=True, dtype='B',
         (tab-separated). Default None (do not write).
     sep : str, optional
         Column separator of the input allc files (default ``'\\t'``).
+    chroms : list, str (path), or None, optional
+        Restrict the comparison to these chromosomes. Either a list of
+        chromosome names or a path to a headerless, tab-separated file whose
+        first column lists chromosome names (e.g. a ``.fai`` or chrom-size
+        file). ``None`` (default) compares every chromosome.
+    jobs : int, optional
+        Number of parallel worker processes used to compare chromosomes
+        (default 1). Only takes effect on the tabix streaming path (both
+        allc files carry a ``.tbi`` index); each worker handles one
+        chromosome at a time.
 
     Returns
     -------
@@ -976,6 +1054,12 @@ def compare_allc(allc1, allc2, drop_zero_cov=True, dtype='B',
         Rows where the two files differ, joined on ``(chrom, pos)`` with
         ``_1`` / ``_2`` suffixes. A row is considered different when it is
         present in only one file, or when ``mc`` / ``cov`` differ.
+
+    Notes
+    -----
+    When both allc files carry a tabix ``.tbi`` index, the comparison is
+    streamed one chromosome at a time (via ``pysam``) instead of loading
+    both whole files into memory, which is faster and far lighter on RAM.
     """
     max_value = None
     if dtype is not None:
@@ -984,34 +1068,92 @@ def compare_allc(allc1, allc2, drop_zero_cov=True, dtype='B',
                 f"dtype must be one of {sorted(_DTYPE_MAX)}, got {dtype!r}")
         max_value = _DTYPE_MAX[dtype]
 
-    df1 = _read_allc_table(allc1, sep=sep)
-    df2 = _read_allc_table(allc2, sep=sep)
+    allc1 = os.path.abspath(os.path.expanduser(allc1))
+    allc2 = os.path.abspath(os.path.expanduser(allc2))
 
-    if drop_zero_cov:
-        df1 = df1[df1['cov'] > 0].copy()
-        df2 = df2[df2['cov'] > 0].copy()
+    # Resolve the optional chromosome whitelist (list or first column of a file).
+    chrom_list = None
+    if chroms is not None:
+        if isinstance(chroms, (list, tuple, set)):
+            chrom_list = [str(c) for c in chroms]
+        else:
+            chroms_path = os.path.abspath(os.path.expanduser(chroms))
+            chrom_df = pd.read_csv(chroms_path, sep='\t', header=None, usecols=[0])
+            chrom_list = chrom_df.iloc[:, 0].astype(str).tolist()
 
-    if max_value is not None:
-        for df in (df1, df2):
-            df['mc'] = df['mc'].clip(upper=max_value)
-            df['cov'] = df['cov'].clip(upper=max_value)
+    use_tabix = (os.path.exists(allc1 + '.tbi') and
+                 os.path.exists(allc2 + '.tbi'))
 
-    merged = df1.merge(df2, on=['chrom', 'pos'], how='outer',
-                       suffixes=('_1', '_2'), indicator=True)
+    totals = {'n1': 0, 'n2': 0, 'only_in_1': 0, 'only_in_2': 0,
+              'mc_diff': 0, 'cov_diff': 0}
 
-    only_in_1 = merged['_merge'] == 'left_only'
-    only_in_2 = merged['_merge'] == 'right_only'
-    both = merged['_merge'] == 'both'
-    mc_diff = both & (merged['mc_1'] != merged['mc_2'])
-    cov_diff = both & (merged['cov_1'] != merged['cov_2'])
+    if use_tabix:
+        import pysam
+        from io import StringIO
+        tbi1 = pysam.TabixFile(allc1)
+        tbi2 = pysam.TabixFile(allc2)
 
-    diff_mask = only_in_1 | only_in_2 | mc_diff | cov_diff
-    diff = merged[diff_mask].copy()
+        def _fetch_df(tbi, chrom):
+            if chrom not in tbi.contigs:
+                return pd.DataFrame(columns=_ALLC_COLS)
+            text = '\n'.join(tbi.fetch(chrom))
+            if not text:
+                return pd.DataFrame(columns=_ALLC_COLS)
+            return pd.read_csv(
+                StringIO(text), sep=sep, header=None, names=_ALLC_COLS,
+                dtype={'chrom': str, 'pos': 'int64', 'strand': str,
+                       'context': str, 'mc': 'int64', 'cov': 'int64',
+                       'methylated': 'int8'})
+
+        try:
+            if chrom_list is not None:
+                query_chroms = chrom_list
+            else:
+                seen = set(tbi1.contigs)
+                query_chroms = list(tbi1.contigs) + [
+                    c for c in tbi2.contigs if c not in seen]
+            diff_parts = []
+            if jobs and int(jobs) > 1 and len(query_chroms) > 1:
+                tasks = [(allc1, allc2, chrom, sep, max_value, drop_zero_cov)
+                         for chrom in query_chroms]
+                with multiprocessing.Pool(int(jobs)) as pool:
+                    for diff_c, stats in pool.imap_unordered(
+                            _compare_allc_chrom_worker, tasks):
+                        for k in totals:
+                            totals[k] += stats[k]
+                        if diff_c is not None and not diff_c.empty:
+                            diff_parts.append(diff_c)
+            else:
+                for chrom in query_chroms:
+                    df1 = _fetch_df(tbi1, chrom)
+                    df2 = _fetch_df(tbi2, chrom)
+                    if df1.empty and df2.empty:
+                        continue
+                    diff_c, stats = _compare_allc_pair(
+                        df1, df2, max_value, drop_zero_cov)
+                    for k in totals:
+                        totals[k] += stats[k]
+                    if not diff_c.empty:
+                        diff_parts.append(diff_c)
+            diff = (pd.concat(diff_parts, ignore_index=True)
+                    if diff_parts else pd.DataFrame())
+        finally:
+            tbi1.close()
+            tbi2.close()
+    else:
+        df1 = _read_allc_table(allc1, sep=sep)
+        df2 = _read_allc_table(allc2, sep=sep)
+        if chrom_list is not None:
+            chrom_set = set(chrom_list)
+            df1 = df1[df1['chrom'].isin(chrom_set)].copy()
+            df2 = df2[df2['chrom'].isin(chrom_set)].copy()
+        diff, stats = _compare_allc_pair(df1, df2, max_value, drop_zero_cov)
+        totals = stats
 
     logger.info(
-        f"compare_allc: {len(df1)} records in allc1, {len(df2)} in allc2; "
-        f"only_in_1={int(only_in_1.sum())}, only_in_2={int(only_in_2.sum())}, "
-        f"mc_diff={int(mc_diff.sum())}, cov_diff={int(cov_diff.sum())}, "
+        f"compare_allc: {totals['n1']} records in allc1, {totals['n2']} in allc2; "
+        f"only_in_1={totals['only_in_1']}, only_in_2={totals['only_in_2']}, "
+        f"mc_diff={totals['mc_diff']}, cov_diff={totals['cov_diff']}, "
         f"total_diff={len(diff)}")
 
     if output is not None:

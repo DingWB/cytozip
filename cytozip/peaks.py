@@ -51,26 +51,42 @@ def _write_pseudo_reads(fh, chrom, pos, sig, half):
 
 
 def call_peaks(input=None, reference=None, output=None, name='peaks',
-               signal='unmeth', control=None, index=None, genome_size='mm',
+               control=None, index=None, genome_size='mm',
                fragment_size=300, qvalue=0.05, broad=False,
                min_cov=1, keep_bed=False, macs3_args='',
                mc_col=None, cov_col=None):
-    """Call peaks from a methylation .cz file using MACS3.
+    """Call peaks from a methylation .cz file using MACS3 (pseudo-read route).
 
-    Treats unmethylated counts (cov - mc) at each cytosine site as the
-    signal (analogous to ATAC-seq read counts).  For each site with
-    unmethylated count *u*, generates *u* pseudo-reads (BED intervals)
-    of length ``fragment_size`` centered on the site.  These are then
-    fed to ``macs3 callpeak --nomodel``.
+    Peak calling on a .cz always treats the **unmethylated count**
+    ``umc = cov - mc`` at each cytosine as the ATAC-like read signal: CpG
+    hypomethylation marks open chromatin / regulatory elements, so only
+    unmethylation (not ``mc``) is a meaningful peak signal here.
 
-    This is useful for identifying regions of low methylation
-    (e.g., open chromatin in NOMe-seq, or regulatory elements in WGBS).
+    Mechanism (differs from :func:`call_peaks_bdg`): this function
+    **materialises pseudo-reads**. For each site with ``umc = u`` it writes
+    ``u`` BED intervals of length ``fragment_size`` centred on the site, then
+    runs ``macs3 callpeak --nomodel`` on that BED exactly like an ATAC-seq
+    experiment. MACS3's full model (local lambda, fragment pileup, q-value
+    FDR) is therefore used unchanged. The cost is that the BED holds
+    ``sum(umc)`` reads, so runtime and disk grow with sequencing depth and
+    it can explode on deep pseudobulks — use :func:`call_peaks_bdg` there.
 
-    Because ``cov - mc`` is strongly confounded by sequencing depth and
-    cytosine density, pass ``control='cov'`` to also emit a coverage-based
-    control track (``macs3 -c``): peaks then reflect a genuine **local
-    enrichment of unmethylation** (``umc/cov`` above the global rate) rather
-    than merely deeply covered / CpG-dense regions. Strongly recommended.
+    Useful for identifying regions of low methylation (e.g. open chromatin
+    in NOMe-seq, or regulatory elements in WGBS).
+
+    Because ``cov - mc`` is confounded by sequencing depth and cytosine
+    density, pass ``control='cov'`` to also emit a coverage-based control
+    track (``macs3 -c``): peaks then reflect a genuine **local enrichment of
+    unmethylation** (``umc/cov`` above the global rate) rather than merely
+    deeply covered / CpG-dense regions. Strongly recommended.
+
+    See Also
+    --------
+    call_peaks_bdg : memory-efficient equivalent that never materialises
+        reads; builds pileup bedGraphs directly and scores them with MACS3's
+        bedGraph back-end (``bdgcmp`` Poisson test + ``bdgpeakcall``). Prefer
+        it for deep pseudobulks; results are comparable but not identical
+        because the scoring model differs (see its docstring).
 
     Parameters
     ----------
@@ -83,15 +99,12 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
         ``<input_stem>_peaks/``.
     name : str
         Name prefix for MACS3 output files.
-    signal : str
-        ``'unmeth'`` uses (cov - mc) as signal;
-        ``'meth'`` uses mc as signal.
     control : str or None
         Control (input) track fed to ``macs3 -c`` to correct for the
-        coverage / cytosine-density bias in ``signal``. ``'cov'`` uses total
-        coverage (recommended), ``'mc'`` uses the methylated count, ``None``
-        (default) calls peaks against MACS3's genome background only (the
-        original, less specific behaviour).
+        coverage / cytosine-density bias in the ``umc`` signal. ``'cov'`` uses
+        total coverage (recommended), ``'mc'`` uses the methylated count,
+        ``None`` (default) calls peaks against MACS3's genome background only
+        (the original, less specific behaviour).
     index : str or None
         Path to index file for context filtering (e.g., CpG-only index
         from ``index_context``).
@@ -200,86 +213,92 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     ctrl_bed_path = (os.path.join(output, f'{name}.control_reads.bed')
                      if control is not None else None)
 
-    total_reads = 0
-    total_ctrl = 0
-    ctrl_fh = open(ctrl_bed_path, 'w') if ctrl_bed_path else None
-    try:
-        with open(bed_path, 'w') as fh:
-            for dim in reader.chunk_key2offset:
-                if dim not in ref_reader.chunk_key2offset:
-                    continue
-                chrom = dim[0]
-
-                raw = reader.fetch_chunk_bytes(dim)
-                if not raw:
-                    continue
-                data_arr = np.frombuffer(raw, dtype=data_dtype)
-
-                ref_raw = ref_reader.fetch_chunk_bytes(dim)
-                if not ref_raw:
-                    continue
-                ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
-
-                if index_reader is not None and dim in index_reader.chunk_key2offset:
-                    ids = index_reader.get_ids_from_index(dim)
-                    if len(ids.shape) == 1:
-                        data_arr = data_arr[ids]
-                        ref_arr = ref_arr[ids]
-
-                pos = ref_arr['pos'].astype(np.int64)
-                mc = data_arr[mc_col].astype(np.int32)
-                cov = data_arr[cov_col].astype(np.int32)
-
-                mask = cov >= min_cov
-                pos = pos[mask]
-                mc = mc[mask]
-                cov = cov[mask]
-
-                if signal == 'unmeth':
-                    sig = cov - mc
-                elif signal == 'meth':
-                    sig = mc.copy()
-                else:
-                    raise ValueError(f"Unknown signal type: {signal!r}")
-
-                total_reads += _write_pseudo_reads(fh, chrom, pos, sig, half)
-
-                if ctrl_fh is not None:
-                    csig = cov.copy() if control == 'cov' else mc.copy()
-                    total_ctrl += _write_pseudo_reads(
-                        ctrl_fh, chrom, pos, csig, half)
-
-                logger.debug(f"  {chrom}: {len(pos)} sites")
-
-                # Release this chunk's pages on both readers.
-                reader.release_chunk(dim)
-                ref_reader.release_chunk(dim)
-    finally:
-        if ctrl_fh is not None:
-            ctrl_fh.close()
-
-    reader.close()
-    ref_reader.close()
-    if index_reader:
-        index_reader.close()
-
-    logger.info(f"Total pseudo-reads: {total_reads}"
-                + (f"; control reads: {total_ctrl}" if control else ""))
-
-    # ---- Step 4: Sort BED and run MACS3 peak calling ----
     sorted_bed = bed_path.replace('.bed', '.sorted.bed')
-    logger.info("Sorting BED file...")
-    subprocess.run(
-        ['sort', '-k1,1', '-k2,2n', bed_path, '-o', sorted_bed],
-        check=True,
-    )
-    sorted_ctrl = None
-    if ctrl_bed_path is not None:
-        sorted_ctrl = ctrl_bed_path.replace('.bed', '.sorted.bed')
-        subprocess.run(
-            ['sort', '-k1,1', '-k2,2n', ctrl_bed_path, '-o', sorted_ctrl],
-            check=True,
-        )
+    sorted_ctrl = (ctrl_bed_path.replace('.bed', '.sorted.bed')
+                   if ctrl_bed_path is not None else None)
+
+    # Reuse existing sorted BED(s) instead of regenerating them.
+    if os.path.exists(sorted_bed) and (sorted_ctrl is None
+                                       or os.path.exists(sorted_ctrl)):
+        logger.info(
+            f"Sorted BED already exists: {sorted_bed}"
+            + (f", {sorted_ctrl}" if sorted_ctrl else "")
+            + "; skip pseudo-read generation and sorting.")
+        reader.close()
+        ref_reader.close()
+        if index_reader:
+            index_reader.close()
+    else:
+        total_reads = 0
+        total_ctrl = 0
+        ctrl_fh = open(ctrl_bed_path, 'w') if ctrl_bed_path else None
+        try:
+            with open(bed_path, 'w') as fh:
+                for dim in reader.chunk_key2offset:
+                    if dim not in ref_reader.chunk_key2offset:
+                        continue
+                    chrom = dim[0]
+
+                    raw = reader.fetch_chunk_bytes(dim)
+                    if not raw:
+                        continue
+                    data_arr = np.frombuffer(raw, dtype=data_dtype)
+
+                    ref_raw = ref_reader.fetch_chunk_bytes(dim)
+                    if not ref_raw:
+                        continue
+                    ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
+
+                    if index_reader is not None and dim in index_reader.chunk_key2offset:
+                        ids = index_reader.get_ids_from_index(dim)
+                        if len(ids.shape) == 1:
+                            data_arr = data_arr[ids]
+                            ref_arr = ref_arr[ids]
+
+                    pos = ref_arr['pos'].astype(np.int64)
+                    mc = data_arr[mc_col].astype(np.int32)
+                    cov = data_arr[cov_col].astype(np.int32)
+
+                    mask = cov >= min_cov
+                    pos = pos[mask]
+                    mc = mc[mask]
+                    cov = cov[mask]
+
+                    sig = cov - mc  # unmethylated count = ATAC-like signal
+
+                    total_reads += _write_pseudo_reads(fh, chrom, pos, sig, half)
+
+                    if ctrl_fh is not None:
+                        csig = cov.copy() if control == 'cov' else mc.copy()
+                        total_ctrl += _write_pseudo_reads(
+                            ctrl_fh, chrom, pos, csig, half)
+
+                    logger.debug(f"  {chrom}: {len(pos)} sites")
+
+                    # Release this chunk's pages on both readers.
+                    reader.release_chunk(dim)
+                    ref_reader.release_chunk(dim)
+        finally:
+            if ctrl_fh is not None:
+                ctrl_fh.close()
+
+        reader.close()
+        ref_reader.close()
+        if index_reader:
+            index_reader.close()
+
+        logger.info(f"Total pseudo-reads: {total_reads}"
+                    + (f"; control reads: {total_ctrl}" if control else ""))
+
+        # ---- Step 4: Sort BED ----
+        logger.info("Sorting BED file...")
+        sort_cmd = ['sort', '-k1,1', '-k2,2n', bed_path, '-o', sorted_bed]
+        logger.info(f"Running: {' '.join(sort_cmd)}")
+        subprocess.run(sort_cmd, check=True)
+        if sorted_ctrl is not None:
+            sort_ctrl_cmd = ['sort', '-k1,1', '-k2,2n', ctrl_bed_path, '-o', sorted_ctrl]
+            logger.info(f"Running: {' '.join(sort_ctrl_cmd)}")
+            subprocess.run(sort_ctrl_cmd, check=True)
 
     cmd = [
         'macs3', 'callpeak',
@@ -302,11 +321,13 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     logger.info(f"Running: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
 
-    os.remove(bed_path)
+    if os.path.exists(bed_path):
+        os.remove(bed_path)
     if ctrl_bed_path is not None and os.path.exists(ctrl_bed_path):
         os.remove(ctrl_bed_path)
     if not keep_bed:
-        os.remove(sorted_bed)
+        if os.path.exists(sorted_bed):
+            os.remove(sorted_bed)
         if sorted_ctrl is not None and os.path.exists(sorted_ctrl):
             os.remove(sorted_ctrl)
     else:
@@ -500,33 +521,51 @@ def _pileup_from_sites(pos, sig, half):
 
 
 def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
-                   signal='unmeth', control='cov', index=None,
+                   control='cov', index=None,
                    ext=300, method='ppois', cutoff=2.0,
                    min_len=None, max_gap=None, min_cov=1,
                    keep_bdg=False, mc_col=None, cov_col=None):
     """Call peaks from a methylation .cz via MACS3 bedGraph back-end.
 
-    Memory-efficient alternative to :func:`call_peaks`: instead of expanding
-    every count into ``sum(sig)`` pseudo-reads (which explodes on deep
-    pseudobulks), it builds piecewise-constant **pileup bedGraphs** directly
-    (each site's count spread over ``ext`` bp) and drives MACS3's bedGraph
-    peak-calling back-end (``bdgcmp`` + ``bdgpeakcall``).
+    Like :func:`call_peaks`, the signal is always the **unmethylated count**
+    ``umc = cov - mc`` (CpG hypomethylation = open chromatin); ``mc`` is never
+    used as signal.
 
-    The treatment track is the ``signal`` pileup (``unmeth = cov - mc``); the
-    control (lambda) track is the coverage pileup scaled by the global rate
-    ``r = sum(signal) / sum(cov)`` — i.e. the *expected* unmethylated pileup
-    if methylation were uniform. ``bdgcmp -m ppois`` then scores each position
-    by the Poisson p-value of the observed pileup against that expectation, so
-    peaks are regions of genuine **local unmethylation enrichment**, corrected
-    for coverage / cytosine-density bias.
+    Mechanism (differs from :func:`call_peaks`): instead of materialising
+    ``sum(umc)`` pseudo-reads (which explodes on deep pseudobulks), this
+    builds piecewise-constant **pileup bedGraphs** analytically — each site's
+    count is spread over ``ext`` bp and overlapping contributions summed with
+    a difference array, so memory is ``O(n_sites)`` regardless of depth — and
+    drives MACS3's bedGraph back-end (``bdgcmp`` + ``bdgpeakcall``) rather than
+    ``callpeak``.
+
+    Scoring model. The **treatment** track is the ``umc`` pileup. The
+    **control (lambda)** track is the coverage pileup scaled by the global
+    unmethylation rate ``r = sum(umc) / sum(cov)`` (``control='cov'``) — i.e.
+    the *expected* unmethylated pileup if methylation were spatially uniform.
+    ``bdgcmp -m ppois`` then scores every position by the Poisson p-value of
+    the observed ``umc`` pileup against that local expectation, and
+    ``bdgpeakcall`` thresholds the score. Peaks are thus regions of genuine
+    **local unmethylation enrichment**, corrected for coverage / cytosine-
+    density bias.
+
+    How this differs from :func:`call_peaks` in practice:
+
+    - **Memory/scaling**: ``O(n_sites)`` here vs ``O(sum(umc))`` reads there;
+      this route is the one to use for deep pseudobulks.
+    - **Statistical model**: an explicit single-lambda Poisson test against a
+      global-rate expectation (this function) vs MACS3's native ``callpeak``
+      pipeline with its dynamic local lambda and q-value FDR
+      (:func:`call_peaks`). The two give comparable but not bit-identical
+      peak sets.
+    - **Control is mandatory** here (the expected-signal lambda is the whole
+      point), whereas :func:`call_peaks` can optionally run without one.
 
     Parameters
     ----------
     input, reference, output, name, index, min_cov, mc_col, cov_col :
         As in :func:`call_peaks` (``output`` defaults to
         ``<input_stem>_peaks/``).
-    signal : str
-        ``'unmeth'`` (``cov - mc``, default) or ``'meth'`` (``mc``).
     control : str
         Coverage-bias control track: ``'cov'`` (default) or ``'mc'``. The
         bedGraph route always uses a control (that is its purpose).
@@ -553,8 +592,6 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
     """
     import subprocess
 
-    if signal not in ('unmeth', 'meth'):
-        raise ValueError(f"signal must be 'unmeth' or 'meth'; got {signal!r}")
     if control not in ('cov', 'mc'):
         raise ValueError(f"control must be 'cov' or 'mc'; got {control!r}")
 
@@ -609,50 +646,6 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
                       'value': v.astype(np.int64)}).to_csv(
             fh, sep='\t', header=False, index=False)
 
-    total_sig = 0.0
-    total_cov = 0.0
-    with open(treat_bdg, 'w') as tf, open(ctrl_bdg, 'w') as cf:
-        for dim in reader.chunk_key2offset:
-            if dim not in ref_reader.chunk_key2offset:
-                continue
-            chrom = dim[0]
-            raw = reader.fetch_chunk_bytes(dim)
-            if not raw:
-                continue
-            data_arr = np.frombuffer(raw, dtype=data_dtype)
-            ref_raw = ref_reader.fetch_chunk_bytes(dim)
-            if not ref_raw:
-                continue
-            ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
-            if index_reader is not None and dim in index_reader.chunk_key2offset:
-                ids = index_reader.get_ids_from_index(dim)
-                if len(ids.shape) == 1:
-                    data_arr = data_arr[ids]
-                    ref_arr = ref_arr[ids]
-            pos = ref_arr['pos'].astype(np.int64)
-            mc = data_arr[mc_col].astype(np.int64)
-            cov = data_arr[cov_col].astype(np.int64)
-            mask = cov >= min_cov
-            pos, mc, cov = pos[mask], mc[mask], cov[mask]
-            sig = (cov - mc) if signal == 'unmeth' else mc
-            csig = cov if control == 'cov' else mc
-            total_sig += float(sig.sum())
-            total_cov += float(csig.sum())
-            _write_seg(tf, chrom, _pileup_from_sites(pos, sig, half))
-            _write_seg(cf, chrom, _pileup_from_sites(pos, csig, half))
-            reader.release_chunk(dim)
-            ref_reader.release_chunk(dim)
-
-    reader.close()
-    ref_reader.close()
-    if index_reader:
-        index_reader.close()
-
-    if total_sig <= 0 or total_cov <= 0:
-        raise ValueError(
-            "no signal after filtering; check context index / min_cov.")
-    r = total_sig / total_cov  # global unmeth (or meth) rate -> control lambda
-
     lambda_bdg = os.path.join(output, f'{name}.control_lambda.bdg')
     score_bdg = os.path.join(output, f'{name}.{method}.bdg')
     narrowpeak = os.path.join(output, f'{name}_peaks.narrowPeak')
@@ -661,17 +654,80 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
     if max_gap is None:
         max_gap = ext // 2
 
+    # Reuse existing pileup / lambda bedGraphs instead of regenerating them.
+    r = None
+    if (os.path.exists(treat_bdg) and os.path.exists(ctrl_bdg)
+            and os.path.exists(lambda_bdg)):
+        logger.info(
+            f"bedGraph tracks already exist: {treat_bdg}, {ctrl_bdg}, "
+            f"{lambda_bdg}; skip pileup generation.")
+        reader.close()
+        ref_reader.close()
+        if index_reader:
+            index_reader.close()
+    else:
+        total_sig = 0.0
+        total_cov = 0.0
+        with open(treat_bdg, 'w') as tf, open(ctrl_bdg, 'w') as cf:
+            for dim in reader.chunk_key2offset:
+                if dim not in ref_reader.chunk_key2offset:
+                    continue
+                chrom = dim[0]
+                raw = reader.fetch_chunk_bytes(dim)
+                if not raw:
+                    continue
+                data_arr = np.frombuffer(raw, dtype=data_dtype)
+                ref_raw = ref_reader.fetch_chunk_bytes(dim)
+                if not ref_raw:
+                    continue
+                ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
+                if index_reader is not None and dim in index_reader.chunk_key2offset:
+                    ids = index_reader.get_ids_from_index(dim)
+                    if len(ids.shape) == 1:
+                        data_arr = data_arr[ids]
+                        ref_arr = ref_arr[ids]
+                pos = ref_arr['pos'].astype(np.int64)
+                mc = data_arr[mc_col].astype(np.int64)
+                cov = data_arr[cov_col].astype(np.int64)
+                mask = cov >= min_cov
+                pos, mc, cov = pos[mask], mc[mask], cov[mask]
+                sig = cov - mc  # unmethylated count = ATAC-like signal
+                csig = cov if control == 'cov' else mc
+                total_sig += float(sig.sum())
+                total_cov += float(csig.sum())
+                _write_seg(tf, chrom, _pileup_from_sites(pos, sig, half))
+                _write_seg(cf, chrom, _pileup_from_sites(pos, csig, half))
+                reader.release_chunk(dim)
+                ref_reader.release_chunk(dim)
+
+        reader.close()
+        ref_reader.close()
+        if index_reader:
+            index_reader.close()
+
+        if total_sig <= 0 or total_cov <= 0:
+            raise ValueError(
+                "no signal after filtering; check context index / min_cov.")
+        r = total_sig / total_cov  # global unmeth rate -> control lambda
+
     # Scale the coverage pileup to the expected-signal lambda (cov * r).
-    logger.info(f"scaling control by r={r:.4g} (global {signal} rate)")
-    subprocess.run(['macs3', 'bdgopt', '-i', ctrl_bdg, '-m', 'multiply',
-                    '-p', f'{r:.8g}', '-o', lambda_bdg], check=True)
-    logger.info(f"macs3 bdgcmp -m {method} (treat vs control lambda)")
-    subprocess.run(['macs3', 'bdgcmp', '-t', treat_bdg, '-c', lambda_bdg,
-                    '-m', method, '-o', score_bdg], check=True)
-    logger.info(f"macs3 bdgpeakcall -c {cutoff} -l {min_len} -g {max_gap}")
-    subprocess.run(['macs3', 'bdgpeakcall', '-i', score_bdg,
-                    '-c', str(cutoff), '-l', str(min_len), '-g', str(max_gap),
-                    '-o', narrowpeak], check=True)
+    if os.path.exists(lambda_bdg):
+        logger.info(f"{lambda_bdg} already exists; skip bdgopt scaling.")
+    else:
+        logger.info(f"scaling control by r={r:.4g} (global unmeth rate)")
+        bdgopt_cmd = ['macs3', 'bdgopt', '-i', ctrl_bdg, '-m', 'multiply',
+                      '-p', f'{r:.8g}', '-o', lambda_bdg]
+        logger.info(f"Running: {' '.join(bdgopt_cmd)}")
+        subprocess.run(bdgopt_cmd, check=True)
+    bdgcmp_cmd = ['macs3', 'bdgcmp', '-t', treat_bdg, '-c', lambda_bdg,
+                  '-m', method, '-o', score_bdg]
+    logger.info(f"Running: {' '.join(bdgcmp_cmd)}")
+    subprocess.run(bdgcmp_cmd, check=True)
+    bdgpeakcall_cmd = ['macs3', 'bdgpeakcall', '-i', score_bdg,
+                       '-c', str(cutoff), '-l', str(min_len), '-g', str(max_gap),
+                       '-o', narrowpeak]
+    logger.info(f"Running: {' '.join(bdgpeakcall_cmd)}")
+    subprocess.run(bdgpeakcall_cmd, check=True)
 
     if not keep_bdg:
         for f in (treat_bdg, ctrl_bdg, lambda_bdg, score_bdg):

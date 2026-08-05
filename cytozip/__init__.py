@@ -718,12 +718,11 @@ def _build_parser():
                    help='format of merged_dmr output (default: tsv)')
 
     # ---- call_peaks ----------------------------------------------------------
-    p = sub.add_parser('call_peaks', help='Call peaks from methylation .cz using MACS3', formatter_class=_fmt)
+    p = sub.add_parser('call_peaks', help='Call peaks from methylation .cz using MACS3 (pseudo-read route; signal is always unmeth=cov-mc)', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file (mc/cov)')
     p.add_argument('-r', '--reference', required=True, help='reference .cz file (pos/strand/context)')
     p.add_argument('-O', '--output', default=None, help='output directory for MACS3 results')
     p.add_argument('-n', '--name', default='peaks', help='name prefix for output files')
-    p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth'], help='signal type: unmeth=(cov-mc), meth=mc')
     p.add_argument('--control', default=None, choices=['cov', 'mc'], help='coverage-bias control track for macs3 -c (cov recommended); default none')
     p.add_argument('--index', default=None, help='index file for context filtering (e.g., CpG-only)')
     p.add_argument('--genome_size', default='mm', help='genome size for MACS3 (hs/mm/integer)')
@@ -737,12 +736,11 @@ def _build_parser():
     p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
 
     # ---- call_peaks_bdg ------------------------------------------------------
-    p = sub.add_parser('call_peaks_bdg', help='Call peaks from methylation .cz via MACS3 bedGraph back-end (memory-efficient, coverage-controlled)', formatter_class=_fmt)
+    p = sub.add_parser('call_peaks_bdg', help='Call peaks from methylation .cz via MACS3 bedGraph back-end (memory-efficient O(n_sites), coverage-controlled Poisson; signal is always unmeth=cov-mc)', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file (mc/cov)')
     p.add_argument('-r', '--reference', required=True, help='reference .cz file (pos/strand/context)')
     p.add_argument('-O', '--output', default=None, help='output directory for peak results')
     p.add_argument('-n', '--name', default='peaks', help='name prefix for output files')
-    p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth'], help='treatment signal: unmeth=(cov-mc), meth=mc')
     p.add_argument('--control', default='cov', choices=['cov', 'mc'], help='coverage-bias control (lambda) track (default cov)')
     p.add_argument('--index', default=None, help='index file for context filtering (e.g., CpG-only)')
     p.add_argument('--ext', type=int, default=300, help='bp each site count is spread over (pileup extension)')
@@ -1266,7 +1264,7 @@ def main():
             cov_col = int(cov_col)
         call_peaks(input=args.input, reference=args.reference,
                    output=args.output, name=args.name,
-                   signal=args.signal, control=args.control,
+                   control=args.control,
                    index=args.index,
                    genome_size=args.genome_size,
                    fragment_size=args.fragment_size,
@@ -1285,7 +1283,7 @@ def main():
             cov_col = int(cov_col)
         call_peaks_bdg(input=args.input, reference=args.reference,
                        output=args.output, name=args.name,
-                       signal=args.signal, control=args.control,
+                       control=args.control,
                        index=args.index, ext=args.ext, method=args.method,
                        cutoff=args.cutoff, min_len=args.min_len,
                        max_gap=args.max_gap, min_cov=args.min_cov,
