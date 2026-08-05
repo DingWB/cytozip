@@ -520,6 +520,44 @@ def _pileup_from_sites(pos, sig, half):
     return seg_start[nz], seg_end[nz], seg_val[nz]
 
 
+def _pileup_control(pos, sig, half, floor=1.0):
+    """Continuous coverage pileup for the control lambda track.
+
+    Same difference-array pileup as :func:`_pileup_from_sites`, but returns a
+    **gap-free** track over ``[0, max(pos)+half]`` with every segment floored
+    at ``floor`` (> 0). ``macs3 bdgcmp -m ppois`` evaluates the Poisson score
+    at every base and requires the lambda to be strictly positive there; a
+    sparse (zero-gap) control makes ``ppois`` abort with
+    ``AssertionError: Lambda must > 0``. Returns ``(starts, ends, values)`` or
+    ``None`` when empty.
+    """
+    pos = np.asarray(pos, dtype=np.int64)
+    sig = np.asarray(sig, dtype=np.float64)
+    keep = sig != 0
+    pos, sig = pos[keep], sig[keep]
+    if pos.size == 0:
+        return None
+    starts = np.maximum(0, pos - half)
+    ends = pos + half
+    idx = np.concatenate([starts, ends])
+    delta = np.concatenate([sig, -sig])
+    order = np.argsort(idx, kind='mergesort')
+    idx, delta = idx[order], delta[order]
+    uniq, inv = np.unique(idx, return_inverse=True)
+    agg = np.zeros(uniq.size, dtype=np.float64)
+    np.add.at(agg, inv, delta)
+    cum = np.cumsum(agg)
+    seg_start, seg_end, seg_val = uniq[:-1], uniq[1:], cum[:-1]
+    # Prepend the leading [0, uniq[0]) gap so the track starts at base 0.
+    if uniq[0] > 0:
+        seg_start = np.concatenate([[0], seg_start])
+        seg_end = np.concatenate([[uniq[0]], seg_end])
+        seg_val = np.concatenate([[0.0], seg_val])
+    # Floor internal gaps (cum == 0) and the leading gap so lambda is never 0.
+    seg_val = np.maximum(seg_val, floor)
+    return seg_start, seg_end, seg_val
+
+
 def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
                    control='cov', index=None,
                    ext=300, method='ppois', cutoff=2.0,
@@ -543,6 +581,8 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
     **control (lambda)** track is the coverage pileup scaled by the global
     unmethylation rate ``r = sum(umc) / sum(cov)`` (``control='cov'``) — i.e.
     the *expected* unmethylated pileup if methylation were spatially uniform.
+    The lambda track is built gap-free and floored at a small positive value
+    (``bdgcmp -m ppois`` requires lambda > 0 at every evaluated base).
     ``bdgcmp -m ppois`` then scores every position by the Poisson p-value of
     the observed ``umc`` pileup against that local expectation, and
     ``bdgpeakcall`` thresholds the score. Peaks are thus regions of genuine
@@ -696,7 +736,7 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
                 total_sig += float(sig.sum())
                 total_cov += float(csig.sum())
                 _write_seg(tf, chrom, _pileup_from_sites(pos, sig, half))
-                _write_seg(cf, chrom, _pileup_from_sites(pos, csig, half))
+                _write_seg(cf, chrom, _pileup_control(pos, csig, half))
                 reader.release_chunk(dim)
                 ref_reader.release_chunk(dim)
 
