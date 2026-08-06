@@ -192,6 +192,7 @@
 <li class="toctree-l1"><a class="reference internal" href="cz_viewer.html">Genome Browser</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cz_viewer.html#usage">Usage</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#quick-start">Quick start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#track-tables">Track tables</a></li>
 <li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#supported-remote-file-formats">Supported remote file formats</a></li>
 <li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#toolbar-tools-and-keyboard-shortcuts">Toolbar tools and keyboard shortcuts</a></li>
 <li class="toctree-l3"><a class="reference internal" href="cz_viewer.html#working-with-tracks">Working with tracks</a></li>
@@ -613,7 +614,7 @@ Nothing is returned; existing outputs are skipped.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="cytozip.allc.compare_allc">
-<span class="sig-prename descclassname"><span class="pre">cytozip.allc.</span></span><span class="sig-name descname"><span class="pre">compare_allc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">allc1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allc2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_zero_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'B'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'\t'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/allc.html#compare_allc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.allc.compare_allc" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">cytozip.allc.</span></span><span class="sig-name descname"><span class="pre">compare_allc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">allc1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allc2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_zero_cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'B'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'\t'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chroms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cytozip/allc.html#compare_allc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cytozip.allc.compare_allc" title="Link to this definition"></a></dt>
 <dd><p>Compare two allc.tsv[.gz] files and report per-position differences.</p>
 <p>Records are joined on <code class="docutils literal notranslate"><span class="pre">(chrom,</span> <span class="pre">pos)</span></code>. Optionally, records whose
 coverage is 0 are dropped, and <code class="docutils literal notranslate"><span class="pre">mc</span></code> / <code class="docutils literal notranslate"><span class="pre">cov</span></code> values are truncated
@@ -651,6 +652,14 @@ raw, un-truncated values instead.</p>
 <li><p><strong>output</strong> (<em>path</em><em>, </em><em>optional</em>) – If given, write the table of differing rows to this path
 (tab-separated). Default None (do not write).</p></li>
 <li><p><strong>sep</strong> (<em>str</em><em>, </em><em>optional</em>) – Column separator of the input allc files (default <code class="docutils literal notranslate"><span class="pre">'\t'</span></code>).</p></li>
+<li><p><strong>chroms</strong> (<em>list</em><em>, </em><em>str</em><em> (</em><em>path</em><em>)</em><em>, or </em><em>None</em><em>, </em><em>optional</em>) – Restrict the comparison to these chromosomes. Either a list of
+chromosome names or a path to a headerless, tab-separated file whose
+first column lists chromosome names (e.g. a <code class="docutils literal notranslate"><span class="pre">.fai</span></code> or chrom-size
+file). <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) compares every chromosome.</p></li>
+<li><p><strong>jobs</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of parallel worker processes used to compare chromosomes
+(default 1). Only takes effect on the tabix streaming path (both
+allc files carry a <code class="docutils literal notranslate"><span class="pre">.tbi</span></code> index); each worker handles one
+chromosome at a time.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -662,6 +671,10 @@ present in only one file, or when <code class="docutils literal notranslate"><sp
 <dd class="field-odd"><p>pandas.DataFrame</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p>When both allc files carry a tabix <code class="docutils literal notranslate"><span class="pre">.tbi</span></code> index, the comparison is
+streamed one chromosome at a time (via <code class="docutils literal notranslate"><span class="pre">pysam</span></code>) instead of loading
+both whole files into memory, which is faster and far lighter on RAM.</p>
 </dd></dl>
 
 <dl class="py function">

@@ -83,7 +83,7 @@
     border-bottom: 1px solid #171922;
   }
   .field { display: flex; flex-direction: column; gap: 3px; }
-  .field label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: #9aa0b2; }
+  .field label { font-size: 10.5px; letter-spacing: .5px; color: #9aa0b2; }
   .field input[type=text] {
     background: #1a1c28; border: 1px solid #3a3f57; color: #eef0f5;
     padding: 5px 8px; border-radius: 4px; font-size: 12px; outline: none;
@@ -94,6 +94,16 @@
     background: #1a1c28; border: 1px solid #3a3f57; color: #eef0f5;
     padding: 5px 6px; border-radius: 4px; font-size: 12px;
   }
+  /* Modality-order module (drag the chips to reorder modalities) */
+  .modorder { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .modorder .mo-label { font-size: 10.5px; color: #9aa0b2; }
+  .modorder .mo-chip {
+    background: #3a3f57; color: #eef0f5; border: 1px solid #4a5170;
+    padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: grab; user-select: none;
+  }
+  .modorder .mo-chip:hover { background: #464d6b; }
+  .modorder .mo-chip.dragging { opacity: .5; cursor: grabbing; }
+  .modorder .mo-chip.dragover { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 
   /* ── Status bar ──────────────────────────────────────────── */
   .status {
@@ -113,6 +123,7 @@
     display: flex; flex-direction: column; justify-content: center; gap: 3px;
   }
   .label .tname { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .label .tname .tnametxt { font-size: var(--tname-fs, 12px); }
   .label .swatch {
     width: 13px; height: 13px; border-radius: 2px; flex: 0 0 auto;
     padding: 0; border: 1px solid var(--border); background: none;
@@ -323,6 +334,10 @@
   }
   #savedModal .savedlist .savedgroup:hover { background: #e6ebf3; }
   #savedModal .savedlist .savedgroup input { cursor: pointer; flex: 0 0 auto; }
+  #savedModal .savedlist .savedgroup .sg-dim {
+    font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: #8a8f9c;
+    background: #fff; border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; flex: 0 0 auto;
+  }
   #savedModal .savedlist .savedgroup .sg-count { margin-left: auto; font-weight: 600; font-size: 10.5px; color: var(--muted); }
   #savedModal .savedempty { padding: 24px 16px; text-align: center; color: var(--muted); }
 
@@ -371,6 +386,18 @@
     border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
   }
   .tracktoolbar .selbtns button:hover { background: #565c78; }
+  .tracktoolbar .selbtns #selByDim {
+    background: #464b63; color: #fff; border: none; padding: 3px 6px;
+    border-radius: 4px; cursor: pointer; font-size: 11.5px; font-weight: 600; max-width: 120px;
+  }
+  /* cz / Hi-C sub-toolbars */
+  .tracktoolbar .czbar, .tracktoolbar .hicbar { font-weight: 700; color: #3a3f57; }
+  .tracktoolbar .czbar select, .tracktoolbar .hicbar select { font-size: 11.5px; padding: 3px 4px; }
+  .tracktoolbar .czbar button, .tracktoolbar .hicbar button {
+    background: #464b63; color: #fff; border: none; padding: 4px 9px;
+    border-radius: 4px; cursor: pointer; font-size: 11.5px; font-weight: 600;
+  }
+  .tracktoolbar .czbar button:hover, .tracktoolbar .hicbar button:hover { background: #565c78; }
   .tracktoolbar .zoombtns #zoomOut, .tracktoolbar .zoombtns #zoomIn { font-weight: 700; }
 
   /* Cursor reflects the active tool. Ruler always pans horizontally. */
@@ -427,38 +454,6 @@
       <button id="zoomOut" class="secondary" title="Zoom out">−</button>
       <button id="zoomIn" class="secondary" title="Zoom in">+</button>
     </span>
-    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
-      Val
-      <select id="valSelGlobal" title="Show methylated (mC) or unmethylated (1 − mC) fraction for all .cz methylation tracks">
-        <option value="meth" selected>mC</option>
-        <option value="unmeth">1−mC</option>
-      </select>
-    </label>
-    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
-      Strand
-      <select id="strandSel" title="Restrict .cz methylation to one strand (Both / + / −)">
-        <option value="both" selected>Both</option>
-        <option value="+">+</option>
-        <option value="-">−</option>
-      </select>
-    </label>
-    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
-      Res
-      <select id="resSel" title="Methylation binning resolution (Auto = pick a bin size from the view span)">
-        <option value="">None (per-bp)</option>
-        <option value="auto" selected>Auto</option>
-        <option value="10">10 bp</option>
-        <option value="20">20 bp</option>
-        <option value="50">50 bp</option>
-        <option value="100">100 bp</option>
-        <option value="500">500 bp</option>
-        <option value="1000">1000 bp</option>
-        <option value="5000">5000 bp</option>
-        <option value="10000">10 kb</option>
-        <option value="25000">25 kb</option>
-        <option value="100000">100 kb</option>
-      </select>
-    </label>
   </div>
 </div>
 
@@ -505,11 +500,12 @@
   </div>
   <div class="field">
     <label>Track table — file or URL (csv/tsv). Header row required: name, path, group, color, category, modality</label>
-    <div style="display:flex;gap:6px;align-items:center;">
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
       <input type="file" id="trackTable" accept=".csv,.tsv"
         style="font-size:11px;color:#dfe2ea;max-width:140px;" />
-      <input type="text" class="url" id="trackTableUrl" placeholder="https://…/tracks.tsv" value="https://neomorph.salk.edu/ftp/cz/BG_Subclass_track_table.tsv" style="width:170px" />
+      <input type="text" class="url" id="trackTableUrl" placeholder="https://…/tracks.tsv" value="https://neomorph.salk.edu/ftp/cz/BG_Subclass_track_table.tsv" style="width:600px" />
       <button id="btnTrackTableUrl" class="secondary">Load</button>
+      <span id="modOrder" class="modorder" style="display:none;"></span>
     </div>
   </div>
 </div>
@@ -528,13 +524,59 @@
   <span class="selbtns tlabel">Select
     <button id="btnSelAll" title="Select all tracks">All</button>
     <button id="btnSelNone" title="Deselect all tracks">None</button>
+    <select id="selByDim" title="Batch-select tracks by modality / category / group / name"><option value="">by…</option></select>
   </span>
   <span class="toolsep"></span>
   <label class="tlabel">Session
     <button id="btnSaveSession" title="Download the current session as JSON (S)">Save</button>
     <input type="file" id="sessionFile" accept=".json" title="Load a session JSON" style="font-size:11px;max-width:120px;" />
   </label>
-  <span class="zoombtns" style="margin-left:auto;">
+  <span class="toolsep"></span>
+  <span class="tlabel czbar" id="czBar" title="Controls for .cz methylation tracks" style="display:none;">cz
+    <select id="czCtx" title="Methylation context for all .cz tracks">
+      <option value="CG" selected>CG</option>
+      <option value="CH">CH</option>
+      <option value="CHG">CHG</option>
+      <option value="CHH">CHH</option>
+      <option value="ALL">All C</option>
+    </select>
+    <select id="valSelGlobal" title="Show methylated (mC) or unmethylated (1 − mC) fraction for all .cz tracks">
+      <option value="meth" selected>mC</option>
+      <option value="unmeth">1−mC</option>
+    </select>
+    <select id="strandSel" title="Restrict .cz methylation to one strand (Both / + / −)">
+      <option value="both" selected>Both</option>
+      <option value="+">+</option>
+      <option value="-">−</option>
+    </select>
+    <select id="resSel" title="Binning resolution for .cz / BigWig tracks (Auto = pick from the view span)">
+      <option value="">per-bp</option>
+      <option value="auto" selected>Auto</option>
+      <option value="10">10 bp</option>
+      <option value="20">20 bp</option>
+      <option value="50">50 bp</option>
+      <option value="100">100 bp</option>
+      <option value="500">500 bp</option>
+      <option value="1000">1000 bp</option>
+      <option value="5000">5000 bp</option>
+      <option value="10000">10 kb</option>
+      <option value="25000">25 kb</option>
+      <option value="100000">100 kb</option>
+    </select>
+  </span>
+  <span class="toolsep"></span>
+  <span class="tlabel hicbar" id="hicBar" title="Controls for Hi-C tracks" style="display:none;">hic
+    <select id="hicResSel" title="Hi-C bin resolution (Auto = pick from the view span)"><option value="auto" selected>Auto</option></select>
+    <select id="hicNorm" title="Hi-C normalization (falls back to NONE when a file lacks it)">
+      <option value="NONE" selected>NONE</option>
+      <option value="KR">KR</option>
+      <option value="SCALE">SCALE</option>
+    </select>
+  </span>
+  <label class="tlabel" style="margin-left:auto;" title="Track name font size (px)">Name pt
+    <input type="number" id="nameFontSize" min="6" max="28" step="1" value="12" style="width:52px;">
+  </label>
+  <span class="zoombtns">
     <button id="btnSvg" title="Download the current view as vector SVG">SVG</button>
     <button id="btnPng" title="Download the current view as PNG">PNG</button>
     <button id="btnPdf" title="Download the current view as PDF">PDF</button>
@@ -634,7 +676,6 @@ const GENOMES = {
           genes: ['refGene', 'gencodeCompVM28'],
           defaultLocus: 'chr5:52,000,000-52,150,000' },
 };
-const SAVED_TRACKS_KEY = 'czviewer_saved_tracks_v1';
 
 // Region-span guards: loading a very wide window means downloading a lot of
 // data, which can freeze the page. Warn past WARN_SPAN and hard-refuse past
@@ -652,13 +693,13 @@ function clampLocusSpan(loc) {
   return { locus: { chrom: loc.chrom, start: s, end: en }, capped: true };
 }
 
-// cz_reader.mjs is vendored next to this page (same origin) for stability and
-// offline/CORS-free loading. Resolve it relative to this module's own URL so it
-// works whether the page is served from _static/ or the site root.
-const MODULE_URL = new URL('cz_reader.mjs', import.meta.url).href;
+// cz_reader.mjs is loaded directly from the project's GitHub repo so the viewer
+// always tracks the latest reader without vendoring a copy next to this page.
+// const MODULE_URL = new URL('cz_reader.mjs', import.meta.url).href;
+const MODULE_URL = 'https://raw.githubusercontent.com/DingWB/cytozip/refs/heads/main/cytozip/cz_reader.mjs';
 
 // Default track heights (px). Height is set via the selection bar's input.
-const DEFAULT_HEIGHT = { seq: 30, mc: 60, gene: 150, bw: 60, bed: 40, bedpe: 90, hic: 160 };
+const DEFAULT_HEIGHT = { seq: 30, mc: 60, gene: 150, bw: 60, bed: 40, bedpe: 90, hic: 200 };
 const MIN_HEIGHT = 22;
 // Below this track height the label hides the descriptive meta text (covered /
 // mean / resolution) and keeps only the name + context/value/ylim controls.
@@ -684,6 +725,9 @@ const state = {
   locus: null,          // {chrom, start, end}
   resolution: null,     // methylation binning: null = per-bp, else bin width in bp
   resAuto: true,        // when true, pick the bin width from the current view span
+  hicRes: null,         // Hi-C bin width (bp); null = auto (from view span)
+  hicResAuto: true,     // when true, pick the Hi-C bin width from the view span
+  hicNorm: 'NONE',      // Hi-C normalization (falls back to NONE if a file lacks it)
   valType: 'meth',      // global .cz display: 'meth' = mC, 'unmeth' = 1 − mC
   strand: 'both',       // global .cz strand filter: 'both' | '+' | '-'
   colorMap: {},         // { trackName: colorCode } from an uploaded palette
@@ -696,6 +740,8 @@ const state = {
   tool: 'zoom',         // active track tool: 'pan' | 'zoom' | 'select' | 'mark'
   marks: [],            // highlighted regions: {chrom, start, end, color}
   markColor: '#ffcc33', // current mark color
+  modalityOrder: [],    // user-defined ordering of modality values (drag to reorder)
+  nameFontSize: 12,     // track-name label font size (px)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -991,19 +1037,16 @@ async function fetchGenes(track, chrom, start, end) {
   return Array.isArray(data) ? data : (data.data || []);
 }
 
-// ── Saved-track memory (localStorage) ────────────────────────────────────────
-function loadSavedTracks() {
-  try { return JSON.parse(localStorage.getItem(SAVED_TRACKS_KEY)) || []; }
-  catch { return []; }
-}
+// ── Saved-track memory (in-memory, this session only) ────────────────────────
+// Only tracks actually loaded during this session are recorded; nothing is
+// persisted across page reloads, so the manager never pre-lists an unloaded
+// track table.
+let _savedTracks = [];
+function loadSavedTracks() { return _savedTracks; }
 function saveTrack(entry) {
-  const list = loadSavedTracks();
-  const key = entry.url;
-  const idx = list.findIndex(e => e.url === key);
-  if (idx >= 0) list.splice(idx, 1);
-  list.unshift(entry);
-  if (list.length > 50) list.length = 50;
-  try { localStorage.setItem(SAVED_TRACKS_KEY, JSON.stringify(list)); } catch {}
+  const idx = _savedTracks.findIndex(e => e.url === entry.url);
+  if (idx >= 0) _savedTracks.splice(idx, 1);
+  _savedTracks.push(entry);
   refreshSavedTracksUI();
 }
 function refreshSavedTracksUI() {
@@ -1054,24 +1097,43 @@ function renderSavedList() {
   const all = loadSavedTracks();
   const list = all.filter(e =>
     !q || (e.name || '').toLowerCase().includes(q) || (e.url || '').toLowerCase().includes(q)
-       || (e.group || '').toLowerCase().includes(q));
+       || (e.group || '').toLowerCase().includes(q) || (e.category || '').toLowerCase().includes(q)
+       || (e.modality || '').toLowerCase().includes(q));
   host.innerHTML = '';
   if (!list.length) {
     host.innerHTML = `<div class="savedempty">${all.length ? 'No saved tracks match the filter.' : 'No saved tracks yet — add tracks or load a track table first.'}</div>`;
   } else {
-    // Bucket entries by their Group column (unnamed group shown last).
-    const order = [], byGroup = new Map();
-    for (const e of list) {
-      const g = e.group || '';
-      if (!byGroup.has(g)) { byGroup.set(g, []); order.push(g); }
-      byGroup.get(g).push(e);
-    }
-    order.sort((a, b) => (a === '' ? 1 : 0) - (b === '' ? 1 : 0));
-    const addItem = (e, grouped) => {
+    // Nest by the hierarchy modality → category → group, skipping any column
+    // that is entirely empty. Every header toggles all of its tracks on/off.
+    const dims = ['modality', 'category', 'group'].filter(d => list.some(e => (e[d] || '') !== ''));
+    const toggleEntries = async (entries, show) => {
+      for (const e of entries) {
+        if (show) { if (!isSavedShown(e.url)) await addSavedEntry(e); }
+        else removeTrackByUrl(e.url);
+      }
+      renderSavedList();
+    };
+    const headerEl = (dim, val, entries, depth) => {
+      const shownCount = entries.filter(e => isSavedShown(e.url)).length;
+      const hdr = document.createElement('label');
+      hdr.className = 'savedgroup';
+      hdr.style.paddingLeft = (8 + depth * 14) + 'px';
+      hdr.innerHTML =
+        `<input type="checkbox" ${shownCount === entries.length ? 'checked' : ''}>` +
+        `<span class="sg-dim">${escapeHtml(dim)}</span>` +
+        `<span class="sg-name">${escapeHtml(val)}</span>` +
+        `<span class="sg-count">${shownCount}/${entries.length} shown</span>`;
+      const gcb = hdr.querySelector('input');
+      gcb.indeterminate = shownCount > 0 && shownCount < entries.length;
+      gcb.onchange = () => { gcb.disabled = true; toggleEntries(entries, gcb.checked); };
+      return hdr;
+    };
+    const itemEl = (e, depth) => {
       const shown = isSavedShown(e.url);
       const item = document.createElement('label');
-      item.className = 'saveditem' + (grouped ? ' grouped' : '');
-      const tag = e.fmt ? e.fmt.toUpperCase() : (e.ctx || 'ALL');
+      item.className = 'saveditem' + (depth ? ' grouped' : '');
+      item.style.paddingLeft = (8 + depth * 14) + 'px';
+      const tag = e.modality || (e.fmt ? e.fmt.toUpperCase() : (e.ctx || 'ALL'));
       item.innerHTML =
         `<input type="checkbox" ${shown ? 'checked' : ''}>` +
         `<span class="si-name">${escapeHtml(e.name || e.url)}</span>` +
@@ -1084,30 +1146,21 @@ function renderSavedList() {
         else removeTrackByUrl(e.url);
         renderSavedList();
       };
-      host.appendChild(item);
+      return item;
     };
-    for (const g of order) {
-      const entries = byGroup.get(g);
-      if (g) {
-        const shownCount = entries.filter(e => isSavedShown(e.url)).length;
-        const hdr = document.createElement('label');
-        hdr.className = 'savedgroup';
-        hdr.innerHTML =
-          `<input type="checkbox" ${shownCount === entries.length ? 'checked' : ''}>` +
-          `<span class="sg-name">${escapeHtml(g)}</span>` +
-          `<span class="sg-count">${shownCount}/${entries.length} shown</span>`;
-        const gcb = hdr.querySelector('input');
-        gcb.indeterminate = shownCount > 0 && shownCount < entries.length;
-        gcb.onchange = async () => {
-          gcb.disabled = true;
-          if (gcb.checked) { for (const e of entries) if (!isSavedShown(e.url)) await addSavedEntry(e); }
-          else for (const e of entries) removeTrackByUrl(e.url);
-          renderSavedList();
-        };
-        host.appendChild(hdr);
+    const renderLevel = (entries, depth) => {
+      if (depth >= dims.length) { for (const e of entries) host.appendChild(itemEl(e, depth)); return; }
+      const dim = dims[depth];
+      const order = [], byVal = new Map();
+      for (const e of entries) { const v = e[dim] || ''; if (!byVal.has(v)) { byVal.set(v, []); order.push(v); } byVal.get(v).push(e); }
+      order.sort((a, b) => (a === '' ? 1 : 0) - (b === '' ? 1 : 0));
+      for (const v of order) {
+        const grp = byVal.get(v);
+        if (v) host.appendChild(headerEl(dim, v, grp, depth));
+        renderLevel(grp, depth + 1);
       }
-      for (const e of entries) addItem(e, !!g);
-    }
+    };
+    renderLevel(list, 0);
   }
   const total = all.length, shownN = all.filter(e => isSavedShown(e.url)).length;
   $('savedCount').textContent = `${shownN}/${total} shown`;
@@ -1212,6 +1265,21 @@ async function getBbiLibs() {
       import('https://esm.sh/@gmod/bbi@4'),
       import('https://esm.sh/generic-filehandle@3'),
     ]);
+    // @gmod/bbi reads the chromosome B-tree with size = unzoomedDataOffset −
+    // chromTreeOffset, assuming the tree sits right before the data. Some writers
+    // put the data first (data offset < tree offset), making that size negative
+    // (Buffer.alloc throws). Patch it to read a small bounded chunk instead.
+    try {
+      const orig = BigWig.prototype._readChromTree;
+      if (typeof orig === 'function' && !BigWig.prototype._czPatched) {
+        BigWig.prototype._readChromTree = function (header, opts) {
+          const cto = Number(header.chromTreeOffset), udo = Number(header.unzoomedDataOffset);
+          if (!(udo > cto)) return orig.call(this, { ...header, unzoomedDataOffset: cto + (1 << 20) }, opts);
+          return orig.call(this, header, opts);
+        };
+        BigWig.prototype._czPatched = true;
+      }
+    } catch (_) { /* best-effort */ }
     _bbiLibs = { BigWig, RemoteFile };
   }
   return _bbiLibs;
@@ -1385,32 +1453,35 @@ async function openHicTrack({ name, url, group = '', modality = '', category = '
   // Pass the URL so HicStraw builds its own file handle; requests still flow
   // through our wrapped global fetch (CORS proxy + Range).
   const straw = new HicStraw({ url });
-  let resolutions = [], norms = ['NONE'];
+  let resolutions = [];
   try { const meta = await straw.getMetaData(); if (meta && Array.isArray(meta.resolutions)) resolutions = meta.resolutions.slice(); } catch (_) {}
-  try { const n = await straw.getNormalizationOptions(); if (Array.isArray(n) && n.length) norms = n; } catch (_) {}
   const named = name || url.split('/').pop();
   const track = {
     id: ++state.trackSeq, kind: 'hic', name: named, url, straw, group: group || '', modality: modality || '', category: category || '',
     resolutions: (resolutions.length ? resolutions : [2500000, 1000000, 500000, 250000, 100000, 50000, 25000, 10000, 5000, 1000]).sort((a, b) => a - b),
-    norm: norms.includes('KR') ? 'KR' : (norms.includes('VC') ? 'VC' : 'NONE'),
     color: color ? normalizeColor(color) : '#b2182b',
   };
   state.tracks.push(track);
   return track;
 }
 async function hicGetRecords(track, chrom, start, end) {
-  const span = Math.max(1, end - start);
-  const target = 300;                                  // ~ bins across the window
-  let binsize = track.resolutions[track.resolutions.length - 1];
-  for (const r of track.resolutions) { if (span / r <= target) { binsize = r; break; } }
+  // Driven by the "Hic res" control (independent of the cz resolution), snapped
+  // onto THIS file's own resolution grid.
+  const binsize = hicDesiredBin(track);
   const base = { start: Math.max(0, Math.floor(start)), end: Math.ceil(end) };
-  for (const nm of chromNameVariants(chrom)) {
-    try {
-      const recs = await track.straw.getContactRecords(track.norm, { ...base, chr: nm }, { ...base, chr: nm }, 'BP', binsize);
-      if (recs) return { recs, binsize };
-    } catch (_) { /* try next naming */ }
+  const variants = chromNameVariants(chrom);
+  // Read with the selected normalization; if the .hic file lacks it (the call
+  // throws for every chrom naming), fall back to NONE.
+  const wanted = state.hicNorm || 'NONE';
+  for (const norm of (wanted !== 'NONE' ? [wanted, 'NONE'] : ['NONE'])) {
+    for (const nm of variants) {
+      try {
+        const recs = await track.straw.getContactRecords(norm, { ...base, chr: nm }, { ...base, chr: nm }, 'BP', binsize);
+        if (recs) return { recs, binsize, norm };
+      } catch (_) { /* wrong chrom name or norm unavailable → try next */ }
+    }
   }
-  return { recs: [], binsize };
+  return { recs: [], binsize, norm: 'NONE' };
 }
 
 // ── Track table (file OR url; csv / tsv / json) ──────────────────────────────
@@ -1530,43 +1601,117 @@ function toHexColor(c) {
   return '#888888';
 }
 
-// Open every track row into the viewer.
+// Order items by category → group → name → modality. category/group/name use
+// first-appearance order; modality follows the user's chosen order
+// (state.modalityOrder) when set, else first appearance. Any level whose column
+// is absent (all-empty) collapses to a no-op.
+function sortTrackItems(items) {
+  const idxMap = (key) => { const m = new Map(); let i = 0; for (const r of items) { const v = r[key] || ''; if (!m.has(v)) m.set(v, i++); } return m; };
+  const ci = idxMap('category'), gi = idxMap('group'), ni = idxMap('name'), mi = idxMap('modality');
+  const mo = (state.modalityOrder && state.modalityOrder.length) ? state.modalityOrder : null;
+  const mrank = (v) => { v = v || ''; if (mo) { const k = mo.indexOf(v); return k < 0 ? mo.length + mi.get(v) : k; } return mi.get(v); };
+  return items.map((r, i) => ({ r, i })).sort((a, b) =>
+    (ci.get(a.r.category || '') - ci.get(b.r.category || '')) ||
+    (gi.get(a.r.group || '') - gi.get(b.r.group || '')) ||
+    (ni.get(a.r.name || '') - ni.get(b.r.name || '')) ||
+    (mrank(a.r.modality) - mrank(b.r.modality)) ||
+    (a.i - b.i)
+  ).map(x => x.r);
+}
+function sortTrackRows(rows) { return sortTrackItems(rows); }
+// Re-sort the already-loaded tracks in place (used after a modality reorder).
+function applyTrackSort() {
+  const anchored = state.tracks.filter(t => t.kind === 'seq' || t.kind === 'gene');
+  const data = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');
+  state.tracks = [...anchored, ...sortTrackItems(data)];
+  buildTrackRows(); render();
+}
+
+// Build a lightweight placeholder track from a table row (no network). Its data
+// source (reader / bw / tabix / straw) is attached lazily by ensureTrackOpen
+// the first time the row scrolls into view.
+function makePendingTrack(r, color) {
+  const url = r.url, named = r.name || url.split('/').pop();
+  const t = {
+    id: ++state.trackSeq, name: named, url,
+    group: r.group || '', modality: r.modality || '', category: r.category || '',
+    color, ylim: 'auto', unopened: true,
+  };
+  let fmt;
+  if (isHicUrl(url)) { t.kind = 'hic'; t.resolutions = [2500000, 1000000, 500000, 250000, 100000, 50000, 25000, 10000, 5000, 1000]; fmt = 'hic'; }
+  else if (isBedpeUrl(url)) { t.kind = 'bedpe'; fmt = 'bedpe'; }
+  else if (isBigWigUrl(url)) { t.kind = 'bw'; fmt = 'bw'; }
+  else if (isBedGraphUrl(url)) { t.kind = 'bw'; t.bedgraph = true; fmt = 'bedgraph'; }
+  else if (isBedUrl(url)) { t.kind = 'bed'; fmt = 'bed'; }
+  else { t.kind = 'mc'; t.ctx = r.ctx || 'CG'; t.valType = 'meth'; }
+  // Recorded in "saved tracks" only once the track is actually opened.
+  t._saveEntry = t.kind === 'mc'
+    ? { name: named, url, ctx: t.ctx, valType: t.valType, group: t.group, category: t.category, color, modality: t.modality }
+    : { name: named, url, fmt, group: t.group, category: t.category, color, modality: t.modality };
+  return t;
+}
+// Attach the data source to a placeholder track on demand (deduped per track).
+async function ensureTrackOpen(t) {
+  if (!t.unopened) return;
+  if (t._opening) return t._opening;
+  t._opening = (async () => {
+    if (t.kind === 'hic') {
+      const HicStraw = await getHicLib();
+      const straw = new HicStraw({ url: t.url });
+      let resolutions = [];
+      try { const meta = await straw.getMetaData(); if (meta && Array.isArray(meta.resolutions)) resolutions = meta.resolutions.slice(); } catch (_) {}
+      t.straw = straw;
+      t.resolutions = (resolutions.length ? resolutions : t.resolutions).sort((a, b) => a - b);
+    } else if (t.kind === 'bw' && !t.bedgraph) {
+      const { BigWig, RemoteFile } = await getBbiLibs();
+      const bw = new BigWig({ filehandle: new RemoteFile(t.url, { fetch: (u, o) => fetch(u, o) }) });
+      await bw.getHeader();
+      t.bw = bw;
+    } else if (t.kind === 'bw' && t.bedgraph) {
+      if (!/\.gz(?:[?#].*)?$/i.test(t.url)) throw new Error('bedgraph must be bgzip + tabix (.gz)');
+      const { TabixIndexedFile, RemoteFile } = await getTabixLibs();
+      const tabix = new TabixIndexedFile({ filehandle: new RemoteFile(t.url, { fetch: (u, o) => fetch(u, o) }), tbiFilehandle: new RemoteFile(t.url + '.tbi', { fetch: (u, o) => fetch(u, o) }) });
+      await tabix.getReferenceSequenceNames();
+      t.tabix = tabix;
+    } else if (t.kind === 'bed' || t.kind === 'bedpe') {
+      const { TabixIndexedFile, RemoteFile } = await getTabixLibs();
+      const tabix = new TabixIndexedFile({ filehandle: new RemoteFile(t.url, { fetch: (u, o) => fetch(u, o) }), tbiFilehandle: new RemoteFile(t.url + '.tbi', { fetch: (u, o) => fetch(u, o) }) });
+      await tabix.getReferenceSequenceNames();
+      t.tabix = tabix;
+    } else {
+      if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
+      if (!state.refReader) throw new Error('Load the reference .cz first.');
+      const reader = await state.CzReader.fromUrl(t.url, { randomReadAhead: READ_AHEAD_BYTES });
+      t.reader = reader;
+      t.mismatch = validateAgainstRef(reader);
+    }
+    t.unopened = false;
+    if (t._saveEntry) { saveTrack(t._saveEntry); t._saveEntry = null; }
+  })();
+  try { await t._opening; } finally { t._opening = null; }
+}
+
+// Load a track table: register lightweight placeholders in sorted order and let
+// the viewport-driven renderer open only the tracks the user can see, then open
+// more as they scroll — so a big table appears instantly instead of blocking on
+// hundreds of sequential network opens.
 async function ingestTrackRows(rows, label) {
   if (!rows.length) { setStatus(`No track rows found in ${label}.`, true); return; }
+  rows = sortTrackRows(rows);
   const isSpecial = (u) => isHicUrl(u) || isBedpeUrl(u) || isBigWigUrl(u) || isBedGraphUrl(u) || isBedUrl(u);
-  // Only need the .cz reader module if some rows are plain .cz.
+  // Preload the .cz reader module once (so lazy opens don't each wait on it).
   if (rows.some(r => !isSpecial(r.url)) && !state.CzReader) {
-    const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader;
+    try { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; } catch (_) {}
   }
-  setStatus(`Opening ${rows.length} track(s) from ${label}…`);
-  let ok = 0, mism = 0; const failed = [];
   for (const r of rows) {
-    let t;
-    // Each row keeps its explicit color, or gets a random one when the color
-    // column is absent/blank, so the saved copy matches what is displayed.
     const color = r.color ? normalizeColor(r.color) : randomColor();
-    const cat = r.category || '';
-    const mod = r.modality || '';
-    try {
-      if (isHicUrl(r.url)) { t = await openHicTrack({ name: r.name, url: r.url, group: r.group, category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'hic', group: r.group, category: cat, color, modality: mod }); ok++; }
-      else if (isBedpeUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe', category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe', group: r.group, category: cat, color, modality: mod }); ok++; }
-      else if (isBigWigUrl(r.url)) { t = await openBigWigTrack({ name: r.name, url: r.url, group: r.group, category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'bw', group: r.group, category: cat, color, modality: mod }); ok++; }
-      else if (isBedGraphUrl(r.url)) { t = await openBedGraphTrack({ name: r.name, url: r.url, group: r.group, category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'bedgraph', group: r.group, category: cat, color, modality: mod }); ok++; }
-      else if (isBedUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed', category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'bed', group: r.group, category: cat, color, modality: mod }); ok++; }
-      else { t = await openCzTrack({ ...r, color, category: cat, modality: mod }); if (t.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx, valType: r.valType, group: r.group, category: cat, color, modality: mod }); ok++; }
-    } catch (e) { failed.push(`${r.name}: ${e.message}`); continue; }
-    // Show + render only this new track (O(1) per track). Fall back to a full
-    // rebuild when it can't just be appended at the end (e.g. grouped tables).
-    setStatus(`Loading ${label}: ${ok}/${rows.length}…`);
-    if (appendTrackRowIfLast(t)) await renderNewTrack(t);
-    else { buildTrackRows(); render(); }
+    state.tracks.push(makePendingTrack(r, color));
   }
+  buildTrackRows();
   render();
   const grouped = rows.some(r => r.group);
-  setStatus(`Added ${ok}/${rows.length} track(s) from ${label}${grouped ? ' (grouped)' : ''}.` +
-    (mism ? ` ⚠ ${mism} have coordinates not matching the reference.` : '') +
-    (failed.length ? ` Failed: ${failed.slice(0, 3).join('; ')}${failed.length > 3 ? '…' : ''}` : ''),
-    (failed.length > 0 && ok === 0) || mism > 0);
+  setStatus(`Loaded ${rows.length} track(s) from ${label}${grouped ? ' (grouped)' : ''} — ` +
+    `visible tracks render first; the rest load as you scroll.`);
 }
 
 async function onTrackTableFile(ev) {
@@ -1603,6 +1748,9 @@ function buildTrackRows() {
   const host = $('tracks');
   host.innerHTML = '';
   if (_trackIO) _trackIO.disconnect();   // re-observed per row below via createTrackRow
+  refreshSelByOptions();
+  refreshModOrderUI();
+  refreshTrackToolbars();
   if (state.tracks.length === 0) {
     host.innerHTML = '<div class="empty hint">No tracks yet. Select a <b>Genome</b> to load sequence + gene tracks, or add a track with <b>+ Add track</b>.</div>';
     return;
@@ -1672,19 +1820,10 @@ function createTrackRow(t, grp, gColors) {
   if (showMod) label.classList.add('has-mod');
   const modHtml = showMod ? `<div class="modstrip"><span>${escapeHtml(t.modality || '')}</span></div>` : '';
   const ylimLabel = Array.isArray(t.ylim) ? `y:${t.ylim[0]}–${t.ylim[1]}` : 'y:auto';
-  const ctxCtrls = t.kind === 'mc'
-    ? `<div class="ctrls">
-         <select class="ctxsel">
-           ${['CG','CH','CHG','CHH','ALL'].map(c =>
-             `<option value="${c}" ${c === t.ctx ? 'selected' : ''}>${c === 'ALL' ? 'All C' : c}</option>`).join('')}
-         </select>
-         <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
-       </div>`
-    : (t.kind === 'bw'
-      ? `<div class="ctrls">
-           <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
-         </div>`
-      : '');
+  const ylimBtnHtml = `<button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>`;
+  const ctxCtrls = (t.kind === 'mc' || t.kind === 'bw' || t.kind === 'hic')
+    ? `<div class="ctrls">${ylimBtnHtml}</div>`
+    : '';
   label.innerHTML =
     modHtml +
     `<div class="tname"><span class="grip" title="Drag up/down to move track(s)">⠿</span>` +
@@ -1714,8 +1853,6 @@ function createTrackRow(t, grp, gColors) {
   t.row = row;
   const swatch = label.querySelector('.swatch');
   if (swatch) swatch.oninput = (e) => { t.color = e.target.value; quickRedraw(); };
-  const ctxSel = label.querySelector('.ctxsel');
-  if (ctxSel) ctxSel.onchange = (e) => { t.ctx = e.target.value; render(); };
   const ylimBtn = label.querySelector('.ylimbtn');
   if (ylimBtn) ylimBtn.onclick = (e) => { e.stopPropagation(); openYlimEditor([t], e.currentTarget); };
   t.metaEl = label.querySelector('.meta');
@@ -1777,11 +1914,8 @@ function startRenameTrack(t, span) {
 // Apply a new track name and keep the saved-track memory (matched by URL) in sync.
 function renameTrack(t, newName) {
   t.name = newName;
-  try {
-    const list = loadSavedTracks();
-    const e = list.find(x => x.url === t.url);
-    if (e) { e.name = newName; localStorage.setItem(SAVED_TRACKS_KEY, JSON.stringify(list)); }
-  } catch {}
+  const e = loadSavedTracks().find(x => x.url === t.url);
+  if (e) e.name = newName;
   buildTrackRows(); quickRedraw(); refreshSavedTracksUI();
 }
 
@@ -1884,6 +2018,95 @@ function selectAllTracks() {
   const ord = orderedTracksForDisplay();
   if (ord.length) state.lastSelectedId = ord[ord.length - 1].id;
   updateSelBar();
+}
+// Populate the toolbar "Select by…" dropdown with the values present for each
+// dimension (modality → category → group → name), skipping empty dimensions.
+function refreshSelByOptions() {
+  const sel = $('selByDim'); if (!sel) return;
+  const data = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');
+  sel.innerHTML = '';
+  const ph = document.createElement('option'); ph.value = ''; ph.textContent = 'by…'; sel.appendChild(ph);
+  for (const [key, label] of [['modality', 'Modality'], ['category', 'Category'], ['group', 'Group'], ['name', 'Name']]) {
+    const vals = [];
+    for (const t of data) { const v = t[key] || ''; if (v && !vals.includes(v)) vals.push(v); }
+    if (!vals.length) continue;
+    const og = document.createElement('optgroup'); og.label = label;
+    for (const v of vals) { const o = document.createElement('option'); o.textContent = v; o.dataset.key = key; o.dataset.val = v; og.appendChild(o); }
+    sel.appendChild(og);
+  }
+}
+// Batch-select every track matching one dimension value (modality/category/group/name).
+function selectByDimension(key, val) {
+  setTool('select');
+  const matches = state.tracks.filter(t => (t[key] || '') === val);
+  for (const t of matches) state.selected.add(t.id);
+  const ordIds = orderedTracksForDisplay().filter(t => (t[key] || '') === val).map(t => t.id);
+  if (ordIds.length) state.lastSelectedId = ordIds[ordIds.length - 1];
+  updateSelBar();
+}
+// Distinct modalities across the loaded tracks, in first-appearance order.
+function currentModalities() {
+  const out = [];
+  for (const t of state.tracks) { const m = t.modality || ''; if (m && !out.includes(m)) out.push(m); }
+  return out;
+}
+// Set the methylation context for every .cz track from the cz sub-toolbar.
+function setGlobalCzContext(v) {
+  for (const t of state.tracks) if (t.kind === 'mc') t.ctx = v;
+  render();
+}
+// Populate the Hi-C resolution dropdown (Auto + a fixed set of bin sizes).
+function refreshHicResOptions() {
+  const sel = $('hicResSel'); if (!sel) return;
+  const cur = (!state.hicResAuto && state.hicRes) ? String(state.hicRes) : 'auto';
+  let html = '<option value="auto">Auto</option>';
+  for (const r of [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000, 2500000]) {
+    html += `<option value="${r}">${r >= 1000000 ? (r / 1000000) + ' M' : (r / 1000) + ' k'}</option>`;
+  }
+  sel.innerHTML = html;
+  sel.value = cur;
+}
+// Show/hide the cz + Hi-C sub-toolbars and sync their controls with the tracks.
+function refreshTrackToolbars() {
+  const hasCz = state.tracks.some(t => t.kind === 'mc' || t.kind === 'bw');
+  const hasHic = state.tracks.some(t => t.kind === 'hic');
+  if ($('czBar')) $('czBar').style.display = hasCz ? '' : 'none';
+  if ($('hicBar')) $('hicBar').style.display = hasHic ? '' : 'none';
+  refreshHicResOptions();
+  if ($('hicNorm')) $('hicNorm').value = state.hicNorm;
+  const cz = $('czCtx'); const mc = state.tracks.find(t => t.kind === 'mc');
+  if (cz && mc) cz.value = mc.ctx || 'CG';
+}
+// Render the drag-to-reorder modality chips (only when modalities exist), and
+// reconcile state.modalityOrder with the modalities currently loaded.
+let _moDrag = null;
+function refreshModOrderUI() {
+  const host = $('modOrder'); if (!host) return;
+  const mods = currentModalities();
+  if (!mods.length) { host.style.display = 'none'; host.innerHTML = ''; state.modalityOrder = []; return; }
+  const prev = state.modalityOrder || [];
+  state.modalityOrder = prev.filter(m => mods.includes(m)).concat(mods.filter(m => !prev.includes(m)));
+  host.style.display = '';
+  host.innerHTML = `<span class="mo-label">Modality order:</span>` +
+    state.modalityOrder.map(m => `<span class="mo-chip" draggable="true" data-mod="${escapeHtml(m)}" title="Drag to reorder">${escapeHtml(m)}</span>`).join('');
+  for (const chip of host.querySelectorAll('.mo-chip')) {
+    chip.addEventListener('dragstart', () => { _moDrag = chip.dataset.mod; chip.classList.add('dragging'); });
+    chip.addEventListener('dragend', () => { chip.classList.remove('dragging'); _moDrag = null; });
+    chip.addEventListener('dragover', (e) => { e.preventDefault(); chip.classList.add('dragover'); });
+    chip.addEventListener('dragleave', () => chip.classList.remove('dragover'));
+    chip.addEventListener('drop', (e) => { e.preventDefault(); chip.classList.remove('dragover'); reorderModality(_moDrag, chip.dataset.mod); });
+  }
+}
+// Move modality `src` to just before `target`, then re-sort the loaded tracks.
+function reorderModality(src, target) {
+  if (!src || src === target) return;
+  const arr = state.modalityOrder.slice();
+  const from = arr.indexOf(src); if (from < 0) return;
+  arr.splice(from, 1);
+  let to = arr.indexOf(target); if (to < 0) to = arr.length;
+  arr.splice(to, 0, src);
+  state.modalityOrder = arr;
+  applyTrackSort();   // rebuilds rows (and the chips) with the new modality order
 }
 // Toggle the whole group: select all its tracks, or clear them if all are on.
 function toggleGroupSelection(grp) {
@@ -2081,14 +2304,14 @@ function setSelectedVal(v) {
 
 // ── Y-axis limit editor (single track via its button, or many via the bar) ───
 function applyYlim(tracks, ylim) {
-  for (const t of tracks) if (t.kind === 'mc' || t.kind === 'bw') t.ylim = ylim;
+  for (const t of tracks) if (t.kind === 'mc' || t.kind === 'bw' || t.kind === 'hic') t.ylim = ylim;
   // ylim only rescales existing data — rebuild rows then repaint from cache.
   buildTrackRows();
   quickRedraw();
 }
 function openYlimEditor(tracks, anchorEl) {
-  const mcTracks = tracks.filter(t => t.kind === 'mc' || t.kind === 'bw');
-  if (!mcTracks.length) { setStatus('Y-limits apply to methylation / BigWig tracks only.', true); return; }
+  const mcTracks = tracks.filter(t => t.kind === 'mc' || t.kind === 'bw' || t.kind === 'hic');
+  if (!mcTracks.length) { setStatus('Y-limits apply to methylation / BigWig / Hi-C tracks only.', true); return; }
   const old = document.getElementById('ylimPopup'); if (old) old.remove();
   const first = mcTracks[0];
   const cur = Array.isArray(first.ylim) ? first.ylim : null;
@@ -2331,6 +2554,8 @@ async function drawOneTrackCtx(t, c) {
   if (c.gen !== state.gen) return;
   setTrackLoading(t, true);
   try {
+    // Table placeholders attach their data source the first time they are drawn.
+    if (t.unopened) { await ensureTrackOpen(t); if (c.gen !== state.gen || t.unopened) return; }
     const { gen, chrom, start, end, fStart, fEnd, fr, qi } = c;
     if (t.kind === 'seq') {
       await drawSeqTrack(t, gen);
@@ -2350,10 +2575,11 @@ async function drawOneTrackCtx(t, c) {
       t._bedData = feats; t._bedRange = fr;
       if (t.kind === 'bedpe') drawBedpeTrack(t, feats); else drawBedTrack(t, feats);
     } else if (t.kind === 'hic') {
-      if (t._hicData && rangeCovers(t._hicRange)) { drawHicTrack(t, t._hicData); return; }
+      const wantBin = hicDesiredBin(t);
+      if (t._hicData && rangeCovers(t._hicRange) && t._hicBin === wantBin && t._hicNormSel === state.hicNorm) { drawHicTrack(t, t._hicData); return; }
       const data = await hicGetRecords(t, chrom, fStart, fEnd);
       if (gen !== state.gen) return;
-      t._hicData = data; t._hicRange = fr;
+      t._hicData = data; t._hicRange = fr; t._hicBin = data.binsize; t._hicNormSel = state.hicNorm;
       drawHicTrack(t, data);
     } else {
       if (t._data && rangeCovers(t._dataRange)) { drawTrack(t, t._data.qi, t._data.vals); return; }
@@ -2480,7 +2706,7 @@ function drawTrack(track, qi, vals, dst) {
   // sumMc/sumCov stay pixel-indexed so the hover tooltip works in both modes.
   const sumMc = new Float64Array(W);
   const sumCov = new Float64Array(W);
-  let nSites = 0, totMc = 0, totCov = 0, maxLevel = 0;
+  let nSites = 0, totMc = 0, totCov = 0, maxLevel = 0, minLevel = Infinity;
   let binMc = null, binCov = null, nBins = W, binStart0 = 0;
 
   if (!res) {
@@ -2496,6 +2722,7 @@ function drawTrack(track, qi, vals, dst) {
       const c = sumCov[px]; if (!c) continue;
       let level = sumMc[px] / c; if (unmeth) level = 1 - level;
       if (level > maxLevel) maxLevel = level;
+      if (level < minLevel) minLevel = level;
     }
   } else {
     nBins = plan.nBins;
@@ -2514,6 +2741,7 @@ function drawTrack(track, qi, vals, dst) {
       const c = binCov[b]; if (!c) continue;
       let level = binMc[b] / c; if (unmeth) level = 1 - level;
       if (level > maxLevel) maxLevel = level;
+      if (level < minLevel) minLevel = level;
     }
   }
 
@@ -2572,21 +2800,24 @@ function drawTrack(track, qi, vals, dst) {
   // Store for hover tooltip (live only)
   if (live) track._draw = { start, end, W, sumMc, sumCov };
 
-  const valTag = state.valType === 'unmeth' ? '1−mC' : 'mC';
-  const resLabel = res ? ` · ${res} bp bins` : '';
+  const resTxt = res ? `${res >= 1000 ? (res / 1000) + ' kb' : res + ' bp'} bins` : 'per-bp';
   const scaleLabel = Array.isArray(track.ylim)
     ? ` · y:[${scaleMin}–${scaleMax}]`
     : ((track.ylim === 'auto' || state.yScale === 'auto')
         ? ` · y:auto (0–${(scaleMax * 100).toFixed(0)}%)`
         : ' · y:[0–100%]');
   // Full description (kept for image export, which has no dropdown controls) vs.
-  // the short on-screen text (context/value/ylim are already shown by the
-  // controls, so the on-screen label stays empty while there is signal).
+  // the short on-screen text: shows the fixed ylim when set, else the real
+  // min / max of the methylation levels (+ resolution).
+  const fixed = Array.isArray(track.ylim);
+  const rMin = fixed ? track.ylim[0] : ((nSites && minLevel !== Infinity) ? minLevel : 0);
+  const rMax = fixed ? track.ylim[1] : maxLevel;
+  const rangeTxt = `min ${Number(rMin).toPrecision(2)} · max ${Number(rMax).toPrecision(2)} · ${resTxt}`;
   track._metaFull = nSites
-    ? `${valTag} · ${track.ctx}${resLabel}${scaleLabel}`
+    ? `${rangeTxt} · ${track.ctx}${scaleLabel}`
     : `no ${track.ctx} signal here`;
   if (live && track.metaEl) {
-    track.metaEl.textContent = nSites ? '' : `no ${track.ctx} signal here`;
+    track.metaEl.textContent = nSites ? rangeTxt : `no ${track.ctx} signal here`;
   }
 }
 
@@ -2679,11 +2910,16 @@ function drawBigWig(track, feats, dst) {
   ctx.beginPath(); ctx.moveTo(0, baseY + 0.5); ctx.lineTo(w, baseY + 0.5); ctx.stroke();
 
   if (live) track._bw = { start, end, W, colMax, colHas };
-  if (live && track.metaEl) {
-    track.metaEl.textContent = feats.length
-      ? `max ${fmtLv(dataMax)}${Array.isArray(track.ylim) ? ` · y[${scaleMin}–${scaleMax}]` : ''}`
-      : 'no signal in view';
-  }
+  let vmin = Infinity, vmax = -Infinity;
+  for (let px = 0; px < W; px++) { if (!colHas[px]) continue; const v = colMax[px]; if (v < vmin) vmin = v; if (v > vmax) vmax = v; }
+  const resTxt = res ? `${res >= 1000 ? (res / 1000) + ' kb' : res + ' bp'} bins` : 'per-bp';
+  // Show the fixed ylim when set, else the real min / max of the signal.
+  let bwMeta;
+  if (Array.isArray(track.ylim)) bwMeta = `min ${fmtLv(track.ylim[0])} · max ${fmtLv(track.ylim[1])} · ${resTxt}`;
+  else if (vmin !== Infinity) bwMeta = `min ${fmtLv(vmin)} · max ${fmtLv(vmax)} · ${resTxt}`;
+  else bwMeta = 'no signal in view';
+  track._metaFull = bwMeta;
+  if (live && track.metaEl) track.metaEl.textContent = bwMeta;
 }
 
 // ── Draw a BED interval track (row-packed boxes with labels) ─────────────────
@@ -2769,25 +3005,43 @@ function drawHicTrack(track, data, dst) {
   const { ctx, w, h } = dst || sizeCanvas(track.canvas, H);
   ctx.clearRect(0, 0, w, h);
   const recs = data.recs || [], binsize = data.binsize || 1;
-  if (!recs.length) { if (live && track.metaEl) track.metaEl.textContent = 'no contacts in view'; return; }
-  let maxC = 0; for (const r of recs) if (r.counts > maxC) maxC = r.counts;
-  const denom = Math.log1p(maxC) || 1;
+  if (!recs.length) { track._metaFull = 'no contacts in view'; if (live && track.metaEl) track.metaEl.textContent = track._metaFull; return; }
+  let maxC = 0, minC = Infinity;
+  for (const r of recs) { if (r.counts > maxC) maxC = r.counts; if (r.counts < minC) minC = r.counts; }
+  if (minC === Infinity) minC = 0;
   const rgb = hexToRgb(track.color);
+  // Color intensity a∈[0,1]: a fixed ylim [min,max] is a LINEAR contrast window
+  // on the raw counts (so both ends actually change the colors); Auto uses a log
+  // scale to the peak because Hi-C counts are heavily skewed.
+  const fixed = Array.isArray(track.ylim);
+  const cMin = fixed ? track.ylim[0] : 0;
+  const cRange = fixed ? ((track.ylim[1] - track.ylim[0]) || 1) : 1;
+  const logMax = Math.log1p(maxC) || 1;
+  const intensity = (c) => fixed
+    ? Math.max(0, Math.min(1, (c - cMin) / cRange))
+    : Math.min(1, Math.log1p(c) / logMax);
   const toX = (bp) => (bp - start) / span * w;
-  const binPx = Math.max(1, (binsize / span) * w);
+  const binW = (binsize / span) * w;   // cell width  (genomic x)
+  const binH = (binsize / span) * h;   // cell height (distance step)
+  // Snap edges to the device-pixel grid (floor near / ceil far) so cells stay
+  // crisp with no seams whatever the devicePixelRatio.
+  const dpr = live ? (window.devicePixelRatio || 1) : 1;
+  const snapF = (v) => Math.floor(v * dpr) / dpr, snapC = (v) => Math.ceil(v * dpr) / dpr;
   for (const r of recs) {
     const p1 = r.bin1 * binsize, p2 = r.bin2 * binsize;
     const x = toX((p1 + p2) / 2 + binsize / 2);
     const y = (Math.abs(p2 - p1) / span) * h;
     if (y > h) continue;
-    const a = Math.min(1, Math.log1p(r.counts) / denom);
+    const a = intensity(r.counts);
     ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${(0.12 + 0.88 * a).toFixed(3)})`;
-    ctx.fillRect(x - binPx / 2, y, binPx, Math.max(1, binPx));
+    const x0 = snapF(x - binW / 2), y0 = snapF(y);
+    ctx.fillRect(x0, y0, Math.max(1 / dpr, snapC(x + binW / 2) - x0), Math.max(1 / dpr, snapC(y + binH) - y0));
   }
-  if (live && track.metaEl) {
-    const bl = binsize >= 1000 ? `${binsize / 1000}kb` : `${binsize}bp`;
-    track.metaEl.textContent = `${fmtInt(recs.length)} contacts · ${bl} bins · ${track.norm} · max ${maxC}`;
-  }
+  const bl = binsize >= 1000 ? `${binsize / 1000}kb` : `${binsize}bp`;
+  // Show the fixed ylim (color range) when set, else the real min / max counts.
+  const hMin = fixed ? track.ylim[0] : minC, hMax = fixed ? track.ylim[1] : maxC;
+  track._metaFull = `min ${fmtInt(Math.round(hMin))} · max ${fmtInt(Math.round(hMax))} · ${bl} bins · ${data.norm || 'NONE'}`;
+  if (live && track.metaEl) track.metaEl.textContent = track._metaFull;
 }
 
 // ── Draw the reference DNA sequence track (.2bit) ────────────────────────────
@@ -2986,9 +3240,20 @@ function niceStep(span, targetTicks) {
   return 10 * mag;
 }
 
-// Effective methylation bin width (bp). In Auto mode, pick a "nice" bin size so
-// a wide view collapses to ~1 bar per 2 px (fast to draw); narrow views stay
-// per-bp. Otherwise use the fixed Res selection.
+// Sorted resolution grid of the first Hi-C track in view (null when none).
+function hicResolutions() {
+  for (const t of state.tracks) if (t.kind === 'hic' && Array.isArray(t.resolutions) && t.resolutions.length) return t.resolutions;
+  return null;
+}
+// Snap a bin width to the .hic file's resolution grid (smallest res ≥ want).
+function snapToHicRes(want, hres) {
+  hres = hres || hicResolutions(); if (!hres) return want;
+  for (const r of hres) if (r >= want) return r;
+  return hres[hres.length - 1];
+}
+
+// Effective bin width (bp) for .cz / BigWig tracks. Auto mode picks a "nice"
+// bin size from the view span; a fixed cz "Res" selection overrides it.
 function effectiveResolution(viewW) {
   if (!state.resAuto) return state.resolution;
   if (!state.locus) return null;
@@ -2996,10 +3261,19 @@ function effectiveResolution(viewW) {
   const w = viewW || (state.rulerView && state.rulerView.clientWidth) || 1000;
   const targetBins = Math.max(1, Math.floor(w / 2));
   let res = Math.ceil(span / targetBins);
-  if (res <= 1) return null;                         // fine enough → per-bp
+  if (res <= 1) return null;
   const mag = Math.pow(10, Math.floor(Math.log10(res)));
   for (const m of [1, 2, 5, 10]) if (m * mag >= res) { res = m * mag; break; }
   return res;
+}
+// Hi-C bin width (bp) for a track, independent of the cz resolution: the "Hic
+// res" selection when fixed, else auto (~300 bins across the view). Always
+// snapped onto THAT file's own resolution grid.
+function hicDesiredBin(track) {
+  const grid = track.resolutions;
+  if (!state.hicResAuto && state.hicRes) return snapToHicRes(state.hicRes, grid);
+  const span = state.locus ? (state.locus.end - state.locus.start) : 1;
+  return snapToHicRes(Math.max(1, Math.ceil(span / 300)), grid);
 }
 
 // The read-ahead window (±READAHEAD of the view) that data is fetched for.
@@ -3173,7 +3447,7 @@ async function composeExportSvg() {
     }
     // Label: swatch (mc) + name
     if (t.kind !== 'seq' && t.kind !== 'gene') { rec.fillStyle = t.color || '#333'; rec.fillRect(4, y + 6, 10, 10); }
-    rec.fillStyle = '#1c1e26'; rec.font = 'bold 12px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
+    rec.fillStyle = '#1c1e26'; rec.font = `bold ${state.nameFontSize}px sans-serif`; rec.textAlign = 'left'; rec.textBaseline = 'middle';
     rec.fillText(t.name, ((t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5), y + 12);
     // Sub-label (context / value / y-limit etc.) so the exported image keeps the
     // header info that is otherwise only visible in the interactive UI.
@@ -3369,6 +3643,8 @@ function currentStateObject() {
     l: state.locus ? locusText(state.locus) : undefined,
     r: state.resolution || undefined,
     ra: state.resAuto || undefined,
+    hr: (!state.hicResAuto && state.hicRes) ? state.hicRes : undefined,
+    hn: state.hicNorm !== 'NONE' ? state.hicNorm : undefined,
     vt: state.valType !== 'meth' ? state.valType : undefined,
     sd: state.strand !== 'both' ? state.strand : undefined,
     y: state.yScale !== '1' ? state.yScale : undefined,
@@ -3399,6 +3675,8 @@ async function applyStateObject(st) {
     }
     if (st.ra) { state.resAuto = true; state.resolution = null; if ($('resSel')) $('resSel').value = 'auto'; }
     else if (st.r) { state.resAuto = false; state.resolution = parseInt(st.r, 10); if ($('resSel')) $('resSel').value = String(st.r); }
+    if (st.hr) { state.hicResAuto = false; state.hicRes = parseInt(st.hr, 10); }
+    if (st.hn) { state.hicNorm = st.hn; }
     if (st.vt) { state.valType = st.vt; if ($('valSelGlobal')) $('valSelGlobal').value = st.vt; }
     if (st.sd) { state.strand = st.sd; if ($('strandSel')) $('strandSel').value = st.sd; }
     if (st.y) { state.yScale = st.y; if ($('yScaleSel')) $('yScaleSel').value = st.y; }
@@ -3533,8 +3811,11 @@ function attachPanZoom(view) {
     const frac = (e.clientX - rect.left) / w;         // zoom anchor
     const { chrom, start, end } = state.locus;
     const span = end - start;
-    const factor = e.deltaY < 0 ? 0.8 : 1.25;         // wheel up = zoom in
     const anchor = start + frac * span;
+
+    // A single span change zooms every track together (cz / BigWig / Hi-C all
+    // read the same locus); in Auto mode each track's bin size follows the span.
+    const factor = e.deltaY < 0 ? 0.8 : 1.25;         // wheel up = zoom in
     let newSpan = Math.max(20, span * factor);
     if (factor > 1 && newSpan > MAX_SPAN && span >= MAX_SPAN) {
       setStatus(`Region is capped at ${fmtMb(MAX_SPAN)} — zooming out further is disabled to keep the browser responsive.`, true);
@@ -3801,6 +4082,23 @@ $('btnTsv').onclick = exportDataTsv;
 $('btnSvg').onclick = () => downloadView('svg');
 $('btnPng').onclick = () => downloadView('png');
 $('btnPdf').onclick = () => downloadView('pdf');
+// Apply the track-name font size (clamped) without touching the input value, so
+// typing/deleting in the box isn't fought by a live rewrite.
+function applyNameFontSize(px) {
+  const v = Math.max(6, Math.min(28, Math.round(px)));
+  state.nameFontSize = v;
+  document.documentElement.style.setProperty('--tname-fs', v + 'px');
+  return v;
+}
+$('nameFontSize').addEventListener('input', (e) => {
+  const n = parseInt(e.target.value, 10);
+  if (Number.isFinite(n) && n >= 6 && n <= 28) applyNameFontSize(n);   // apply in-range values live; leave the field alone
+});
+$('nameFontSize').addEventListener('change', (e) => {
+  const n = parseInt(e.target.value, 10);
+  e.target.value = applyNameFontSize(Number.isFinite(n) ? n : state.nameFontSize);   // normalize on commit
+});
+applyNameFontSize(state.nameFontSize);
 $('btnSaveSession').onclick = saveSession;
 $('sessionFile').onchange = loadSessionFile;
 $('genomeSel').onchange = onGenomeChange;
@@ -3825,7 +4123,7 @@ $('savedFilter').addEventListener('input', renderSavedList);
 $('savedAll').onclick = savedSelectAll;
 $('savedNone').onclick = savedSelectNone;
 $('btnForgetTracks').onclick = () => {
-  try { localStorage.removeItem(SAVED_TRACKS_KEY); } catch {}
+  _savedTracks.length = 0;
   refreshSavedTracksUI();
   setStatus('Cleared saved tracks.');
 };
@@ -3873,6 +4171,14 @@ $('resSel').onchange = () => {
   else { state.resAuto = false; state.resolution = v ? parseInt(v, 10) : null; }
   render();
 };
+$('hicResSel').onchange = () => {
+  const v = $('hicResSel').value;
+  if (v === 'auto') { state.hicResAuto = true; state.hicRes = null; }
+  else { state.hicResAuto = false; state.hicRes = parseInt(v, 10); }
+  render();
+};
+$('hicNorm').onchange = () => { state.hicNorm = $('hicNorm').value; render(); };
+$('czCtx').onchange = () => setGlobalCzContext($('czCtx').value);
 $('valSelGlobal').onchange = () => { state.valType = $('valSelGlobal').value; quickRedraw(); };
 $('strandSel').onchange = () => { state.strand = $('strandSel').value; quickRedraw(); };
 $('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack(); });
@@ -3888,8 +4194,14 @@ $('selHeight').onchange = (e) => setSelectedHeight(parseInt(e.target.value, 10))
 $('selYlim').onclick = (e) => openYlimEditor(selectedTracks(), e.currentTarget);
 $('selDelete').onclick = deleteSelected;
 $('selClear').onclick = clearSelection;
-$('btnSelAll').onclick = selectAllTracks;
-$('btnSelNone').onclick = clearSelection;
+$('btnSelAll').onclick = () => { setTool('select'); selectAllTracks(); };
+$('btnSelNone').onclick = () => { setTool('select'); clearSelection(); };
+$('selByDim').onchange = (e) => {
+  const opt = e.target.selectedOptions[0];
+  e.target.selectedIndex = 0;
+  if (!opt || !opt.dataset.key) return;
+  selectByDimension(opt.dataset.key, opt.dataset.val);
+};
 
 // ── Track toolbar tools (pan / zoom / select / mark) ─────────────────────────
 document.querySelectorAll('#toolModes .toolbtn').forEach(b => {

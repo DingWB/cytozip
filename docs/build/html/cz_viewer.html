@@ -192,6 +192,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Genome Browser</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#quick-start">Quick start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#track-tables">Track tables</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#supported-remote-file-formats">Supported remote file formats</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#toolbar-tools-and-keyboard-shortcuts">Toolbar tools and keyboard shortcuts</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#working-with-tracks">Working with tracks</a></li>
@@ -462,26 +463,92 @@ Multiple tracks can share a single reference.</p>
 <h3>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h3>
 <ol class="arabic simple">
 <li><p>Enter the <strong>reference</strong> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> URL (the coordinate file with a <code class="docutils literal notranslate"><span class="pre">pos</span></code>
-sort column) and click <strong>Load reference</strong>.</p></li>
-<li><p>Click <strong>+ Add cz track</strong>, giving the URL of a value <code class="docutils literal notranslate"><span class="pre">.cz</span></code> file
-(<code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code>) that was built against the same reference. Repeat to stack
-multiple tracks.</p></li>
-<li><p>Type a locus (e.g. <code class="docutils literal notranslate"><span class="pre">chr1:3,000,000-3,050,000</span></code>) and press <strong>Go</strong>. Drag to
-pan, scroll to zoom (in <em>Zoom</em> mode), and switch the per-track cytosine
-context (CG / CH / CHG / CHH / all).</p></li>
+sort column) and click <strong>Load reference</strong> (only needed for <code class="docutils literal notranslate"><span class="pre">.cz</span></code>
+methylation tracks).</p></li>
+<li><p>Add tracks in any of these ways:</p>
+<ul class="simple">
+<li><p><strong>+ Add track</strong> — paste a single track URL (<code class="docutils literal notranslate"><span class="pre">.cz</span></code> / <code class="docutils literal notranslate"><span class="pre">.bw</span></code> /
+<code class="docutils literal notranslate"><span class="pre">.bedgraph.gz</span></code> / <code class="docutils literal notranslate"><span class="pre">.bed.gz</span></code> / <code class="docutils literal notranslate"><span class="pre">.bedpe.gz</span></code> / <code class="docutils literal notranslate"><span class="pre">.hic</span></code>); the format is
+detected from the extension. Give it an optional <em>modality</em> label.</p></li>
+<li><p><strong>Track table</strong> — load a CSV/TSV that lists many tracks at once (see
+<a class="reference internal" href="#track-tables">Track tables</a>). This is the fastest way to build a multi-track,
+multi-modality view.</p></li>
+</ul>
+</li>
+<li><p>Type a locus (e.g. <code class="docutils literal notranslate"><span class="pre">chr1:3,000,000-3,050,000</span></code>) and press <strong>Go</strong>, or pick a
+<strong>Genome</strong> and search a gene name. Drag to pan and scroll to zoom (in <em>Zoom</em>
+mode). All tracks zoom together.</p></li>
+<li><p>Use the <strong>cz</strong> and <strong>hic</strong> sub-toolbars (next to <em>Save session</em>) to change
+the cytosine context (CG / CH / CHG / CHH / all), value (mC / 1 − mC),
+strand, and per-format resolution for every track at once.</p></li>
 </ol>
+</section>
+<section id="track-tables">
+<h3>Track tables<a class="headerlink" href="#track-tables" title="Link to this heading"></a></h3>
+<p>A track table loads many tracks at once from a CSV/TSV file or URL. The <strong>first
+row must be a header</strong> naming the columns; a table without a recognizable
+header is rejected.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 12%" />
+<col style="width: 74%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>yes</p></td>
+<td><p>Track label (shown in the header). Rows sharing a name are grouped
+together.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">path</span></code></p></td>
+<td><p>yes</p></td>
+<td><p>Track URL (aka <code class="docutils literal notranslate"><span class="pre">url</span></code>). The format is detected from the extension.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">group</span></code></p></td>
+<td><p>no</p></td>
+<td><p>Middle grouping level; a group header is drawn above its tracks.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">color</span></code></p></td>
+<td><p>no</p></td>
+<td><p>Track color (<code class="docutils literal notranslate"><span class="pre">#hex</span></code> or CSS name). <strong>Missing → a random color</strong> is
+assigned.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">category</span></code></p></td>
+<td><p>no</p></td>
+<td><p>Top grouping level. <strong>Present → a three-level layout</strong>
+(category → group → track); <strong>absent → two levels</strong> (group → track).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">modality</span></code></p></td>
+<td><p>no</p></td>
+<td><p>Assay label (e.g. <code class="docutils literal notranslate"><span class="pre">DNAm</span></code>, <code class="docutils literal notranslate"><span class="pre">ATAC</span></code>, <code class="docutils literal notranslate"><span class="pre">H3K27ac</span></code>, <code class="docutils literal notranslate"><span class="pre">RNA</span></code>, <code class="docutils literal notranslate"><span class="pre">HiC</span></code>),
+drawn as a vertical strip on the <strong>right</strong> of each track header.</p></td>
+</tr>
+</tbody>
+</table>
+<p>After loading, rows are ordered <strong>category → group → name → modality</strong> (any
+absent column is skipped). When a <code class="docutils literal notranslate"><span class="pre">modality</span></code> column is present, drag the
+chips in the <strong>Modality order</strong> box (right of the <em>Load</em> button) to reorder the
+modalities; the tracks re-sort instantly.</p>
+<p>Tracks load <strong>lazily</strong>: the ones visible in the viewport open first and the
+rest open as you scroll, so even a large table appears immediately. An example
+multi-modality table is preloaded in the URL box.</p>
 </section>
 <section id="supported-remote-file-formats">
 <h3>Supported remote file formats<a class="headerlink" href="#supported-remote-file-formats" title="Link to this heading"></a></h3>
 <p>All formats are read <strong>remotely with HTTP Range requests only</strong> — the whole
-file is never downloaded. Add any of them by pasting its URL into
-<strong>New track URL</strong> (the format is detected from the extension), via the
-<strong>Track table</strong>, or by restoring a saved session.</p>
+file is never downloaded. Add any of them via <strong>+ Add track</strong>, a <strong>track
+table</strong>, or by restoring a saved session.</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 16%" />
-<col style="width: 20%" />
-<col style="width: 64%" />
+<col style="width: 22%" />
+<col style="width: 62%" />
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Format</p></th>
@@ -493,37 +560,44 @@ file is never downloaded. Add any of them by pasting its URL into
 <tr class="row-even"><td><p>cytozip methylation</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">.cz</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">mc</span></code>/<code class="docutils literal notranslate"><span class="pre">cov</span></code> value track joined to the shared <strong>reference</strong> <code class="docutils literal notranslate"><span class="pre">.cz</span></code> by
-row index. Requires a reference to be loaded first. Per-track context
-(CG/CH/CHG/CHH/all) and value (mC or 1 − mC).</p></td>
+row index. Requires a reference to be loaded first. Context
+(CG/CH/CHG/CHH/all, default <strong>CG</strong>), value (mC or 1 − mC) and strand are
+set globally in the <strong>cz</strong> sub-toolbar.</p></td>
 </tr>
 <tr class="row-odd"><td><p>BigWig</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">.bw</span></code> / <code class="docutils literal notranslate"><span class="pre">.bigwig</span></code></p></td>
-<td><p>Self-contained signal track (bar/wiggle). No reference needed.</p></td>
+<td><p>Self-contained signal track (bar/wiggle). No reference needed; binned
+with the same resolution as <code class="docutils literal notranslate"><span class="pre">.cz</span></code> tracks.</p></td>
 </tr>
-<tr class="row-even"><td><p>BED</p></td>
+<tr class="row-even"><td><p>bedGraph</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.bedgraph.gz</span></code> / <code class="docutils literal notranslate"><span class="pre">.bdg.gz</span></code> / <code class="docutils literal notranslate"><span class="pre">.bg.gz</span></code> (+ <code class="docutils literal notranslate"><span class="pre">.tbi</span></code>)</p></td>
+<td><p>Quantitative signal (<code class="docutils literal notranslate"><span class="pre">chrom</span> <span class="pre">start</span> <span class="pre">end</span> <span class="pre">value</span></code>) drawn like BigWig. Must
+be <strong>bgzip-compressed and tabix-indexed</strong>.</p></td>
+</tr>
+<tr class="row-odd"><td><p>BED</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">.bed.gz</span></code> (+ <code class="docutils literal notranslate"><span class="pre">.tbi</span></code>)</p></td>
 <td><p>Interval/annotation track drawn as row-packed boxes with labels. Must be
 <strong>bgzip-compressed and tabix-indexed</strong> so it can be read by range; the
 <code class="docutils literal notranslate"><span class="pre">.tbi</span></code> index is expected next to the file (<code class="docutils literal notranslate"><span class="pre">&lt;url&gt;.tbi</span></code>).</p></td>
 </tr>
-<tr class="row-odd"><td><p>BEDPE</p></td>
+<tr class="row-even"><td><p>BEDPE</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">.bedpe.gz</span></code> (+ <code class="docutils literal notranslate"><span class="pre">.tbi</span></code>)</p></td>
 <td><p>Paired-end / loop track drawn as arcs connecting the two anchors. Also
 requires bgzip + tabix (<code class="docutils literal notranslate"><span class="pre">&lt;url&gt;.tbi</span></code>).</p></td>
 </tr>
-<tr class="row-even"><td><p>Hi-C</p></td>
+<tr class="row-odd"><td><p>Hi-C</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">.hic</span></code></p></td>
-<td><p>Juicebox contact matrix drawn as a pyramid heatmap; the resolution is
-chosen automatically from the view span and KR normalization is used
-when available.</p></td>
+<td><p>Juicebox contact matrix drawn as a pyramid heatmap. Resolution and
+<strong>normalization</strong> (NONE / KR / SCALE) are set in the <strong>hic</strong> sub-toolbar;
+the color scale follows the Hi-C track’s Y-limits.</p></td>
 </tr>
 </tbody>
 </table>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>BED / BEDPE must be <strong>bgzipped and tabix-indexed</strong> (<code class="docutils literal notranslate"><span class="pre">bgzip</span> <span class="pre">file.bed</span> <span class="pre">&amp;&amp;</span>
-<span class="pre">tabix</span> <span class="pre">-p</span> <span class="pre">bed</span> <span class="pre">file.bed.gz</span></code>) — plain uncompressed <code class="docutils literal notranslate"><span class="pre">.bed</span></code>/<code class="docutils literal notranslate"><span class="pre">.bedpe</span></code> are not
-accepted because they cannot be read partially by range.</p>
+<p>bedGraph / BED / BEDPE must be <strong>bgzipped and tabix-indexed</strong> (e.g.
+<code class="docutils literal notranslate"><span class="pre">bgzip</span> <span class="pre">file.bed</span> <span class="pre">&amp;&amp;</span> <span class="pre">tabix</span> <span class="pre">-p</span> <span class="pre">bed</span> <span class="pre">file.bed.gz</span></code>) — plain uncompressed files
+are not accepted because they cannot be read partially by range.</p>
 </div>
 </section>
 <section id="toolbar-tools-and-keyboard-shortcuts">
@@ -550,7 +624,8 @@ one-letter shortcut (shown in parentheses in its tooltip):</p>
 <tr class="row-odd"><td><p>Zoom</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Z</span></code></p></td>
 <td><p>Drag to select a region and zoom into it; the mouse <strong>wheel zooms only
-in this mode</strong> (other modes let the page scroll).</p></td>
+in this mode</strong> (other modes let the page scroll). All tracks zoom
+together.</p></td>
 </tr>
 <tr class="row-even"><td><p>Select</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">V</span></code></p></td>
@@ -572,24 +647,50 @@ the tool).</p></td>
 </tr>
 </tbody>
 </table>
+<p>Alongside the tools, the toolbar also has:</p>
+<ul class="simple">
+<li><p><strong>Select</strong> <code class="docutils literal notranslate"><span class="pre">All</span></code> / <code class="docutils literal notranslate"><span class="pre">None</span></code> and a <strong>by…</strong> dropdown to batch-select every
+track sharing a given <em>modality</em>, <em>category</em>, <em>group</em>, or <em>name</em>. Any of these
+switches to the Select tool automatically.</p></li>
+<li><p>A <strong>cz</strong> sub-toolbar (methylation): global <em>context</em> (CG / CH / CHG / CHH /
+all), <em>value</em> (mC / 1 − mC), <em>strand</em>, and <em>resolution</em> for all <code class="docutils literal notranslate"><span class="pre">.cz</span></code> and
+BigWig tracks.</p></li>
+<li><p>A <strong>hic</strong> sub-toolbar: Hi-C bin <em>resolution</em> (Auto or a fixed bin size) and
+<em>normalization</em> (NONE / KR / SCALE). It appears only when a Hi-C track is
+loaded, and the two resolutions are independent of the cz resolution.</p></li>
+<li><p>A <strong>Name pt</strong> box to change the track-name font size (type a value or use the
+up/down arrows).</p></li>
+<li><p><strong>Saved tracks</strong> — a manager listing every track loaded <strong>this session</strong>;
+re-add removed tracks, or toggle whole <em>modality / category / group</em> levels
+on/off.</p></li>
+</ul>
 <p>A dashed vertical guide line follows the cursor across <strong>all</strong> tracks to make
 comparing positions easy.</p>
 </section>
 <section id="working-with-tracks">
 <h3>Working with tracks<a class="headerlink" href="#working-with-tracks" title="Link to this heading"></a></h3>
 <ul class="simple">
+<li><p><strong>Rename</strong> a track by <strong>double-clicking</strong> its name; press Enter to confirm.</p></li>
 <li><p><strong>Reorder</strong> tracks by dragging the grip handle (<code class="docutils literal notranslate"><span class="pre">⠿</span></code>) on the left up/down, or
-select some and use the <strong>↑ Up / ↓ Down</strong> buttons in the selection bar.</p></li>
+select some and use the <strong>↑ Up / ↓ Down</strong> buttons in the selection bar. With
+categories, selecting a whole <em>category</em> (or <em>group</em>) header moves it as a
+block.</p></li>
 <li><p><strong>Resize</strong> a track’s height: select it (or several) with the Select tool and
 type a pixel height into the selection bar’s <strong>Height</strong> box.</p></li>
 <li><p><strong>Recolor</strong> a track with its color swatch.</p></li>
-<li><p><strong>Per-track Y-limits</strong>: click the <code class="docutils literal notranslate"><span class="pre">y:auto</span></code> button to set <em>Auto</em> or a fixed
-<code class="docutils literal notranslate"><span class="pre">[min,</span> <span class="pre">max]</span></code> range.</p></li>
-<li><p><strong>Select multiple</strong> tracks (Select tool, Shift/Ctrl) to batch-change context,
-value (mC / 1 − mC), color, height, Y-limits, or to delete/move them together.</p></li>
-<li><p><strong>Resolution</strong> bins methylation for speed; choose <strong>Auto</strong> to let the viewer
-pick a bin size from the current span (large views bin coarsely, zoomed-in
-views go per-base). The active resolution is shown on the left of the ruler.</p></li>
+<li><p><strong>Per-track Y-limits</strong>: click the <code class="docutils literal notranslate"><span class="pre">y:auto</span></code> button in a track header to set
+<em>Auto</em> or a fixed <code class="docutils literal notranslate"><span class="pre">[min,</span> <span class="pre">max]</span></code> range. For <code class="docutils literal notranslate"><span class="pre">.cz</span></code>/BigWig this rescales the
+y-axis; for Hi-C it sets the contact <strong>color scale</strong>. The header meta shows
+the min/max (the fixed limits when set, otherwise the real data range) and the
+active resolution.</p></li>
+<li><p><strong>Global context / value / strand</strong> are set once for all <code class="docutils literal notranslate"><span class="pre">.cz</span></code> tracks in the
+<strong>cz</strong> sub-toolbar; select a subset first to change only those (selection bar
+<code class="docutils literal notranslate"><span class="pre">Ctx</span></code> / <code class="docutils literal notranslate"><span class="pre">Val</span></code>).</p></li>
+<li><p><strong>Resolution</strong> bins signal for speed. In the <strong>cz</strong> sub-toolbar choose
+<strong>Auto</strong> to let the viewer pick a bin size from the current span (large views
+bin coarsely, zoomed-in views go per-base), or a fixed size. Hi-C resolution
+is set separately in the <strong>hic</strong> sub-toolbar. The active resolution is shown
+on the left of the ruler and in each track header.</p></li>
 </ul>
 </section>
 <section id="genome-gene-search-and-marks">
@@ -614,10 +715,17 @@ track).</p></li>
 </section>
 <section id="session-and-sharing">
 <h3>Session and sharing<a class="headerlink" href="#session-and-sharing" title="Link to this heading"></a></h3>
-<p>The full view (genome, locus, tracks, colors, Y-limits, resolution) is encoded
-in the page URL as you work, so copying the URL shares the exact view. Use
-<strong>Save</strong> (shortcut <code class="docutils literal notranslate"><span class="pre">S</span></code>) to download a JSON session and the session file input
-to restore it later.</p>
+<p>The full view (genome, locus, tracks with their group / category / modality /
+color / Y-limits, context, value, strand, cz + Hi-C resolution and Hi-C
+normalization) is encoded in the page URL as you work, so copying the URL shares
+the exact view. Use <strong>Save</strong> (shortcut <code class="docutils literal notranslate"><span class="pre">S</span></code>) to download a JSON session and the
+session file input to restore it later.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <strong>Saved tracks</strong> manager is per-session only (kept in memory): it lists
+the tracks loaded in the current tab and is not persisted across reloads.
+Use <strong>Save</strong> / the session URL to keep a view.</p>
+</div>
 </section>
 <section id="share-a-session-via-a-remote-json-url">
 <h3>Share a session via a remote JSON URL<a class="headerlink" href="#share-a-session-via-a-remote-json-url" title="Link to this heading"></a></h3>

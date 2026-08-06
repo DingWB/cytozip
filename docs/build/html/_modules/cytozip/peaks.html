@@ -189,6 +189,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../cz_viewer.html">Genome Browser</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../cz_viewer.html#usage">Usage</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#quick-start">Quick start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#track-tables">Track tables</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#supported-remote-file-formats">Supported remote file formats</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#toolbar-tools-and-keyboard-shortcuts">Toolbar tools and keyboard shortcuts</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#working-with-tracks">Working with tracks</a></li>
@@ -493,26 +494,42 @@
 <div class="viewcode-block" id="call_peaks">
 <a class="viewcode-back" href="../../cytozip.peaks.html#cytozip.peaks.call_peaks">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">call_peaks</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;peaks&#39;</span><span class="p">,</span>
-               <span class="n">signal</span><span class="o">=</span><span class="s1">&#39;unmeth&#39;</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">genome_size</span><span class="o">=</span><span class="s1">&#39;mm&#39;</span><span class="p">,</span>
+               <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">genome_size</span><span class="o">=</span><span class="s1">&#39;mm&#39;</span><span class="p">,</span>
                <span class="n">fragment_size</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">qvalue</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">broad</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keep_bed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">macs3_args</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
                <span class="n">mc_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Call peaks from a methylation .cz file using MACS3.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Call peaks from a methylation .cz file using MACS3 (pseudo-read route).</span>
 
-<span class="sd">    Treats unmethylated counts (cov - mc) at each cytosine site as the</span>
-<span class="sd">    signal (analogous to ATAC-seq read counts).  For each site with</span>
-<span class="sd">    unmethylated count *u*, generates *u* pseudo-reads (BED intervals)</span>
-<span class="sd">    of length ``fragment_size`` centered on the site.  These are then</span>
-<span class="sd">    fed to ``macs3 callpeak --nomodel``.</span>
+<span class="sd">    Peak calling on a .cz always treats the **unmethylated count**</span>
+<span class="sd">    ``umc = cov - mc`` at each cytosine as the ATAC-like read signal: CpG</span>
+<span class="sd">    hypomethylation marks open chromatin / regulatory elements, so only</span>
+<span class="sd">    unmethylation (not ``mc``) is a meaningful peak signal here.</span>
 
-<span class="sd">    This is useful for identifying regions of low methylation</span>
-<span class="sd">    (e.g., open chromatin in NOMe-seq, or regulatory elements in WGBS).</span>
+<span class="sd">    Mechanism (differs from :func:`call_peaks_bdg`): this function</span>
+<span class="sd">    **materialises pseudo-reads**. For each site with ``umc = u`` it writes</span>
+<span class="sd">    ``u`` BED intervals of length ``fragment_size`` centred on the site, then</span>
+<span class="sd">    runs ``macs3 callpeak --nomodel`` on that BED exactly like an ATAC-seq</span>
+<span class="sd">    experiment. MACS3&#39;s full model (local lambda, fragment pileup, q-value</span>
+<span class="sd">    FDR) is therefore used unchanged. The cost is that the BED holds</span>
+<span class="sd">    ``sum(umc)`` reads, so runtime and disk grow with sequencing depth and</span>
+<span class="sd">    it can explode on deep pseudobulks — use :func:`call_peaks_bdg` there.</span>
 
-<span class="sd">    Because ``cov - mc`` is strongly confounded by sequencing depth and</span>
-<span class="sd">    cytosine density, pass ``control=&#39;cov&#39;`` to also emit a coverage-based</span>
-<span class="sd">    control track (``macs3 -c``): peaks then reflect a genuine **local</span>
-<span class="sd">    enrichment of unmethylation** (``umc/cov`` above the global rate) rather</span>
-<span class="sd">    than merely deeply covered / CpG-dense regions. Strongly recommended.</span>
+<span class="sd">    Useful for identifying regions of low methylation (e.g. open chromatin</span>
+<span class="sd">    in NOMe-seq, or regulatory elements in WGBS).</span>
+
+<span class="sd">    Because ``cov - mc`` is confounded by sequencing depth and cytosine</span>
+<span class="sd">    density, pass ``control=&#39;cov&#39;`` to also emit a coverage-based control</span>
+<span class="sd">    track (``macs3 -c``): peaks then reflect a genuine **local enrichment of</span>
+<span class="sd">    unmethylation** (``umc/cov`` above the global rate) rather than merely</span>
+<span class="sd">    deeply covered / CpG-dense regions. Strongly recommended.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    call_peaks_bdg : memory-efficient equivalent that never materialises</span>
+<span class="sd">        reads; builds pileup bedGraphs directly and scores them with MACS3&#39;s</span>
+<span class="sd">        bedGraph back-end (``bdgcmp`` Poisson test + ``bdgpeakcall``). Prefer</span>
+<span class="sd">        it for deep pseudobulks; results are comparable but not identical</span>
+<span class="sd">        because the scoring model differs (see its docstring).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -525,15 +542,12 @@
 <span class="sd">        ``&lt;input_stem&gt;_peaks/``.</span>
 <span class="sd">    name : str</span>
 <span class="sd">        Name prefix for MACS3 output files.</span>
-<span class="sd">    signal : str</span>
-<span class="sd">        ``&#39;unmeth&#39;`` uses (cov - mc) as signal;</span>
-<span class="sd">        ``&#39;meth&#39;`` uses mc as signal.</span>
 <span class="sd">    control : str or None</span>
 <span class="sd">        Control (input) track fed to ``macs3 -c`` to correct for the</span>
-<span class="sd">        coverage / cytosine-density bias in ``signal``. ``&#39;cov&#39;`` uses total</span>
-<span class="sd">        coverage (recommended), ``&#39;mc&#39;`` uses the methylated count, ``None``</span>
-<span class="sd">        (default) calls peaks against MACS3&#39;s genome background only (the</span>
-<span class="sd">        original, less specific behaviour).</span>
+<span class="sd">        coverage / cytosine-density bias in the ``umc`` signal. ``&#39;cov&#39;`` uses</span>
+<span class="sd">        total coverage (recommended), ``&#39;mc&#39;`` uses the methylated count,</span>
+<span class="sd">        ``None`` (default) calls peaks against MACS3&#39;s genome background only</span>
+<span class="sd">        (the original, less specific behaviour).</span>
 <span class="sd">    index : str or None</span>
 <span class="sd">        Path to index file for context filtering (e.g., CpG-only index</span>
 <span class="sd">        from ``index_context``).</span>
@@ -642,86 +656,92 @@
     <span class="n">ctrl_bed_path</span> <span class="o">=</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.control_reads.bed&#39;</span><span class="p">)</span>
                      <span class="k">if</span> <span class="n">control</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
 
-    <span class="n">total_reads</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">total_ctrl</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">ctrl_fh</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">ctrl_bed_path</span> <span class="k">else</span> <span class="kc">None</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">bed_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-                <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
-
-                <span class="n">ref_raw</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_raw</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)</span>
-
-                <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                    <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                        <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
-                        <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
-
-                <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-                <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-                <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-
-                <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
-                <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-                <span class="n">mc</span> <span class="o">=</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-                <span class="n">cov</span> <span class="o">=</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-
-                <span class="k">if</span> <span class="n">signal</span> <span class="o">==</span> <span class="s1">&#39;unmeth&#39;</span><span class="p">:</span>
-                    <span class="n">sig</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span>
-                <span class="k">elif</span> <span class="n">signal</span> <span class="o">==</span> <span class="s1">&#39;meth&#39;</span><span class="p">:</span>
-                    <span class="n">sig</span> <span class="o">=</span> <span class="n">mc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown signal type: </span><span class="si">{</span><span class="n">signal</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-                <span class="n">total_reads</span> <span class="o">+=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span><span class="n">fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
-
-                <span class="k">if</span> <span class="n">ctrl_fh</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">csig</span> <span class="o">=</span> <span class="n">cov</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                    <span class="n">total_ctrl</span> <span class="o">+=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span>
-                        <span class="n">ctrl_fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
-
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="si">}</span><span class="s2"> sites&quot;</span><span class="p">)</span>
-
-                <span class="c1"># Release this chunk&#39;s pages on both readers.</span>
-                <span class="n">reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                <span class="n">ref_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">ctrl_fh</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">ctrl_fh</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-    <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
-        <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total pseudo-reads: </span><span class="si">{</span><span class="n">total_reads</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;; control reads: </span><span class="si">{</span><span class="n">total_ctrl</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">control</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
-
-    <span class="c1"># ---- Step 4: Sort BED and run MACS3 peak calling ----</span>
     <span class="n">sorted_bed</span> <span class="o">=</span> <span class="n">bed_path</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.bed&#39;</span><span class="p">,</span> <span class="s1">&#39;.sorted.bed&#39;</span><span class="p">)</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Sorting BED file...&quot;</span><span class="p">)</span>
-    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-        <span class="p">[</span><span class="s1">&#39;sort&#39;</span><span class="p">,</span> <span class="s1">&#39;-k1,1&#39;</span><span class="p">,</span> <span class="s1">&#39;-k2,2n&#39;</span><span class="p">,</span> <span class="n">bed_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">sorted_bed</span><span class="p">],</span>
-        <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="n">sorted_ctrl</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">ctrl_bed_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">sorted_ctrl</span> <span class="o">=</span> <span class="n">ctrl_bed_path</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.bed&#39;</span><span class="p">,</span> <span class="s1">&#39;.sorted.bed&#39;</span><span class="p">)</span>
-        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-            <span class="p">[</span><span class="s1">&#39;sort&#39;</span><span class="p">,</span> <span class="s1">&#39;-k1,1&#39;</span><span class="p">,</span> <span class="s1">&#39;-k2,2n&#39;</span><span class="p">,</span> <span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">sorted_ctrl</span><span class="p">],</span>
-            <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="p">)</span>
+    <span class="n">sorted_ctrl</span> <span class="o">=</span> <span class="p">(</span><span class="n">ctrl_bed_path</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.bed&#39;</span><span class="p">,</span> <span class="s1">&#39;.sorted.bed&#39;</span><span class="p">)</span>
+                   <span class="k">if</span> <span class="n">ctrl_bed_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># Reuse existing sorted BED(s) instead of regenerating them.</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">sorted_bed</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">sorted_ctrl</span> <span class="ow">is</span> <span class="kc">None</span>
+                                       <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">sorted_ctrl</span><span class="p">)):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Sorted BED already exists: </span><span class="si">{</span><span class="n">sorted_bed</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;, </span><span class="si">{</span><span class="n">sorted_ctrl</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">sorted_ctrl</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="o">+</span> <span class="s2">&quot;; skip pseudo-read generation and sorting.&quot;</span><span class="p">)</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
+            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">total_reads</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">total_ctrl</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">ctrl_fh</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">ctrl_bed_path</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">bed_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+                    <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
+
+                    <span class="n">ref_raw</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_raw</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                        <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                            <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+                            <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+
+                    <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+                    <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+                    <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+                    <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
+                    <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+                    <span class="n">mc</span> <span class="o">=</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+                    <span class="n">cov</span> <span class="o">=</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+
+                    <span class="n">sig</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span>  <span class="c1"># unmethylated count = ATAC-like signal</span>
+
+                    <span class="n">total_reads</span> <span class="o">+=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span><span class="n">fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">ctrl_fh</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">csig</span> <span class="o">=</span> <span class="n">cov</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                        <span class="n">total_ctrl</span> <span class="o">+=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span>
+                            <span class="n">ctrl_fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
+
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="si">}</span><span class="s2"> sites&quot;</span><span class="p">)</span>
+
+                    <span class="c1"># Release this chunk&#39;s pages on both readers.</span>
+                    <span class="n">reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="n">ref_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ctrl_fh</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">ctrl_fh</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
+            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total pseudo-reads: </span><span class="si">{</span><span class="n">total_reads</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;; control reads: </span><span class="si">{</span><span class="n">total_ctrl</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">control</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
+
+        <span class="c1"># ---- Step 4: Sort BED ----</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Sorting BED file...&quot;</span><span class="p">)</span>
+        <span class="n">sort_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sort&#39;</span><span class="p">,</span> <span class="s1">&#39;-k1,1&#39;</span><span class="p">,</span> <span class="s1">&#39;-k2,2n&#39;</span><span class="p">,</span> <span class="n">bed_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">sorted_bed</span><span class="p">]</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sort_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">sort_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sorted_ctrl</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sort_ctrl_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sort&#39;</span><span class="p">,</span> <span class="s1">&#39;-k1,1&#39;</span><span class="p">,</span> <span class="s1">&#39;-k2,2n&#39;</span><span class="p">,</span> <span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">sorted_ctrl</span><span class="p">]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sort_ctrl_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">sort_ctrl_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span>
         <span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;callpeak&#39;</span><span class="p">,</span>
@@ -744,11 +764,13 @@
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">bed_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">bed_path</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">bed_path</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">ctrl_bed_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">ctrl_bed_path</span><span class="p">):</span>
         <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">ctrl_bed_path</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_bed</span><span class="p">:</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">sorted_bed</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">sorted_bed</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">sorted_bed</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">sorted_ctrl</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">sorted_ctrl</span><span class="p">):</span>
             <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">sorted_ctrl</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
@@ -945,36 +967,94 @@
     <span class="k">return</span> <span class="n">seg_start</span><span class="p">[</span><span class="n">nz</span><span class="p">],</span> <span class="n">seg_end</span><span class="p">[</span><span class="n">nz</span><span class="p">],</span> <span class="n">seg_val</span><span class="p">[</span><span class="n">nz</span><span class="p">]</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_pileup_control</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">half</span><span class="p">,</span> <span class="n">floor</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Continuous coverage pileup for the control lambda track.</span>
+
+<span class="sd">    Same difference-array pileup as :func:`_pileup_from_sites`, but returns a</span>
+<span class="sd">    **gap-free** track over ``[0, max(pos)+half]`` with every segment floored</span>
+<span class="sd">    at ``floor`` (&gt; 0). ``macs3 bdgcmp -m ppois`` evaluates the Poisson score</span>
+<span class="sd">    at every base and requires the lambda to be strictly positive there; a</span>
+<span class="sd">    sparse (zero-gap) control makes ``ppois`` abort with</span>
+<span class="sd">    ``AssertionError: Lambda must &gt; 0``. Returns ``(starts, ends, values)`` or</span>
+<span class="sd">    ``None`` when empty.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">sig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sig</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">keep</span> <span class="o">=</span> <span class="n">sig</span> <span class="o">!=</span> <span class="mi">0</span>
+    <span class="n">pos</span><span class="p">,</span> <span class="n">sig</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">sig</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">pos</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">starts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">pos</span> <span class="o">-</span> <span class="n">half</span><span class="p">)</span>
+    <span class="n">ends</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">+</span> <span class="n">half</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">starts</span><span class="p">,</span> <span class="n">ends</span><span class="p">])</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">sig</span><span class="p">,</span> <span class="o">-</span><span class="n">sig</span><span class="p">])</span>
+    <span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;mergesort&#39;</span><span class="p">)</span>
+    <span class="n">idx</span><span class="p">,</span> <span class="n">delta</span> <span class="o">=</span> <span class="n">idx</span><span class="p">[</span><span class="n">order</span><span class="p">],</span> <span class="n">delta</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+    <span class="n">uniq</span><span class="p">,</span> <span class="n">inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">agg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">uniq</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="n">agg</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">delta</span><span class="p">)</span>
+    <span class="n">cum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">agg</span><span class="p">)</span>
+    <span class="n">seg_start</span><span class="p">,</span> <span class="n">seg_end</span><span class="p">,</span> <span class="n">seg_val</span> <span class="o">=</span> <span class="n">uniq</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">uniq</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">cum</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="c1"># Prepend the leading [0, uniq[0]) gap so the track starts at base 0.</span>
+    <span class="k">if</span> <span class="n">uniq</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">seg_start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="mi">0</span><span class="p">],</span> <span class="n">seg_start</span><span class="p">])</span>
+        <span class="n">seg_end</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="n">uniq</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">seg_end</span><span class="p">])</span>
+        <span class="n">seg_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">seg_val</span><span class="p">])</span>
+    <span class="c1"># Floor internal gaps (cum == 0) and the leading gap so lambda is never 0.</span>
+    <span class="n">seg_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">seg_val</span><span class="p">,</span> <span class="n">floor</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">seg_start</span><span class="p">,</span> <span class="n">seg_end</span><span class="p">,</span> <span class="n">seg_val</span>
+
+
 <div class="viewcode-block" id="call_peaks_bdg">
 <a class="viewcode-back" href="../../cytozip.peaks.html#cytozip.peaks.call_peaks_bdg">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">call_peaks_bdg</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;peaks&#39;</span><span class="p">,</span>
-                   <span class="n">signal</span><span class="o">=</span><span class="s1">&#39;unmeth&#39;</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="s1">&#39;cov&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">control</span><span class="o">=</span><span class="s1">&#39;cov&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                    <span class="n">ext</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;ppois&#39;</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
                    <span class="n">min_len</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_gap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                    <span class="n">keep_bdg</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mc_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Call peaks from a methylation .cz via MACS3 bedGraph back-end.</span>
 
-<span class="sd">    Memory-efficient alternative to :func:`call_peaks`: instead of expanding</span>
-<span class="sd">    every count into ``sum(sig)`` pseudo-reads (which explodes on deep</span>
-<span class="sd">    pseudobulks), it builds piecewise-constant **pileup bedGraphs** directly</span>
-<span class="sd">    (each site&#39;s count spread over ``ext`` bp) and drives MACS3&#39;s bedGraph</span>
-<span class="sd">    peak-calling back-end (``bdgcmp`` + ``bdgpeakcall``).</span>
+<span class="sd">    Like :func:`call_peaks`, the signal is always the **unmethylated count**</span>
+<span class="sd">    ``umc = cov - mc`` (CpG hypomethylation = open chromatin); ``mc`` is never</span>
+<span class="sd">    used as signal.</span>
 
-<span class="sd">    The treatment track is the ``signal`` pileup (``unmeth = cov - mc``); the</span>
-<span class="sd">    control (lambda) track is the coverage pileup scaled by the global rate</span>
-<span class="sd">    ``r = sum(signal) / sum(cov)`` — i.e. the *expected* unmethylated pileup</span>
-<span class="sd">    if methylation were uniform. ``bdgcmp -m ppois`` then scores each position</span>
-<span class="sd">    by the Poisson p-value of the observed pileup against that expectation, so</span>
-<span class="sd">    peaks are regions of genuine **local unmethylation enrichment**, corrected</span>
-<span class="sd">    for coverage / cytosine-density bias.</span>
+<span class="sd">    Mechanism (differs from :func:`call_peaks`): instead of materialising</span>
+<span class="sd">    ``sum(umc)`` pseudo-reads (which explodes on deep pseudobulks), this</span>
+<span class="sd">    builds piecewise-constant **pileup bedGraphs** analytically — each site&#39;s</span>
+<span class="sd">    count is spread over ``ext`` bp and overlapping contributions summed with</span>
+<span class="sd">    a difference array, so memory is ``O(n_sites)`` regardless of depth — and</span>
+<span class="sd">    drives MACS3&#39;s bedGraph back-end (``bdgcmp`` + ``bdgpeakcall``) rather than</span>
+<span class="sd">    ``callpeak``.</span>
+
+<span class="sd">    Scoring model. The **treatment** track is the ``umc`` pileup. The</span>
+<span class="sd">    **control (lambda)** track is the coverage pileup scaled by the global</span>
+<span class="sd">    unmethylation rate ``r = sum(umc) / sum(cov)`` (``control=&#39;cov&#39;``) — i.e.</span>
+<span class="sd">    the *expected* unmethylated pileup if methylation were spatially uniform.</span>
+<span class="sd">    The lambda track is built gap-free and floored at a small positive value</span>
+<span class="sd">    (``bdgcmp -m ppois`` requires lambda &gt; 0 at every evaluated base).</span>
+<span class="sd">    ``bdgcmp -m ppois`` then scores every position by the Poisson p-value of</span>
+<span class="sd">    the observed ``umc`` pileup against that local expectation, and</span>
+<span class="sd">    ``bdgpeakcall`` thresholds the score. Peaks are thus regions of genuine</span>
+<span class="sd">    **local unmethylation enrichment**, corrected for coverage / cytosine-</span>
+<span class="sd">    density bias.</span>
+
+<span class="sd">    How this differs from :func:`call_peaks` in practice:</span>
+
+<span class="sd">    - **Memory/scaling**: ``O(n_sites)`` here vs ``O(sum(umc))`` reads there;</span>
+<span class="sd">      this route is the one to use for deep pseudobulks.</span>
+<span class="sd">    - **Statistical model**: an explicit single-lambda Poisson test against a</span>
+<span class="sd">      global-rate expectation (this function) vs MACS3&#39;s native ``callpeak``</span>
+<span class="sd">      pipeline with its dynamic local lambda and q-value FDR</span>
+<span class="sd">      (:func:`call_peaks`). The two give comparable but not bit-identical</span>
+<span class="sd">      peak sets.</span>
+<span class="sd">    - **Control is mandatory** here (the expected-signal lambda is the whole</span>
+<span class="sd">      point), whereas :func:`call_peaks` can optionally run without one.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    input, reference, output, name, index, min_cov, mc_col, cov_col :</span>
 <span class="sd">        As in :func:`call_peaks` (``output`` defaults to</span>
 <span class="sd">        ``&lt;input_stem&gt;_peaks/``).</span>
-<span class="sd">    signal : str</span>
-<span class="sd">        ``&#39;unmeth&#39;`` (``cov - mc``, default) or ``&#39;meth&#39;`` (``mc``).</span>
 <span class="sd">    control : str</span>
 <span class="sd">        Coverage-bias control track: ``&#39;cov&#39;`` (default) or ``&#39;mc&#39;``. The</span>
 <span class="sd">        bedGraph route always uses a control (that is its purpose).</span>
@@ -1001,8 +1081,6 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
 
-    <span class="k">if</span> <span class="n">signal</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;unmeth&#39;</span><span class="p">,</span> <span class="s1">&#39;meth&#39;</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;signal must be &#39;unmeth&#39; or &#39;meth&#39;; got </span><span class="si">{</span><span class="n">signal</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">control</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;cov&#39;</span><span class="p">,</span> <span class="s1">&#39;mc&#39;</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;control must be &#39;cov&#39; or &#39;mc&#39;; got </span><span class="si">{</span><span class="n">control</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
 
@@ -1057,50 +1135,6 @@
                       <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)})</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
             <span class="n">fh</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-    <span class="n">total_sig</span> <span class="o">=</span> <span class="mf">0.0</span>
-    <span class="n">total_cov</span> <span class="o">=</span> <span class="mf">0.0</span>
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">treat_bdg</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">tf</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">ctrl_bdg</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">cf</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
-            <span class="n">ref_raw</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_raw</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
-                    <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
-            <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-            <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-            <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-            <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
-            <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-            <span class="n">sig</span> <span class="o">=</span> <span class="p">(</span><span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span><span class="p">)</span> <span class="k">if</span> <span class="n">signal</span> <span class="o">==</span> <span class="s1">&#39;unmeth&#39;</span> <span class="k">else</span> <span class="n">mc</span>
-            <span class="n">csig</span> <span class="o">=</span> <span class="n">cov</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span>
-            <span class="n">total_sig</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
-            <span class="n">total_cov</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">csig</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
-            <span class="n">_write_seg</span><span class="p">(</span><span class="n">tf</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">_pileup_from_sites</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">half</span><span class="p">))</span>
-            <span class="n">_write_seg</span><span class="p">(</span><span class="n">cf</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">_pileup_from_sites</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">))</span>
-            <span class="n">reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-            <span class="n">ref_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-
-    <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
-        <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-    <span class="k">if</span> <span class="n">total_sig</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">total_cov</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;no signal after filtering; check context index / min_cov.&quot;</span><span class="p">)</span>
-    <span class="n">r</span> <span class="o">=</span> <span class="n">total_sig</span> <span class="o">/</span> <span class="n">total_cov</span>  <span class="c1"># global unmeth (or meth) rate -&gt; control lambda</span>
-
     <span class="n">lambda_bdg</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.control_lambda.bdg&#39;</span><span class="p">)</span>
     <span class="n">score_bdg</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s1">.bdg&#39;</span><span class="p">)</span>
     <span class="n">narrowpeak</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_peaks.narrowPeak&#39;</span><span class="p">)</span>
@@ -1109,17 +1143,80 @@
     <span class="k">if</span> <span class="n">max_gap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">max_gap</span> <span class="o">=</span> <span class="n">ext</span> <span class="o">//</span> <span class="mi">2</span>
 
+    <span class="c1"># Reuse existing pileup / lambda bedGraphs instead of regenerating them.</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">treat_bdg</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">ctrl_bdg</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">lambda_bdg</span><span class="p">)):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;bedGraph tracks already exist: </span><span class="si">{</span><span class="n">treat_bdg</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">ctrl_bdg</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lambda_bdg</span><span class="si">}</span><span class="s2">; skip pileup generation.&quot;</span><span class="p">)</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
+            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">total_sig</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">total_cov</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">treat_bdg</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">tf</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">ctrl_bdg</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">cf</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
+                <span class="n">ref_raw</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_raw</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                    <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+                        <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+                <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+                <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
+                <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+                <span class="n">sig</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span>  <span class="c1"># unmethylated count = ATAC-like signal</span>
+                <span class="n">csig</span> <span class="o">=</span> <span class="n">cov</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span>
+                <span class="n">total_sig</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+                <span class="n">total_cov</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">csig</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+                <span class="n">_write_seg</span><span class="p">(</span><span class="n">tf</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">_pileup_from_sites</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">half</span><span class="p">))</span>
+                <span class="n">_write_seg</span><span class="p">(</span><span class="n">cf</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">_pileup_control</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">))</span>
+                <span class="n">reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                <span class="n">ref_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
+            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">total_sig</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">total_cov</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;no signal after filtering; check context index / min_cov.&quot;</span><span class="p">)</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">total_sig</span> <span class="o">/</span> <span class="n">total_cov</span>  <span class="c1"># global unmeth rate -&gt; control lambda</span>
+
     <span class="c1"># Scale the coverage pileup to the expected-signal lambda (cov * r).</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;scaling control by r=</span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2"> (global </span><span class="si">{</span><span class="n">signal</span><span class="si">}</span><span class="s2"> rate)&quot;</span><span class="p">)</span>
-    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;bdgopt&#39;</span><span class="p">,</span> <span class="s1">&#39;-i&#39;</span><span class="p">,</span> <span class="n">ctrl_bdg</span><span class="p">,</span> <span class="s1">&#39;-m&#39;</span><span class="p">,</span> <span class="s1">&#39;multiply&#39;</span><span class="p">,</span>
-                    <span class="s1">&#39;-p&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="s1">.8g</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">lambda_bdg</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;macs3 bdgcmp -m </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2"> (treat vs control lambda)&quot;</span><span class="p">)</span>
-    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;bdgcmp&#39;</span><span class="p">,</span> <span class="s1">&#39;-t&#39;</span><span class="p">,</span> <span class="n">treat_bdg</span><span class="p">,</span> <span class="s1">&#39;-c&#39;</span><span class="p">,</span> <span class="n">lambda_bdg</span><span class="p">,</span>
-                    <span class="s1">&#39;-m&#39;</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">score_bdg</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;macs3 bdgpeakcall -c </span><span class="si">{</span><span class="n">cutoff</span><span class="si">}</span><span class="s2"> -l </span><span class="si">{</span><span class="n">min_len</span><span class="si">}</span><span class="s2"> -g </span><span class="si">{</span><span class="n">max_gap</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;bdgpeakcall&#39;</span><span class="p">,</span> <span class="s1">&#39;-i&#39;</span><span class="p">,</span> <span class="n">score_bdg</span><span class="p">,</span>
-                    <span class="s1">&#39;-c&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">cutoff</span><span class="p">),</span> <span class="s1">&#39;-l&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">min_len</span><span class="p">),</span> <span class="s1">&#39;-g&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">max_gap</span><span class="p">),</span>
-                    <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">narrowpeak</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">lambda_bdg</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lambda_bdg</span><span class="si">}</span><span class="s2"> already exists; skip bdgopt scaling.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;scaling control by r=</span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2"> (global unmeth rate)&quot;</span><span class="p">)</span>
+        <span class="n">bdgopt_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;bdgopt&#39;</span><span class="p">,</span> <span class="s1">&#39;-i&#39;</span><span class="p">,</span> <span class="n">ctrl_bdg</span><span class="p">,</span> <span class="s1">&#39;-m&#39;</span><span class="p">,</span> <span class="s1">&#39;multiply&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;-p&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="s1">.8g</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">lambda_bdg</span><span class="p">]</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bdgopt_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">bdgopt_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">bdgcmp_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;bdgcmp&#39;</span><span class="p">,</span> <span class="s1">&#39;-t&#39;</span><span class="p">,</span> <span class="n">treat_bdg</span><span class="p">,</span> <span class="s1">&#39;-c&#39;</span><span class="p">,</span> <span class="n">lambda_bdg</span><span class="p">,</span>
+                  <span class="s1">&#39;-m&#39;</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">score_bdg</span><span class="p">]</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bdgcmp_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">bdgcmp_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">bdgpeakcall_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;bdgpeakcall&#39;</span><span class="p">,</span> <span class="s1">&#39;-i&#39;</span><span class="p">,</span> <span class="n">score_bdg</span><span class="p">,</span>
+                       <span class="s1">&#39;-c&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">cutoff</span><span class="p">),</span> <span class="s1">&#39;-l&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">min_len</span><span class="p">),</span> <span class="s1">&#39;-g&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">max_gap</span><span class="p">),</span>
+                       <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">narrowpeak</span><span class="p">]</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bdgpeakcall_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">bdgpeakcall_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_bdg</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">(</span><span class="n">treat_bdg</span><span class="p">,</span> <span class="n">ctrl_bdg</span><span class="p">,</span> <span class="n">lambda_bdg</span><span class="p">,</span> <span class="n">score_bdg</span><span class="p">):</span>

@@ -189,6 +189,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../cz_viewer.html">Genome Browser</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../cz_viewer.html#usage">Usage</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#quick-start">Quick start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#track-tables">Track tables</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#supported-remote-file-formats">Supported remote file formats</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#toolbar-tools-and-keyboard-shortcuts">Toolbar tools and keyboard shortcuts</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cz_viewer.html#working-with-tracks">Working with tracks</a></li>
@@ -1293,6 +1294,22 @@
 <span class="sd">        -------</span>
 <span class="sd">        self</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Reuse a previously saved model when ``outdir`` already holds a</span>
+        <span class="c1"># complete store (meta.json + per-channel .npy): skip the expensive</span>
+        <span class="c1"># fit entirely and load it (memory-mapped) into this instance.</span>
+        <span class="k">if</span> <span class="n">outdir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">store</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">outdir</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">_model_store_complete</span><span class="p">(</span><span class="n">store</span><span class="p">):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;found existing model at </span><span class="si">{</span><span class="n">store</span><span class="si">}</span><span class="s2">; skipping fit and &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;loading it&quot;</span><span class="p">)</span>
+                <span class="n">loaded</span> <span class="o">=</span> <span class="n">CellTypeClassifier</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">loaded</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
+                <span class="c1"># Detach the throwaway loader so its __del__ does not close the</span>
+                <span class="c1"># memmaps this instance now shares.</span>
+                <span class="n">loaded</span><span class="o">.</span><span class="n">_cg</span> <span class="o">=</span> <span class="n">loaded</span><span class="o">.</span><span class="n">_ch</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">loaded</span><span class="o">.</span><span class="n">_store_dir</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">return</span> <span class="bp">self</span>
         <span class="n">pseudobulks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_pseudobulks</span><span class="p">(</span><span class="n">pseudobulks</span><span class="p">)</span>
         <span class="n">use_ctx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_contexts</span><span class="p">(</span><span class="n">contexts</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">alpha0_cg</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">alpha0_cg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">alpha0_cg</span><span class="p">)</span>
@@ -3040,31 +3057,25 @@
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">model_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s1">&#39;model&#39;</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">model_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_model_store_complete</span><span class="p">(</span><span class="n">model_dir</span><span class="p">):</span>
-        <span class="c1"># A complete model store already exists under &lt;outdir&gt;/model -&gt; skip the</span>
-        <span class="c1"># (expensive) fit entirely and just load it (memory-mapped). pseudobulks</span>
-        <span class="c1"># / reference need not be re-supplied in this case.</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;found existing model at </span><span class="si">{</span><span class="n">model_dir</span><span class="si">}</span><span class="s2">; skipping fit and loading it&quot;</span><span class="p">)</span>
-        <span class="n">clf</span> <span class="o">=</span> <span class="n">CellTypeClassifier</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_dir</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">clf</span> <span class="o">=</span> <span class="n">CellTypeClassifier</span><span class="p">(</span>
-            <span class="n">lambda_cg</span><span class="o">=</span><span class="n">lambda_cg</span><span class="p">,</span> <span class="n">lambda_ch</span><span class="o">=</span><span class="n">lambda_ch</span><span class="p">,</span>
-            <span class="n">mc_col</span><span class="o">=</span><span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="n">cov_col</span><span class="p">,</span> <span class="n">context_col</span><span class="o">=</span><span class="n">context_col</span><span class="p">)</span>
-        <span class="c1"># Route the memmap store straight to real disk (&lt;outdir&gt;/model) so a</span>
-        <span class="c1"># large model never spills into a small/RAM-backed /tmp (-&gt; SIGBUS).</span>
-        <span class="c1"># Without outdir it falls back to a system temp dir. ``fit`` accepts a</span>
-        <span class="c1"># {cell_type: path} dict or a directory of .cz files directly.</span>
-        <span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">pseudobulks</span><span class="o">=</span><span class="n">pseudobulks</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">,</span>
-                <span class="n">cell_counts</span><span class="o">=</span><span class="n">cell_counts</span><span class="p">,</span> <span class="n">top_cg</span><span class="o">=</span><span class="n">top_cg</span><span class="p">,</span> <span class="n">top_ch</span><span class="o">=</span><span class="n">top_ch</span><span class="p">,</span>
-                <span class="n">min_range_cg</span><span class="o">=</span><span class="n">min_range_cg</span><span class="p">,</span> <span class="n">min_range_ch</span><span class="o">=</span><span class="n">min_range_ch</span><span class="p">,</span>
-                <span class="n">top_per_class</span><span class="o">=</span><span class="n">top_per_class</span><span class="p">,</span>
-                <span class="n">alpha0_cg</span><span class="o">=</span><span class="n">alpha0_cg</span><span class="p">,</span> <span class="n">beta0_cg</span><span class="o">=</span><span class="n">beta0_cg</span><span class="p">,</span>
-                <span class="n">alpha0_ch</span><span class="o">=</span><span class="n">alpha0_ch</span><span class="p">,</span> <span class="n">beta0_ch</span><span class="o">=</span><span class="n">beta0_ch</span><span class="p">,</span>
-                <span class="n">prior_min_cov</span><span class="o">=</span><span class="n">prior_min_cov</span><span class="p">,</span> <span class="n">contexts</span><span class="o">=</span><span class="n">contexts</span><span class="p">,</span>
-                <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">,</span> <span class="n">outdir</span><span class="o">=</span><span class="n">model_dir</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">outdir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">clf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model_dir</span><span class="p">)</span>
+    <span class="n">clf</span> <span class="o">=</span> <span class="n">CellTypeClassifier</span><span class="p">(</span>
+        <span class="n">lambda_cg</span><span class="o">=</span><span class="n">lambda_cg</span><span class="p">,</span> <span class="n">lambda_ch</span><span class="o">=</span><span class="n">lambda_ch</span><span class="p">,</span>
+        <span class="n">mc_col</span><span class="o">=</span><span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="n">cov_col</span><span class="p">,</span> <span class="n">context_col</span><span class="o">=</span><span class="n">context_col</span><span class="p">)</span>
+    <span class="c1"># ``fit`` reuses a complete model already saved under &lt;outdir&gt;/model</span>
+    <span class="c1"># (skips training and loads it), otherwise it trains. The memmap store is</span>
+    <span class="c1"># routed straight to real disk (&lt;outdir&gt;/model) so a large model never</span>
+    <span class="c1"># spills into a small/RAM-backed /tmp (-&gt; SIGBUS). Without outdir it falls</span>
+    <span class="c1"># back to a system temp dir. ``fit`` accepts a {cell_type: path} dict or a</span>
+    <span class="c1"># directory of .cz files directly.</span>
+    <span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">pseudobulks</span><span class="o">=</span><span class="n">pseudobulks</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">,</span>
+            <span class="n">cell_counts</span><span class="o">=</span><span class="n">cell_counts</span><span class="p">,</span> <span class="n">top_cg</span><span class="o">=</span><span class="n">top_cg</span><span class="p">,</span> <span class="n">top_ch</span><span class="o">=</span><span class="n">top_ch</span><span class="p">,</span>
+            <span class="n">min_range_cg</span><span class="o">=</span><span class="n">min_range_cg</span><span class="p">,</span> <span class="n">min_range_ch</span><span class="o">=</span><span class="n">min_range_ch</span><span class="p">,</span>
+            <span class="n">top_per_class</span><span class="o">=</span><span class="n">top_per_class</span><span class="p">,</span>
+            <span class="n">alpha0_cg</span><span class="o">=</span><span class="n">alpha0_cg</span><span class="p">,</span> <span class="n">beta0_cg</span><span class="o">=</span><span class="n">beta0_cg</span><span class="p">,</span>
+            <span class="n">alpha0_ch</span><span class="o">=</span><span class="n">alpha0_ch</span><span class="p">,</span> <span class="n">beta0_ch</span><span class="o">=</span><span class="n">beta0_ch</span><span class="p">,</span>
+            <span class="n">prior_min_cov</span><span class="o">=</span><span class="n">prior_min_cov</span><span class="p">,</span> <span class="n">contexts</span><span class="o">=</span><span class="n">contexts</span><span class="p">,</span>
+            <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">,</span> <span class="n">outdir</span><span class="o">=</span><span class="n">model_dir</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">outdir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_model_store_complete</span><span class="p">(</span><span class="n">model_dir</span><span class="p">):</span>
+        <span class="n">clf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model_dir</span><span class="p">)</span>
 
     <span class="c1"># ``predict`` dispatches on the query form (single / cat multi-cell /</span>
     <span class="c1"># directory / dict / table), returning a dict for a single cell or</span>

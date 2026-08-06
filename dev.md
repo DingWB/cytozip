@@ -462,7 +462,7 @@ ls
 ls docs
 
 # after modifying cz_viewer.html
-cp docs/source/_static/cz_viewer.html docs/source/_static/cz_reader.mjs docs/build/html/_static/
+cp docs/source/_static/cz_viewer.html docs/build/html/_static/
 
 vim .nojekyll #create empty file
 ```

@@ -28,25 +28,80 @@ Quick start
 ~~~~~~~~~~~
 
 1. Enter the **reference** ``.cz`` URL (the coordinate file with a ``pos``
-   sort column) and click **Load reference**.
-2. Click **+ Add cz track**, giving the URL of a value ``.cz`` file
-   (``mc``/``cov``) that was built against the same reference. Repeat to stack
-   multiple tracks.
-3. Type a locus (e.g. ``chr1:3,000,000-3,050,000``) and press **Go**. Drag to
-   pan, scroll to zoom (in *Zoom* mode), and switch the per-track cytosine
-   context (CG / CH / CHG / CHH / all).
+   sort column) and click **Load reference** (only needed for ``.cz``
+   methylation tracks).
+2. Add tracks in any of these ways:
+
+   - **+ Add track** — paste a single track URL (``.cz`` / ``.bw`` /
+     ``.bedgraph.gz`` / ``.bed.gz`` / ``.bedpe.gz`` / ``.hic``); the format is
+     detected from the extension. Give it an optional *modality* label.
+   - **Track table** — load a CSV/TSV that lists many tracks at once (see
+     `Track tables`_). This is the fastest way to build a multi-track,
+     multi-modality view.
+
+3. Type a locus (e.g. ``chr1:3,000,000-3,050,000``) and press **Go**, or pick a
+   **Genome** and search a gene name. Drag to pan and scroll to zoom (in *Zoom*
+   mode). All tracks zoom together.
+4. Use the **cz** and **hic** sub-toolbars (next to *Save session*) to change
+   the cytosine context (CG / CH / CHG / CHH / all), value (mC / 1 − mC),
+   strand, and per-format resolution for every track at once.
+
+Track tables
+~~~~~~~~~~~~~
+
+A track table loads many tracks at once from a CSV/TSV file or URL. The **first
+row must be a header** naming the columns; a table without a recognizable
+header is rejected.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 14 12 74
+
+   * - Column
+     - Required
+     - Meaning
+   * - ``name``
+     - yes
+     - Track label (shown in the header). Rows sharing a name are grouped
+       together.
+   * - ``path``
+     - yes
+     - Track URL (aka ``url``). The format is detected from the extension.
+   * - ``group``
+     - no
+     - Middle grouping level; a group header is drawn above its tracks.
+   * - ``color``
+     - no
+     - Track color (``#hex`` or CSS name). **Missing → a random color** is
+       assigned.
+   * - ``category``
+     - no
+     - Top grouping level. **Present → a three-level layout**
+       (category → group → track); **absent → two levels** (group → track).
+   * - ``modality``
+     - no
+     - Assay label (e.g. ``DNAm``, ``ATAC``, ``H3K27ac``, ``RNA``, ``HiC``),
+       drawn as a vertical strip on the **right** of each track header.
+
+After loading, rows are ordered **category → group → name → modality** (any
+absent column is skipped). When a ``modality`` column is present, drag the
+chips in the **Modality order** box (right of the *Load* button) to reorder the
+modalities; the tracks re-sort instantly.
+
+Tracks load **lazily**: the ones visible in the viewport open first and the
+rest open as you scroll, so even a large table appears immediately. An example
+multi-modality table is preloaded in the URL box.
 
 Supported remote file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 All formats are read **remotely with HTTP Range requests only** — the whole
-file is never downloaded. Add any of them by pasting its URL into
-**New track URL** (the format is detected from the extension), via the
-**Track table**, or by restoring a saved session.
+file is never downloaded. Add any of them via **+ Add track**, a **track
+table**, or by restoring a saved session.
 
 .. list-table::
    :header-rows: 1
-   :widths: 16 20 64
+   :widths: 16 22 62
 
    * - Format
      - Extension
@@ -54,11 +109,17 @@ file is never downloaded. Add any of them by pasting its URL into
    * - cytozip methylation
      - ``.cz``
      - ``mc``/``cov`` value track joined to the shared **reference** ``.cz`` by
-       row index. Requires a reference to be loaded first. Per-track context
-       (CG/CH/CHG/CHH/all) and value (mC or 1 − mC).
+       row index. Requires a reference to be loaded first. Context
+       (CG/CH/CHG/CHH/all, default **CG**), value (mC or 1 − mC) and strand are
+       set globally in the **cz** sub-toolbar.
    * - BigWig
      - ``.bw`` / ``.bigwig``
-     - Self-contained signal track (bar/wiggle). No reference needed.
+     - Self-contained signal track (bar/wiggle). No reference needed; binned
+       with the same resolution as ``.cz`` tracks.
+   * - bedGraph
+     - ``.bedgraph.gz`` / ``.bdg.gz`` / ``.bg.gz`` (+ ``.tbi``)
+     - Quantitative signal (``chrom start end value``) drawn like BigWig. Must
+       be **bgzip-compressed and tabix-indexed**.
    * - BED
      - ``.bed.gz`` (+ ``.tbi``)
      - Interval/annotation track drawn as row-packed boxes with labels. Must be
@@ -70,15 +131,15 @@ file is never downloaded. Add any of them by pasting its URL into
        requires bgzip + tabix (``<url>.tbi``).
    * - Hi-C
      - ``.hic``
-     - Juicebox contact matrix drawn as a pyramid heatmap; the resolution is
-       chosen automatically from the view span and KR normalization is used
-       when available.
+     - Juicebox contact matrix drawn as a pyramid heatmap. Resolution and
+       **normalization** (NONE / KR / SCALE) are set in the **hic** sub-toolbar;
+       the color scale follows the Hi-C track's Y-limits.
 
 .. note::
 
-   BED / BEDPE must be **bgzipped and tabix-indexed** (``bgzip file.bed &&
-   tabix -p bed file.bed.gz``) — plain uncompressed ``.bed``/``.bedpe`` are not
-   accepted because they cannot be read partially by range.
+   bedGraph / BED / BEDPE must be **bgzipped and tabix-indexed** (e.g.
+   ``bgzip file.bed && tabix -p bed file.bed.gz``) — plain uncompressed files
+   are not accepted because they cannot be read partially by range.
 
 Toolbar tools and keyboard shortcuts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -99,7 +160,8 @@ one-letter shortcut (shown in parentheses in its tooltip):
    * - Zoom
      - ``Z``
      - Drag to select a region and zoom into it; the mouse **wheel zooms only
-       in this mode** (other modes let the page scroll).
+       in this mode** (other modes let the page scroll). All tracks zoom
+       together.
    * - Select
      - ``V``
      - Click a track (its left label **or** the plot) to select it; Shift adds a
@@ -115,24 +177,50 @@ one-letter shortcut (shown in parentheses in its tooltip):
      - ``C``
      - Remove all region marks.
 
+Alongside the tools, the toolbar also has:
+
+- **Select** ``All`` / ``None`` and a **by…** dropdown to batch-select every
+  track sharing a given *modality*, *category*, *group*, or *name*. Any of these
+  switches to the Select tool automatically.
+- A **cz** sub-toolbar (methylation): global *context* (CG / CH / CHG / CHH /
+  all), *value* (mC / 1 − mC), *strand*, and *resolution* for all ``.cz`` and
+  BigWig tracks.
+- A **hic** sub-toolbar: Hi-C bin *resolution* (Auto or a fixed bin size) and
+  *normalization* (NONE / KR / SCALE). It appears only when a Hi-C track is
+  loaded, and the two resolutions are independent of the cz resolution.
+- A **Name pt** box to change the track-name font size (type a value or use the
+  up/down arrows).
+- **Saved tracks** — a manager listing every track loaded **this session**;
+  re-add removed tracks, or toggle whole *modality / category / group* levels
+  on/off.
+
 A dashed vertical guide line follows the cursor across **all** tracks to make
 comparing positions easy.
 
 Working with tracks
 ~~~~~~~~~~~~~~~~~~~~~
 
+- **Rename** a track by **double-clicking** its name; press Enter to confirm.
 - **Reorder** tracks by dragging the grip handle (``⠿``) on the left up/down, or
-  select some and use the **↑ Up / ↓ Down** buttons in the selection bar.
+  select some and use the **↑ Up / ↓ Down** buttons in the selection bar. With
+  categories, selecting a whole *category* (or *group*) header moves it as a
+  block.
 - **Resize** a track's height: select it (or several) with the Select tool and
   type a pixel height into the selection bar's **Height** box.
 - **Recolor** a track with its color swatch.
-- **Per-track Y-limits**: click the ``y:auto`` button to set *Auto* or a fixed
-  ``[min, max]`` range.
-- **Select multiple** tracks (Select tool, Shift/Ctrl) to batch-change context,
-  value (mC / 1 − mC), color, height, Y-limits, or to delete/move them together.
-- **Resolution** bins methylation for speed; choose **Auto** to let the viewer
-  pick a bin size from the current span (large views bin coarsely, zoomed-in
-  views go per-base). The active resolution is shown on the left of the ruler.
+- **Per-track Y-limits**: click the ``y:auto`` button in a track header to set
+  *Auto* or a fixed ``[min, max]`` range. For ``.cz``/BigWig this rescales the
+  y-axis; for Hi-C it sets the contact **color scale**. The header meta shows
+  the min/max (the fixed limits when set, otherwise the real data range) and the
+  active resolution.
+- **Global context / value / strand** are set once for all ``.cz`` tracks in the
+  **cz** sub-toolbar; select a subset first to change only those (selection bar
+  ``Ctx`` / ``Val``).
+- **Resolution** bins signal for speed. In the **cz** sub-toolbar choose
+  **Auto** to let the viewer pick a bin size from the current span (large views
+  bin coarsely, zoomed-in views go per-base), or a fixed size. Hi-C resolution
+  is set separately in the **hic** sub-toolbar. The active resolution is shown
+  on the left of the ruler and in each track header.
 
 Genome, gene search, and marks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -155,10 +243,17 @@ Exporting
 Session and sharing
 ~~~~~~~~~~~~~~~~~~~~
 
-The full view (genome, locus, tracks, colors, Y-limits, resolution) is encoded
-in the page URL as you work, so copying the URL shares the exact view. Use
-**Save** (shortcut ``S``) to download a JSON session and the session file input
-to restore it later.
+The full view (genome, locus, tracks with their group / category / modality /
+color / Y-limits, context, value, strand, cz + Hi-C resolution and Hi-C
+normalization) is encoded in the page URL as you work, so copying the URL shares
+the exact view. Use **Save** (shortcut ``S``) to download a JSON session and the
+session file input to restore it later.
+
+.. note::
+
+   The **Saved tracks** manager is per-session only (kept in memory): it lists
+   the tracks loaded in the current tab and is not persisted across reloads.
+   Use **Save** / the session URL to keep a view.
 
 Share a session via a remote JSON URL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
