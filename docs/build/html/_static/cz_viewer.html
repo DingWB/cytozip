@@ -171,7 +171,15 @@
     padding: 3px 10px; font-size: 11px; font-weight: 700;
     color: #3a3f57; letter-spacing: .3px;
   }
+  .grouphdr.nested { padding-left: 22px; background: #f2f4f8; }
+  /* Category header (top level of a 3-level Category → Group → track table) */
+  .categoryhdr {
+    background: #dfe3ec; border-bottom: 1px solid var(--border);
+    padding: 4px 10px; font-size: 12px; font-weight: 800;
+    color: #232635; letter-spacing: .3px; text-transform: none;
+  }
   .row.grouped .label { background: #f0f2f6; }
+  .row.in-category .label { padding-left: 16px; }
   /* Per-track loading spinner */
   .view.loading::after {
     content: ''; position: absolute; top: 6px; right: 8px;
@@ -496,21 +504,12 @@
     <datalist id="geneSetList"></datalist>
   </div>
   <div class="field">
-    <label>Track table — file or URL (csv/tsv): name, url, [Group], [Modality]</label>
+    <label>Track table — file or URL (csv/tsv). Header row required: name, path, group, color, category, modality</label>
     <div style="display:flex;gap:6px;align-items:center;">
       <input type="file" id="trackTable" accept=".csv,.tsv"
         style="font-size:11px;color:#dfe2ea;max-width:140px;" />
-      <input type="text" class="url" id="trackTableUrl" placeholder="https://…/tracks.csv" value="https://neomorph.salk.edu/ftp/cz/cz_url.tsv" style="width:170px" />
+      <input type="text" class="url" id="trackTableUrl" placeholder="https://…/tracks.tsv" value="https://neomorph.salk.edu/ftp/cz/BG_Subclass_track_table.tsv" style="width:170px" />
       <button id="btnTrackTableUrl" class="secondary">Load</button>
-    </div>
-  </div>
-  <div class="field">
-    <label>Color palette — file or URL (csv/tsv/xlsx/json): name, color</label>
-    <div style="display:flex;gap:6px;align-items:center;">
-      <input type="file" id="colorFile" accept=".csv,.tsv,.txt,.json,.xlsx,.xls"
-        style="font-size:11px;color:#dfe2ea;max-width:140px;" />
-      <input type="text" class="url" id="colorUrl" placeholder="https://…/colors.csv" value="https://neomorph.salk.edu/ftp/cz/Subclass_colors.json" style="width:170px" />
-      <button id="btnColorUrl" class="secondary">Load</button>
     </div>
   </div>
 </div>
@@ -1020,17 +1019,17 @@ function removeTrackByUrl(url) {
 }
 // Re-add a previously saved track from its stored config.
 async function addSavedEntry(e) {
-  const name = e.name, url = e.url;
+  const name = e.name, url = e.url, group = e.group || '', category = e.category || '', color = e.color || '';
   try {
-    if (e.fmt === 'hic' || isHicUrl(url)) await openHicTrack({ name, url, group: e.group || '', modality: e.modality || '' });
-    else if (e.fmt === 'bedpe' || isBedpeUrl(url)) await openBedTrack({ name, url, group: e.group || '', kind: 'bedpe', modality: e.modality || '' });
-    else if (e.fmt === 'bedgraph' || isBedGraphUrl(url)) await openBedGraphTrack({ name, url, group: e.group || '', modality: e.modality || '' });
-    else if (e.fmt === 'bw' || isBigWigUrl(url)) await openBigWigTrack({ name, url, group: e.group || '', modality: e.modality || '' });
-    else if (e.fmt === 'bed' || isBedUrl(url)) await openBedTrack({ name, url, group: e.group || '', kind: 'bed', modality: e.modality || '' });
+    if (e.fmt === 'hic' || isHicUrl(url)) await openHicTrack({ name, url, group, category, color, modality: e.modality || '' });
+    else if (e.fmt === 'bedpe' || isBedpeUrl(url)) await openBedTrack({ name, url, group, category, color, kind: 'bedpe', modality: e.modality || '' });
+    else if (e.fmt === 'bedgraph' || isBedGraphUrl(url)) await openBedGraphTrack({ name, url, group, category, color, modality: e.modality || '' });
+    else if (e.fmt === 'bw' || isBigWigUrl(url)) await openBigWigTrack({ name, url, group, category, color, modality: e.modality || '' });
+    else if (e.fmt === 'bed' || isBedUrl(url)) await openBedTrack({ name, url, group, category, color, kind: 'bed', modality: e.modality || '' });
     else {
       if (!state.refReader) { setStatus('Load the reference .cz first before re-adding a methylation track.', true); return false; }
       if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
-      await openCzTrack({ name, url, ctx: e.ctx || 'CG', valType: e.valType || 'meth', group: e.group || '', modality: e.modality || '' });
+      await openCzTrack({ name, url, ctx: e.ctx || 'CG', valType: e.valType || 'meth', group, category, color, modality: e.modality || '' });
     }
     buildTrackRows(); render();
     return true;
@@ -1166,7 +1165,7 @@ async function addTrack(defCtx = 'CG', defVal = 'meth') {
 }
 
 // Open a single methylation .cz track and push it into state (no UI side effects).
-async function openCzTrack({ name, url, ctx = 'CG', valType = 'meth', group = '', modality = '', ylim = 'auto' }) {
+async function openCzTrack({ name, url, ctx = 'CG', valType = 'meth', group = '', modality = '', category = '', color = '', ylim = 'auto' }) {
   if (!state.refReader) throw new Error('Load the reference first.');
   if (!url) throw new Error('missing URL');
   const reader = await state.CzReader.fromUrl(url, { randomReadAhead: READ_AHEAD_BYTES });
@@ -1176,9 +1175,9 @@ async function openCzTrack({ name, url, ctx = 'CG', valType = 'meth', group = ''
     id: ++state.trackSeq, kind: 'mc',
     name: named, url, reader,
     ctx: ctx || 'ALL', valType: valType || 'meth', group: group || '',
-    modality: modality || '',
+    modality: modality || '', category: category || '',
     ylim: Array.isArray(ylim) ? ylim : 'auto',
-    color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nMc % PALETTE.length],
+    color: color ? normalizeColor(color) : ((state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nMc % PALETTE.length]),
     mismatch: validateAgainstRef(reader),
   };
   state.tracks.push(track);
@@ -1220,7 +1219,7 @@ async function getBbiLibs() {
 function isBigWigUrl(url) { return /\.(bw|bigwig)(?:[?#].*)?$/i.test(String(url)); }
 
 // Open a remote BigWig as a signal track (needs no reference .cz).
-async function openBigWigTrack({ name, url, ylim = 'auto', group = '', modality = '' }) {
+async function openBigWigTrack({ name, url, ylim = 'auto', group = '', modality = '', category = '', color = '' }) {
   if (!url) throw new Error('missing URL');
   const { BigWig, RemoteFile } = await getBbiLibs();
   const bw = new BigWig({ filehandle: new RemoteFile(url, { fetch: (u, o) => fetch(u, o) }) });
@@ -1229,8 +1228,8 @@ async function openBigWigTrack({ name, url, ylim = 'auto', group = '', modality 
   const named = name || url.split('/').pop();
   const track = {
     id: ++state.trackSeq, kind: 'bw', name: named, url, bw,
-    group: group || '', modality: modality || '', ylim: Array.isArray(ylim) ? ylim : 'auto',
-    color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length],
+    group: group || '', modality: modality || '', category: category || '', ylim: Array.isArray(ylim) ? ylim : 'auto',
+    color: color ? normalizeColor(color) : ((state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length]),
   };
   state.tracks.push(track);
   return track;
@@ -1251,7 +1250,7 @@ async function bwGetFeatures(track, chrom, start, end, scale) {
 // A bgzip+tabix bedGraph is a quantitative signal (chrom start end value), so
 // it is rendered by the BigWig signal path (kind 'bw', bedgraph:true) rather
 // than as BED intervals. Only bgzip+tabix is accepted (read by HTTP Range).
-async function openBedGraphTrack({ name, url, ylim = 'auto', group = '', modality = '' }) {
+async function openBedGraphTrack({ name, url, ylim = 'auto', group = '', modality = '', category = '', color = '' }) {
   if (!url) throw new Error('missing URL');
   if (!/\.gz(?:[?#].*)?$/i.test(url)) {
     throw new Error('plain .bedgraph is not supported (it would require a full download) — ' +
@@ -1267,8 +1266,8 @@ async function openBedGraphTrack({ name, url, ylim = 'auto', group = '', modalit
   const named = name || url.split('/').pop();
   const track = {
     id: ++state.trackSeq, kind: 'bw', bedgraph: true, name: named, url, tabix,
-    group: group || '', modality: modality || '', ylim: Array.isArray(ylim) ? ylim : 'auto',
-    color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length],
+    group: group || '', modality: modality || '', category: category || '', ylim: Array.isArray(ylim) ? ylim : 'auto',
+    color: color ? normalizeColor(color) : ((state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length]),
   };
   state.tracks.push(track);
   return track;
@@ -1331,7 +1330,7 @@ function parseBedpeLine(line) {
 
 // Open a remote BED or BEDPE track. Only bgzip + tabix-indexed files are
 // accepted so the data is read by HTTP Range (never fully downloaded).
-async function openBedTrack({ name, url, group = '', kind = 'bed', modality = '' }) {
+async function openBedTrack({ name, url, group = '', kind = 'bed', modality = '', category = '', color = '' }) {
   if (!url) throw new Error('missing URL');
   const gz = /\.gz(?:[?#].*)?$/i.test(url);
   if (!gz) {
@@ -1341,8 +1340,8 @@ async function openBedTrack({ name, url, group = '', kind = 'bed', modality = ''
   const named = name || url.split('/').pop();
   const nData = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene').length;
   const track = {
-    id: ++state.trackSeq, kind, name: named, url, group: group || '', modality: modality || '',
-    color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length],
+    id: ++state.trackSeq, kind, name: named, url, group: group || '', modality: modality || '', category: category || '',
+    color: color ? normalizeColor(color) : ((state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length]),
     tabix: null,
   };
   const { TabixIndexedFile, RemoteFile } = await getTabixLibs();
@@ -1380,7 +1379,7 @@ async function getHicLib() {
   }
   return _hicLib;
 }
-async function openHicTrack({ name, url, group = '', modality = '' }) {
+async function openHicTrack({ name, url, group = '', modality = '', category = '', color = '' }) {
   if (!url) throw new Error('missing URL');
   const HicStraw = await getHicLib();
   // Pass the URL so HicStraw builds its own file handle; requests still flow
@@ -1391,10 +1390,10 @@ async function openHicTrack({ name, url, group = '', modality = '' }) {
   try { const n = await straw.getNormalizationOptions(); if (Array.isArray(n) && n.length) norms = n; } catch (_) {}
   const named = name || url.split('/').pop();
   const track = {
-    id: ++state.trackSeq, kind: 'hic', name: named, url, straw, group: group || '', modality: modality || '',
+    id: ++state.trackSeq, kind: 'hic', name: named, url, straw, group: group || '', modality: modality || '', category: category || '',
     resolutions: (resolutions.length ? resolutions : [2500000, 1000000, 500000, 250000, 100000, 50000, 25000, 10000, 5000, 1000]).sort((a, b) => a - b),
     norm: norms.includes('KR') ? 'KR' : (norms.includes('VC') ? 'VC' : 'NONE'),
-    color: '#b2182b',
+    color: color ? normalizeColor(color) : '#b2182b',
   };
   state.tracks.push(track);
   return track;
@@ -1414,7 +1413,7 @@ async function hicGetRecords(track, chrom, start, end) {
   return { recs: [], binsize };
 }
 
-// ── Track table & color palette (file OR url; csv / tsv / xlsx / json) ────────
+// ── Track table (file OR url; csv / tsv / json) ──────────────────────────────
 function extOf(name) { const m = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec(String(name)); return m ? m[1].toLowerCase() : ''; }
 
 // Read a table source into { kind:'matrix'|'json', data }. `io` provides async
@@ -1450,20 +1449,26 @@ function splitDelimited(line, delim) {
   return out.map(s => s.trim());
 }
 
-// Parsed table → [{name, url, group, ctx}]
+// Parsed table → [{name, url, group, color, category, ctx}]
+// CSV/TSV MUST start with a header row naming the columns: name, path
+// (aka url), group, color, category, modality. name + path are required; the
+// rest are optional. Missing color → random; missing category → 2-level;
+// missing modality → blank (no vertical strip).
 function tableToTrackRows(parsed) {
   if (parsed.kind === 'json') {
     const arr = Array.isArray(parsed.data) ? parsed.data : (parsed.data.tracks || []);
     const rows = [];
     for (const it of arr) {
       if (Array.isArray(it)) {
-        const [name, url, group, modality] = it;
-        if (url) rows.push({ name: String(name || url).trim() || url, url: String(url).trim(), group: String(group || '').trim(), modality: String(modality || '').trim(), ctx: 'CG' });
+        const [name, url, group, color, category, modality] = it;
+        if (url) rows.push({ name: String(name || url).trim() || url, url: String(url).trim(), group: String(group || '').trim(), color: String(color || '').trim(), category: String(category || '').trim(), modality: String(modality || '').trim(), ctx: 'CG' });
       } else if (it && typeof it === 'object') {
-        const url = it.url || it.URL || it.Url; if (!url) continue;
+        const url = it.url || it.URL || it.Url || it.path || it.Path; if (!url) continue;
         rows.push({
           name: String(it.name || it.Name || String(url).split('/').pop()).trim(),
           url: String(url).trim(), group: String(it.group || it.Group || '').trim(),
+          color: String(it.color || it.Color || it.colour || '').trim(),
+          category: String(it.category || it.Category || '').trim(),
           modality: String(it.modality || it.Modality || '').trim(),
           ctx: it.ctx || it.context || 'CG',
         });
@@ -1472,51 +1477,46 @@ function tableToTrackRows(parsed) {
     return rows;
   }
   const matrix = parsed.data;
-  if (!matrix || !matrix.length) return [];
-  const first = matrix[0].map(c => String(c).trim().toLowerCase());
-  const hasHeader = first[0] === 'name' || first[1] === 'url' || (first[2] || '') === 'group';
+  if (!matrix || !matrix.length) throw new Error('empty track table');
+  const header = matrix[0].map(c => String(c).trim().toLowerCase());
+  const col = (...names) => { for (const n of names) { const i = header.indexOf(n); if (i >= 0) return i; } return -1; };
+  const iName = col('name'), iUrl = col('path', 'url'), iGroup = col('group'), iColor = col('color', 'colour'), iCat = col('category', 'cat'), iMod = col('modality', 'mod');
+  if (iName < 0 || iUrl < 0) {
+    throw new Error('track table must start with a header row containing the columns: name, path, group, color, category, modality (name + path required)');
+  }
   const rows = [];
-  for (let i = hasHeader ? 1 : 0; i < matrix.length; i++) {
+  for (let i = 1; i < matrix.length; i++) {
     const cells = (matrix[i] || []).map(c => String(c).trim());
-    const url = cells[1];
+    const url = cells[iUrl];
     if (!url) continue;
-    rows.push({ name: cells[0] || url.split('/').pop(), url, group: cells[2] || '', modality: cells[3] || '', ctx: 'CG' });
+    rows.push({
+      name: cells[iName] || url.split('/').pop(),
+      url,
+      group: iGroup >= 0 ? (cells[iGroup] || '') : '',
+      color: iColor >= 0 ? (cells[iColor] || '') : '',
+      category: iCat >= 0 ? (cells[iCat] || '') : '',
+      modality: iMod >= 0 ? (cells[iMod] || '') : '',
+      ctx: 'CG',
+    });
   }
   return rows;
 }
 
-// Parsed table → { trackName: colorCode }
-function tableToColorMap(parsed) {
-  const map = {};
-  if (parsed.kind === 'json') {
-    const d = parsed.data;
-    if (Array.isArray(d)) {
-      for (const it of d) {
-        if (Array.isArray(it)) { if (it[0]) map[String(it[0]).trim()] = String(it[1] || '').trim(); }
-        else if (it && typeof it === 'object') {
-          const n = it.name || it.Name || it.track; const c = it.color || it.Color || it.colour;
-          if (n && c) map[String(n).trim()] = String(c).trim();
-        }
-      }
-    } else if (d && typeof d === 'object') {
-      for (const k in d) map[k] = String(d[k]).trim();   // { name: color }
-    }
-    return map;
-  }
-  const matrix = parsed.data;
-  if (!matrix || !matrix.length) return map;
-  const first = matrix[0].map(c => String(c).trim().toLowerCase());
-  const hasHeader = first[0] === 'name' || first[1] === 'color' || first[1] === 'colour';
-  for (let i = hasHeader ? 1 : 0; i < matrix.length; i++) {
-    const c = (matrix[i] || []).map(x => String(x).trim());
-    if (c[0] && c[1]) map[c[0]] = c[1];
-  }
-  return map;
-}
 function normalizeColor(c) {
   c = String(c || '').trim();
   if (/^[0-9a-f]{6}$/i.test(c) || /^[0-9a-f]{3}$/i.test(c)) return '#' + c;   // bare hex
   return c;   // already #hex / rgb() / css name
+}
+// A pleasant random #rrggbb (used when a track table row has no color column).
+function randomColor() {
+  const h = Math.floor(Math.random() * 360), s = 60, l = 58;
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const v = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * v).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
 }
 // Normalize any CSS color to a #rrggbb string usable by <input type="color">.
 function toHexColor(c) {
@@ -1528,16 +1528,6 @@ function toHexColor(c) {
     if (/^#[0-9a-f]{6}$/i.test(v)) return v;
   } catch (_) {}
   return '#888888';
-}
-function applyColorMap(map, label) {
-  Object.assign(state.colorMap, map);
-  let n = 0;
-  for (const t of state.tracks) {
-    if (t.name in state.colorMap) { t.color = normalizeColor(state.colorMap[t.name]); n++; }
-  }
-  // Colors are draw-only: rebuild rows and repaint from cache (no re-fetch).
-  buildTrackRows(); quickRedraw();
-  setStatus(`Applied ${Object.keys(map).length} color(s) from ${label}; recolored ${n} track(s).`);
 }
 
 // Open every track row into the viewer.
@@ -1552,13 +1542,18 @@ async function ingestTrackRows(rows, label) {
   let ok = 0, mism = 0; const failed = [];
   for (const r of rows) {
     let t;
+    // Each row keeps its explicit color, or gets a random one when the color
+    // column is absent/blank, so the saved copy matches what is displayed.
+    const color = r.color ? normalizeColor(r.color) : randomColor();
+    const cat = r.category || '';
+    const mod = r.modality || '';
     try {
-      if (isHicUrl(r.url)) { t = await openHicTrack({ name: r.name, url: r.url, group: r.group, modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'hic', group: r.group, modality: r.modality }); ok++; }
-      else if (isBedpeUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe', modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe', group: r.group, modality: r.modality }); ok++; }
-      else if (isBigWigUrl(r.url)) { t = await openBigWigTrack({ name: r.name, url: r.url, group: r.group, modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'bw', group: r.group, modality: r.modality }); ok++; }
-      else if (isBedGraphUrl(r.url)) { t = await openBedGraphTrack({ name: r.name, url: r.url, group: r.group, modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'bedgraph', group: r.group, modality: r.modality }); ok++; }
-      else if (isBedUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed', modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'bed', group: r.group, modality: r.modality }); ok++; }
-      else { t = await openCzTrack(r); if (t.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx, valType: r.valType, group: r.group, modality: r.modality }); ok++; }
+      if (isHicUrl(r.url)) { t = await openHicTrack({ name: r.name, url: r.url, group: r.group, category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'hic', group: r.group, category: cat, color, modality: mod }); ok++; }
+      else if (isBedpeUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe', category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe', group: r.group, category: cat, color, modality: mod }); ok++; }
+      else if (isBigWigUrl(r.url)) { t = await openBigWigTrack({ name: r.name, url: r.url, group: r.group, category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'bw', group: r.group, category: cat, color, modality: mod }); ok++; }
+      else if (isBedGraphUrl(r.url)) { t = await openBedGraphTrack({ name: r.name, url: r.url, group: r.group, category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'bedgraph', group: r.group, category: cat, color, modality: mod }); ok++; }
+      else if (isBedUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed', category: cat, color, modality: mod }); saveTrack({ name: r.name, url: r.url, fmt: 'bed', group: r.group, category: cat, color, modality: mod }); ok++; }
+      else { t = await openCzTrack({ ...r, color, category: cat, modality: mod }); if (t.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx, valType: r.valType, group: r.group, category: cat, color, modality: mod }); ok++; }
     } catch (e) { failed.push(`${r.name}: ${e.message}`); continue; }
     // Show + render only this new track (O(1) per track). Fall back to a full
     // rebuild when it can't just be appended at the end (e.g. grouped tables).
@@ -1591,20 +1586,6 @@ async function onTrackTableUrl() {
     const resp = await fetch(url); if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     await ingestTrackRows(tableToTrackRows(await readTable(ext, respIO(resp))), url.split('/').pop() || url);
   } catch (e) { setStatus('Failed to load track table URL: ' + e.message, true); }
-}
-async function onColorFile(ev) {
-  const file = ev.target.files && ev.target.files[0]; ev.target.value = '';
-  if (!file) return;
-  try { applyColorMap(tableToColorMap(await readTable(extOf(file.name), fileIO(file))), file.name); }
-  catch (e) { setStatus('Failed to read color palette: ' + e.message, true); }
-}
-async function onColorUrl() {
-  const url = ($('colorUrl').value || '').trim();
-  if (!url) { setStatus('Enter a color palette URL.', true); return; }
-  try {
-    const resp = await fetch(url); if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    applyColorMap(tableToColorMap(await readTable(extOf(url), respIO(resp))), url.split('/').pop() || url);
-  } catch (e) { setStatus('Failed to load color palette URL: ' + e.message, true); }
 }
 
 function removeTrack(id) {
@@ -1642,13 +1623,27 @@ function buildTrackRows() {
 
   const ordered = orderedTracksForDisplay();
   const gColors = groupColorMap(ordered);
-  let prevGroup = null;
+  const cColors = categoryColorMap(ordered);
+  let prevGroup = null, prevCat = null;
   for (const t of ordered) {
-    const grp = t.kind === 'mc' ? (t.group || '') : '';
-    // Group header: shown before the first track of each named group.
-    if (grp && grp !== prevGroup) {
+    const isData = t.kind !== 'seq' && t.kind !== 'gene';
+    const cat = isData ? (t.category || '') : '';
+    const grp = isData ? (t.group || '') : '';
+    // Category header (top level): before the first track of each named category.
+    if (cat && cat !== prevCat) {
+      const ch = document.createElement('div');
+      ch.className = 'categoryhdr';
+      ch.style.borderLeft = `5px solid ${cColors[cat]}`;
+      ch.textContent = cat;
+      ch.title = 'Click to select the whole category (then ↑/↓ moves it as a unit)';
+      ch.style.cursor = 'pointer';
+      ch.onclick = () => toggleCategorySelection(cat);
+      host.appendChild(ch);
+    }
+    // Group header (mid level): before the first track of each named group.
+    if (grp && (grp !== prevGroup || cat !== prevCat)) {
       const gh = document.createElement('div');
-      gh.className = 'grouphdr';
+      gh.className = 'grouphdr' + (cat ? ' nested' : '');
       gh.style.borderLeft = `4px solid ${gColors[grp]}`;
       gh.textContent = grp;
       gh.title = 'Click to select / deselect all tracks in this group';
@@ -1656,7 +1651,7 @@ function buildTrackRows() {
       gh.onclick = () => toggleGroupSelection(grp);
       host.appendChild(gh);
     }
-    if (t.kind === 'mc') prevGroup = grp;
+    prevCat = cat; prevGroup = grp;
     host.appendChild(createTrackRow(t, grp, gColors));
   }
   // Drop selection entries for tracks that no longer exist, then refresh the bar.
@@ -1668,7 +1663,7 @@ function buildTrackRows() {
 // Build one track row element (label + view) and wire all its controls.
 function createTrackRow(t, grp, gColors) {
   const row = document.createElement('div');
-  row.className = 'row' + (grp ? ' grouped' : '');
+  row.className = 'row' + (grp ? ' grouped' : '') + (t.category ? ' in-category' : '');
   if (grp) row.style.borderLeft = `4px solid ${gColors[grp]}`;
 
   const label = document.createElement('div');
@@ -1747,7 +1742,7 @@ function appendTrackRowIfLast(t) {
   if (!state.rulerView || !host.querySelector('.rulerrow')) return false;
   const ordered = orderedTracksForDisplay();
   if (ordered[ordered.length - 1] !== t) return false;
-  if (t.kind === 'mc' && t.group) return false;
+  if ((t.kind !== 'seq' && t.kind !== 'gene') && (t.group || t.category)) return false;
   // First modality track: rebuild fully so every row + the ruler gain the strip.
   if (t.modality && !host.querySelector('.modstrip')) return false;
   host.appendChild(createTrackRow(t, '', groupColorMap(ordered)));
@@ -1790,25 +1785,44 @@ function renameTrack(t, newName) {
   buildTrackRows(); quickRedraw(); refreshSavedTracksUI();
 }
 
-// Track display order: non-mc (sequence/gene) first, then methylation tracks
-// grouped by their Group (group order = first appearance; within a group the
-// insertion/table order is preserved).
+// Track display order: sequence/gene tracks first, then data tracks nested by
+// Category → Group (each level ordered by first appearance; within a group the
+// insertion/table order is preserved). Categories are optional: with none, the
+// layout collapses to the two-level Group → track form.
 const GROUP_PALETTE = ['#4a90d9', '#e08214', '#1b7837', '#b2182b', '#762a83', '#01665e', '#c51b7d', '#8a6d3b'];
+const CATEGORY_PALETTE = ['#334155', '#6d28d9', '#0f766e', '#9d174d', '#a16207', '#1e3a8a', '#b91c1c', '#115e59'];
+// Nested display blocks: [{ c: category, groups: [{ g: group, tracks: [...] }] }].
+function orderedBlocks() {
+  const data = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');   // mc + bw + bed/…
+  const catOrder = [];
+  for (const t of data) { const c = t.category || ''; if (!catOrder.includes(c)) catOrder.push(c); }
+  return catOrder.map(c => {
+    const inCat = data.filter(t => (t.category || '') === c);
+    const groupOrder = [];
+    for (const t of inCat) { const g = t.group || ''; if (!groupOrder.includes(g)) groupOrder.push(g); }
+    return { c, groups: groupOrder.map(g => ({ g, tracks: inCat.filter(t => (t.group || '') === g) })) };
+  });
+}
 function orderedTracksForDisplay() {
   const anchored = state.tracks.filter(t => t.kind === 'seq' || t.kind === 'gene');
-  const data = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');   // mc + bw
-  const groupOrder = [];
-  for (const t of data) { const g = t.group || ''; if (!groupOrder.includes(g)) groupOrder.push(g); }
-  const grouped = [];
-  for (const g of groupOrder) for (const t of data) if ((t.group || '') === g) grouped.push(t);
-  return [...anchored, ...grouped];
+  const flat = orderedBlocks().flatMap(cb => cb.groups.flatMap(gb => gb.tracks));
+  return [...anchored, ...flat];
 }
 function groupColorMap(ordered) {
   const map = {}; let i = 0;
   for (const t of ordered) {
-    if (t.kind !== 'mc') continue;
+    if (t.kind === 'seq' || t.kind === 'gene') continue;
     const g = t.group || '';
     if (g && !(g in map)) map[g] = GROUP_PALETTE[i++ % GROUP_PALETTE.length];
+  }
+  return map;
+}
+function categoryColorMap(ordered) {
+  const map = {}; let i = 0;
+  for (const t of ordered) {
+    if (t.kind === 'seq' || t.kind === 'gene') continue;
+    const c = t.category || '';
+    if (c && !(c in map)) map[c] = CATEGORY_PALETTE[i++ % CATEGORY_PALETTE.length];
   }
   return map;
 }
@@ -1874,7 +1888,17 @@ function selectAllTracks() {
 // Toggle the whole group: select all its tracks, or clear them if all are on.
 function toggleGroupSelection(grp) {
   if (!grp) return;
-  const ids = state.tracks.filter(t => t.kind === 'mc' && (t.group || '') === grp).map(t => t.id);
+  const ids = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene' && (t.group || '') === grp).map(t => t.id);
+  if (!ids.length) return;
+  const allSel = ids.every(id => state.selected.has(id));
+  for (const id of ids) { if (allSel) state.selected.delete(id); else state.selected.add(id); }
+  state.lastSelectedId = ids[ids.length - 1];
+  updateSelBar();
+}
+// Toggle the whole category (top level): select/clear every track under it.
+function toggleCategorySelection(cat) {
+  if (!cat) return;
+  const ids = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene' && (t.category || '') === cat).map(t => t.id);
   if (!ids.length) return;
   const allSel = ids.every(id => state.selected.has(id));
   for (const id of ids) { if (allSel) state.selected.delete(id); else state.selected.add(id); }
@@ -1882,40 +1906,51 @@ function toggleGroupSelection(grp) {
   updateSelBar();
 }
 // Move the selected tracks up/down by one position (dir = -1 up, +1 down).
-// When one or more whole named groups are selected, move by GROUP unit so a
-// group jumps above/below the neighbouring group (the display re-groups tracks,
-// so per-track swaps of a full group would otherwise be undone).
+// Movement snaps to the coarsest fully-selected unit: whole CATEGORY blocks
+// move as one, else whole GROUP blocks (within their category), else single
+// tracks. This keeps the Category → Group → track display from undoing a move.
 function moveSelected(dir) {
   if (!state.selected.size) return;
   const sel = state.selected;
   const anchored = state.tracks.filter(t => t.kind === 'seq' || t.kind === 'gene');
-  const data = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');
-  const groupOrder = [];
-  for (const t of data) { const g = t.group || ''; if (!groupOrder.includes(g)) groupOrder.push(g); }
-  const blocks = groupOrder.map(g => ({ g, tracks: data.filter(t => (t.group || '') === g) }));
-
-  const selData = data.filter(t => sel.has(t.id));
-  const fullGroups = blocks.filter(b => b.g && b.tracks.every(t => sel.has(t.id)));
-  const groupMove = fullGroups.length && selData.length &&
-    selData.every(t => fullGroups.some(b => b.g === (t.group || '')));
-
-  if (groupMove) {
-    const selSet = new Set(fullGroups.map(b => b.g));
+  const cats = orderedBlocks();
+  const selData = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene' && sel.has(t.id));
+  const isFullGroup = (gb) => gb.tracks.length && gb.tracks.every(t => sel.has(t.id));
+  const isFullCat = (cb) => cb.c && cb.groups.length && cb.groups.every(isFullGroup);
+  const flatten = () => [...anchored, ...cats.flatMap(cb => cb.groups.flatMap(gb => gb.tracks))];
+  const moveList = (list, isSel) => {
     if (dir < 0) {
-      for (let i = 1; i < blocks.length; i++)
-        if (selSet.has(blocks[i].g) && !selSet.has(blocks[i - 1].g))
-          [blocks[i - 1], blocks[i]] = [blocks[i], blocks[i - 1]];
+      for (let i = 1; i < list.length; i++)
+        if (isSel(list[i]) && !isSel(list[i - 1])) [list[i - 1], list[i]] = [list[i], list[i - 1]];
     } else {
-      for (let i = blocks.length - 2; i >= 0; i--)
-        if (selSet.has(blocks[i].g) && !selSet.has(blocks[i + 1].g))
-          [blocks[i], blocks[i + 1]] = [blocks[i + 1], blocks[i]];
+      for (let i = list.length - 2; i >= 0; i--)
+        if (isSel(list[i]) && !isSel(list[i + 1])) [list[i], list[i + 1]] = [list[i + 1], list[i]];
     }
-    state.tracks = [...anchored, ...blocks.flatMap(b => b.tracks)];
-    reorderRowsDom();
-    syncUrlState();
-    return;
+  };
+
+  // Category-level move (only when categories exist and full ones are selected).
+  const hasCats = state.tracks.some(t => t.category);
+  const fullCats = cats.filter(isFullCat);
+  if (hasCats && fullCats.length && selData.length &&
+      selData.every(t => t.category && fullCats.some(cb => cb.c === t.category))) {
+    const selSet = new Set(fullCats.map(cb => cb.c));
+    moveList(cats, cb => selSet.has(cb.c));
+    state.tracks = flatten();
+    reorderRowsDom(); syncUrlState(); return;
   }
 
+  // Group-level move: reorder full groups within their own category.
+  const fullGroups = cats.flatMap(cb => cb.groups.filter(gb => gb.g && isFullGroup(gb)).map(gb => ({ c: cb.c, g: gb.g })));
+  const key = (c, g) => c + '\u0000' + g;
+  if (fullGroups.length && selData.length &&
+      selData.every(t => t.group && fullGroups.some(x => x.g === (t.group || '') && x.c === (t.category || '')))) {
+    const selSet = new Set(fullGroups.map(x => key(x.c, x.g)));
+    for (const cb of cats) moveList(cb.groups, gb => selSet.has(key(cb.c, gb.g)));
+    state.tracks = flatten();
+    reorderRowsDom(); syncUrlState(); return;
+  }
+
+  // Per-track move within the flattened display order.
   const ordered = orderedTracksForDisplay();
   const n = ordered.length;
   if (dir < 0) {
@@ -1983,7 +2018,7 @@ function processRowDrag() {
 // dragging stays smooth even with many tracks. Grouped layouts need header
 // bookkeeping, so fall back to a full rebuild there.
 function reorderRowsDom() {
-  if (state.tracks.some(t => t.kind === 'mc' && t.group)) { buildTrackRows(); quickRedraw(); applyDragFloating(); return; }
+  if (state.tracks.some(t => t.kind !== 'seq' && t.kind !== 'gene' && (t.group || t.category))) { buildTrackRows(); quickRedraw(); applyDragFloating(); return; }
   const host = $('tracks');
   for (const t of orderedTracksForDisplay()) if (t.row) host.appendChild(t.row);
   applyDragFloating();
@@ -3075,19 +3110,24 @@ async function composeExportSvg() {
   await ensureTracksForExport();   // include off-screen (lazy) tracks in the export
   const ordered = orderedTracksForDisplay();
   const gColors = groupColorMap(ordered);
+  const cColors = categoryColorMap(ordered);
   const viewW = Math.round((state.rulerView && state.rulerView.clientWidth) || 800);
   const labelW = 190, rulerH = 30, hdrH = 18;
   const modW = ordered.some(t => t.modality) ? 20 : 0;   // width of the vertical modality strip (0 = none)
 
-  let total = rulerH, prevGroup = null;
+  let total = rulerH, prevGroup = null, prevCat = null;
   const rows = [];
   for (const t of ordered) {
-    const grp = t.kind === 'mc' ? (t.group || '') : '';
-    const hdr = grp && grp !== prevGroup ? grp : null;
-    if (hdr) total += hdrH;
-    if (t.kind === 'mc') prevGroup = grp;
+    const isData = t.kind !== 'seq' && t.kind !== 'gene';
+    const cat = isData ? (t.category || '') : '';
+    const grp = isData ? (t.group || '') : '';
+    const catHdr = cat && cat !== prevCat ? cat : null;
+    if (catHdr) total += hdrH;
+    const grpHdr = grp && (grp !== prevGroup || cat !== prevCat) ? grp : null;
+    if (grpHdr) total += hdrH;
+    prevCat = cat; prevGroup = grp;
     const h = trackHeight(t);
-    rows.push({ t, h, hdr });
+    rows.push({ t, h, catHdr, grpHdr });
     total += h;
   }
   const totalW = labelW + viewW;
@@ -3110,11 +3150,19 @@ async function composeExportSvg() {
 
   let y = rulerH;
   for (const ri of rows) {
-    if (ri.hdr) {
-      rec.fillStyle = '#eef1f6'; rec.fillRect(0, y, totalW, hdrH);
-      rec.fillStyle = gColors[ri.hdr] || '#4a90d9'; rec.fillRect(0, y, 4, hdrH);
+    if (ri.catHdr) {
+      rec.fillStyle = '#dfe3ec'; rec.fillRect(0, y, totalW, hdrH);
+      rec.fillStyle = cColors[ri.catHdr] || '#334155'; rec.fillRect(0, y, 5, hdrH);
+      rec.fillStyle = '#232635'; rec.font = 'bold 12px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
+      rec.fillText(ri.catHdr, 10, y + hdrH / 2);
+      y += hdrH;
+    }
+    if (ri.grpHdr) {
+      const gx = ri.t.category ? 22 : 0;
+      rec.fillStyle = ri.t.category ? '#f2f4f8' : '#eef1f6'; rec.fillRect(0, y, totalW, hdrH);
+      rec.fillStyle = gColors[ri.grpHdr] || '#4a90d9'; rec.fillRect(gx, y, 4, hdrH);
       rec.fillStyle = '#3a3f57'; rec.font = 'bold 11px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
-      rec.fillText(ri.hdr, 10, y + hdrH / 2);
+      rec.fillText(ri.grpHdr, gx + 6, y + hdrH / 2);
       y += hdrH;
     }
     const t = ri.t, h = ri.h;
@@ -3327,8 +3375,8 @@ function currentStateObject() {
     colors: Object.keys(state.colorMap).length ? state.colorMap : undefined,
     t: state.tracks.filter(t => ['mc', 'bw', 'bed', 'bedpe', 'hic'].includes(t.kind))
       .map(t => (t.kind === 'mc'
-        ? { n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, md: t.modality || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined }
-        : { k: t.bedgraph ? 'bedgraph' : t.kind, n: t.name, u: t.url, grp: t.group || undefined, md: t.modality || undefined, yl: (t.kind === 'bw' && Array.isArray(t.ylim)) ? t.ylim : undefined })),
+        ? { n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, cat: t.category || undefined, md: t.modality || undefined, col: t.color || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined }
+        : { k: t.bedgraph ? 'bedgraph' : t.kind, n: t.name, u: t.url, grp: t.group || undefined, cat: t.category || undefined, md: t.modality || undefined, col: t.color || undefined, yl: (t.kind === 'bw' && Array.isArray(t.ylim)) ? t.ylim : undefined })),
   };
 }
 let _urlTimer = null, _restoring = false;
@@ -3361,12 +3409,12 @@ async function applyStateObject(st) {
       if (needsCz && !state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
       for (const r of st.t) {
         try {
-          if (r.k === 'hic' || isHicUrl(r.u)) await openHicTrack({ name: r.n, url: r.u, group: r.grp || '', modality: r.md || '' });
-          else if (r.k === 'bedpe' || isBedpeUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', kind: 'bedpe', modality: r.md || '' });
-          else if (r.k === 'bedgraph' || isBedGraphUrl(r.u)) await openBedGraphTrack({ name: r.n, url: r.u, group: r.grp || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
-          else if (r.k === 'bw' || isBigWigUrl(r.u)) await openBigWigTrack({ name: r.n, url: r.u, group: r.grp || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
-          else if (r.k === 'bed' || isBedUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', kind: 'bed', modality: r.md || '' });
-          else await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          if (r.k === 'hic' || isHicUrl(r.u)) await openHicTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '' });
+          else if (r.k === 'bedpe' || isBedpeUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', kind: 'bedpe', modality: r.md || '' });
+          else if (r.k === 'bedgraph' || isBedGraphUrl(r.u)) await openBedGraphTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          else if (r.k === 'bw' || isBigWigUrl(r.u)) await openBigWigTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          else if (r.k === 'bed' || isBedUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', kind: 'bed', modality: r.md || '' });
+          else await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
         }
         catch (e) { /* skip a track that fails to open */ }
       }
@@ -3749,8 +3797,6 @@ $('btnLoad').onclick = loadReference;
 $('btnAddTrack').onclick = () => addTrack();
 $('trackTable').onchange = onTrackTableFile;
 $('btnTrackTableUrl').onclick = onTrackTableUrl;
-$('colorFile').onchange = onColorFile;
-$('btnColorUrl').onclick = onColorUrl;
 $('btnTsv').onclick = exportDataTsv;
 $('btnSvg').onclick = () => downloadView('svg');
 $('btnPng').onclick = () => downloadView('png');
