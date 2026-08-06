@@ -2014,8 +2014,12 @@ function clearSelection() {
 }
 // Select every track (used by the toolbar "Select All" button).
 function selectAllTracks() {
-  for (const t of state.tracks) state.selected.add(t.id);
-  const ord = orderedTracksForDisplay();
+  // Skip the genome sequence and refGene tracks; only select data tracks.
+  for (const t of state.tracks) {
+    if (t.kind === 'seq' || t.kind === 'gene') continue;
+    state.selected.add(t.id);
+  }
+  const ord = orderedTracksForDisplay().filter(t => t.kind !== 'seq' && t.kind !== 'gene');
   if (ord.length) state.lastSelectedId = ord[ord.length - 1].id;
   updateSelBar();
 }

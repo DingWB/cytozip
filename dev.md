@@ -451,6 +451,7 @@ sphinx-quickstart
 # vim index.html: <meta http-equiv="refresh" content="0; url=./build/html/index.html" />
 # make sure the env that has sphinx 7.x + recommonmark is active (NOT base conda)
 # conda activate /home/x-wding2/Software/conda/m3c
+# setting - pages: deploy from branch -> Github Actions
 cd docs
 rm -rf build
 ln -sfn ~/Projects/Github/cytozip/notebooks source/notebooks
