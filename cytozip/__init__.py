@@ -734,6 +734,7 @@ def _build_parser():
     p.add_argument('--macs3_args', default='', help='additional MACS3 arguments (quoted string)')
     p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
     p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
+    p.add_argument('--jobs', type=int, default=1, help='worker processes for pseudo-read generation + sort (macs3 callpeak stays single-threaded)')
 
     # ---- call_peaks_bdg ------------------------------------------------------
     p = sub.add_parser('call_peaks_bdg', help='Call peaks from methylation .cz via MACS3 bedGraph back-end (memory-efficient O(n_sites), coverage-controlled Poisson; signal is always unmeth=cov-mc)', formatter_class=_fmt)
@@ -752,6 +753,7 @@ def _build_parser():
     p.add_argument('--keep_bdg', action='store_true', help='keep intermediate bedGraph tracks')
     p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
     p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
+    p.add_argument('--jobs', type=int, default=1, help='worker processes for the per-chromosome pileup/score/peak-call pass')
 
     # ---- to_bedgraph ---------------------------------------------------------
     p = sub.add_parser('to_bedgraph', help='Export methylation signal as bedGraph', formatter_class=_fmt)

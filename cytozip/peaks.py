@@ -50,11 +50,181 @@ def _write_pseudo_reads(fh, chrom, pos, sig, half):
     return int(starts.size)
 
 
+def _concat_files(paths, dest):
+    """Concatenate ``paths`` into ``dest`` in order, deleting each piece."""
+    import shutil
+    with open(dest, 'wb') as out:
+        for p in paths:
+            if p and os.path.exists(p):
+                with open(p, 'rb') as fh:
+                    shutil.copyfileobj(fh, out)
+                os.remove(p)
+    return dest
+
+
+def _pseudo_reads_chrom_worker(dim, cz_path, ref_path, index_path,
+                               mc_col, cov_col, min_cov, half, control,
+                               output, name):
+    """Worker: write one chromosome's pseudo-read BED piece(s).
+
+    Opens its own readers (process-safe), materialises the treat (and optional
+    control) pseudo-reads for ``dim`` into per-chromosome temp BEDs, and
+    returns ``(chrom, bed_path, n_reads, ctrl_path, n_ctrl)`` with ``*_path``
+    set to ``None`` when empty. Used by :func:`call_peaks` when ``jobs > 1``.
+    """
+    reader = Reader(cz_path)
+    ref_reader = Reader(ref_path)
+    index_reader = Reader(index_path) if index_path else None
+    try:
+        chrom = dim[0]
+        if dim not in ref_reader.chunk_key2offset:
+            return chrom, None, 0, None, 0
+        data_dtype = _make_np_dtype(reader.header['formats'],
+                                    reader.header['columns'])
+        ref_dtype = _make_np_dtype(ref_reader.header['formats'],
+                                   ref_reader.header['columns'])
+        raw = reader.fetch_chunk_bytes(dim)
+        if not raw:
+            return chrom, None, 0, None, 0
+        data_arr = np.frombuffer(raw, dtype=data_dtype)
+        ref_raw = ref_reader.fetch_chunk_bytes(dim)
+        if not ref_raw:
+            return chrom, None, 0, None, 0
+        ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
+        if index_reader is not None and dim in index_reader.chunk_key2offset:
+            ids = index_reader.get_ids_from_index(dim)
+            if len(ids.shape) == 1:
+                data_arr = data_arr[ids]
+                ref_arr = ref_arr[ids]
+        pos = ref_arr['pos'].astype(np.int64)
+        mc = data_arr[mc_col].astype(np.int32)
+        cov = data_arr[cov_col].astype(np.int32)
+        mask = cov >= min_cov
+        pos, mc, cov = pos[mask], mc[mask], cov[mask]
+        sig = cov - mc  # unmethylated count = ATAC-like signal
+        bed_path = os.path.join(output, f'{name}.{chrom}.pseudo.bed')
+        with open(bed_path, 'w') as fh:
+            n = _write_pseudo_reads(fh, chrom, pos, sig, half)
+        if n == 0:
+            os.remove(bed_path)
+            bed_path = None
+        ctrl_path = None
+        nc = 0
+        if control is not None:
+            csig = cov.copy() if control == 'cov' else mc.copy()
+            ctrl_path = os.path.join(output, f'{name}.{chrom}.control.bed')
+            with open(ctrl_path, 'w') as cfh:
+                nc = _write_pseudo_reads(cfh, chrom, pos, csig, half)
+            if nc == 0:
+                os.remove(ctrl_path)
+                ctrl_path = None
+        return chrom, bed_path, n, ctrl_path, nc
+    finally:
+        reader.close()
+        ref_reader.close()
+        if index_reader:
+            index_reader.close()
+
+
+def _gen_pseudo_reads(reader, ref_reader, index_reader, cz_path, ref_path,
+                      index, data_dtype, ref_dtype, mc_col, cov_col, min_cov,
+                      half, control, bed_path, ctrl_bed_path, output, name,
+                      jobs):
+    """Materialise pseudo-reads into ``bed_path`` (+ optional control BED).
+
+    Serial (``jobs<=1``) walks chromosomes on the already-open readers;
+    parallel (``jobs>1``) closes them and fans per-chromosome generation out to
+    a process pool, then concatenates the per-chrom BED pieces. All readers are
+    closed before returning. Returns ``(total_reads, total_ctrl)``.
+    """
+    dims = list(reader.chunk_key2offset)
+    if jobs and jobs > 1:
+        idx_path = (os.path.abspath(os.path.expanduser(index))
+                    if index else None)
+        reader.close()
+        ref_reader.close()
+        if index_reader:
+            index_reader.close()
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        wargs = dict(cz_path=cz_path, ref_path=ref_path, index_path=idx_path,
+                     mc_col=mc_col, cov_col=cov_col, min_cov=min_cov,
+                     half=half, control=control, output=output, name=name)
+        results = {}
+        with ProcessPoolExecutor(max_workers=jobs) as ex:
+            futs = {ex.submit(_pseudo_reads_chrom_worker, dim, **wargs): dim
+                    for dim in dims}
+            for fut in as_completed(futs):
+                res = fut.result()
+                results[res[0]] = res
+        total_reads = total_ctrl = 0
+        bed_pieces, ctrl_pieces = [], []
+        for dim in dims:
+            res = results.get(dim[0])
+            if not res:
+                continue
+            _, bp, n, cp, nc = res
+            total_reads += n
+            total_ctrl += nc
+            if bp:
+                bed_pieces.append(bp)
+            if cp:
+                ctrl_pieces.append(cp)
+        _concat_files(bed_pieces, bed_path)
+        if ctrl_bed_path is not None:
+            _concat_files(ctrl_pieces, ctrl_bed_path)
+    else:
+        total_reads = total_ctrl = 0
+        ctrl_fh = open(ctrl_bed_path, 'w') if ctrl_bed_path else None
+        try:
+            with open(bed_path, 'w') as fh:
+                for dim in dims:
+                    if dim not in ref_reader.chunk_key2offset:
+                        continue
+                    chrom = dim[0]
+                    raw = reader.fetch_chunk_bytes(dim)
+                    if not raw:
+                        continue
+                    data_arr = np.frombuffer(raw, dtype=data_dtype)
+                    ref_raw = ref_reader.fetch_chunk_bytes(dim)
+                    if not ref_raw:
+                        continue
+                    ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
+                    if index_reader is not None and dim in index_reader.chunk_key2offset:
+                        ids = index_reader.get_ids_from_index(dim)
+                        if len(ids.shape) == 1:
+                            data_arr = data_arr[ids]
+                            ref_arr = ref_arr[ids]
+                    pos = ref_arr['pos'].astype(np.int64)
+                    mc = data_arr[mc_col].astype(np.int32)
+                    cov = data_arr[cov_col].astype(np.int32)
+                    mask = cov >= min_cov
+                    pos, mc, cov = pos[mask], mc[mask], cov[mask]
+                    sig = cov - mc  # unmethylated count = ATAC-like signal
+                    total_reads += _write_pseudo_reads(fh, chrom, pos, sig, half)
+                    if ctrl_fh is not None:
+                        csig = cov.copy() if control == 'cov' else mc.copy()
+                        total_ctrl += _write_pseudo_reads(
+                            ctrl_fh, chrom, pos, csig, half)
+                    logger.debug(f"  {chrom}: {len(pos)} sites")
+                    reader.release_chunk(dim)
+                    ref_reader.release_chunk(dim)
+        finally:
+            if ctrl_fh is not None:
+                ctrl_fh.close()
+        reader.close()
+        ref_reader.close()
+        if index_reader:
+            index_reader.close()
+    logger.info(f"Total pseudo-reads: {total_reads}"
+                + (f"; control reads: {total_ctrl}" if control else ""))
+    return total_reads, total_ctrl
+
+
 def call_peaks(input=None, reference=None, output=None, name='peaks',
                control=None, index=None, genome_size='mm',
                fragment_size=300, qvalue=0.05, broad=False,
                min_cov=1, keep_bed=False, macs3_args='',
-               mc_col=None, cov_col=None):
+               mc_col=None, cov_col=None, jobs=1):
     """Call peaks from a methylation .cz file using MACS3 (pseudo-read route).
 
     Peak calling on a .cz always treats the **unmethylated count**
@@ -129,6 +299,11 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     cov_col : int or str or None
         Column index (0-based) or name for the coverage count.
         Defaults to the last data column (index -1, typically ``'cov'``).
+    jobs : int
+        Worker processes for pseudo-read generation and ``sort`` (default 1).
+        Generation is fanned out one chromosome per process and ``sort`` gets
+        ``--parallel jobs``. The ``macs3 callpeak`` step itself is
+        single-threaded and is not sped up by this.
 
     Returns
     -------
@@ -229,74 +404,24 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
         if index_reader:
             index_reader.close()
     else:
-        total_reads = 0
-        total_ctrl = 0
-        ctrl_fh = open(ctrl_bed_path, 'w') if ctrl_bed_path else None
-        try:
-            with open(bed_path, 'w') as fh:
-                for dim in reader.chunk_key2offset:
-                    if dim not in ref_reader.chunk_key2offset:
-                        continue
-                    chrom = dim[0]
+        _gen_pseudo_reads(
+            reader, ref_reader, index_reader, cz_path, ref_path, index,
+            data_dtype, ref_dtype, mc_col, cov_col, min_cov, half, control,
+            bed_path, ctrl_bed_path, output, name, jobs)
 
-                    raw = reader.fetch_chunk_bytes(dim)
-                    if not raw:
-                        continue
-                    data_arr = np.frombuffer(raw, dtype=data_dtype)
-
-                    ref_raw = ref_reader.fetch_chunk_bytes(dim)
-                    if not ref_raw:
-                        continue
-                    ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
-
-                    if index_reader is not None and dim in index_reader.chunk_key2offset:
-                        ids = index_reader.get_ids_from_index(dim)
-                        if len(ids.shape) == 1:
-                            data_arr = data_arr[ids]
-                            ref_arr = ref_arr[ids]
-
-                    pos = ref_arr['pos'].astype(np.int64)
-                    mc = data_arr[mc_col].astype(np.int32)
-                    cov = data_arr[cov_col].astype(np.int32)
-
-                    mask = cov >= min_cov
-                    pos = pos[mask]
-                    mc = mc[mask]
-                    cov = cov[mask]
-
-                    sig = cov - mc  # unmethylated count = ATAC-like signal
-
-                    total_reads += _write_pseudo_reads(fh, chrom, pos, sig, half)
-
-                    if ctrl_fh is not None:
-                        csig = cov.copy() if control == 'cov' else mc.copy()
-                        total_ctrl += _write_pseudo_reads(
-                            ctrl_fh, chrom, pos, csig, half)
-
-                    logger.debug(f"  {chrom}: {len(pos)} sites")
-
-                    # Release this chunk's pages on both readers.
-                    reader.release_chunk(dim)
-                    ref_reader.release_chunk(dim)
-        finally:
-            if ctrl_fh is not None:
-                ctrl_fh.close()
-
-        reader.close()
-        ref_reader.close()
-        if index_reader:
-            index_reader.close()
-
-        logger.info(f"Total pseudo-reads: {total_reads}"
-                    + (f"; control reads: {total_ctrl}" if control else ""))
-
-        # ---- Step 4: Sort BED ----
+        # ---- Step 4: Sort BED (sort uses jobs threads) ----
         logger.info("Sorting BED file...")
-        sort_cmd = ['sort', '-k1,1', '-k2,2n', bed_path, '-o', sorted_bed]
+        sort_cmd = ['sort', '-k1,1', '-k2,2n']
+        if jobs and jobs > 1:
+            sort_cmd += ['--parallel', str(jobs)]
+        sort_cmd += [bed_path, '-o', sorted_bed]
         logger.info(f"Running: {' '.join(sort_cmd)}")
         subprocess.run(sort_cmd, check=True)
         if sorted_ctrl is not None:
-            sort_ctrl_cmd = ['sort', '-k1,1', '-k2,2n', ctrl_bed_path, '-o', sorted_ctrl]
+            sort_ctrl_cmd = ['sort', '-k1,1', '-k2,2n']
+            if jobs and jobs > 1:
+                sort_ctrl_cmd += ['--parallel', str(jobs)]
+            sort_ctrl_cmd += [ctrl_bed_path, '-o', sorted_ctrl]
             logger.info(f"Running: {' '.join(sort_ctrl_cmd)}")
             subprocess.run(sort_ctrl_cmd, check=True)
 
@@ -558,36 +683,217 @@ def _pileup_control(pos, sig, half, floor=1.0):
     return seg_start, seg_end, seg_val
 
 
+def _joint_pileup(pos, sig, csig, half):
+    """Unified piecewise-constant pileup of treatment and control signals.
+
+    Each site at ``pos`` spreads its ``sig`` (treatment) and ``csig`` (control)
+    counts over ``[pos-half, pos+half)``; overlapping contributions are summed
+    with difference arrays over a single shared breakpoint set, so treatment
+    and control are returned already aligned on the *same* segmentation (memory
+    ``O(n_sites)``). Returns ``(seg_start, seg_end, sig_val, cov_val)`` or
+    ``None`` when empty.
+    """
+    pos = np.asarray(pos, dtype=np.int64)
+    sig = np.asarray(sig, dtype=np.float64)
+    csig = np.asarray(csig, dtype=np.float64)
+    if pos.size == 0:
+        return None
+    starts = np.maximum(0, pos - half)
+    ends = pos + half
+    pts = np.concatenate([starts, ends])
+    d_sig = np.concatenate([sig, -sig])
+    d_cov = np.concatenate([csig, -csig])
+    order = np.argsort(pts, kind='mergesort')
+    pts = pts[order]
+    d_sig = d_sig[order]
+    d_cov = d_cov[order]
+    uniq, inv = np.unique(pts, return_inverse=True)
+    a_sig = np.zeros(uniq.size, dtype=np.float64)
+    a_cov = np.zeros(uniq.size, dtype=np.float64)
+    np.add.at(a_sig, inv, d_sig)
+    np.add.at(a_cov, inv, d_cov)
+    cum_sig = np.cumsum(a_sig)[:-1]
+    cum_cov = np.cumsum(a_cov)[:-1]
+    return uniq[:-1], uniq[1:], cum_sig, cum_cov
+
+
+def _peak_score(treat, lam, method):
+    """Per-segment enrichment score of ``treat`` pileup against ``lam``.
+
+    ``'ppois'`` returns the MACS3-equivalent ``-log10 P(X >= treat)`` for
+    ``X ~ Poisson(lam)`` (upper tail), computed vectorised via scipy's
+    ``poisson.logsf`` (``gammaincc`` under the hood: ``O(1)`` per element
+    regardless of pileup depth — this is what replaces the slow per-segment
+    ``macs3 bdgcmp``). ``'FE'`` returns the linear fold enrichment
+    ``treat / lam``.
+    """
+    if method == 'ppois':
+        from scipy.stats import poisson
+        # P(X >= k) = P(X > k-1) = sf(k-1); treat is integer-valued.
+        sc = -poisson.logsf(treat - 1, lam) / np.log(10.0)
+        sc[~np.isfinite(sc)] = 3100.0  # cap extreme significance
+        return sc
+    if method in ('FE', 'fe'):
+        return treat / np.maximum(lam, 1e-9)
+    raise ValueError(
+        "native call_peaks_bdg supports method 'ppois' or 'FE'; "
+        f"got {method!r}")
+
+
+def _peaks_from_scores(chrom, seg_s, seg_e, score, treat, lam,
+                       cutoff, min_len, max_gap):
+    """Threshold scored segments into peaks (per chromosome).
+
+    Segments with ``score >= cutoff`` are merged across coordinate gaps
+    ``<= max_gap``; runs shorter than ``min_len`` are dropped. For each peak
+    the summit is the max-score segment, from which fold enrichment and the
+    summit offset are recorded. Returns a DataFrame (columns ``chrom, start,
+    end, summit_score, fe, offset``) or ``None`` when no peak passes.
+    """
+    on = score >= cutoff
+    if not on.any():
+        return None
+    s = seg_s[on]
+    e = seg_e[on]
+    sc = score[on]
+    tv = treat[on]
+    lv = lam[on]
+    # New peak wherever the gap to the previous on-segment exceeds max_gap.
+    new = np.empty(s.size, dtype=bool)
+    new[0] = True
+    if s.size > 1:
+        new[1:] = (s[1:] - e[:-1]) > max_gap
+    grp = np.cumsum(new) - 1
+    df = pd.DataFrame({'grp': grp, 's': s, 'e': e, 'sc': sc,
+                       'tv': tv, 'lv': lv, 'mid': (s + e) // 2})
+    g = df.groupby('grp', sort=False)
+    start = g['s'].min().to_numpy()
+    end = g['e'].max().to_numpy()
+    summit = df.loc[g['sc'].idxmax().to_numpy()]
+    ssc = summit['sc'].to_numpy()
+    smid = summit['mid'].to_numpy()
+    stv = summit['tv'].to_numpy()
+    slv = summit['lv'].to_numpy()
+    keep = (end - start) >= min_len
+    if not keep.any():
+        return None
+    start, end = start[keep], end[keep]
+    ssc, smid = ssc[keep], smid[keep]
+    stv, slv = stv[keep], slv[keep]
+    return pd.DataFrame({
+        'chrom': chrom,
+        'start': start.astype(np.int64),
+        'end': end.astype(np.int64),
+        'summit_score': ssc,
+        'fe': stv / np.maximum(slv, 1e-9),
+        'offset': np.maximum(0, smid - start).astype(np.int64),
+    })
+
+
+def _bdg_chrom_worker(dim, cz_path, ref_path, index_path, mc_col, cov_col,
+                      min_cov, half, control, r, method, cutoff, min_len,
+                      max_gap, keep_bdg, output, name):
+    """Worker: pileup, score and call peaks for one chromosome.
+
+    Opens its own readers (process-safe), builds the joint umc/coverage pileup
+    for ``dim``, scores each segment against the global-rate lambda and
+    thresholds it into peaks. Returns ``(chrom, frame_or_None,
+    treat_bdg_or_None, score_bdg_or_None)``; the bdg pieces are written only
+    when ``keep_bdg``. Used by :func:`call_peaks_bdg`.
+    """
+    reader = Reader(cz_path)
+    ref_reader = Reader(ref_path)
+    index_reader = Reader(index_path) if index_path else None
+    try:
+        chrom = dim[0]
+        data_dtype = _make_np_dtype(reader.header['formats'],
+                                    reader.header['columns'])
+        ref_dtype = _make_np_dtype(ref_reader.header['formats'],
+                                   ref_reader.header['columns'])
+        raw = reader.fetch_chunk_bytes(dim)
+        if not raw:
+            return chrom, None, None, None
+        data_arr = np.frombuffer(raw, dtype=data_dtype)
+        ref_raw = ref_reader.fetch_chunk_bytes(dim)
+        if not ref_raw:
+            return chrom, None, None, None
+        ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
+        if index_reader is not None and dim in index_reader.chunk_key2offset:
+            ids = index_reader.get_ids_from_index(dim)
+            if len(ids.shape) == 1:
+                data_arr = data_arr[ids]
+                ref_arr = ref_arr[ids]
+        pos = ref_arr['pos'].astype(np.int64)
+        mc = data_arr[mc_col].astype(np.int64)
+        cov = data_arr[cov_col].astype(np.int64)
+        mask = cov >= min_cov
+        pos, mc, cov = pos[mask], mc[mask], cov[mask]
+        sig = cov - mc  # unmethylated count = ATAC-like signal
+        csig = cov if control == 'cov' else mc
+        jp = _joint_pileup(pos, sig, csig, half)
+        if jp is None:
+            return chrom, None, None, None
+        seg_s, seg_e, tval, cval = jp
+        keep = tval > 0  # peaks can only live where umc pileup > 0
+        if not keep.any():
+            return chrom, None, None, None
+        seg_s, seg_e = seg_s[keep], seg_e[keep]
+        tval, cval = tval[keep], cval[keep]
+        lam = np.maximum(cval, 1.0) * r  # expected umc pileup, floored
+        score = _peak_score(tval, lam, method)
+        treat_path = score_path = None
+        if keep_bdg:
+            treat_path = os.path.join(output, f'{name}.{chrom}.treat.bdg')
+            score_path = os.path.join(output, f'{name}.{chrom}.{method}.bdg')
+            pd.DataFrame({'c': chrom, 's': seg_s, 'e': seg_e,
+                          'v': tval.astype(np.int64)}).to_csv(
+                treat_path, sep='\t', header=False, index=False)
+            pd.DataFrame({'c': chrom, 's': seg_s, 'e': seg_e,
+                          'v': np.round(score, 5)}).to_csv(
+                score_path, sep='\t', header=False, index=False)
+        frame = _peaks_from_scores(chrom, seg_s, seg_e, score, tval, lam,
+                                   cutoff, min_len, max_gap)
+        return chrom, frame, treat_path, score_path
+    finally:
+        reader.close()
+        ref_reader.close()
+        if index_reader:
+            index_reader.close()
+
+
 def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
                    control='cov', index=None,
                    ext=300, method='ppois', cutoff=2.0,
                    min_len=None, max_gap=None, min_cov=1,
-                   keep_bdg=False, mc_col=None, cov_col=None):
-    """Call peaks from a methylation .cz via MACS3 bedGraph back-end.
+                   keep_bdg=False, mc_col=None, cov_col=None, jobs=1):
+    """Call peaks from a methylation .cz (native vectorised Poisson).
 
     Like :func:`call_peaks`, the signal is always the **unmethylated count**
     ``umc = cov - mc`` (CpG hypomethylation = open chromatin); ``mc`` is never
     used as signal.
 
     Mechanism (differs from :func:`call_peaks`): instead of materialising
-    ``sum(umc)`` pseudo-reads (which explodes on deep pseudobulks), this
-    builds piecewise-constant **pileup bedGraphs** analytically — each site's
-    count is spread over ``ext`` bp and overlapping contributions summed with
-    a difference array, so memory is ``O(n_sites)`` regardless of depth — and
-    drives MACS3's bedGraph back-end (``bdgcmp`` + ``bdgpeakcall``) rather than
-    ``callpeak``.
+    ``sum(umc)`` pseudo-reads (which explodes on deep pseudobulks), each
+    site's count is spread over ``ext`` bp and overlapping contributions
+    summed with a difference array, giving a piecewise-constant pileup with
+    memory ``O(n_sites)`` regardless of depth. The Poisson score and peak
+    calling are then done **directly in numpy/scipy per chromosome** — no
+    multi-GB bedGraphs are written and no ``macs3`` subprocess is spawned.
+    (Earlier versions drove ``macs3 bdgopt``/``bdgcmp``/``bdgpeakcall``; on
+    deep pseudobulks ``bdgcmp -m ppois`` scored ~10^8 segments one at a time
+    and took hours. The vectorised ``poisson.logsf`` here is ``O(1)`` per
+    segment and finishes in minutes.)
 
     Scoring model. The **treatment** track is the ``umc`` pileup. The
     **control (lambda)** track is the coverage pileup scaled by the global
     unmethylation rate ``r = sum(umc) / sum(cov)`` (``control='cov'``) — i.e.
-    the *expected* unmethylated pileup if methylation were spatially uniform.
-    The lambda track is built gap-free and floored at a small positive value
-    (``bdgcmp -m ppois`` requires lambda > 0 at every evaluated base).
-    ``bdgcmp -m ppois`` then scores every position by the Poisson p-value of
-    the observed ``umc`` pileup against that local expectation, and
-    ``bdgpeakcall`` thresholds the score. Peaks are thus regions of genuine
-    **local unmethylation enrichment**, corrected for coverage / cytosine-
-    density bias.
+    the *expected* unmethylated pileup if methylation were spatially uniform,
+    floored at ``r`` so lambda is always positive. For ``method='ppois'`` each
+    segment is scored by ``-log10 P(X >= umc_pileup | Poisson(lambda))``
+    (upper tail); ``bdgpeakcall``-style thresholding then merges segments with
+    ``score >= cutoff`` across gaps ``<= max_gap`` and drops runs shorter than
+    ``min_len``. Peaks are thus regions of genuine **local unmethylation
+    enrichment**, corrected for coverage / cytosine-density bias.
 
     How this differs from :func:`call_peaks` in practice:
 
@@ -607,31 +913,34 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
         As in :func:`call_peaks` (``output`` defaults to
         ``<input_stem>_peaks/``).
     control : str
-        Coverage-bias control track: ``'cov'`` (default) or ``'mc'``. The
-        bedGraph route always uses a control (that is its purpose).
+        Coverage-bias control track: ``'cov'`` (default) or ``'mc'``.
     ext : int
         Extension (bp) each site's count is spread over (default 300).
     method : str
-        ``macs3 bdgcmp`` score method (``'ppois'`` default, or ``'qpois'``,
-        ``'FE'``, ``'logLR'``, ``'subtract'`` ...).
+        Score method: ``'ppois'`` (default, ``-log10`` Poisson p-value) or
+        ``'FE'`` (linear fold enrichment ``treat/lambda``).
     cutoff : float
-        ``bdgpeakcall`` score cutoff. For ``ppois`` this is ``-log10(p)``
-        (default 2.0 -> p < 0.01); for ``qpois`` it is ``-log10(q)``.
+        Score cutoff. For ``ppois`` this is ``-log10(p)`` (default 2.0 ->
+        p < 0.01); for ``FE`` it is the minimum fold enrichment.
     min_len : int or None
-        Minimum peak length (``bdgpeakcall -l``); ``None`` -> ``ext``.
+        Minimum peak length; ``None`` -> ``ext``.
     max_gap : int or None
-        Maximum gap to merge nearby peaks (``bdgpeakcall -g``); ``None`` ->
-        ``ext // 2``.
+        Maximum gap to merge nearby peaks; ``None`` -> ``ext // 2``.
     keep_bdg : bool
-        Keep the intermediate bedGraph tracks (default False).
+        Also write the treatment pileup and score bedGraphs (for genome-
+        browser inspection); default False.
+    jobs : int
+        Worker processes for the per-chromosome pileup/score/peak-call pass
+        (default 1). Chromosomes are independent and CPU-bound, so this scales
+        near-linearly; each worker holds one chromosome's arrays in memory, so
+        raise ``jobs`` only as far as RAM allows (the largest chromosomes are
+        the heaviest). Pass 1 (global rate) stays serial and cheap.
 
     Returns
     -------
     str
         Path to the output ``<name>_peaks.narrowPeak`` file.
     """
-    import subprocess
-
     if control not in ('cov', 'mc'):
         raise ValueError(f"control must be 'cov' or 'mc'; got {control!r}")
 
@@ -675,103 +984,121 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
         cov_col = _cols[cov_col]
 
     half = ext // 2
-    treat_bdg = os.path.join(output, f'{name}.treat.bdg')
-    ctrl_bdg = os.path.join(output, f'{name}.control.bdg')
-
-    def _write_seg(fh, chrom, seg):
-        if seg is None:
-            return
-        s, e, v = seg
-        pd.DataFrame({'chrom': chrom, 'start': s, 'end': e,
-                      'value': v.astype(np.int64)}).to_csv(
-            fh, sep='\t', header=False, index=False)
-
-    lambda_bdg = os.path.join(output, f'{name}.control_lambda.bdg')
-    score_bdg = os.path.join(output, f'{name}.{method}.bdg')
-    narrowpeak = os.path.join(output, f'{name}_peaks.narrowPeak')
     if min_len is None:
         min_len = ext
     if max_gap is None:
         max_gap = ext // 2
+    narrowpeak = os.path.join(output, f'{name}_peaks.narrowPeak')
 
-    # Reuse existing pileup / lambda bedGraphs instead of regenerating them.
-    r = None
-    if (os.path.exists(treat_bdg) and os.path.exists(ctrl_bdg)
-            and os.path.exists(lambda_bdg)):
-        logger.info(
-            f"bedGraph tracks already exist: {treat_bdg}, {ctrl_bdg}, "
-            f"{lambda_bdg}; skip pileup generation.")
+    # ---- Pass 1: global unmethylation rate r = sum(umc) / sum(cov) ----
+    # r scales the coverage pileup into the expected-signal (lambda) track.
+    total_sig = 0.0
+    total_cov = 0.0
+    for dim in reader.chunk_key2offset:
+        if dim not in ref_reader.chunk_key2offset:
+            continue
+        raw = reader.fetch_chunk_bytes(dim)
+        if not raw:
+            continue
+        data_arr = np.frombuffer(raw, dtype=data_dtype)
+        if index_reader is not None and dim in index_reader.chunk_key2offset:
+            ids = index_reader.get_ids_from_index(dim)
+            if len(ids.shape) == 1:
+                data_arr = data_arr[ids]
+        mc = data_arr[mc_col].astype(np.int64)
+        cov = data_arr[cov_col].astype(np.int64)
+        mask = cov >= min_cov
+        mc, cov = mc[mask], cov[mask]
+        total_sig += float((cov - mc).sum())
+        total_cov += float((cov if control == 'cov' else mc).sum())
+        reader.release_chunk(dim)
+
+    if total_sig <= 0 or total_cov <= 0:
         reader.close()
         ref_reader.close()
         if index_reader:
             index_reader.close()
+        raise ValueError(
+            "no signal after filtering; check context index / min_cov.")
+    r = total_sig / total_cov
+    logger.info(f"global unmeth rate r = {r:.4g} (lambda = cov pileup * r)")
+
+    # ---- Pass 2: per-chromosome pileup -> Poisson score -> peak calls ----
+    # Each chromosome is independent (pileup + vectorised scipy.poisson.logsf),
+    # so with jobs > 1 they run in a process pool; the parent readers are
+    # closed first and every worker opens its own. The multi-GB bedGraphs and
+    # the slow ``macs3 bdgcmp`` pass are gone either way.
+    dims = [d for d in reader.chunk_key2offset
+            if d in ref_reader.chunk_key2offset]
+    idx_path = os.path.abspath(os.path.expanduser(index)) if index else None
+    reader.close()
+    ref_reader.close()
+    if index_reader:
+        index_reader.close()
+
+    wargs = dict(cz_path=cz_path, ref_path=ref_path, index_path=idx_path,
+                 mc_col=mc_col, cov_col=cov_col, min_cov=min_cov, half=half,
+                 control=control, r=r, method=method, cutoff=cutoff,
+                 min_len=min_len, max_gap=max_gap, keep_bdg=keep_bdg,
+                 output=output, name=name)
+
+    results = {}
+    if jobs and jobs > 1:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        with ProcessPoolExecutor(max_workers=jobs) as ex:
+            futs = {ex.submit(_bdg_chrom_worker, dim, **wargs): dim
+                    for dim in dims}
+            for fut in as_completed(futs):
+                chrom, frame, tp, sp = fut.result()
+                results[chrom] = (frame, tp, sp)
     else:
-        total_sig = 0.0
-        total_cov = 0.0
-        with open(treat_bdg, 'w') as tf, open(ctrl_bdg, 'w') as cf:
-            for dim in reader.chunk_key2offset:
-                if dim not in ref_reader.chunk_key2offset:
-                    continue
-                chrom = dim[0]
-                raw = reader.fetch_chunk_bytes(dim)
-                if not raw:
-                    continue
-                data_arr = np.frombuffer(raw, dtype=data_dtype)
-                ref_raw = ref_reader.fetch_chunk_bytes(dim)
-                if not ref_raw:
-                    continue
-                ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
-                if index_reader is not None and dim in index_reader.chunk_key2offset:
-                    ids = index_reader.get_ids_from_index(dim)
-                    if len(ids.shape) == 1:
-                        data_arr = data_arr[ids]
-                        ref_arr = ref_arr[ids]
-                pos = ref_arr['pos'].astype(np.int64)
-                mc = data_arr[mc_col].astype(np.int64)
-                cov = data_arr[cov_col].astype(np.int64)
-                mask = cov >= min_cov
-                pos, mc, cov = pos[mask], mc[mask], cov[mask]
-                sig = cov - mc  # unmethylated count = ATAC-like signal
-                csig = cov if control == 'cov' else mc
-                total_sig += float(sig.sum())
-                total_cov += float(csig.sum())
-                _write_seg(tf, chrom, _pileup_from_sites(pos, sig, half))
-                _write_seg(cf, chrom, _pileup_control(pos, csig, half))
-                reader.release_chunk(dim)
-                ref_reader.release_chunk(dim)
+        for dim in dims:
+            chrom, frame, tp, sp = _bdg_chrom_worker(dim, **wargs)
+            results[chrom] = (frame, tp, sp)
+            logger.debug(f"  {chrom}: done")
 
-        reader.close()
-        ref_reader.close()
-        if index_reader:
-            index_reader.close()
+    peak_frames = []
+    treat_pieces, score_pieces = [], []
+    for dim in dims:
+        frame, tp, sp = results.get(dim[0], (None, None, None))
+        if frame is not None and len(frame):
+            peak_frames.append(frame)
+        if tp:
+            treat_pieces.append(tp)
+        if sp:
+            score_pieces.append(sp)
 
-        if total_sig <= 0 or total_cov <= 0:
-            raise ValueError(
-                "no signal after filtering; check context index / min_cov.")
-        r = total_sig / total_cov  # global unmeth rate -> control lambda
+    if keep_bdg:
+        _concat_files(treat_pieces,
+                      os.path.join(output, f'{name}.treat.bdg'))
+        _concat_files(score_pieces,
+                      os.path.join(output, f'{name}.{method}.bdg'))
 
-    # Scale the coverage pileup to the expected-signal lambda (cov * r).
-    if os.path.exists(lambda_bdg):
-        logger.info(f"{lambda_bdg} already exists; skip bdgopt scaling.")
+    # ---- Assemble the narrowPeak (BED6+4): clean header, real name/score ----
+    cols = ['chrom', 'start', 'end', 'name', 'score', 'strand',
+            'signalValue', 'pValue', 'qValue', 'peak']
+    if peak_frames:
+        allpk = pd.concat(peak_frames, ignore_index=True)
+        n = len(allpk)
+        out = pd.DataFrame({
+            'chrom': allpk['chrom'].to_numpy(),
+            'start': allpk['start'].to_numpy(),
+            'end': allpk['end'].to_numpy(),
+            'name': [f'{name}_peak_{i}' for i in range(1, n + 1)],
+            # UCSC display score, 0-1000; the real value is in pValue below.
+            'score': np.minimum(
+                (allpk['summit_score'].to_numpy() * 10).astype(np.int64), 1000),
+            'strand': '.',
+            'signalValue': np.round(allpk['fe'].to_numpy(), 5),
+            'pValue': (np.round(allpk['summit_score'].to_numpy(), 5)
+                       if method == 'ppois' else -1),
+            'qValue': -1,  # genome-wide BH not computed on this route
+            'peak': allpk['offset'].to_numpy(),
+        })
     else:
-        logger.info(f"scaling control by r={r:.4g} (global unmeth rate)")
-        bdgopt_cmd = ['macs3', 'bdgopt', '-i', ctrl_bdg, '-m', 'multiply',
-                      '-p', f'{r:.8g}', '-o', lambda_bdg]
-        logger.info(f"Running: {' '.join(bdgopt_cmd)}")
-        subprocess.run(bdgopt_cmd, check=True)
-    bdgcmp_cmd = ['macs3', 'bdgcmp', '-t', treat_bdg, '-c', lambda_bdg,
-                  '-m', method, '-o', score_bdg]
-    logger.info(f"Running: {' '.join(bdgcmp_cmd)}")
-    subprocess.run(bdgcmp_cmd, check=True)
-    bdgpeakcall_cmd = ['macs3', 'bdgpeakcall', '-i', score_bdg,
-                       '-c', str(cutoff), '-l', str(min_len), '-g', str(max_gap),
-                       '-o', narrowpeak]
-    logger.info(f"Running: {' '.join(bdgpeakcall_cmd)}")
-    subprocess.run(bdgpeakcall_cmd, check=True)
-
-    if not keep_bdg:
-        for f in (treat_bdg, ctrl_bdg, lambda_bdg, score_bdg):
-            if os.path.exists(f):
-                os.remove(f)
-    logger.info(f"Peaks written to: {narrowpeak}")
+        out = pd.DataFrame(columns=cols)
+    # No track line: a bare narrowPeak loads cleanly everywhere.
+    out.to_csv(narrowpeak, sep='\t', header=False, index=False, columns=cols)
+    logger.info(f"{len(out)} peaks written to: {narrowpeak}")
     return narrowpeak
+
