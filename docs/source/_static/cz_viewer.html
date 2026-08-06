@@ -109,7 +109,7 @@
   .label {
     width: var(--track-w); flex: 0 0 var(--track-w);
     background: var(--label-bg); border-right: 1px solid var(--border);
-    padding: 6px 8px; font-size: 12px; overflow: hidden;
+    padding: 6px 8px; font-size: 12px; overflow: hidden; position: relative;
     display: flex; flex-direction: column; justify-content: center; gap: 3px;
   }
   .label .tname { font-weight: 600; display: flex; align-items: center; gap: 6px; }
@@ -122,6 +122,17 @@
   .label .swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
   .label .swatch::-moz-color-swatch { border: none; border-radius: 2px; }
   .label .meta { font-size: 10.5px; color: var(--muted); }
+  /* Vertical (90° CCW) modality strip at the far left of the label column. */
+  .label.has-mod { padding-left: 26px; }
+  .modstrip {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 20px;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    background: #e9edf3; border-right: 1px solid var(--border);
+  }
+  .modstrip span {
+    transform: rotate(-90deg); white-space: nowrap;
+    font-size: 10px; font-weight: 700; color: #3a3f57; letter-spacing: .3px;
+  }
   .label .ctrls { display: flex; gap: 5px; margin-top: 2px; }
   /* Compact label (very short tracks): drop the descriptive text, keep the name
      and the context/value/ylim controls. */
@@ -406,6 +417,21 @@
       <button id="zoomIn" class="secondary" title="Zoom in">+</button>
     </span>
     <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
+      Val
+      <select id="valSelGlobal" title="Show methylated (mC) or unmethylated (1 − mC) fraction for all .cz methylation tracks">
+        <option value="meth" selected>mC</option>
+        <option value="unmeth">1−mC</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
+      Strand
+      <select id="strandSel" title="Restrict .cz methylation to one strand (Both / + / −)">
+        <option value="both" selected>Both</option>
+        <option value="+">+</option>
+        <option value="-">−</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:#9aa0b2;">
       Res
       <select id="resSel" title="Methylation binning resolution (Auto = pick a bin size from the view span)">
         <option value="">None (per-bp)</option>
@@ -432,13 +458,20 @@
       value="https://neomorph.salk.edu/ftp/cz/hg38_with_chrL.allc.cz" />
   </div>
   <div class="field">
-    <label>New track name</label>
-    <input type="text" class="name" id="newName" value="UWA7648 NAC" />
+    <label>New track name &nbsp;·&nbsp; modality (optional)</label>
+    <div style="display:flex;gap:6px;">
+      <input type="text" class="name" id="newName" value="UWA7648 NAC" style="flex:1 1 auto;" />
+      <input type="text" class="name" id="newModality" placeholder="modality"
+        title="Optional modality label, shown vertically at the left of this track" style="width:110px;flex:0 0 auto;" />
+    </div>
   </div>
   <div class="field">
-    <label>New track URL — .cz (mc/cov, shares reference), .bw / .bigwig, .bed, .bedpe or .hic</label>
-    <input type="text" class="url" id="newUrl"
-      value="https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz" />
+    <label>New track URL — .cz (mc/cov, shares reference), .bw / .bigwig, .bedgraph.gz, .bed, .bedpe or .hic</label>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input type="text" class="url" id="newUrl"
+        value="https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz" />
+      <button id="btnAddTrack" title="Add a remote track (.cz / .bw / .bedgraph.gz / .bed / .bedpe / .hic) using the fields above">+ Add track</button>
+    </div>
   </div>
   <div class="field">
     <label>Saved tracks (add / re-add removed)</label>
@@ -460,13 +493,9 @@
     <datalist id="geneSetList"></datalist>
   </div>
   <div class="field">
-    <label>&nbsp;</label>
-    <button id="btnAddTrack" title="Add a methylation .cz track (uses the fields above)">+ Add cz track</button>
-  </div>
-  <div class="field">
-    <label>Track table — file or URL (csv/tsv/xlsx/json): name, url, [Group]</label>
+    <label>Track table — file or URL (csv/tsv): name, url, [Group], [Modality]</label>
     <div style="display:flex;gap:6px;align-items:center;">
-      <input type="file" id="trackTable" accept=".csv,.tsv,.txt,.json,.xlsx,.xls"
+      <input type="file" id="trackTable" accept=".csv,.tsv"
         style="font-size:11px;color:#dfe2ea;max-width:140px;" />
       <input type="text" class="url" id="trackTableUrl" placeholder="https://…/tracks.csv" value="https://neomorph.salk.edu/ftp/cz/cz_url.tsv" style="width:170px" />
       <button id="btnTrackTableUrl" class="secondary">Load</button>
@@ -519,7 +548,7 @@
   <div id="labelresize" title="Drag to resize the track-header (label) column"></div>
   <div id="tracks">
     <div class="empty hint" id="emptyMsg">
-      No tracks yet. Click <b>Load reference</b>, then <b>+ Add cz track</b> to visualize a remote <code>.cz</code> file.
+      No tracks yet. Click <b>Load reference</b>, then <b>+ Add track</b> to visualize a remote <code>.cz</code> file.
     </div>
   </div>
 </div>
@@ -653,6 +682,8 @@ const state = {
   locus: null,          // {chrom, start, end}
   resolution: null,     // methylation binning: null = per-bp, else bin width in bp
   resAuto: true,        // when true, pick the bin width from the current view span
+  valType: 'meth',      // global .cz display: 'meth' = mC, 'unmeth' = 1 − mC
+  strand: 'both',       // global .cz strand filter: 'both' | '+' | '-'
   colorMap: {},         // { trackName: colorCode } from an uploaded palette
   yScale: '1',          // mc y-axis: '1' = fixed 0-1, 'auto' = per-track max
   tracks: [],           // {id, kind:'mc'|'seq'|'gene', name, url, reader, color, ctx, canvas, labelEl, metaEl}
@@ -988,14 +1019,15 @@ function removeTrackByUrl(url) {
 async function addSavedEntry(e) {
   const name = e.name, url = e.url;
   try {
-    if (e.fmt === 'hic' || isHicUrl(url)) await openHicTrack({ name, url, group: e.group || '' });
-    else if (e.fmt === 'bedpe' || isBedpeUrl(url)) await openBedTrack({ name, url, group: e.group || '', kind: 'bedpe' });
-    else if (e.fmt === 'bw' || isBigWigUrl(url)) await openBigWigTrack({ name, url, group: e.group || '' });
-    else if (e.fmt === 'bed' || isBedUrl(url)) await openBedTrack({ name, url, group: e.group || '', kind: 'bed' });
+    if (e.fmt === 'hic' || isHicUrl(url)) await openHicTrack({ name, url, group: e.group || '', modality: e.modality || '' });
+    else if (e.fmt === 'bedpe' || isBedpeUrl(url)) await openBedTrack({ name, url, group: e.group || '', kind: 'bedpe', modality: e.modality || '' });
+    else if (e.fmt === 'bedgraph' || isBedGraphUrl(url)) await openBedGraphTrack({ name, url, group: e.group || '', modality: e.modality || '' });
+    else if (e.fmt === 'bw' || isBigWigUrl(url)) await openBigWigTrack({ name, url, group: e.group || '', modality: e.modality || '' });
+    else if (e.fmt === 'bed' || isBedUrl(url)) await openBedTrack({ name, url, group: e.group || '', kind: 'bed', modality: e.modality || '' });
     else {
       if (!state.refReader) { setStatus('Load the reference .cz first before re-adding a methylation track.', true); return false; }
       if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
-      await openCzTrack({ name, url, ctx: e.ctx || 'ALL', valType: e.valType || 'meth', group: e.group || '' });
+      await openCzTrack({ name, url, ctx: e.ctx || 'ALL', valType: e.valType || 'meth', group: e.group || '', modality: e.modality || '' });
     }
     buildTrackRows(); render();
     return true;
@@ -1093,17 +1125,19 @@ function savedSelectNone() {
 async function addTrack(defCtx = 'ALL', defVal = 'meth') {
   const url = $('newUrl').value.trim();
   const name = $('newName').value.trim() || `track ${state.tracks.length + 1}`;
-  if (!url) { setStatus('Enter a track URL (.cz, .bw, .bed, .bedpe or .hic).', true); return; }
+  const modality = ($('newModality') && $('newModality').value.trim()) || '';
+  if (!url) { setStatus('Enter a track URL (.cz, .bw, .bedgraph.gz, .bed, .bedpe or .hic).', true); return; }
   // Self-contained formats need no reference .cz.
-  if (isHicUrl(url) || isBedpeUrl(url) || isBigWigUrl(url) || isBedUrl(url)) {
+  if (isHicUrl(url) || isBedpeUrl(url) || isBigWigUrl(url) || isBedGraphUrl(url) || isBedUrl(url)) {
     try {
       setStatus(`Opening “${name}”…`);
       let fmt;
-      if (isHicUrl(url)) { await openHicTrack({ name, url }); fmt = 'hic'; }
-      else if (isBedpeUrl(url)) { await openBedTrack({ name, url, kind: 'bedpe' }); fmt = 'bedpe'; }
-      else if (isBigWigUrl(url)) { await openBigWigTrack({ name, url }); fmt = 'bw'; }
-      else { await openBedTrack({ name, url, kind: 'bed' }); fmt = 'bed'; }
-      saveTrack({ name, url, fmt });
+      if (isHicUrl(url)) { await openHicTrack({ name, url, modality }); fmt = 'hic'; }
+      else if (isBedpeUrl(url)) { await openBedTrack({ name, url, kind: 'bedpe', modality }); fmt = 'bedpe'; }
+      else if (isBigWigUrl(url)) { await openBigWigTrack({ name, url, modality }); fmt = 'bw'; }
+      else if (isBedGraphUrl(url)) { await openBedGraphTrack({ name, url, modality }); fmt = 'bedgraph'; }
+      else { await openBedTrack({ name, url, kind: 'bed', modality }); fmt = 'bed'; }
+      saveTrack({ name, url, fmt, modality });
       buildTrackRows();
       setStatus(state.locus
         ? `Added ${fmt.toUpperCase()} “${name}”. Rendering…`
@@ -1114,12 +1148,12 @@ async function addTrack(defCtx = 'ALL', defVal = 'meth') {
     }
     return;
   }
-  if (!state.refReader) { setStatus('Load the reference first (or use a .bw/.bed/.bedpe/.hic URL).', true); return; }
+  if (!state.refReader) { setStatus('Load the reference first (or use a .bw/.bedgraph.gz/.bed/.bedpe/.hic URL).', true); return; }
   const ctx = defCtx, valType = defVal;
   try {
     setStatus(`Opening track “${name}”…`);
-    const tr = await openCzTrack({ name, url, ctx, valType });
-    saveTrack({ name, url, ctx, valType });
+    const tr = await openCzTrack({ name, url, ctx, valType, modality });
+    saveTrack({ name, url, ctx, valType, modality });
     buildTrackRows();
     setStatus(tr.mismatch ? `Added “${name}”. ${tr.mismatch}` : `Added track “${name}”. Rendering ${locusText(state.locus)}…`, !!tr.mismatch);
     render();
@@ -1129,7 +1163,7 @@ async function addTrack(defCtx = 'ALL', defVal = 'meth') {
 }
 
 // Open a single methylation .cz track and push it into state (no UI side effects).
-async function openCzTrack({ name, url, ctx = 'ALL', valType = 'meth', group = '', ylim = 'auto' }) {
+async function openCzTrack({ name, url, ctx = 'ALL', valType = 'meth', group = '', modality = '', ylim = 'auto' }) {
   if (!state.refReader) throw new Error('Load the reference first.');
   if (!url) throw new Error('missing URL');
   const reader = await state.CzReader.fromUrl(url, { randomReadAhead: READ_AHEAD_BYTES });
@@ -1139,6 +1173,7 @@ async function openCzTrack({ name, url, ctx = 'ALL', valType = 'meth', group = '
     id: ++state.trackSeq, kind: 'mc',
     name: named, url, reader,
     ctx: ctx || 'ALL', valType: valType || 'meth', group: group || '',
+    modality: modality || '',
     ylim: Array.isArray(ylim) ? ylim : 'auto',
     color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nMc % PALETTE.length],
     mismatch: validateAgainstRef(reader),
@@ -1173,7 +1208,7 @@ async function getBbiLibs() {
   if (!_bbiLibs) {
     const [{ BigWig }, { RemoteFile }] = await Promise.all([
       import('https://esm.sh/@gmod/bbi@4'),
-      import('https://esm.sh/generic-filehandle2@2'),
+      import('https://esm.sh/generic-filehandle@3'),
     ]);
     _bbiLibs = { BigWig, RemoteFile };
   }
@@ -1182,7 +1217,7 @@ async function getBbiLibs() {
 function isBigWigUrl(url) { return /\.(bw|bigwig)(?:[?#].*)?$/i.test(String(url)); }
 
 // Open a remote BigWig as a signal track (needs no reference .cz).
-async function openBigWigTrack({ name, url, ylim = 'auto', group = '' }) {
+async function openBigWigTrack({ name, url, ylim = 'auto', group = '', modality = '' }) {
   if (!url) throw new Error('missing URL');
   const { BigWig, RemoteFile } = await getBbiLibs();
   const bw = new BigWig({ filehandle: new RemoteFile(url, { fetch: (u, o) => fetch(u, o) }) });
@@ -1191,7 +1226,7 @@ async function openBigWigTrack({ name, url, ylim = 'auto', group = '' }) {
   const named = name || url.split('/').pop();
   const track = {
     id: ++state.trackSeq, kind: 'bw', name: named, url, bw,
-    group: group || '', ylim: Array.isArray(ylim) ? ylim : 'auto',
+    group: group || '', modality: modality || '', ylim: Array.isArray(ylim) ? ylim : 'auto',
     color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length],
   };
   state.tracks.push(track);
@@ -1199,6 +1234,7 @@ async function openBigWigTrack({ name, url, ylim = 'auto', group = '' }) {
 }
 // Fetch BigWig intervals for a locus, tolerating chr/no-chr naming differences.
 async function bwGetFeatures(track, chrom, start, end, scale) {
+  if (track.bedgraph) return bedGraphGetFeatures(track, chrom, start, end);
   const names = [...new Set([chrom, chrom.replace(/^chr/, ''), chrom.startsWith('chr') ? chrom : ('chr' + chrom)])];
   for (const nm of names) {
     try {
@@ -1209,12 +1245,58 @@ async function bwGetFeatures(track, chrom, start, end, scale) {
   return [];
 }
 
+// A bgzip+tabix bedGraph is a quantitative signal (chrom start end value), so
+// it is rendered by the BigWig signal path (kind 'bw', bedgraph:true) rather
+// than as BED intervals. Only bgzip+tabix is accepted (read by HTTP Range).
+async function openBedGraphTrack({ name, url, ylim = 'auto', group = '', modality = '' }) {
+  if (!url) throw new Error('missing URL');
+  if (!/\.gz(?:[?#].*)?$/i.test(url)) {
+    throw new Error('plain .bedgraph is not supported (it would require a full download) — ' +
+      'bgzip + tabix-index it ("bgzip file.bedgraph && tabix -p bed file.bedgraph.gz") and use the .gz URL');
+  }
+  const { TabixIndexedFile, RemoteFile } = await getTabixLibs();
+  const tabix = new TabixIndexedFile({
+    filehandle: new RemoteFile(url, { fetch: (u, o) => fetch(u, o) }),
+    tbiFilehandle: new RemoteFile(url + '.tbi', { fetch: (u, o) => fetch(u, o) }),
+  });
+  await tabix.getReferenceSequenceNames();             // validates the index, fails early
+  const nData = state.tracks.filter(t => t.kind === 'mc' || t.kind === 'bw').length;
+  const named = name || url.split('/').pop();
+  const track = {
+    id: ++state.trackSeq, kind: 'bw', bedgraph: true, name: named, url, tabix,
+    group: group || '', modality: modality || '', ylim: Array.isArray(ylim) ? ylim : 'auto',
+    color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length],
+  };
+  state.tracks.push(track);
+  return track;
+}
+// Fetch bedGraph lines (chrom start end value) as {start,end,score} intervals.
+async function bedGraphGetFeatures(track, chrom, start, end) {
+  let names = [];
+  try { names = await track.tabix.getReferenceSequenceNames(); } catch (_) {}
+  const cand = chromNameVariants(chrom).filter(n => !names.length || names.includes(n));
+  const out = [];
+  for (const nm of (cand.length ? cand : chromNameVariants(chrom))) {
+    try {
+      await track.tabix.getLines(nm, Math.max(0, Math.floor(start)), Math.ceil(end), (line) => {
+        const c = line.split('\t');
+        if (c.length < 4) return;
+        const s = parseInt(c[1], 10), e = parseInt(c[2], 10), v = parseFloat(c[3]);
+        if (Number.isFinite(s) && Number.isFinite(e) && Number.isFinite(v)) out.push({ start: s, end: e, score: v });
+      });
+      if (out.length) break;
+    } catch (_) { /* try next naming convention */ }
+  }
+  return out;
+}
+
 // ── BED / BEDPE / .hic remote formats ────────────────────────────────────────
 function chromNameVariants(chrom) {
   return [...new Set([chrom, chrom.replace(/^chr/, ''), chrom.startsWith('chr') ? chrom : ('chr' + chrom)])];
 }
 function isBedpeUrl(url) { return /\.bedpe(\.gz)?(?:[?#].*)?$/i.test(String(url)); }
-function isBedUrl(url) { return /\.bed(\.gz)?(?:[?#].*)?$/i.test(String(url)) && !isBedpeUrl(url); }
+function isBedGraphUrl(url) { return /\.(bedgraph|bdg|bg)\.gz(?:[?#].*)?$/i.test(String(url)); }
+function isBedUrl(url) { return /\.bed(\.gz)?(?:[?#].*)?$/i.test(String(url)) && !isBedpeUrl(url) && !isBedGraphUrl(url); }
 function isHicUrl(url) { return /\.hic(?:[?#].*)?$/i.test(String(url)); }
 
 let _tabixLibs = null;
@@ -1246,7 +1328,7 @@ function parseBedpeLine(line) {
 
 // Open a remote BED or BEDPE track. Only bgzip + tabix-indexed files are
 // accepted so the data is read by HTTP Range (never fully downloaded).
-async function openBedTrack({ name, url, group = '', kind = 'bed' }) {
+async function openBedTrack({ name, url, group = '', kind = 'bed', modality = '' }) {
   if (!url) throw new Error('missing URL');
   const gz = /\.gz(?:[?#].*)?$/i.test(url);
   if (!gz) {
@@ -1256,7 +1338,7 @@ async function openBedTrack({ name, url, group = '', kind = 'bed' }) {
   const named = name || url.split('/').pop();
   const nData = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene').length;
   const track = {
-    id: ++state.trackSeq, kind, name: named, url, group: group || '',
+    id: ++state.trackSeq, kind, name: named, url, group: group || '', modality: modality || '',
     color: (state.colorMap && state.colorMap[named]) ? normalizeColor(state.colorMap[named]) : PALETTE[nData % PALETTE.length],
     tabix: null,
   };
@@ -1286,16 +1368,16 @@ async function bedGetFeatures(track, chrom, start, end) {
   return out;
 }
 
-// Open a remote .hic (Juicebox) contact matrix via @gmod/hic.
+// Open a remote .hic (Juicebox) contact matrix via hic-straw (HTTP Range).
 let _hicLib = null;
 async function getHicLib() {
   if (!_hicLib) {
-    const mod = await import('https://esm.sh/@gmod/hic@3');
+    const mod = await import('https://esm.sh/hic-straw@2');
     _hicLib = mod.default || mod.HicStraw || mod;
   }
   return _hicLib;
 }
-async function openHicTrack({ name, url, group = '' }) {
+async function openHicTrack({ name, url, group = '', modality = '' }) {
   if (!url) throw new Error('missing URL');
   const HicStraw = await getHicLib();
   // Pass the URL so HicStraw builds its own file handle; requests still flow
@@ -1306,7 +1388,7 @@ async function openHicTrack({ name, url, group = '' }) {
   try { const n = await straw.getNormalizationOptions(); if (Array.isArray(n) && n.length) norms = n; } catch (_) {}
   const named = name || url.split('/').pop();
   const track = {
-    id: ++state.trackSeq, kind: 'hic', name: named, url, straw, group: group || '',
+    id: ++state.trackSeq, kind: 'hic', name: named, url, straw, group: group || '', modality: modality || '',
     resolutions: (resolutions.length ? resolutions : [2500000, 1000000, 500000, 250000, 100000, 50000, 25000, 10000, 5000, 1000]).sort((a, b) => a - b),
     norm: norms.includes('KR') ? 'KR' : (norms.includes('VC') ? 'VC' : 'NONE'),
     color: '#b2182b',
@@ -1372,13 +1454,14 @@ function tableToTrackRows(parsed) {
     const rows = [];
     for (const it of arr) {
       if (Array.isArray(it)) {
-        const [name, url, group] = it;
-        if (url) rows.push({ name: String(name || url).trim() || url, url: String(url).trim(), group: String(group || '').trim(), ctx: 'ALL' });
+        const [name, url, group, modality] = it;
+        if (url) rows.push({ name: String(name || url).trim() || url, url: String(url).trim(), group: String(group || '').trim(), modality: String(modality || '').trim(), ctx: 'ALL' });
       } else if (it && typeof it === 'object') {
         const url = it.url || it.URL || it.Url; if (!url) continue;
         rows.push({
           name: String(it.name || it.Name || String(url).split('/').pop()).trim(),
           url: String(url).trim(), group: String(it.group || it.Group || '').trim(),
+          modality: String(it.modality || it.Modality || '').trim(),
           ctx: it.ctx || it.context || 'ALL',
         });
       }
@@ -1394,7 +1477,7 @@ function tableToTrackRows(parsed) {
     const cells = (matrix[i] || []).map(c => String(c).trim());
     const url = cells[1];
     if (!url) continue;
-    rows.push({ name: cells[0] || url.split('/').pop(), url, group: cells[2] || '', ctx: 'ALL' });
+    rows.push({ name: cells[0] || url.split('/').pop(), url, group: cells[2] || '', modality: cells[3] || '', ctx: 'ALL' });
   }
   return rows;
 }
@@ -1457,7 +1540,7 @@ function applyColorMap(map, label) {
 // Open every track row into the viewer.
 async function ingestTrackRows(rows, label) {
   if (!rows.length) { setStatus(`No track rows found in ${label}.`, true); return; }
-  const isSpecial = (u) => isHicUrl(u) || isBedpeUrl(u) || isBigWigUrl(u) || isBedUrl(u);
+  const isSpecial = (u) => isHicUrl(u) || isBedpeUrl(u) || isBigWigUrl(u) || isBedGraphUrl(u) || isBedUrl(u);
   // Only need the .cz reader module if some rows are plain .cz.
   if (rows.some(r => !isSpecial(r.url)) && !state.CzReader) {
     const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader;
@@ -1467,11 +1550,12 @@ async function ingestTrackRows(rows, label) {
   for (const r of rows) {
     let t;
     try {
-      if (isHicUrl(r.url)) { t = await openHicTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'hic', group: r.group }); ok++; }
-      else if (isBedpeUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe' }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe', group: r.group }); ok++; }
-      else if (isBigWigUrl(r.url)) { t = await openBigWigTrack({ name: r.name, url: r.url, group: r.group }); saveTrack({ name: r.name, url: r.url, fmt: 'bw', group: r.group }); ok++; }
-      else if (isBedUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed' }); saveTrack({ name: r.name, url: r.url, fmt: 'bed', group: r.group }); ok++; }
-      else { t = await openCzTrack(r); if (t.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx, valType: r.valType, group: r.group }); ok++; }
+      if (isHicUrl(r.url)) { t = await openHicTrack({ name: r.name, url: r.url, group: r.group, modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'hic', group: r.group, modality: r.modality }); ok++; }
+      else if (isBedpeUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bedpe', modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'bedpe', group: r.group, modality: r.modality }); ok++; }
+      else if (isBigWigUrl(r.url)) { t = await openBigWigTrack({ name: r.name, url: r.url, group: r.group, modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'bw', group: r.group, modality: r.modality }); ok++; }
+      else if (isBedGraphUrl(r.url)) { t = await openBedGraphTrack({ name: r.name, url: r.url, group: r.group, modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'bedgraph', group: r.group, modality: r.modality }); ok++; }
+      else if (isBedUrl(r.url)) { t = await openBedTrack({ name: r.name, url: r.url, group: r.group, kind: 'bed', modality: r.modality }); saveTrack({ name: r.name, url: r.url, fmt: 'bed', group: r.group, modality: r.modality }); ok++; }
+      else { t = await openCzTrack(r); if (t.mismatch) mism++; saveTrack({ name: r.name, url: r.url, ctx: r.ctx, valType: r.valType, group: r.group, modality: r.modality }); ok++; }
     } catch (e) { failed.push(`${r.name}: ${e.message}`); continue; }
     // Show + render only this new track (O(1) per track). Fall back to a full
     // rebuild when it can't just be appended at the end (e.g. grouped tables).
@@ -1490,15 +1574,19 @@ async function ingestTrackRows(rows, label) {
 async function onTrackTableFile(ev) {
   const file = ev.target.files && ev.target.files[0]; ev.target.value = '';
   if (!file) return;
-  try { await ingestTrackRows(tableToTrackRows(await readTable(extOf(file.name), fileIO(file))), file.name); }
+  const ext = extOf(file.name);
+  if (ext && ext !== 'csv' && ext !== 'tsv') { setStatus('Track table must be CSV or TSV (Excel is no longer supported).', true); return; }
+  try { await ingestTrackRows(tableToTrackRows(await readTable(ext, fileIO(file))), file.name); }
   catch (e) { setStatus('Failed to read table: ' + e.message, true); }
 }
 async function onTrackTableUrl() {
   const url = ($('trackTableUrl').value || '').trim();
   if (!url) { setStatus('Enter a track table URL.', true); return; }
+  const ext = extOf(url);
+  if (ext && ext !== 'csv' && ext !== 'tsv') { setStatus('Track table must be CSV or TSV (Excel is no longer supported).', true); return; }
   try {
     const resp = await fetch(url); if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    await ingestTrackRows(tableToTrackRows(await readTable(extOf(url), respIO(resp))), url.split('/').pop() || url);
+    await ingestTrackRows(tableToTrackRows(await readTable(ext, respIO(resp))), url.split('/').pop() || url);
   } catch (e) { setStatus('Failed to load track table URL: ' + e.message, true); }
 }
 async function onColorFile(ev) {
@@ -1530,15 +1618,17 @@ function removeTrack(id) {
 function buildTrackRows() {
   const host = $('tracks');
   host.innerHTML = '';
+  if (_trackIO) _trackIO.disconnect();   // re-observed per row below via createTrackRow
   if (state.tracks.length === 0) {
-    host.innerHTML = '<div class="empty hint">No tracks yet. Select a <b>Genome</b> to load sequence + gene tracks, or add a methylation <b>+ Add cz track</b>.</div>';
+    host.innerHTML = '<div class="empty hint">No tracks yet. Select a <b>Genome</b> to load sequence + gene tracks, or add a track with <b>+ Add track</b>.</div>';
     return;
   }
 
   // Ruler row
   const rr = document.createElement('div');
   rr.className = 'row rulerrow';
-  rr.innerHTML = `<div class="label"><div class="tname">Position</div>
+  const showModR = state.tracks.some(t => t.modality);
+  rr.innerHTML = `<div class="label${showModR ? ' has-mod' : ''}">${showModR ? '<div class="modstrip"></div>' : ''}<div class="tname">Position</div>
     <div class="meta" id="rulerMeta"></div></div>`;
   const rv = document.createElement('div');
   rv.className = 'view'; rv.dataset.ruler = '1'; rv.style.minHeight = '30px';
@@ -1580,16 +1670,15 @@ function createTrackRow(t, grp, gColors) {
 
   const label = document.createElement('div');
   label.className = 'label';
+  const showMod = state.tracks.some(x => x.modality);
+  if (showMod) label.classList.add('has-mod');
+  const modHtml = showMod ? `<div class="modstrip"><span>${escapeHtml(t.modality || '')}</span></div>` : '';
   const ylimLabel = Array.isArray(t.ylim) ? `y:${t.ylim[0]}–${t.ylim[1]}` : 'y:auto';
   const ctxCtrls = t.kind === 'mc'
     ? `<div class="ctrls">
          <select class="ctxsel">
            ${['CG','CH','CHG','CHH','ALL'].map(c =>
              `<option value="${c}" ${c === t.ctx ? 'selected' : ''}>${c === 'ALL' ? 'All C' : c}</option>`).join('')}
-         </select>
-         <select class="valsel" title="Methylated or unmethylated (1 − mC) fraction">
-           ${[['meth','mC'],['unmeth','1−mC']].map(([v,lab]) =>
-             `<option value="${v}" ${v === (t.valType || 'meth') ? 'selected' : ''}>${lab}</option>`).join('')}
          </select>
          <button class="ylimbtn" title="Set Y-axis limits (default auto)">${escapeHtml(ylimLabel)}</button>
        </div>`
@@ -1599,6 +1688,7 @@ function createTrackRow(t, grp, gColors) {
          </div>`
       : '');
   label.innerHTML =
+    modHtml +
     `<div class="tname"><span class="grip" title="Drag up/down to move track(s)">⠿</span>` +
     `<input type="color" class="swatch" title="Change track color" value="${toHexColor(t.color)}">` +
     `<span class="tnametxt">${escapeHtml(t.name)}</span>` +
@@ -1625,8 +1715,6 @@ function createTrackRow(t, grp, gColors) {
   if (swatch) swatch.oninput = (e) => { t.color = e.target.value; quickRedraw(); };
   const ctxSel = label.querySelector('.ctxsel');
   if (ctxSel) ctxSel.onchange = (e) => { t.ctx = e.target.value; render(); };
-  const valSel = label.querySelector('.valsel');
-  if (valSel) valSel.onchange = (e) => { t.valType = e.target.value; render(); };
   const ylimBtn = label.querySelector('.ylimbtn');
   if (ylimBtn) ylimBtn.onclick = (e) => { e.stopPropagation(); openYlimEditor([t], e.currentTarget); };
   t.metaEl = label.querySelector('.meta');
@@ -1639,6 +1727,8 @@ function createTrackRow(t, grp, gColors) {
   const canvas = document.createElement('canvas');
   view.appendChild(canvas);
   t.canvas = canvas; t.view = view;
+  view._track = t;
+  const io = trackIO(); if (io) io.observe(view);
   attachPanZoom(view);
   row.appendChild(label); row.appendChild(view);
   return row;
@@ -1652,6 +1742,8 @@ function appendTrackRowIfLast(t) {
   const ordered = orderedTracksForDisplay();
   if (ordered[ordered.length - 1] !== t) return false;
   if (t.kind === 'mc' && t.group) return false;
+  // First modality track: rebuild fully so every row + the ruler gain the strip.
+  if (t.modality && !host.querySelector('.modstrip')) return false;
   host.appendChild(createTrackRow(t, '', groupColorMap(ordered)));
   updateSelBar();
   return true;
@@ -1909,8 +2001,9 @@ function setSelectedCtx(ctx) {
   buildTrackRows(); render();
 }
 function setSelectedVal(v) {
-  for (const t of selectedTracks()) if (t.kind === 'mc') t.valType = v;
-  buildTrackRows(); render();
+  state.valType = v;
+  if ($('valSelGlobal')) $('valSelGlobal').value = v;
+  quickRedraw();
 }
 
 // ── Y-axis limit editor (single track via its button, or many via the bar) ───
@@ -2043,6 +2136,55 @@ function quickRedraw() {
   updateMarks();
 }
 
+// ── Viewport lazy-loading ────────────────────────────────────────────────────
+// Only tracks whose row is in (or near) the viewport are fetched/drawn on a
+// render; off-screen tracks are marked pending and drawn by an
+// IntersectionObserver when the user scrolls them into view, so a page with
+// many tracks stays fast. state._drawCtx holds the current render context so a
+// scroll-triggered draw reuses the same generation / reference query.
+let _trackIO = null;
+function trackIO() {
+  if (!_trackIO && typeof IntersectionObserver !== 'undefined') {
+    _trackIO = new IntersectionObserver((entries) => {
+      const c = state._drawCtx;
+      if (!c || c.gen !== state.gen) return;
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        const t = e.target._track;
+        if (t && t._pending) { t._pending = false; drawOneTrackCtx(t, c); }
+      }
+    }, { root: null, rootMargin: '400px 0px' });
+  }
+  return _trackIO;
+}
+function isRowNear(t) {
+  if (!t || !t.view) return true;
+  const r = t.view.getBoundingClientRect();
+  const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+  return r.bottom > -400 && r.top < vh + 400;
+}
+// Force every track's data for the current view to load (bypassing lazy-loading)
+// so exports include off-screen tracks that were never scrolled into view.
+async function ensureTracksForExport() {
+  if (!state.locus || !state.tracks.length) return;
+  const gen = state.gen;
+  const { chrom, start, end } = state.locus;
+  const fr = fetchRange(); const { fStart, fEnd } = fr;
+  let qi = (state._qi && rangeCovers(state._qi)) ? state._qi.qi : null;
+  if (!qi && state.refReader && state.tracks.some(t => t.kind === 'mc')) {
+    try { qi = await ensureQi(gen, chrom, fStart, fEnd); } catch (_) {}
+  }
+  const c = { gen, chrom, start, end, fStart, fEnd, fr, qi };
+  for (const t of state.tracks) {
+    const cached =
+      (t.kind === 'seq' || t.kind === 'gene') ||
+      (t.kind === 'mc' && t._data && rangeCovers(t._dataRange)) ||
+      (t.kind === 'bw' && t._bwData && rangeCovers(t._bwRange)) ||
+      ((t.kind === 'bed' || t.kind === 'bedpe') && t._bedData && rangeCovers(t._bedRange)) ||
+      (t.kind === 'hic' && t._hicData && rangeCovers(t._hicRange));
+    if (!cached) { t._pending = false; await drawOneTrackCtx(t, c); }
+  }
+}
 async function renderNow() {
   if (!state.locus || state.tracks.length === 0) return;
   const gen = ++state.gen;
@@ -2084,14 +2226,19 @@ async function renderNow() {
   updateRulerMeta();
 
   // Fetch + draw each track through a bounded worker pool (see MAX_TRACK_WORKERS)
-  // so many tracks load progressively without flooding the network.
+  // so many tracks load progressively without flooding the network. Off-screen
+  // rows are skipped (marked pending) and drawn on scroll by the observer.
   const c = { gen, chrom, start, end, fStart, fEnd, fr, qi };
+  state._drawCtx = c;
   const drawOrder = orderedTracksForDisplay();
   let next = 0;
   const worker = async () => {
     while (next < drawOrder.length) {
       if (gen !== state.gen) return;
-      await drawOneTrackCtx(drawOrder[next++], c);
+      const t = drawOrder[next++];
+      if (trackIO() && !isRowNear(t)) { t._pending = true; continue; }
+      t._pending = false;
+      await drawOneTrackCtx(t, c);
     }
   };
   await Promise.all(Array.from({ length: Math.min(MAX_TRACK_WORKERS, drawOrder.length) }, worker));
@@ -2174,7 +2321,13 @@ async function renderNewTrack(t) {
     try { qi = await ensureQi(gen, chrom, fStart, fEnd); } catch (e) { setStatus('Reference query failed: ' + e.message, true); return; }
     if (gen !== state.gen) return;
   }
-  await drawOneTrackCtx(t, { gen, chrom, start, end, fStart, fEnd, fr, qi });
+  const c = { gen, chrom, start, end, fStart, fEnd, fr, qi };
+  state._drawCtx = c;
+  // Off-screen new tracks (e.g. many rows from a table) stay pending and load
+  // when scrolled into view; only draw the ones already near the viewport.
+  if (trackIO() && !isRowNear(t)) { t._pending = true; return; }
+  t._pending = false;
+  await drawOneTrackCtx(t, c);
 }
 
 // ── Draw one methylation track (binned by pixel column) ──────────────────────
@@ -2209,17 +2362,21 @@ function getDrawPlan(qi, W, start, span, res) {
   qi._plan = plan; qi._planSig = sig;
   return plan;
 }
-// In-range site indices whose reference context matches `filter` (cached on the
-// plan, so tracks sharing a context pay the ctx scan only once per view).
-function ctxIndexFor(plan, qi, filter) {
-  let idx = plan.ctxIdx.get(filter);
+// In-range site indices whose reference context matches `filter` and (when
+// `strand` is '+' or '-') whose reference strand matches. Cached on the plan
+// keyed by context+strand, so tracks sharing both pay the scan only once.
+function ctxIndexFor(plan, qi, filter, strand) {
+  const sfilt = (strand === '+' || strand === '-') ? strand : null;
+  const key = sfilt ? filter + '\t' + sfilt : filter;
+  let idx = plan.ctxIdx.get(key);
   if (idx) return idx;
   const recs = qi.records, col = plan.col, n = recs.length;
+  const ok = (i) => col[i] >= 0 && ctxMatch(recs[i][2], filter) && (!sfilt || recs[i][1] === sfilt);
   let cnt = 0;
-  for (let i = 0; i < n; i++) if (col[i] >= 0 && ctxMatch(recs[i][2], filter)) cnt++;
+  for (let i = 0; i < n; i++) if (ok(i)) cnt++;
   idx = new Int32Array(cnt);
-  for (let i = 0, k = 0; i < n; i++) if (col[i] >= 0 && ctxMatch(recs[i][2], filter)) idx[k++] = i;
-  plan.ctxIdx.set(filter, idx);
+  for (let i = 0, k = 0; i < n; i++) if (ok(i)) idx[k++] = i;
+  plan.ctxIdx.set(key, idx);
   return idx;
 }
 function drawTrack(track, qi, vals, dst) {
@@ -2240,11 +2397,11 @@ function drawTrack(track, qi, vals, dst) {
 
   // Shared geometry + this track's context-filtered site list.
   const plan = getDrawPlan(qi, W, start, span, res);
-  const idx = ctxIndexFor(plan, qi, track.ctx);
+  const idx = ctxIndexFor(plan, qi, track.ctx, state.strand);
   const col = plan.col;
   const mcArr = vals.columns[0], covArr = vals.columns[1];
   const nCommon = Math.min(qi.positions.length, vals.n);
-  const unmeth = track.valType === 'unmeth';
+  const unmeth = state.valType === 'unmeth';
 
   // Aggregate mc/cov per pixel column (per-bp) or into genome-aligned bins.
   // sumMc/sumCov stay pixel-indexed so the hover tooltip works in both modes.
@@ -2343,8 +2500,8 @@ function drawTrack(track, qi, vals, dst) {
   if (live) track._draw = { start, end, W, sumMc, sumCov };
 
   const meanM = totCov ? (totMc / totCov) : 0;
-  const meanShown = track.valType === 'unmeth' ? (1 - meanM) : meanM;
-  const valTag = track.valType === 'unmeth' ? '1−mC' : 'mC';
+  const meanShown = state.valType === 'unmeth' ? (1 - meanM) : meanM;
+  const valTag = state.valType === 'unmeth' ? '1−mC' : 'mC';
   const resLabel = res ? ` · ${res} bp bins` : '';
   const scaleLabel = Array.isArray(track.ylim)
     ? ` · y:[${scaleMin}–${scaleMax}]`
@@ -2832,6 +2989,13 @@ class SvgRecorder {
     const dy = this.textBaseline === 'middle' ? '0.35em' : (this.textBaseline === 'top' ? '0.8em' : '0');
     this.parts.push(`<text x="${(x + this._tx).toFixed(2)}" y="${(y + this._ty).toFixed(2)}" font-family="${f.family}" font-size="${f.size}px" font-weight="${f.weight}" fill="${_svgColor(this.fillStyle)}" text-anchor="${anchor}" dy="${dy}">${_svgEsc(t)}</text>`);
   }
+  // Vertical text (rotated 90° CCW) centered at (cx, cy) — used for modality labels.
+  vtext(t, cx, cy) {
+    if (t == null || t === '') return;
+    const f = _parseFont(this.font);
+    const x = (cx + this._tx).toFixed(2), y = (cy + this._ty).toFixed(2);
+    this.parts.push(`<text x="${x}" y="${y}" font-family="${f.family}" font-size="${f.size}px" font-weight="${f.weight}" fill="${_svgColor(this.fillStyle)}" text-anchor="middle" dy="0.35em" transform="rotate(-90 ${x} ${y})">${_svgEsc(t)}</text>`);
+  }
   toSvg() {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${this.w}" height="${this.h}" viewBox="0 0 ${this.w} ${this.h}">` +
       `<rect width="100%" height="100%" fill="#ffffff"/>${this.parts.join('')}</svg>`;
@@ -2842,10 +3006,12 @@ class SvgRecorder {
 // one SVG string using the SvgRecorder. Async because gene/seq tracks may fetch.
 async function composeExportSvg() {
   if (!state.locus || state.tracks.length === 0) throw new Error('Load a view with tracks first.');
+  await ensureTracksForExport();   // include off-screen (lazy) tracks in the export
   const ordered = orderedTracksForDisplay();
   const gColors = groupColorMap(ordered);
   const viewW = Math.round((state.rulerView && state.rulerView.clientWidth) || 800);
   const labelW = 190, rulerH = 30, hdrH = 18;
+  const modW = ordered.some(t => t.modality) ? 20 : 0;   // width of the vertical modality strip (0 = none)
 
   let total = rulerH, prevGroup = null;
   const rows = [];
@@ -2861,10 +3027,17 @@ async function composeExportSvg() {
   const totalW = labelW + viewW;
   const rec = new SvgRecorder(totalW, total);
 
+  // Vertical modality strip column (far left), matching the live UI.
+  if (modW) {
+    rec.fillStyle = '#e9edf3'; rec.fillRect(0, 0, modW, total);
+    rec.strokeStyle = '#d6d9e0'; rec.lineWidth = 1;
+    rec.beginPath(); rec.moveTo(modW + 0.5, 0); rec.lineTo(modW + 0.5, total); rec.stroke();
+  }
+
   // Ruler
   rec.save(); rec.translate(labelW, 0); drawRuler({ ctx: rec, w: viewW, h: rulerH }); rec.restore();
   rec.fillStyle = '#232635'; rec.font = 'bold 11px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
-  rec.fillText('Position', 5, rulerH / 2);
+  rec.fillText('Position', 5 + modW, rulerH / 2);
   rec.strokeStyle = '#d6d9e0'; rec.lineWidth = 1;
   rec.beginPath(); rec.moveTo(0, rulerH + 0.5); rec.lineTo(totalW, rulerH + 0.5); rec.stroke();
 
@@ -2874,19 +3047,24 @@ async function composeExportSvg() {
       rec.fillStyle = '#eef1f6'; rec.fillRect(0, y, totalW, hdrH);
       rec.fillStyle = gColors[ri.hdr] || '#4a90d9'; rec.fillRect(0, y, 4, hdrH);
       rec.fillStyle = '#3a3f57'; rec.font = 'bold 11px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
-      rec.fillText(ri.hdr, 10, y + hdrH / 2);
+      rec.fillText(ri.hdr, 10 + modW, y + hdrH / 2);
       y += hdrH;
     }
     const t = ri.t, h = ri.h;
+    // Vertical modality label at the far left of this row.
+    if (modW && t.modality) {
+      rec.fillStyle = '#3a3f57'; rec.font = 'bold 10px sans-serif';
+      rec.vtext(t.modality, modW / 2, y + h / 2);
+    }
     // Label: swatch (mc) + name
-    if (t.kind !== 'seq' && t.kind !== 'gene') { rec.fillStyle = t.color || '#333'; rec.fillRect(4, y + 6, 10, 10); }
+    if (t.kind !== 'seq' && t.kind !== 'gene') { rec.fillStyle = t.color || '#333'; rec.fillRect(4 + modW, y + 6, 10, 10); }
     rec.fillStyle = '#1c1e26'; rec.font = 'bold 12px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
-    rec.fillText(t.name, (t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5, y + 12);
+    rec.fillText(t.name, ((t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5) + modW, y + 12);
     // Sub-label (context / value / y-limit etc.) so the exported image keeps the
     // header info that is otherwise only visible in the interactive UI.
     const metaTxt = (t._metaFull || (t.metaEl && t.metaEl.textContent) || '').trim();
     if (metaTxt) {
-      const tx = (t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5;
+      const tx = ((t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5) + modW;
       const maxChars = Math.max(14, Math.floor((labelW - tx - 4) / 5.0));
       const lines = [];
       let cur = '';
@@ -2955,8 +3133,9 @@ function triggerDownload(blob, name) {
 // track's context (CG/CH/…) and value (mC / 1−mC), and the active Resolution:
 // per-bp → one row per C site; a bin width (fixed or Auto) → one row per window
 // with the mean level per track.
-function exportDataTsv() {
+async function exportDataTsv() {
   if (!state.locus) { setStatus('No view to export.', true); return; }
+  await ensureTracksForExport();   // include off-screen (lazy) tracks in the export
   const mcTracks = state.tracks.filter(t => t.kind === 'mc' && t._data && t._data.qi && t._data.vals);
   if (!mcTracks.length) { setStatus('No loaded methylation-track data to export in this window.', true); return; }
   const { chrom, start, end } = state.locus;
@@ -2965,8 +3144,9 @@ function exportDataTsv() {
   const pos = qi.positions, recs = qi.records;
   const n = pos.length;
   const base = exportBaseName();
-  const colName = (t) => `${t.name} (${t.ctx}, ${t.valType === 'unmeth' ? '1-mC' : 'mC'})`;
-  const lvlOf = (t, mc, cov) => { let v = mc / cov; if (t.valType === 'unmeth') v = 1 - v; return v.toFixed(4); };
+  const colName = (t) => `${t.name} (${t.ctx}, ${state.valType === 'unmeth' ? '1-mC' : 'mC'})`;
+  const lvlOf = (t, mc, cov) => { let v = mc / cov; if (state.valType === 'unmeth') v = 1 - v; return v.toFixed(4); };
+  const strandOk = (i) => state.strand === 'both' || (recs[i] && recs[i][1] === state.strand);
   let lines, rowCount = 0;
 
   if (res) {
@@ -2978,6 +3158,7 @@ function exportDataTsv() {
     for (let i = 0; i < n; i++) {
       const p = pos[i];
       if (p < start || p >= end) continue;
+      if (!strandOk(i)) continue;
       const b = Math.floor((p - binStart0) / res);
       if (b < 0 || b >= nBins) continue;
       const context = recs[i] && recs[i][2];
@@ -3007,6 +3188,7 @@ function exportDataTsv() {
     for (let i = 0; i < n; i++) {
       const p = pos[i];
       if (p < start || p >= end) continue;
+      if (!strandOk(i)) continue;
       const context = (recs[i] && recs[i][2]) || '';
       const row = [chrom, Math.round(p), context];
       for (const t of mcTracks) {
@@ -3072,12 +3254,14 @@ function currentStateObject() {
     l: state.locus ? locusText(state.locus) : undefined,
     r: state.resolution || undefined,
     ra: state.resAuto || undefined,
+    vt: state.valType !== 'meth' ? state.valType : undefined,
+    sd: state.strand !== 'both' ? state.strand : undefined,
     y: state.yScale !== '1' ? state.yScale : undefined,
     colors: Object.keys(state.colorMap).length ? state.colorMap : undefined,
     t: state.tracks.filter(t => ['mc', 'bw', 'bed', 'bedpe', 'hic'].includes(t.kind))
       .map(t => (t.kind === 'mc'
-        ? { n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined }
-        : { k: t.kind, n: t.name, u: t.url, grp: t.group || undefined, yl: (t.kind === 'bw' && Array.isArray(t.ylim)) ? t.ylim : undefined })),
+        ? { n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, md: t.modality || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined }
+        : { k: t.bedgraph ? 'bedgraph' : t.kind, n: t.name, u: t.url, grp: t.group || undefined, md: t.modality || undefined, yl: (t.kind === 'bw' && Array.isArray(t.ylim)) ? t.ylim : undefined })),
   };
 }
 let _urlTimer = null, _restoring = false;
@@ -3100,19 +3284,22 @@ async function applyStateObject(st) {
     }
     if (st.ra) { state.resAuto = true; state.resolution = null; if ($('resSel')) $('resSel').value = 'auto'; }
     else if (st.r) { state.resAuto = false; state.resolution = parseInt(st.r, 10); if ($('resSel')) $('resSel').value = String(st.r); }
+    if (st.vt) { state.valType = st.vt; if ($('valSelGlobal')) $('valSelGlobal').value = st.vt; }
+    if (st.sd) { state.strand = st.sd; if ($('strandSel')) $('strandSel').value = st.sd; }
     if (st.y) { state.yScale = st.y; if ($('yScaleSel')) $('yScaleSel').value = st.y; }
     if (st.ref) { $('refUrl').value = st.ref; await loadReference(); }
     if (st.l) { const lo = parseLocus(st.l); if (lo) { state.locus = lo; syncLocusInput(); } }
     if (Array.isArray(st.t) && st.t.length) {
-      const needsCz = st.t.some(r => !r.k && !isHicUrl(r.u) && !isBedpeUrl(r.u) && !isBigWigUrl(r.u) && !isBedUrl(r.u));
+      const needsCz = st.t.some(r => !r.k && !isHicUrl(r.u) && !isBedpeUrl(r.u) && !isBigWigUrl(r.u) && !isBedGraphUrl(r.u) && !isBedUrl(r.u));
       if (needsCz && !state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
       for (const r of st.t) {
         try {
-          if (r.k === 'hic' || isHicUrl(r.u)) await openHicTrack({ name: r.n, url: r.u, group: r.grp || '' });
-          else if (r.k === 'bedpe' || isBedpeUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', kind: 'bedpe' });
-          else if (r.k === 'bw' || isBigWigUrl(r.u)) await openBigWigTrack({ name: r.n, url: r.u, group: r.grp || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
-          else if (r.k === 'bed' || isBedUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', kind: 'bed' });
-          else await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          if (r.k === 'hic' || isHicUrl(r.u)) await openHicTrack({ name: r.n, url: r.u, group: r.grp || '', modality: r.md || '' });
+          else if (r.k === 'bedpe' || isBedpeUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', kind: 'bedpe', modality: r.md || '' });
+          else if (r.k === 'bedgraph' || isBedGraphUrl(r.u)) await openBedGraphTrack({ name: r.n, url: r.u, group: r.grp || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          else if (r.k === 'bw' || isBigWigUrl(r.u)) await openBigWigTrack({ name: r.n, url: r.u, group: r.grp || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          else if (r.k === 'bed' || isBedUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', kind: 'bed', modality: r.md || '' });
+          else await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
         }
         catch (e) { /* skip a track that fails to open */ }
       }
@@ -3440,8 +3627,8 @@ function updateHover(e) {
   const d = track._draw;
   if (px < 0 || px >= d.W || !d.sumCov[px]) { hv.style.display = 'none'; return; }
   let level = d.sumMc[px] / d.sumCov[px];
-  const valTag = track.valType === 'unmeth' ? '1−mC' : 'mC';
-  if (track.valType === 'unmeth') level = 1 - level;
+  const valTag = state.valType === 'unmeth' ? '1−mC' : 'mC';
+  if (state.valType === 'unmeth') level = 1 - level;
   const bp = Math.round(d.start + (px + 0.5) / d.W * (d.end - d.start));
   hv.textContent = `${track.name} · ~${fmtInt(bp)} · ${(level * 100).toFixed(0)}% ${valTag} · cov ${Math.round(d.sumCov[px])}`;
   hv.style.left = (e.clientX + 12) + 'px';
@@ -3573,6 +3760,8 @@ $('resSel').onchange = () => {
   else { state.resAuto = false; state.resolution = v ? parseInt(v, 10) : null; }
   render();
 };
+$('valSelGlobal').onchange = () => { state.valType = $('valSelGlobal').value; quickRedraw(); };
+$('strandSel').onchange = () => { state.strand = $('strandSel').value; quickRedraw(); };
 $('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack(); });
 window.addEventListener('resize', () => render());
 
@@ -3646,7 +3835,7 @@ window.addEventListener('scroll', () => { $('crosshair').style.display = 'none';
 
 refreshSavedTracksUI();
 setStatus('Ready. Pick a Genome to auto-load its DNA sequence + gene tracks, then search a ' +
-          'locus (chr:start-end) or a gene name. Add methylation data with “+ Add cz track” ' +
+          'locus (chr:start-end) or a gene name. Add tracks with “+ Add track” ' +
           'or a track table; export as SVG/PNG/PDF; save/share via the URL or Session JSON.');
 // Restore order: a remote session JSON (?session=URL) wins, then an inline URL
 // hash, else start on the default genome.

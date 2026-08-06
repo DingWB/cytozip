@@ -840,6 +840,22 @@ class CellTypeClassifier:
         -------
         self
         """
+        # Reuse a previously saved model when ``outdir`` already holds a
+        # complete store (meta.json + per-channel .npy): skip the expensive
+        # fit entirely and load it (memory-mapped) into this instance.
+        if outdir is not None:
+            store = os.path.abspath(os.path.expanduser(outdir))
+            if _model_store_complete(store):
+                logger.info(
+                    f"found existing model at {store}; skipping fit and "
+                    f"loading it")
+                loaded = CellTypeClassifier.load(store)
+                self.__dict__.update(loaded.__dict__)
+                # Detach the throwaway loader so its __del__ does not close the
+                # memmaps this instance now shares.
+                loaded._cg = loaded._ch = None
+                loaded._store_dir = None
+                return self
         pseudobulks = self._resolve_pseudobulks(pseudobulks)
         use_ctx = self._resolve_contexts(contexts)
         self.alpha0_cg = None if alpha0_cg is None else float(alpha0_cg)
@@ -2550,31 +2566,25 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
         os.makedirs(outdir, exist_ok=True)
         model_dir = os.path.join(outdir, 'model')
 
-    if model_dir is not None and _model_store_complete(model_dir):
-        # A complete model store already exists under <outdir>/model -> skip the
-        # (expensive) fit entirely and just load it (memory-mapped). pseudobulks
-        # / reference need not be re-supplied in this case.
-        logger.info(
-            f"found existing model at {model_dir}; skipping fit and loading it")
-        clf = CellTypeClassifier.load(model_dir)
-    else:
-        clf = CellTypeClassifier(
-            lambda_cg=lambda_cg, lambda_ch=lambda_ch,
-            mc_col=mc_col, cov_col=cov_col, context_col=context_col)
-        # Route the memmap store straight to real disk (<outdir>/model) so a
-        # large model never spills into a small/RAM-backed /tmp (-> SIGBUS).
-        # Without outdir it falls back to a system temp dir. ``fit`` accepts a
-        # {cell_type: path} dict or a directory of .cz files directly.
-        clf.fit(pseudobulks=pseudobulks, reference=reference,
-                cell_counts=cell_counts, top_cg=top_cg, top_ch=top_ch,
-                min_range_cg=min_range_cg, min_range_ch=min_range_ch,
-                top_per_class=top_per_class,
-                alpha0_cg=alpha0_cg, beta0_cg=beta0_cg,
-                alpha0_ch=alpha0_ch, beta0_ch=beta0_ch,
-                prior_min_cov=prior_min_cov, contexts=contexts,
-                n_jobs=n_jobs, outdir=model_dir)
-        if outdir is not None:
-            clf.save(model_dir)
+    clf = CellTypeClassifier(
+        lambda_cg=lambda_cg, lambda_ch=lambda_ch,
+        mc_col=mc_col, cov_col=cov_col, context_col=context_col)
+    # ``fit`` reuses a complete model already saved under <outdir>/model
+    # (skips training and loads it), otherwise it trains. The memmap store is
+    # routed straight to real disk (<outdir>/model) so a large model never
+    # spills into a small/RAM-backed /tmp (-> SIGBUS). Without outdir it falls
+    # back to a system temp dir. ``fit`` accepts a {cell_type: path} dict or a
+    # directory of .cz files directly.
+    clf.fit(pseudobulks=pseudobulks, reference=reference,
+            cell_counts=cell_counts, top_cg=top_cg, top_ch=top_ch,
+            min_range_cg=min_range_cg, min_range_ch=min_range_ch,
+            top_per_class=top_per_class,
+            alpha0_cg=alpha0_cg, beta0_cg=beta0_cg,
+            alpha0_ch=alpha0_ch, beta0_ch=beta0_ch,
+            prior_min_cov=prior_min_cov, contexts=contexts,
+            n_jobs=n_jobs, outdir=model_dir)
+    if outdir is not None and not _model_store_complete(model_dir):
+        clf.save(model_dir)
 
     # ``predict`` dispatches on the query form (single / cat multi-cell /
     # directory / dict / table), returning a dict for a single cell or
