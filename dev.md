@@ -436,7 +436,7 @@ files directly without a proxy.
 
 ## docs
 ```shell
-pip install sphinx sphinx-autobuild sphinx-rtd-theme pandoc nbsphinx sphinx_pdj_theme sphinx_sizzle_theme recommonmark readthedocs-sphinx-search
+pip install sphinx sphinx-autobuild sphinx-rtd-theme sphinx-copybutton pandoc nbsphinx sphinx_pdj_theme sphinx_sizzle_theme recommonmark readthedocs-sphinx-search
 conda install conda-forge::pandoc
 
 mkdir -p docs && cd docs

@@ -41,6 +41,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinxcontrib.jquery",
     "sphinx_search.extension",
+    "sphinx_copybutton",
     "nbsphinx",
 ]
 

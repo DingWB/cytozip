@@ -746,10 +746,12 @@ def _build_parser():
     p.add_argument('--index', default=None, help='index file for context filtering (e.g., CpG-only)')
     p.add_argument('--ext', type=int, default=300, help='bp each site count is spread over (pileup extension)')
     p.add_argument('--method', default='ppois', help='macs3 bdgcmp score method (ppois/qpois/FE/logLR/...)')
-    p.add_argument('--cutoff', type=float, default=2.0, help='bdgpeakcall score cutoff (-log10 p for ppois)')
+    p.add_argument('--cutoff', type=float, default=50.0, help='ppois score cutoff (-log10 p; default 50, tuned vs ATAC). Use ~1.2-1.4 for method=FE')
     p.add_argument('--min_len', type=int, default=None, help='minimum peak length (default ext)')
     p.add_argument('--max_gap', type=int, default=None, help='max gap to merge peaks (default ext//2)')
     p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
+    p.add_argument('--llocal', type=int, default=10000, help='half-width (bp) of local-background window for the dynamic lambda; 0 disables (global rate only)')
+    p.add_argument('--blacklist', default=None, help='BED(.gz) of blacklist regions; overlapping peaks are dropped')
     p.add_argument('--keep_bdg', action='store_true', help='keep intermediate bedGraph tracks')
     p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
     p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
@@ -1273,7 +1275,7 @@ def main():
                    qvalue=args.qvalue, broad=args.broad,
                    min_cov=args.min_cov, keep_bed=args.keep_bed,
                    macs3_args=args.macs3_args,
-                   mc_col=mc_col, cov_col=cov_col)
+                   mc_col=mc_col, cov_col=cov_col, jobs=args.jobs)
 
     elif cmd == 'call_peaks_bdg':
         from .peaks import call_peaks_bdg
@@ -1289,8 +1291,9 @@ def main():
                        index=args.index, ext=args.ext, method=args.method,
                        cutoff=args.cutoff, min_len=args.min_len,
                        max_gap=args.max_gap, min_cov=args.min_cov,
+                       llocal=args.llocal, blacklist=args.blacklist,
                        keep_bdg=args.keep_bdg,
-                       mc_col=mc_col, cov_col=cov_col)
+                       mc_col=mc_col, cov_col=cov_col, jobs=args.jobs)
 
     elif cmd == 'to_bedgraph':
         from .peaks import to_bedgraph

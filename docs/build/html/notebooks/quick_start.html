@@ -6,9 +6,10 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quick Start Guide &mdash; cytozip 0.3.6.dev14 documentation</title>
+  <title>Quick Start Guide &mdash; cytozip 0.3.10.dev7 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
       <link rel="stylesheet" type="text/css" href="../_static/css/rtd_sphinx_search.min.css" />
       <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
       <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=161b7e8c" />
@@ -16,9 +17,11 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=5ea7db2c"></script>
+      <script src="../_static/documentation_options.js?v=8a96c1b9"></script>
       <script src="../_static/doctools.js?v=9a2dae69"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
       <script src="../_static/js/rtd_search_config.js"></script>
       <script src="../_static/js/rtd_sphinx_search.min.js"></script>
       <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -451,9 +454,9 @@
 <section id="conda">
 <h3>conda<a class="headerlink" href="#conda" title="Link to this heading"></a></h3>
 <p><a class="reference external" href="https://anaconda.org/bioconda/cytozip">https://anaconda.org/bioconda/cytozip</a></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>mamba<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>wubinding<span class="w"> </span>-c<span class="w"> </span>bioconda<span class="w"> </span>cytozip
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>mamba<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>wubinding<span class="w"> </span>-c<span class="w"> </span>bioconda<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>cytozip
 <span class="c1"># or</span>
-conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>wubinding<span class="w"> </span>-c<span class="w"> </span>bioconda<span class="w"> </span>cytozip
+conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>wubinding<span class="w"> </span>-c<span class="w"> </span>bioconda<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>cytozip
 <span class="c1"># &quot;-c wubinding&quot; is optional, which may be the latest version</span>
 </pre></div>
 </div>
@@ -553,7 +556,9 @@ sys     0m12.102s
 </div>
 <p>The reference .cz file (hg38_with_chrL.allc.cz) can also be downloaded from figshare: <a class="reference external" href="https://figshare.com/ndownloader/files/67164455">https://figshare.com/ndownloader/files/67164455</a> Or directly download it on linux with pyfigshare:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>pyfigshare
-figshare<span class="w"> </span>download<span class="w"> </span><span class="m">32095567</span><span class="w"> </span>--file_id<span class="w"> </span><span class="m">66985196</span><span class="w"> </span>--outdir<span class="w"> </span>cytozip_example_data
+figshare<span class="w"> </span>download<span class="w"> </span><span class="m">32095567</span><span class="w"> </span>--file_id<span class="w"> </span><span class="m">67164455</span><span class="w"> </span>--outdir<span class="w"> </span>cytozip_example_data
+<span class="c1"># or directly download the whole folder, other files will be needed for other parts of tutorial</span>
+figshare<span class="w"> </span>download<span class="w"> </span><span class="m">32095567</span><span class="w"> </span>--outdir<span class="w"> </span>cytozip_example_data
 </pre></div>
 </div>
 <div class="nbinput docutils container">
@@ -615,6 +620,7 @@ chr1    10018   +       CTA
 <span class="c1"># or download with command line using pyfigshare:</span>
 pip<span class="w"> </span>install<span class="w"> </span>pyfigshare<span class="w"> </span><span class="c1"># https://github.com/DingWB/pyfigshare</span>
 figshare<span class="w"> </span>download<span class="w"> </span><span class="m">32095567</span><span class="w"> </span>--file_id<span class="w"> </span><span class="m">66902144</span>,66902129,66902816,66902822<span class="w"> </span>--outdir<span class="w"> </span>cytozip_example_data
+<span class="c1"># or download the whole folder without --file_id</span>
 </pre></div>
 </div>
 </section>

@@ -5,18 +5,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>cytozip.peaks &mdash; cytozip 0.3.6.dev14 documentation</title>
+  <title>cytozip.peaks &mdash; cytozip 0.3.10.dev7 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=161b7e8c" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=5ea7db2c"></script>
+      <script src="../../_static/documentation_options.js?v=8a96c1b9"></script>
       <script src="../../_static/doctools.js?v=9a2dae69"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
       <script src="../../_static/js/rtd_search_config.js"></script>
       <script src="../../_static/js/rtd_sphinx_search.min.js"></script>
       <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -491,13 +494,183 @@
     <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">starts</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_concat_files</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="n">dest</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Concatenate ``paths`` into ``dest`` in order, deleting each piece.&quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">p</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+                    <span class="n">shutil</span><span class="o">.</span><span class="n">copyfileobj</span><span class="p">(</span><span class="n">fh</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dest</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_pseudo_reads_chrom_worker</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">cz_path</span><span class="p">,</span> <span class="n">ref_path</span><span class="p">,</span> <span class="n">index_path</span><span class="p">,</span>
+                               <span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="p">,</span> <span class="n">min_cov</span><span class="p">,</span> <span class="n">half</span><span class="p">,</span> <span class="n">control</span><span class="p">,</span>
+                               <span class="n">output</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Worker: write one chromosome&#39;s pseudo-read BED piece(s).</span>
+
+<span class="sd">    Opens its own readers (process-safe), materialises the treat (and optional</span>
+<span class="sd">    control) pseudo-reads for ``dim`` into per-chromosome temp BEDs, and</span>
+<span class="sd">    returns ``(chrom, bed_path, n_reads, ctrl_path, n_ctrl)`` with ``*_path``</span>
+<span class="sd">    set to ``None`` when empty. Used by :func:`call_peaks` when ``jobs &gt; 1``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">cz_path</span><span class="p">)</span>
+    <span class="n">ref_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">ref_path</span><span class="p">)</span>
+    <span class="n">index_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">index_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">index_path</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span>
+        <span class="n">data_dtype</span> <span class="o">=</span> <span class="n">_make_np_dtype</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">],</span>
+                                    <span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+        <span class="n">ref_dtype</span> <span class="o">=</span> <span class="n">_make_np_dtype</span><span class="p">(</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">],</span>
+                                   <span class="n">ref_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span>
+        <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
+        <span class="n">ref_raw</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_raw</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span>
+        <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+                <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
+        <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span>  <span class="c1"># unmethylated count = ATAC-like signal</span>
+        <span class="n">bed_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s1">.pseudo.bed&#39;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">bed_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span><span class="n">fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">bed_path</span><span class="p">)</span>
+            <span class="n">bed_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">ctrl_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">nc</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">control</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">csig</span> <span class="o">=</span> <span class="n">cov</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">ctrl_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s1">.control.bed&#39;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">ctrl_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">cfh</span><span class="p">:</span>
+                <span class="n">nc</span> <span class="o">=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span><span class="n">cfh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">nc</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">ctrl_path</span><span class="p">)</span>
+                <span class="n">ctrl_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">bed_path</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">ctrl_path</span><span class="p">,</span> <span class="n">nc</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
+            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_gen_pseudo_reads</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">ref_reader</span><span class="p">,</span> <span class="n">index_reader</span><span class="p">,</span> <span class="n">cz_path</span><span class="p">,</span> <span class="n">ref_path</span><span class="p">,</span>
+                      <span class="n">index</span><span class="p">,</span> <span class="n">data_dtype</span><span class="p">,</span> <span class="n">ref_dtype</span><span class="p">,</span> <span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="p">,</span> <span class="n">min_cov</span><span class="p">,</span>
+                      <span class="n">half</span><span class="p">,</span> <span class="n">control</span><span class="p">,</span> <span class="n">bed_path</span><span class="p">,</span> <span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span>
+                      <span class="n">jobs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Materialise pseudo-reads into ``bed_path`` (+ optional control BED).</span>
+
+<span class="sd">    Serial (``jobs&lt;=1``) walks chromosomes on the already-open readers;</span>
+<span class="sd">    parallel (``jobs&gt;1``) closes them and fans per-chromosome generation out to</span>
+<span class="sd">    a process pool, then concatenates the per-chrom BED pieces. All readers are</span>
+<span class="sd">    closed before returning. Returns ``(total_reads, total_ctrl)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dims</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">jobs</span> <span class="ow">and</span> <span class="n">jobs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">idx_path</span> <span class="o">=</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">index</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
+            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
+        <span class="n">wargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">cz_path</span><span class="o">=</span><span class="n">cz_path</span><span class="p">,</span> <span class="n">ref_path</span><span class="o">=</span><span class="n">ref_path</span><span class="p">,</span> <span class="n">index_path</span><span class="o">=</span><span class="n">idx_path</span><span class="p">,</span>
+                     <span class="n">mc_col</span><span class="o">=</span><span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="n">cov_col</span><span class="p">,</span> <span class="n">min_cov</span><span class="o">=</span><span class="n">min_cov</span><span class="p">,</span>
+                     <span class="n">half</span><span class="o">=</span><span class="n">half</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">with</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">jobs</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="n">futs</span> <span class="o">=</span> <span class="p">{</span><span class="n">ex</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">_pseudo_reads_chrom_worker</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="o">**</span><span class="n">wargs</span><span class="p">):</span> <span class="n">dim</span>
+                    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futs</span><span class="p">):</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                <span class="n">results</span><span class="p">[</span><span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">res</span>
+        <span class="n">total_reads</span> <span class="o">=</span> <span class="n">total_ctrl</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">bed_pieces</span><span class="p">,</span> <span class="n">ctrl_pieces</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">res</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">cp</span><span class="p">,</span> <span class="n">nc</span> <span class="o">=</span> <span class="n">res</span>
+            <span class="n">total_reads</span> <span class="o">+=</span> <span class="n">n</span>
+            <span class="n">total_ctrl</span> <span class="o">+=</span> <span class="n">nc</span>
+            <span class="k">if</span> <span class="n">bp</span><span class="p">:</span>
+                <span class="n">bed_pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bp</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">cp</span><span class="p">:</span>
+                <span class="n">ctrl_pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cp</span><span class="p">)</span>
+        <span class="n">_concat_files</span><span class="p">(</span><span class="n">bed_pieces</span><span class="p">,</span> <span class="n">bed_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ctrl_bed_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_concat_files</span><span class="p">(</span><span class="n">ctrl_pieces</span><span class="p">,</span> <span class="n">ctrl_bed_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">total_reads</span> <span class="o">=</span> <span class="n">total_ctrl</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">ctrl_fh</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">ctrl_bed_path</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">bed_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
+                    <span class="n">ref_raw</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_raw</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+                        <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                            <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+                            <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+                    <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+                    <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+                    <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
+                    <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+                    <span class="n">sig</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span>  <span class="c1"># unmethylated count = ATAC-like signal</span>
+                    <span class="n">total_reads</span> <span class="o">+=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span><span class="n">fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">ctrl_fh</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">csig</span> <span class="o">=</span> <span class="n">cov</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                        <span class="n">total_ctrl</span> <span class="o">+=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span>
+                            <span class="n">ctrl_fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="si">}</span><span class="s2"> sites&quot;</span><span class="p">)</span>
+                    <span class="n">reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                    <span class="n">ref_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ctrl_fh</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">ctrl_fh</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
+            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total pseudo-reads: </span><span class="si">{</span><span class="n">total_reads</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;; control reads: </span><span class="si">{</span><span class="n">total_ctrl</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">control</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">total_reads</span><span class="p">,</span> <span class="n">total_ctrl</span>
+
+
 <div class="viewcode-block" id="call_peaks">
 <a class="viewcode-back" href="../../cytozip.peaks.html#cytozip.peaks.call_peaks">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">call_peaks</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;peaks&#39;</span><span class="p">,</span>
                <span class="n">control</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">genome_size</span><span class="o">=</span><span class="s1">&#39;mm&#39;</span><span class="p">,</span>
                <span class="n">fragment_size</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">qvalue</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">broad</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keep_bed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">macs3_args</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
-               <span class="n">mc_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+               <span class="n">mc_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Call peaks from a methylation .cz file using MACS3 (pseudo-read route).</span>
 
 <span class="sd">    Peak calling on a .cz always treats the **unmethylated count**</span>
@@ -572,6 +745,11 @@
 <span class="sd">    cov_col : int or str or None</span>
 <span class="sd">        Column index (0-based) or name for the coverage count.</span>
 <span class="sd">        Defaults to the last data column (index -1, typically ``&#39;cov&#39;``).</span>
+<span class="sd">    jobs : int</span>
+<span class="sd">        Worker processes for pseudo-read generation and ``sort`` (default 1).</span>
+<span class="sd">        Generation is fanned out one chromosome per process and ``sort`` gets</span>
+<span class="sd">        ``--parallel jobs``. The ``macs3 callpeak`` step itself is</span>
+<span class="sd">        single-threaded and is not sped up by this.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -593,6 +771,8 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+
+    <span class="n">jobs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span> <span class="k">if</span> <span class="n">jobs</span> <span class="k">else</span> <span class="mi">1</span>
 
     <span class="c1"># ---- Step 1: Open the data .cz (mc/cov) and the reference .cz (pos/strand/context) ----</span>
     <span class="n">cz_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
@@ -672,74 +852,24 @@
         <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
             <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">total_reads</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">total_ctrl</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">ctrl_fh</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">ctrl_bed_path</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">bed_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                        <span class="k">continue</span>
-                    <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">_gen_pseudo_reads</span><span class="p">(</span>
+            <span class="n">reader</span><span class="p">,</span> <span class="n">ref_reader</span><span class="p">,</span> <span class="n">index_reader</span><span class="p">,</span> <span class="n">cz_path</span><span class="p">,</span> <span class="n">ref_path</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span>
+            <span class="n">data_dtype</span><span class="p">,</span> <span class="n">ref_dtype</span><span class="p">,</span> <span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="p">,</span> <span class="n">min_cov</span><span class="p">,</span> <span class="n">half</span><span class="p">,</span> <span class="n">control</span><span class="p">,</span>
+            <span class="n">bed_path</span><span class="p">,</span> <span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">jobs</span><span class="p">)</span>
 
-                    <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
-                        <span class="k">continue</span>
-                    <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
-
-                    <span class="n">ref_raw</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_raw</span><span class="p">:</span>
-                        <span class="k">continue</span>
-                    <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)</span>
-
-                    <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                        <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                            <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
-                            <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
-
-                    <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-                    <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-                    <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-
-                    <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
-                    <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-                    <span class="n">mc</span> <span class="o">=</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-                    <span class="n">cov</span> <span class="o">=</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-
-                    <span class="n">sig</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span>  <span class="c1"># unmethylated count = ATAC-like signal</span>
-
-                    <span class="n">total_reads</span> <span class="o">+=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span><span class="n">fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
-
-                    <span class="k">if</span> <span class="n">ctrl_fh</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="n">csig</span> <span class="o">=</span> <span class="n">cov</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                        <span class="n">total_ctrl</span> <span class="o">+=</span> <span class="n">_write_pseudo_reads</span><span class="p">(</span>
-                            <span class="n">ctrl_fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
-
-                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="si">}</span><span class="s2"> sites&quot;</span><span class="p">)</span>
-
-                    <span class="c1"># Release this chunk&#39;s pages on both readers.</span>
-                    <span class="n">reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                    <span class="n">ref_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-        <span class="k">finally</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">ctrl_fh</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">ctrl_fh</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
-            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total pseudo-reads: </span><span class="si">{</span><span class="n">total_reads</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;; control reads: </span><span class="si">{</span><span class="n">total_ctrl</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">control</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
-
-        <span class="c1"># ---- Step 4: Sort BED ----</span>
+        <span class="c1"># ---- Step 4: Sort BED (sort uses jobs threads) ----</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Sorting BED file...&quot;</span><span class="p">)</span>
-        <span class="n">sort_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sort&#39;</span><span class="p">,</span> <span class="s1">&#39;-k1,1&#39;</span><span class="p">,</span> <span class="s1">&#39;-k2,2n&#39;</span><span class="p">,</span> <span class="n">bed_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">sorted_bed</span><span class="p">]</span>
+        <span class="n">sort_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sort&#39;</span><span class="p">,</span> <span class="s1">&#39;-k1,1&#39;</span><span class="p">,</span> <span class="s1">&#39;-k2,2n&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">jobs</span> <span class="ow">and</span> <span class="n">jobs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">sort_cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;--parallel&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">jobs</span><span class="p">)]</span>
+        <span class="n">sort_cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="n">bed_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">sorted_bed</span><span class="p">]</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sort_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">sort_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">sorted_ctrl</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">sort_ctrl_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sort&#39;</span><span class="p">,</span> <span class="s1">&#39;-k1,1&#39;</span><span class="p">,</span> <span class="s1">&#39;-k2,2n&#39;</span><span class="p">,</span> <span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">sorted_ctrl</span><span class="p">]</span>
+            <span class="n">sort_ctrl_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sort&#39;</span><span class="p">,</span> <span class="s1">&#39;-k1,1&#39;</span><span class="p">,</span> <span class="s1">&#39;-k2,2n&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">jobs</span> <span class="ow">and</span> <span class="n">jobs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">sort_ctrl_cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;--parallel&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">jobs</span><span class="p">)]</span>
+            <span class="n">sort_ctrl_cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="n">ctrl_bed_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">sorted_ctrl</span><span class="p">]</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sort_ctrl_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">sort_ctrl_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -1005,38 +1135,308 @@
     <span class="k">return</span> <span class="n">seg_start</span><span class="p">,</span> <span class="n">seg_end</span><span class="p">,</span> <span class="n">seg_val</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_joint_pileup</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unified piecewise-constant pileup of treatment and control signals.</span>
+
+<span class="sd">    Each site at ``pos`` spreads its ``sig`` (treatment) and ``csig`` (control)</span>
+<span class="sd">    counts over ``[pos-half, pos+half)``; overlapping contributions are summed</span>
+<span class="sd">    with difference arrays over a single shared breakpoint set, so treatment</span>
+<span class="sd">    and control are returned already aligned on the *same* segmentation (memory</span>
+<span class="sd">    ``O(n_sites)``). Returns ``(seg_start, seg_end, sig_val, cov_val)`` or</span>
+<span class="sd">    ``None`` when empty.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">sig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sig</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">csig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">csig</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pos</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">starts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">pos</span> <span class="o">-</span> <span class="n">half</span><span class="p">)</span>
+    <span class="n">ends</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">+</span> <span class="n">half</span>
+    <span class="n">pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">starts</span><span class="p">,</span> <span class="n">ends</span><span class="p">])</span>
+    <span class="n">d_sig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">sig</span><span class="p">,</span> <span class="o">-</span><span class="n">sig</span><span class="p">])</span>
+    <span class="n">d_cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">csig</span><span class="p">,</span> <span class="o">-</span><span class="n">csig</span><span class="p">])</span>
+    <span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;mergesort&#39;</span><span class="p">)</span>
+    <span class="n">pts</span> <span class="o">=</span> <span class="n">pts</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+    <span class="n">d_sig</span> <span class="o">=</span> <span class="n">d_sig</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+    <span class="n">d_cov</span> <span class="o">=</span> <span class="n">d_cov</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+    <span class="n">uniq</span><span class="p">,</span> <span class="n">inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">a_sig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">uniq</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">a_cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">uniq</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="n">a_sig</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">d_sig</span><span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="n">a_cov</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">d_cov</span><span class="p">)</span>
+    <span class="n">cum_sig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">a_sig</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">cum_cov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">a_cov</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">uniq</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">uniq</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">cum_sig</span><span class="p">,</span> <span class="n">cum_cov</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_peak_score</span><span class="p">(</span><span class="n">treat</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="n">method</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-segment enrichment score of ``treat`` pileup against ``lam``.</span>
+
+<span class="sd">    ``&#39;ppois&#39;`` returns the MACS3-equivalent ``-log10 P(X &gt;= treat)`` for</span>
+<span class="sd">    ``X ~ Poisson(lam)`` (upper tail), computed vectorised via scipy&#39;s</span>
+<span class="sd">    ``poisson.logsf`` (``gammaincc`` under the hood: ``O(1)`` per element</span>
+<span class="sd">    regardless of pileup depth — this is what replaces the slow per-segment</span>
+<span class="sd">    ``macs3 bdgcmp``). ``&#39;FE&#39;`` returns the linear fold enrichment</span>
+<span class="sd">    ``treat / lam``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;ppois&#39;</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">poisson</span>
+        <span class="c1"># P(X &gt;= k) = P(X &gt; k-1) = sf(k-1); treat is integer-valued.</span>
+        <span class="n">sc</span> <span class="o">=</span> <span class="o">-</span><span class="n">poisson</span><span class="o">.</span><span class="n">logsf</span><span class="p">(</span><span class="n">treat</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">lam</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mf">10.0</span><span class="p">)</span>
+        <span class="n">sc</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">sc</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">3100.0</span>  <span class="c1"># cap extreme significance</span>
+        <span class="k">return</span> <span class="n">sc</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;FE&#39;</span><span class="p">,</span> <span class="s1">&#39;fe&#39;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">treat</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">lam</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="s2">&quot;native call_peaks_bdg supports method &#39;ppois&#39; or &#39;FE&#39;; &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_peaks_from_scores</span><span class="p">(</span><span class="n">chrom</span><span class="p">,</span> <span class="n">seg_s</span><span class="p">,</span> <span class="n">seg_e</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span> <span class="n">treat</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span>
+                       <span class="n">cutoff</span><span class="p">,</span> <span class="n">min_len</span><span class="p">,</span> <span class="n">max_gap</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Threshold scored segments into peaks (per chromosome).</span>
+
+<span class="sd">    Segments with ``score &gt;= cutoff`` are merged across coordinate gaps</span>
+<span class="sd">    ``&lt;= max_gap``; runs shorter than ``min_len`` are dropped. For each peak</span>
+<span class="sd">    the summit is the max-score segment, from which fold enrichment and the</span>
+<span class="sd">    summit offset are recorded. Returns a DataFrame (columns ``chrom, start,</span>
+<span class="sd">    end, summit_score, fe, offset``) or ``None`` when no peak passes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">on</span> <span class="o">=</span> <span class="n">score</span> <span class="o">&gt;=</span> <span class="n">cutoff</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">on</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">seg_s</span><span class="p">[</span><span class="n">on</span><span class="p">]</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">seg_e</span><span class="p">[</span><span class="n">on</span><span class="p">]</span>
+    <span class="n">sc</span> <span class="o">=</span> <span class="n">score</span><span class="p">[</span><span class="n">on</span><span class="p">]</span>
+    <span class="n">tv</span> <span class="o">=</span> <span class="n">treat</span><span class="p">[</span><span class="n">on</span><span class="p">]</span>
+    <span class="n">lv</span> <span class="o">=</span> <span class="n">lam</span><span class="p">[</span><span class="n">on</span><span class="p">]</span>
+    <span class="c1"># New peak wherever the gap to the previous on-segment exceeds max_gap.</span>
+    <span class="n">new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">new</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">new</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">e</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">max_gap</span>
+    <span class="n">grp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">new</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s1">&#39;grp&#39;</span><span class="p">:</span> <span class="n">grp</span><span class="p">,</span> <span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="n">s</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="n">e</span><span class="p">,</span> <span class="s1">&#39;sc&#39;</span><span class="p">:</span> <span class="n">sc</span><span class="p">,</span>
+                       <span class="s1">&#39;tv&#39;</span><span class="p">:</span> <span class="n">tv</span><span class="p">,</span> <span class="s1">&#39;lv&#39;</span><span class="p">:</span> <span class="n">lv</span><span class="p">,</span> <span class="s1">&#39;mid&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="n">e</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">})</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;grp&#39;</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s1">&#39;s&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s1">&#39;e&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">summit</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">g</span><span class="p">[</span><span class="s1">&#39;sc&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()]</span>
+    <span class="n">ssc</span> <span class="o">=</span> <span class="n">summit</span><span class="p">[</span><span class="s1">&#39;sc&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">smid</span> <span class="o">=</span> <span class="n">summit</span><span class="p">[</span><span class="s1">&#39;mid&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">stv</span> <span class="o">=</span> <span class="n">summit</span><span class="p">[</span><span class="s1">&#39;tv&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">slv</span> <span class="o">=</span> <span class="n">summit</span><span class="p">[</span><span class="s1">&#39;lv&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">keep</span> <span class="o">=</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_len</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">keep</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">start</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">end</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+    <span class="n">ssc</span><span class="p">,</span> <span class="n">smid</span> <span class="o">=</span> <span class="n">ssc</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">smid</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+    <span class="n">stv</span><span class="p">,</span> <span class="n">slv</span> <span class="o">=</span> <span class="n">stv</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">slv</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+        <span class="s1">&#39;chrom&#39;</span><span class="p">:</span> <span class="n">chrom</span><span class="p">,</span>
+        <span class="s1">&#39;start&#39;</span><span class="p">:</span> <span class="n">start</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+        <span class="s1">&#39;end&#39;</span><span class="p">:</span> <span class="n">end</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+        <span class="s1">&#39;summit_score&#39;</span><span class="p">:</span> <span class="n">ssc</span><span class="p">,</span>
+        <span class="s1">&#39;fe&#39;</span><span class="p">:</span> <span class="n">stv</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">slv</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">),</span>
+        <span class="s1">&#39;offset&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">smid</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span>
+    <span class="p">})</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_local_rate</span><span class="p">(</span><span class="n">seg_s</span><span class="p">,</span> <span class="n">seg_e</span><span class="p">,</span> <span class="n">tval</span><span class="p">,</span> <span class="n">cval</span><span class="p">,</span> <span class="n">r_global</span><span class="p">,</span> <span class="n">llocal</span><span class="p">,</span> <span class="n">binsize</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-segment local background unmeth rate over a +/-``llocal`` window.</span>
+
+<span class="sd">    Methylation analogue of MACS3&#39;s dynamic local lambda. The umc (``tval``)</span>
+<span class="sd">    and coverage (``cval``) pileups are integrated into ``binsize`` bins, a</span>
+<span class="sd">    moving window of width ~``llocal`` gives local ``sum(umc)/sum(cov)``, and</span>
+<span class="sd">    the result is floored at the genome-wide rate ``r_global`` (background is</span>
+<span class="sd">    never below genome-wide). Scoring a region against this instead of the</span>
+<span class="sd">    global rate suppresses peaks that merely sit inside broadly hypomethylated</span>
+<span class="sd">    domains. ``seg_*`` are the *contiguous* joint-pileup segments, so their</span>
+<span class="sd">    boundaries form a strictly increasing breakpoint set usable by ``interp``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">seg_e</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">L</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">llocal</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">seg_s</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">r_global</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">L</span> <span class="o">//</span> <span class="n">binsize</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="c1"># Cumulative bp-weighted integrals at segment breakpoints, then sampled at</span>
+    <span class="c1"># bin edges (piecewise-linear within a segment) -&gt; per-bin integrals.</span>
+    <span class="n">xb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">seg_s</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">xb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">seg_s</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">xb</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">seg_e</span>
+    <span class="n">seglen</span> <span class="o">=</span> <span class="p">(</span><span class="n">seg_e</span> <span class="o">-</span> <span class="n">seg_s</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">Fu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">tval</span> <span class="o">*</span> <span class="n">seglen</span><span class="p">)])</span>
+    <span class="n">Fc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">cval</span> <span class="o">*</span> <span class="n">seglen</span><span class="p">)])</span>
+    <span class="n">edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">binsize</span><span class="p">,</span> <span class="n">binsize</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">u_bin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span> <span class="n">xb</span><span class="p">,</span> <span class="n">Fu</span><span class="p">))</span>
+    <span class="n">c_bin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span> <span class="n">xb</span><span class="p">,</span> <span class="n">Fc</span><span class="p">))</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">llocal</span> <span class="o">/</span> <span class="n">binsize</span><span class="p">)))</span>
+    <span class="n">cu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">u_bin</span><span class="p">)])</span>
+    <span class="n">cc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">c_bin</span><span class="p">)])</span>
+    <span class="n">nb</span> <span class="o">=</span> <span class="n">u_bin</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">ar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nb</span><span class="p">)</span>
+    <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">ar</span> <span class="o">-</span> <span class="n">w</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">nb</span><span class="p">)</span>
+    <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">ar</span> <span class="o">+</span> <span class="n">w</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">nb</span><span class="p">)</span>
+    <span class="n">u_win</span> <span class="o">=</span> <span class="n">cu</span><span class="p">[</span><span class="n">hi</span><span class="p">]</span> <span class="o">-</span> <span class="n">cu</span><span class="p">[</span><span class="n">lo</span><span class="p">]</span>
+    <span class="n">c_win</span> <span class="o">=</span> <span class="n">cc</span><span class="p">[</span><span class="n">hi</span><span class="p">]</span> <span class="o">-</span> <span class="n">cc</span><span class="p">[</span><span class="n">lo</span><span class="p">]</span>
+    <span class="n">rate_bin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">c_win</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">u_win</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">c_win</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">),</span> <span class="n">r_global</span><span class="p">)</span>
+    <span class="n">rate_bin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">rate_bin</span><span class="p">,</span> <span class="n">r_global</span><span class="p">)</span>
+    <span class="n">bidx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(((</span><span class="n">seg_s</span> <span class="o">+</span> <span class="n">seg_e</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="o">//</span> <span class="n">binsize</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">nb</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">rate_bin</span><span class="p">[</span><span class="n">bidx</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_blacklist_mask</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">bl_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Boolean per peak-row: overlaps any blacklist interval (per chrom).&quot;&quot;&quot;</span>
+    <span class="n">bl</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">bl_path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="s1">&#39;#&#39;</span><span class="p">,</span>
+                     <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">])</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">bg</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="p">:</span> <span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">g</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+          <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">bl</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)}</span>
+    <span class="k">for</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">ga</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">gb</span> <span class="o">=</span> <span class="n">bg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chrom</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">gb</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">bs</span><span class="p">,</span> <span class="n">be</span> <span class="o">=</span> <span class="n">gb</span>
+        <span class="n">o</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;mergesort&#39;</span><span class="p">)</span>
+        <span class="n">bs</span><span class="p">,</span> <span class="n">be</span> <span class="o">=</span> <span class="n">bs</span><span class="p">[</span><span class="n">o</span><span class="p">],</span> <span class="n">be</span><span class="p">[</span><span class="n">o</span><span class="p">]</span>
+        <span class="n">cend</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span><span class="n">be</span><span class="p">)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="n">ga</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">)</span>
+        <span class="n">hit</span> <span class="o">=</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">bs</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ga</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">res</span><span class="p">[</span><span class="n">hit</span><span class="p">]</span> <span class="o">=</span> <span class="n">cend</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">hit</span><span class="p">]]</span> <span class="o">&gt;</span> <span class="n">ga</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="n">hit</span><span class="p">]</span>
+        <span class="n">mask</span><span class="p">[</span><span class="n">ga</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()]</span> <span class="o">=</span> <span class="n">res</span>
+    <span class="k">return</span> <span class="n">mask</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_bdg_chrom_worker</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">cz_path</span><span class="p">,</span> <span class="n">ref_path</span><span class="p">,</span> <span class="n">index_path</span><span class="p">,</span> <span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="p">,</span>
+                      <span class="n">min_cov</span><span class="p">,</span> <span class="n">half</span><span class="p">,</span> <span class="n">control</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">min_len</span><span class="p">,</span>
+                      <span class="n">max_gap</span><span class="p">,</span> <span class="n">keep_bdg</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">llocal</span><span class="o">=</span><span class="mi">10000</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Worker: pileup, score and call peaks for one chromosome.</span>
+
+<span class="sd">    Opens its own readers (process-safe), builds the joint umc/coverage pileup</span>
+<span class="sd">    for ``dim``, scores each segment against the global-rate lambda and</span>
+<span class="sd">    thresholds it into peaks. Returns ``(chrom, frame_or_None,</span>
+<span class="sd">    treat_bdg_or_None, score_bdg_or_None)``; the bdg pieces are written only</span>
+<span class="sd">    when ``keep_bdg``. Used by :func:`call_peaks_bdg`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">cz_path</span><span class="p">)</span>
+    <span class="n">ref_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">ref_path</span><span class="p">)</span>
+    <span class="n">index_reader</span> <span class="o">=</span> <span class="n">Reader</span><span class="p">(</span><span class="n">index_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">index_path</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">data_dtype</span> <span class="o">=</span> <span class="n">_make_np_dtype</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">],</span>
+                                    <span class="n">reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+        <span class="n">ref_dtype</span> <span class="o">=</span> <span class="n">_make_np_dtype</span><span class="p">(</span><span class="n">ref_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;formats&#39;</span><span class="p">],</span>
+                                   <span class="n">ref_reader</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;columns&#39;</span><span class="p">])</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
+        <span class="n">ref_raw</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_raw</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+                <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
+        <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span>  <span class="c1"># unmethylated count = ATAC-like signal</span>
+        <span class="n">csig</span> <span class="o">=</span> <span class="n">cov</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span>
+        <span class="n">jp</span> <span class="o">=</span> <span class="n">_joint_pileup</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">jp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">seg_s</span><span class="p">,</span> <span class="n">seg_e</span><span class="p">,</span> <span class="n">tval</span><span class="p">,</span> <span class="n">cval</span> <span class="o">=</span> <span class="n">jp</span>
+        <span class="c1"># Local background rate on the full (contiguous) pileup, then subset.</span>
+        <span class="n">rate_full</span> <span class="o">=</span> <span class="n">_local_rate</span><span class="p">(</span><span class="n">seg_s</span><span class="p">,</span> <span class="n">seg_e</span><span class="p">,</span> <span class="n">tval</span><span class="p">,</span> <span class="n">cval</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">llocal</span><span class="p">)</span>
+        <span class="n">keep</span> <span class="o">=</span> <span class="n">tval</span> <span class="o">&gt;</span> <span class="mi">0</span>  <span class="c1"># peaks can only live where umc pileup &gt; 0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">keep</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">seg_s</span><span class="p">,</span> <span class="n">seg_e</span> <span class="o">=</span> <span class="n">seg_s</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">seg_e</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="n">tval</span><span class="p">,</span> <span class="n">cval</span> <span class="o">=</span> <span class="n">tval</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">cval</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="n">lam</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">cval</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">rate_full</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>  <span class="c1"># expected umc pileup</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="n">_peak_score</span><span class="p">(</span><span class="n">tval</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="n">method</span><span class="p">)</span>
+        <span class="n">treat_path</span> <span class="o">=</span> <span class="n">score_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">keep_bdg</span><span class="p">:</span>
+            <span class="n">treat_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s1">.treat.bdg&#39;</span><span class="p">)</span>
+            <span class="n">score_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s1">.bdg&#39;</span><span class="p">)</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="n">chrom</span><span class="p">,</span> <span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="n">seg_s</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="n">seg_e</span><span class="p">,</span>
+                          <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">tval</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)})</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                <span class="n">treat_path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="n">chrom</span><span class="p">,</span> <span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="n">seg_s</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="n">seg_e</span><span class="p">,</span>
+                          <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="mi">5</span><span class="p">)})</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                <span class="n">score_path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">_peaks_from_scores</span><span class="p">(</span><span class="n">chrom</span><span class="p">,</span> <span class="n">seg_s</span><span class="p">,</span> <span class="n">seg_e</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span> <span class="n">tval</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span>
+                                   <span class="n">cutoff</span><span class="p">,</span> <span class="n">min_len</span><span class="p">,</span> <span class="n">max_gap</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">treat_path</span><span class="p">,</span> <span class="n">score_path</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
+            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+
 <div class="viewcode-block" id="call_peaks_bdg">
 <a class="viewcode-back" href="../../cytozip.peaks.html#cytozip.peaks.call_peaks_bdg">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">call_peaks_bdg</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;peaks&#39;</span><span class="p">,</span>
                    <span class="n">control</span><span class="o">=</span><span class="s1">&#39;cov&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                   <span class="n">ext</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;ppois&#39;</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
-                   <span class="n">min_len</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_gap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-                   <span class="n">keep_bdg</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mc_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Call peaks from a methylation .cz via MACS3 bedGraph back-end.</span>
+                   <span class="n">ext</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;ppois&#39;</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                   <span class="n">min_len</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_gap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_cov</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">llocal</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
+                   <span class="n">blacklist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_bdg</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mc_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Call peaks from a methylation .cz (native vectorised Poisson).</span>
 
 <span class="sd">    Like :func:`call_peaks`, the signal is always the **unmethylated count**</span>
 <span class="sd">    ``umc = cov - mc`` (CpG hypomethylation = open chromatin); ``mc`` is never</span>
 <span class="sd">    used as signal.</span>
 
 <span class="sd">    Mechanism (differs from :func:`call_peaks`): instead of materialising</span>
-<span class="sd">    ``sum(umc)`` pseudo-reads (which explodes on deep pseudobulks), this</span>
-<span class="sd">    builds piecewise-constant **pileup bedGraphs** analytically — each site&#39;s</span>
-<span class="sd">    count is spread over ``ext`` bp and overlapping contributions summed with</span>
-<span class="sd">    a difference array, so memory is ``O(n_sites)`` regardless of depth — and</span>
-<span class="sd">    drives MACS3&#39;s bedGraph back-end (``bdgcmp`` + ``bdgpeakcall``) rather than</span>
-<span class="sd">    ``callpeak``.</span>
+<span class="sd">    ``sum(umc)`` pseudo-reads (which explodes on deep pseudobulks), each</span>
+<span class="sd">    site&#39;s count is spread over ``ext`` bp and overlapping contributions</span>
+<span class="sd">    summed with a difference array, giving a piecewise-constant pileup with</span>
+<span class="sd">    memory ``O(n_sites)`` regardless of depth. The Poisson score and peak</span>
+<span class="sd">    calling are then done **directly in numpy/scipy per chromosome** — no</span>
+<span class="sd">    multi-GB bedGraphs are written and no ``macs3`` subprocess is spawned.</span>
+<span class="sd">    (Earlier versions drove ``macs3 bdgopt``/``bdgcmp``/``bdgpeakcall``; on</span>
+<span class="sd">    deep pseudobulks ``bdgcmp -m ppois`` scored ~10^8 segments one at a time</span>
+<span class="sd">    and took hours. The vectorised ``poisson.logsf`` here is ``O(1)`` per</span>
+<span class="sd">    segment and finishes in minutes.)</span>
 
 <span class="sd">    Scoring model. The **treatment** track is the ``umc`` pileup. The</span>
-<span class="sd">    **control (lambda)** track is the coverage pileup scaled by the global</span>
-<span class="sd">    unmethylation rate ``r = sum(umc) / sum(cov)`` (``control=&#39;cov&#39;``) — i.e.</span>
-<span class="sd">    the *expected* unmethylated pileup if methylation were spatially uniform.</span>
-<span class="sd">    The lambda track is built gap-free and floored at a small positive value</span>
-<span class="sd">    (``bdgcmp -m ppois`` requires lambda &gt; 0 at every evaluated base).</span>
-<span class="sd">    ``bdgcmp -m ppois`` then scores every position by the Poisson p-value of</span>
-<span class="sd">    the observed ``umc`` pileup against that local expectation, and</span>
-<span class="sd">    ``bdgpeakcall`` thresholds the score. Peaks are thus regions of genuine</span>
-<span class="sd">    **local unmethylation enrichment**, corrected for coverage / cytosine-</span>
-<span class="sd">    density bias.</span>
+<span class="sd">    **control (lambda)** track is the coverage pileup scaled by a background</span>
+<span class="sd">    unmethylation rate. By default (``llocal &gt; 0``) that rate is estimated</span>
+<span class="sd">    **locally** in a +/-``llocal`` window (``sum(umc)/sum(cov)``), floored at</span>
+<span class="sd">    the genome-wide rate ``r = sum(umc)/sum(cov)`` — the methylation analogue</span>
+<span class="sd">    of MACS3&#39;s dynamic local lambda. This is important: CpG umc has a small</span>
+<span class="sd">    dynamic range (open chromatin is rarely &gt;2x the global unmeth rate), so a</span>
+<span class="sd">    single *global* lambda over-calls badly on deep pseudobulks — a mere</span>
+<span class="sd">    1.2-1.5x enrichment yields ``-log10 p`` in the hundreds, and vast</span>
+<span class="sd">    stretches of broadly hypomethylated (e.g. intergenic) domains pass. The</span>
+<span class="sd">    local lambda rejects those by comparing each region to its own</span>
+<span class="sd">    neighbourhood. Set ``llocal=0`` to fall back to the old global-only</span>
+<span class="sd">    lambda. For ``method=&#39;ppois&#39;`` each segment is scored by</span>
+<span class="sd">    ``-log10 P(X &gt;= umc_pileup | Poisson(lambda))`` (upper tail);</span>
+<span class="sd">    ``bdgpeakcall``-style thresholding then merges segments with</span>
+<span class="sd">    ``score &gt;= cutoff`` across gaps ``&lt;= max_gap`` and drops runs shorter than</span>
+<span class="sd">    ``min_len``. Peaks are thus regions of genuine **local unmethylation</span>
+<span class="sd">    enrichment**, corrected for coverage / cytosine-density bias.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">       The default ``cutoff=50`` and ``llocal=10000`` were tuned by</span>
+<span class="sd">       benchmarking against matched ATAC-seq peaks (precision/recall/Jaccard</span>
+<span class="sd">       vs open chromatin); they roughly maximise agreement on deep snm3C</span>
+<span class="sd">       pseudobulks. Because the fold-enrichment (``signalValue``) rarely</span>
+<span class="sd">       exceeds ~2x, ``method=&#39;FE&#39;`` cutoffs must instead be small (e.g.</span>
+<span class="sd">       1.2-1.4). For ``ppois`` the ``-log10 p`` is depth-inflated, so raise</span>
+<span class="sd">       ``cutoff`` (e.g. 60-100) for stricter, higher-precision peaks or lower</span>
+<span class="sd">       it (e.g. 20-30) for higher recall; pairing with a ``blacklist`` further</span>
+<span class="sd">       improves reliability.</span>
 
 <span class="sd">    How this differs from :func:`call_peaks` in practice:</span>
 
@@ -1056,33 +1456,45 @@
 <span class="sd">        As in :func:`call_peaks` (``output`` defaults to</span>
 <span class="sd">        ``&lt;input_stem&gt;_peaks/``).</span>
 <span class="sd">    control : str</span>
-<span class="sd">        Coverage-bias control track: ``&#39;cov&#39;`` (default) or ``&#39;mc&#39;``. The</span>
-<span class="sd">        bedGraph route always uses a control (that is its purpose).</span>
+<span class="sd">        Coverage-bias control track: ``&#39;cov&#39;`` (default) or ``&#39;mc&#39;``.</span>
 <span class="sd">    ext : int</span>
 <span class="sd">        Extension (bp) each site&#39;s count is spread over (default 300).</span>
 <span class="sd">    method : str</span>
-<span class="sd">        ``macs3 bdgcmp`` score method (``&#39;ppois&#39;`` default, or ``&#39;qpois&#39;``,</span>
-<span class="sd">        ``&#39;FE&#39;``, ``&#39;logLR&#39;``, ``&#39;subtract&#39;`` ...).</span>
+<span class="sd">        Score method: ``&#39;ppois&#39;`` (default, ``-log10`` Poisson p-value) or</span>
+<span class="sd">        ``&#39;FE&#39;`` (linear fold enrichment ``treat/lambda``).</span>
 <span class="sd">    cutoff : float</span>
-<span class="sd">        ``bdgpeakcall`` score cutoff. For ``ppois`` this is ``-log10(p)``</span>
-<span class="sd">        (default 2.0 -&gt; p &lt; 0.01); for ``qpois`` it is ``-log10(q)``.</span>
+<span class="sd">        Score cutoff. For ``ppois`` this is ``-log10(p)`` (default 50, tuned</span>
+<span class="sd">        against ATAC); for ``FE`` it is the minimum fold enrichment.</span>
 <span class="sd">    min_len : int or None</span>
-<span class="sd">        Minimum peak length (``bdgpeakcall -l``); ``None`` -&gt; ``ext``.</span>
+<span class="sd">        Minimum peak length; ``None`` -&gt; ``ext``.</span>
 <span class="sd">    max_gap : int or None</span>
-<span class="sd">        Maximum gap to merge nearby peaks (``bdgpeakcall -g``); ``None`` -&gt;</span>
-<span class="sd">        ``ext // 2``.</span>
+<span class="sd">        Maximum gap to merge nearby peaks; ``None`` -&gt; ``ext // 2``.</span>
+<span class="sd">    llocal : int</span>
+<span class="sd">        Half-width (bp) of the local-background window for the dynamic lambda</span>
+<span class="sd">        (default 10000). ``0`` disables it and uses the genome-wide rate only</span>
+<span class="sd">        (the old behaviour, which over-calls on deep data).</span>
+<span class="sd">    blacklist : str or None</span>
+<span class="sd">        Optional BED(.gz) of blacklist regions (e.g. ENCODE); peaks</span>
+<span class="sd">        overlapping any interval are dropped and the survivors renumbered.</span>
 <span class="sd">    keep_bdg : bool</span>
-<span class="sd">        Keep the intermediate bedGraph tracks (default False).</span>
+<span class="sd">        Also write the treatment pileup and score bedGraphs (for genome-</span>
+<span class="sd">        browser inspection); default False.</span>
+<span class="sd">    jobs : int</span>
+<span class="sd">        Worker processes for the per-chromosome pileup/score/peak-call pass</span>
+<span class="sd">        (default 1). Chromosomes are independent and CPU-bound, so this scales</span>
+<span class="sd">        near-linearly; each worker holds one chromosome&#39;s arrays in memory, so</span>
+<span class="sd">        raise ``jobs`` only as far as RAM allows (the largest chromosomes are</span>
+<span class="sd">        the heaviest). Pass 1 (global rate) stays serial and cheap.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    str</span>
 <span class="sd">        Path to the output ``&lt;name&gt;_peaks.narrowPeak`` file.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
-
     <span class="k">if</span> <span class="n">control</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;cov&#39;</span><span class="p">,</span> <span class="s1">&#39;mc&#39;</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;control must be &#39;cov&#39; or &#39;mc&#39;; got </span><span class="si">{</span><span class="n">control</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">jobs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span> <span class="k">if</span> <span class="n">jobs</span> <span class="k">else</span> <span class="mi">1</span>
 
     <span class="n">cz_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
     <span class="n">ref_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">reference</span><span class="p">))</span>
@@ -1124,106 +1536,130 @@
         <span class="n">cov_col</span> <span class="o">=</span> <span class="n">_cols</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span>
 
     <span class="n">half</span> <span class="o">=</span> <span class="n">ext</span> <span class="o">//</span> <span class="mi">2</span>
-    <span class="n">treat_bdg</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.treat.bdg&#39;</span><span class="p">)</span>
-    <span class="n">ctrl_bdg</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.control.bdg&#39;</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_write_seg</span><span class="p">(</span><span class="n">fh</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">seg</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">seg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span>
-        <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">seg</span>
-        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s1">&#39;chrom&#39;</span><span class="p">:</span> <span class="n">chrom</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">:</span> <span class="n">s</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">:</span> <span class="n">e</span><span class="p">,</span>
-                      <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)})</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
-            <span class="n">fh</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
-    <span class="n">lambda_bdg</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.control_lambda.bdg&#39;</span><span class="p">)</span>
-    <span class="n">score_bdg</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s1">.bdg&#39;</span><span class="p">)</span>
-    <span class="n">narrowpeak</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_peaks.narrowPeak&#39;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">min_len</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">min_len</span> <span class="o">=</span> <span class="n">ext</span>
     <span class="k">if</span> <span class="n">max_gap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">max_gap</span> <span class="o">=</span> <span class="n">ext</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">narrowpeak</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_peaks.narrowPeak&#39;</span><span class="p">)</span>
 
-    <span class="c1"># Reuse existing pileup / lambda bedGraphs instead of regenerating them.</span>
-    <span class="n">r</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">treat_bdg</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">ctrl_bdg</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">lambda_bdg</span><span class="p">)):</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;bedGraph tracks already exist: </span><span class="si">{</span><span class="n">treat_bdg</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">ctrl_bdg</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lambda_bdg</span><span class="si">}</span><span class="s2">; skip pileup generation.&quot;</span><span class="p">)</span>
+    <span class="c1"># ---- Pass 1: global unmethylation rate r = sum(umc) / sum(cov) ----</span>
+    <span class="c1"># r scales the coverage pileup into the expected-signal (lambda) track.</span>
+    <span class="n">total_sig</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">total_cov</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
+        <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
+        <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">total_sig</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">((</span><span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="n">total_cov</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">((</span><span class="n">cov</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">total_sig</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">total_cov</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
         <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
             <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;no signal after filtering; check context index / min_cov.&quot;</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">total_sig</span> <span class="o">/</span> <span class="n">total_cov</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;global unmeth rate r = </span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2"> (lambda = cov pileup * r)&quot;</span><span class="p">)</span>
+
+    <span class="c1"># ---- Pass 2: per-chromosome pileup -&gt; Poisson score -&gt; peak calls ----</span>
+    <span class="c1"># Each chromosome is independent (pileup + vectorised scipy.poisson.logsf),</span>
+    <span class="c1"># so with jobs &gt; 1 they run in a process pool; the parent readers are</span>
+    <span class="c1"># closed first and every worker opens its own. The multi-GB bedGraphs and</span>
+    <span class="c1"># the slow ``macs3 bdgcmp`` pass are gone either way.</span>
+    <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span>
+            <span class="k">if</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">]</span>
+    <span class="n">idx_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">index</span><span class="p">))</span> <span class="k">if</span> <span class="n">index</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
+        <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="n">wargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">cz_path</span><span class="o">=</span><span class="n">cz_path</span><span class="p">,</span> <span class="n">ref_path</span><span class="o">=</span><span class="n">ref_path</span><span class="p">,</span> <span class="n">index_path</span><span class="o">=</span><span class="n">idx_path</span><span class="p">,</span>
+                 <span class="n">mc_col</span><span class="o">=</span><span class="n">mc_col</span><span class="p">,</span> <span class="n">cov_col</span><span class="o">=</span><span class="n">cov_col</span><span class="p">,</span> <span class="n">min_cov</span><span class="o">=</span><span class="n">min_cov</span><span class="p">,</span> <span class="n">half</span><span class="o">=</span><span class="n">half</span><span class="p">,</span>
+                 <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">,</span> <span class="n">r</span><span class="o">=</span><span class="n">r</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="n">cutoff</span><span class="p">,</span>
+                 <span class="n">min_len</span><span class="o">=</span><span class="n">min_len</span><span class="p">,</span> <span class="n">max_gap</span><span class="o">=</span><span class="n">max_gap</span><span class="p">,</span> <span class="n">keep_bdg</span><span class="o">=</span><span class="n">keep_bdg</span><span class="p">,</span>
+                 <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">llocal</span><span class="o">=</span><span class="n">llocal</span><span class="p">)</span>
+
+    <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">jobs</span> <span class="ow">and</span> <span class="n">jobs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
+        <span class="k">with</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">jobs</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="n">futs</span> <span class="o">=</span> <span class="p">{</span><span class="n">ex</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">_bdg_chrom_worker</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="o">**</span><span class="n">wargs</span><span class="p">):</span> <span class="n">dim</span>
+                    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">fut</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futs</span><span class="p">):</span>
+                <span class="n">chrom</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">sp</span> <span class="o">=</span> <span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                <span class="n">results</span><span class="p">[</span><span class="n">chrom</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">sp</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">total_sig</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="n">total_cov</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">treat_bdg</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">tf</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">ctrl_bdg</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">cf</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">chrom</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">raw</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">data_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data_dtype</span><span class="p">)</span>
-                <span class="n">ref_raw</span> <span class="o">=</span> <span class="n">ref_reader</span><span class="o">.</span><span class="n">fetch_chunk_bytes</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_raw</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">ref_raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ref_dtype</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">index_reader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">chunk_key2offset</span><span class="p">:</span>
-                    <span class="n">ids</span> <span class="o">=</span> <span class="n">index_reader</span><span class="o">.</span><span class="n">get_ids_from_index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                        <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
-                        <span class="n">ref_arr</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="n">ids</span><span class="p">]</span>
-                <span class="n">pos</span> <span class="o">=</span> <span class="n">ref_arr</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-                <span class="n">mc</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">mc_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-                <span class="n">cov</span> <span class="o">=</span> <span class="n">data_arr</span><span class="p">[</span><span class="n">cov_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-                <span class="n">mask</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">&gt;=</span> <span class="n">min_cov</span>
-                <span class="n">pos</span><span class="p">,</span> <span class="n">mc</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">mc</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">cov</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-                <span class="n">sig</span> <span class="o">=</span> <span class="n">cov</span> <span class="o">-</span> <span class="n">mc</span>  <span class="c1"># unmethylated count = ATAC-like signal</span>
-                <span class="n">csig</span> <span class="o">=</span> <span class="n">cov</span> <span class="k">if</span> <span class="n">control</span> <span class="o">==</span> <span class="s1">&#39;cov&#39;</span> <span class="k">else</span> <span class="n">mc</span>
-                <span class="n">total_sig</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sig</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
-                <span class="n">total_cov</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">csig</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
-                <span class="n">_write_seg</span><span class="p">(</span><span class="n">tf</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">_pileup_from_sites</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="n">half</span><span class="p">))</span>
-                <span class="n">_write_seg</span><span class="p">(</span><span class="n">cf</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">_pileup_control</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">csig</span><span class="p">,</span> <span class="n">half</span><span class="p">))</span>
-                <span class="n">reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-                <span class="n">ref_reader</span><span class="o">.</span><span class="n">release_chunk</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+            <span class="n">chrom</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">sp</span> <span class="o">=</span> <span class="n">_bdg_chrom_worker</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="o">**</span><span class="n">wargs</span><span class="p">)</span>
+            <span class="n">results</span><span class="p">[</span><span class="n">chrom</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">sp</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">chrom</span><span class="si">}</span><span class="s2">: done&quot;</span><span class="p">)</span>
 
-        <span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="n">ref_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">index_reader</span><span class="p">:</span>
-            <span class="n">index_reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">peak_frames</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">treat_pieces</span><span class="p">,</span> <span class="n">score_pieces</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+        <span class="n">frame</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">sp</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">frame</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
+            <span class="n">peak_frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tp</span><span class="p">:</span>
+            <span class="n">treat_pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sp</span><span class="p">:</span>
+            <span class="n">score_pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">total_sig</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">total_cov</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;no signal after filtering; check context index / min_cov.&quot;</span><span class="p">)</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">total_sig</span> <span class="o">/</span> <span class="n">total_cov</span>  <span class="c1"># global unmeth rate -&gt; control lambda</span>
+    <span class="k">if</span> <span class="n">keep_bdg</span><span class="p">:</span>
+        <span class="n">_concat_files</span><span class="p">(</span><span class="n">treat_pieces</span><span class="p">,</span>
+                      <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.treat.bdg&#39;</span><span class="p">))</span>
+        <span class="n">_concat_files</span><span class="p">(</span><span class="n">score_pieces</span><span class="p">,</span>
+                      <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s1">.bdg&#39;</span><span class="p">))</span>
 
-    <span class="c1"># Scale the coverage pileup to the expected-signal lambda (cov * r).</span>
-    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">lambda_bdg</span><span class="p">):</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lambda_bdg</span><span class="si">}</span><span class="s2"> already exists; skip bdgopt scaling.&quot;</span><span class="p">)</span>
+    <span class="c1"># ---- Assemble the narrowPeak (BED6+4): clean header, real name/score ----</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;score&#39;</span><span class="p">,</span> <span class="s1">&#39;strand&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;signalValue&#39;</span><span class="p">,</span> <span class="s1">&#39;pValue&#39;</span><span class="p">,</span> <span class="s1">&#39;qValue&#39;</span><span class="p">,</span> <span class="s1">&#39;peak&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">peak_frames</span><span class="p">:</span>
+        <span class="n">allpk</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">peak_frames</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">allpk</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+            <span class="s1">&#39;chrom&#39;</span><span class="p">:</span> <span class="n">allpk</span><span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+            <span class="s1">&#39;start&#39;</span><span class="p">:</span> <span class="n">allpk</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+            <span class="s1">&#39;end&#39;</span><span class="p">:</span> <span class="n">allpk</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_peak_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)],</span>
+            <span class="c1"># UCSC display score, 0-1000; the real value is in pValue below.</span>
+            <span class="s1">&#39;score&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">allpk</span><span class="p">[</span><span class="s1">&#39;summit_score&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">),</span> <span class="mi">1000</span><span class="p">),</span>
+            <span class="s1">&#39;strand&#39;</span><span class="p">:</span> <span class="s1">&#39;.&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;signalValue&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">allpk</span><span class="p">[</span><span class="s1">&#39;fe&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="mi">5</span><span class="p">),</span>
+            <span class="s1">&#39;pValue&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">allpk</span><span class="p">[</span><span class="s1">&#39;summit_score&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="mi">5</span><span class="p">)</span>
+                       <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;ppois&#39;</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="c1"># -log10 p-value</span>
+            <span class="s1">&#39;qValue&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># genome-wide BH not computed on this route</span>
+            <span class="s1">&#39;peak&#39;</span><span class="p">:</span> <span class="n">allpk</span><span class="p">[</span><span class="s1">&#39;offset&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+        <span class="p">})</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;scaling control by r=</span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2"> (global unmeth rate)&quot;</span><span class="p">)</span>
-        <span class="n">bdgopt_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;bdgopt&#39;</span><span class="p">,</span> <span class="s1">&#39;-i&#39;</span><span class="p">,</span> <span class="n">ctrl_bdg</span><span class="p">,</span> <span class="s1">&#39;-m&#39;</span><span class="p">,</span> <span class="s1">&#39;multiply&#39;</span><span class="p">,</span>
-                      <span class="s1">&#39;-p&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="s1">.8g</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">lambda_bdg</span><span class="p">]</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bdgopt_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">bdgopt_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">bdgcmp_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;bdgcmp&#39;</span><span class="p">,</span> <span class="s1">&#39;-t&#39;</span><span class="p">,</span> <span class="n">treat_bdg</span><span class="p">,</span> <span class="s1">&#39;-c&#39;</span><span class="p">,</span> <span class="n">lambda_bdg</span><span class="p">,</span>
-                  <span class="s1">&#39;-m&#39;</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">score_bdg</span><span class="p">]</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bdgcmp_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">bdgcmp_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">bdgpeakcall_cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;macs3&#39;</span><span class="p">,</span> <span class="s1">&#39;bdgpeakcall&#39;</span><span class="p">,</span> <span class="s1">&#39;-i&#39;</span><span class="p">,</span> <span class="n">score_bdg</span><span class="p">,</span>
-                       <span class="s1">&#39;-c&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">cutoff</span><span class="p">),</span> <span class="s1">&#39;-l&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">min_len</span><span class="p">),</span> <span class="s1">&#39;-g&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">max_gap</span><span class="p">),</span>
-                       <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">narrowpeak</span><span class="p">]</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bdgpeakcall_cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">bdgpeakcall_cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_bdg</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">(</span><span class="n">treat_bdg</span><span class="p">,</span> <span class="n">ctrl_bdg</span><span class="p">,</span> <span class="n">lambda_bdg</span><span class="p">,</span> <span class="n">score_bdg</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Peaks written to: </span><span class="si">{</span><span class="n">narrowpeak</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">blacklist</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">):</span>
+        <span class="n">bl_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">blacklist</span><span class="p">))</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">_blacklist_mask</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">bl_path</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;blacklist: dropping </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="si">}</span><span class="s2"> peaks&quot;</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="o">~</span><span class="n">m</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_peak_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+    <span class="c1"># No track line: a bare narrowPeak loads cleanly everywhere.</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">narrowpeak</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="si">}</span><span class="s2"> peaks written to: </span><span class="si">{</span><span class="n">narrowpeak</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">narrowpeak</span></div>
+
 
 </pre></div>
 
