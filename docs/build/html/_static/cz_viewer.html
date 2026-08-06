@@ -174,6 +174,13 @@
     padding: 4px 7px; border-radius: 4px; font-size: 11px; display: none; z-index: 50;
     white-space: nowrap;
   }
+  /* Fast custom tooltip (replaces the slow browser `title` delay) */
+  #tip {
+    position: fixed; z-index: 9999; pointer-events: none; display: none;
+    background: rgba(28,30,38,.95); color: #fff;
+    padding: 4px 8px; border-radius: 4px; font-size: 11.5px; line-height: 1.35;
+    max-width: 340px; box-shadow: 0 4px 14px rgba(0,0,0,.28);
+  }
   .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
   .hint code { background: #eef0f5; padding: 1px 4px; border-radius: 3px; }
   /* Group header shown above a set of grouped methylation tracks */
@@ -189,6 +196,13 @@
     padding: 4px 10px; font-size: 12px; font-weight: 800;
     color: #232635; letter-spacing: .3px; text-transform: none;
   }
+  /* Modality header (top level when tracks are nested by modality) */
+  .modalityhdr {
+    background: #ccd6e8; border-bottom: 1px solid var(--border);
+    padding: 4px 10px; font-size: 12px; font-weight: 800;
+    color: #1e293b; letter-spacing: .3px;
+  }
+  .categoryhdr.nested, .modalityhdr.nested { background: #e6eaf1; }
   .row.grouped .label { background: #f0f2f6; }
   .row.in-category .label { padding-left: 16px; }
   /* Per-track loading spinner */
@@ -309,6 +323,23 @@
     border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
   }
   #savedModal .savedtools button:hover { background: #565c78; }
+  #savedModal .sortchips { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  #savedModal .sortchips .sc-label { font-size: 11px; color: var(--muted); }
+  #savedModal .sortchips .sc-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #e3e7ef; color: #232635; border: 1px solid #c9cdd6;
+    padding: 2px 5px 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+    cursor: grab; user-select: none;
+  }
+  #savedModal .sortchips .sc-chip.off { background: #f0f1f4; color: #8a8f9c; border-style: dashed; cursor: pointer; padding: 2px 8px; }
+  #savedModal .sortchips .sc-chip.dragging { opacity: .5; cursor: grabbing; }
+  #savedModal .sortchips .sc-chip.dragover { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  #savedModal .sortchips .sc-x { cursor: pointer; color: #8a8f9c; font-weight: 700; line-height: 1; padding: 0 1px; }
+  #savedModal .sortchips .sc-x:hover { color: #b2182b; }
+  #savedModal .savedsortrow { padding: 2px 16px 10px; border-bottom: 1px solid var(--border); }
+  /* SortableJS drag states (shared by the modality-order + sort chips) */
+  .chip-ghost { opacity: .35; }
+  .chip-drag { box-shadow: 0 4px 12px rgba(0,0,0,.28); cursor: grabbing; }
   #savedModal .savedcount { font-size: 11px; color: var(--muted); margin-left: auto; }
   #savedModal .savedlist { overflow-y: auto; padding: 6px 0; }
   #savedModal .savedlist .saveditem {
@@ -446,9 +477,12 @@
       <option value="mm39">mm39</option>
     </select>
   </label>
-  <button id="btnLoad">Load reference</button>
+  <input type="text" id="refUrl" title="Reference .cz URL (coordinates)"
+    placeholder="Reference .cz URL (coordinates)"
+    value="https://neomorph.salk.edu/ftp/cz/hg38_with_chrL.allc.cz" style="width:340px" />
+  <button id="btnLoad">Load ref cz</button>
   <div class="locusbox">
-    <input type="text" id="locus" placeholder="chr1:3,000,000-3,050,000 or gene name (e.g. HOXA13)" style="width:300px" />
+    <input type="text" id="locus" placeholder="chr1:3,000,000-3,050,000 or gene name (e.g. HOXA13)" style="width:220px" />
     <button id="btnGo">Go</button>
     <span class="zoombtns">
       <button id="zoomOut" class="secondary" title="Zoom out">−</button>
@@ -458,11 +492,6 @@
 </div>
 
 <div class="panel">
-  <div class="field">
-    <label>Reference .cz URL (coordinates)</label>
-    <input type="text" class="url" id="refUrl"
-      value="https://neomorph.salk.edu/ftp/cz/hg38_with_chrL.allc.cz" />
-  </div>
   <div class="field">
     <label>New track name &nbsp;·&nbsp; modality (optional)</label>
     <div style="display:flex;gap:6px;">
@@ -481,9 +510,10 @@
   </div>
   <div class="field">
     <label>Saved tracks (add / re-add removed)</label>
-    <div style="display:flex;gap:6px;">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button id="btnSavedTracks" class="secondary" title="Open the saved-tracks manager to re-add tracks you removed">Saved tracks…</button>
       <button id="btnForgetTracks" class="secondary" title="Clear saved tracks">Clear</button>
+      <span id="modOrder" class="modorder" style="display:none;"></span>
     </div>
   </div>
 </div>
@@ -505,19 +535,19 @@
         style="font-size:11px;color:#dfe2ea;max-width:140px;" />
       <input type="text" class="url" id="trackTableUrl" placeholder="https://…/tracks.tsv" value="https://neomorph.salk.edu/ftp/cz/BG_Subclass_track_table.tsv" style="width:600px" />
       <button id="btnTrackTableUrl" class="secondary">Load</button>
-      <span id="modOrder" class="modorder" style="display:none;"></span>
+      <button id="btnTrackTableUnload" class="secondary" title="Remove all tracks loaded from the track table" style="display:none;">Unload</button>
     </div>
   </div>
 </div>
 
-<div class="status" id="status">Ready. Set the reference URL and click “Load reference”, then “Add track”.</div>
+<div class="status" id="status">Ready. Set the reference URL and click “Load ref cz”, then “Add track”.</div>
 
 <div class="tracktoolbar" id="trackToolbar">
   <div class="toolgroup" id="toolModes">
-    <button class="toolbtn" data-tool="pan" title="Pan — drag on a track to move along the genome (P)">✋</button>
-    <button class="toolbtn active" data-tool="zoom" title="Zoom — drag on a track to select a region and zoom into it (Z)">🔍</button>
-    <button class="toolbtn" data-tool="select" title="Select — click tracks to select them for batch actions (V)">☑</button>
-    <button class="toolbtn" data-tool="mark" title="Mark — drag to highlight a region across all tracks (M). Tip: right-drag marks in any mode.">🖍</button>
+    <button class="toolbtn" data-tool="pan" aria-label="Pan tool" title="Pan — drag on a track to move along the genome (P)">✋</button>
+    <button class="toolbtn active" data-tool="zoom" aria-label="Zoom tool" title="Zoom — drag on a track to select a region and zoom into it (Z)">🔍</button>
+    <button class="toolbtn" data-tool="select" aria-label="Select tool" title="Select — click tracks to select them for batch actions (V)">☑</button>
+    <button class="toolbtn" data-tool="mark" aria-label="Mark tool" title="Mark — drag to highlight a region across all tracks (M). Tip: right-drag marks in any mode.">🖍</button>
     <input type="color" id="markColor" class="markcolor" value="#ffcc33" title="Mark color">
   </div>
   <span class="toolsep"></span>
@@ -592,34 +622,18 @@
   <div id="labelresize" title="Drag to resize the track-header (label) column"></div>
   <div id="tracks">
     <div class="empty hint" id="emptyMsg">
-      No tracks yet. Click <b>Load reference</b>, then <b>+ Add track</b> to visualize a remote <code>.cz</code> file.
+      No tracks yet. Click <b>Load ref cz</b>, then <b>+ Add track</b> to visualize a remote <code>.cz</code> file.
     </div>
   </div>
 </div>
 
 <div id="hover"></div>
+<div id="tip"></div>
 
 <div id="selbar">
   <span id="selcount">0 selected</span>
   <button id="selUp" class="secondary" title="Move selected track(s) up">↑ Up</button>
   <button id="selDown" class="secondary" title="Move selected track(s) down">↓ Down</button>
-  <label>Ctx
-    <select id="selCtx" title="Set context for selected track(s)">
-      <option value="">—</option>
-      <option value="CG">CG</option>
-      <option value="CH">CH</option>
-      <option value="CHG">CHG</option>
-      <option value="CHH">CHH</option>
-      <option value="ALL">All C</option>
-    </select>
-  </label>
-  <label>Val
-    <select id="selVal" title="Methylated / unmethylated for selected track(s)">
-      <option value="">—</option>
-      <option value="meth">mC</option>
-      <option value="unmeth">1−mC</option>
-    </select>
-  </label>
   <label>Color <input type="color" id="selColor" title="Recolor selected track(s)"></label>
   <label>Height <input type="number" id="selHeight" min="22" step="1" title="Set height of selected track(s)"></label>
   <button id="selYlim" title="Set Y-axis limits for selected track(s)">Y-lim…</button>
@@ -639,6 +653,9 @@
       <button id="savedAll" class="secondary" title="Show all">Select all</button>
       <button id="savedNone" class="secondary" title="Remove all">Select none</button>
       <span id="savedCount" class="savedcount"></span>
+    </div>
+    <div class="savedsortrow">
+      <div id="savedSort" class="sortchips" title="Drag to reorder · × to remove a level · click a dimmed chip to add"></div>
     </div>
     <div id="savedList" class="savedlist"></div>
   </div>
@@ -732,7 +749,7 @@ const state = {
   strand: 'both',       // global .cz strand filter: 'both' | '+' | '-'
   colorMap: {},         // { trackName: colorCode } from an uploaded palette
   yScale: '1',          // mc y-axis: '1' = fixed 0-1, 'auto' = per-track max
-  tracks: [],           // {id, kind:'mc'|'seq'|'gene', name, url, reader, color, ctx, canvas, labelEl, metaEl}
+  tracks: [],           // per-track objects: {id, kind:'mc'|'seq'|'gene'|'bw'|'bed'|'bedpe'|'hic', name, url, reader, color, ctx, view, canvas, labelEl, metaEl, …}
   gen: 0,               // render generation token (drops stale async draws)
   trackSeq: 0,
   selected: new Set(),  // ids of currently-selected tracks (for batch actions)
@@ -742,6 +759,7 @@ const state = {
   markColor: '#ffcc33', // current mark color
   modalityOrder: [],    // user-defined ordering of modality values (drag to reorder)
   nameFontSize: 12,     // track-name label font size (px)
+  sortKeys: ['modality', 'category', 'group'],  // nesting/sort priority; absent columns are skipped
 };
 
 const $ = (id) => document.getElementById(id);
@@ -751,6 +769,23 @@ function setStatus(msg, isErr = false) {
   statusEl.classList.toggle('error', !!isErr);
 }
 const fmtInt = (n) => n.toLocaleString('en-US');
+// Silent-failure paths log to the console only when the page is opened with
+// ?debug=1, so routine issues can be diagnosed without noisy default logging.
+const DEBUG = /[?&]debug=1\b/.test(location.search);
+function dbg(...a) { if (DEBUG) console.warn('[cz]', ...a); }
+// rAF-throttle hover + crosshair so a fast mousemove does DOM work at most once
+// per frame instead of on every pointer event.
+let _hoverEvt = null, _hoverRaf = false;
+function scheduleHover(e) {
+  _hoverEvt = e;
+  if (_hoverRaf) return;
+  _hoverRaf = true;
+  requestAnimationFrame(() => {
+    _hoverRaf = false;
+    const ev = _hoverEvt; _hoverEvt = null;
+    if (ev) { updateHover(ev); updateCrosshair(ev.clientX); }
+  });
+}
 
 // ── Automatic CORS handling (global fetch wrapper) ───────────────────────────
 // IMPORTANT: CORS is enforced by the browser from the *server's response*
@@ -1086,11 +1121,36 @@ async function addSavedEntry(e) {
 function openSavedPanel() {
   const m = $('savedModal'); if (!m) return;
   $('savedFilter').value = '';
+  renderSortChips();
   renderSavedList();
   m.classList.add('show');
   $('savedFilter').focus();
 }
 function closeSavedPanel() { const m = $('savedModal'); if (m) m.classList.remove('show'); }
+// ── Saved-panel sort chips: drag to reorder the sort priority, × to remove a
+// level, click a dimmed chip to re-add it — the analog of the modality chips. ─
+function savedSortDims() {
+  const pool = [...loadSavedTracks(), ...state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene')];
+  return ['modality', 'category', 'group', 'name'].filter(d => pool.some(e => (e[d] || '') !== ''));
+}
+function renderSortChips() {
+  const host = $('savedSort'); if (!host) return;
+  const avail = savedSortDims();
+  state.sortKeys = (state.sortKeys || []).filter(k => avail.includes(k));   // drop vanished columns
+  const active = state.sortKeys, inactive = avail.filter(d => !active.includes(d));
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  host.innerHTML = `<span class="sc-label">Sort:</span>` +
+    active.map(k => `<span class="sc-chip" data-key="${k}" title="Drag to reorder">${cap(k)}<span class="sc-x" data-x="${k}" title="Remove">\u00d7</span></span>`).join('') +
+    inactive.map(k => `<span class="sc-chip off" data-add="${k}" title="Click to add">+ ${cap(k)}</span>`).join('') +
+    (active.length ? '' : `<span class="sc-label">(table order)</span>`);
+  for (const x of host.querySelectorAll('.sc-x')) x.addEventListener('click', (e) => { e.stopPropagation(); removeSortKey(x.dataset.x); });
+  for (const a of host.querySelectorAll('.sc-chip.off')) a.addEventListener('click', () => addSortKey(a.dataset.add));
+  makeSortableChips(host, { itemSel: '.sc-chip:not(.off)', attr: 'data-key', filter: '.sc-x',
+    onOrder: (vals) => { state.sortKeys = vals; applySortChange(); } });
+}
+function applySortChange() { applyTrackSort(); renderSavedList(); renderSortChips(); }
+function removeSortKey(k) { state.sortKeys = (state.sortKeys || []).filter(x => x !== k); applySortChange(); }
+function addSortKey(k) { if (!(state.sortKeys || []).includes(k)) { state.sortKeys = [...(state.sortKeys || []), k]; applySortChange(); } }
 function renderSavedList() {
   const host = $('savedList'); if (!host) return;
   const q = ($('savedFilter').value || '').trim().toLowerCase();
@@ -1103,9 +1163,12 @@ function renderSavedList() {
   if (!list.length) {
     host.innerHTML = `<div class="savedempty">${all.length ? 'No saved tracks match the filter.' : 'No saved tracks yet — add tracks or load a track table first.'}</div>`;
   } else {
-    // Nest by the hierarchy modality → category → group, skipping any column
-    // that is entirely empty. Every header toggles all of its tracks on/off.
-    const dims = ['modality', 'category', 'group'].filter(d => list.some(e => (e[d] || '') !== ''));
+    // Nest by the user-chosen sort order (state.sortKeys) restricted to the
+    // groupable dims and skipping any column that is entirely empty. Every
+    // header toggles all of its tracks on/off.
+    const order = (state.sortKeys && state.sortKeys.length ? state.sortKeys : ['modality', 'category', 'group'])
+      .filter(d => d === 'modality' || d === 'category' || d === 'group');
+    const dims = order.filter(d => list.some(e => (e[d] || '') !== ''));
     const toggleEntries = async (entries, show) => {
       for (const e of entries) {
         if (show) { if (!isSavedShown(e.url)) await addSavedEntry(e); }
@@ -1447,7 +1510,7 @@ async function getHicLib() {
   }
   return _hicLib;
 }
-async function openHicTrack({ name, url, group = '', modality = '', category = '', color = '' }) {
+async function openHicTrack({ name, url, group = '', modality = '', category = '', color = '', ylim = 'auto' }) {
   if (!url) throw new Error('missing URL');
   const HicStraw = await getHicLib();
   // Pass the URL so HicStraw builds its own file handle; requests still flow
@@ -1460,6 +1523,7 @@ async function openHicTrack({ name, url, group = '', modality = '', category = '
     id: ++state.trackSeq, kind: 'hic', name: named, url, straw, group: group || '', modality: modality || '', category: category || '',
     resolutions: (resolutions.length ? resolutions : [2500000, 1000000, 500000, 250000, 100000, 50000, 25000, 10000, 5000, 1000]).sort((a, b) => a - b),
     color: color ? normalizeColor(color) : '#b2182b',
+    ylim: Array.isArray(ylim) ? ylim : 'auto',
   };
   state.tracks.push(track);
   return track;
@@ -1601,22 +1665,49 @@ function toHexColor(c) {
   return '#888888';
 }
 
-// Order items by category → group → name → modality. category/group/name use
-// first-appearance order; modality follows the user's chosen order
-// (state.modalityOrder) when set, else first appearance. Any level whose column
-// is absent (all-empty) collapses to a no-op.
-function sortTrackItems(items) {
+// The active sort / nesting dimensions: state.sortKeys with any column that has
+// no values dropped, so an absent column (e.g. no `modality` in the table) is
+// skipped instead of being forced into the ordering. An explicit empty
+// state.sortKeys ([]) means “table order” (no nesting).
+function activeSortKeys(items) {
+  const keys = state.sortKeys || ['modality', 'category', 'group'];
+  const data = items || state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');
+  return keys.filter(k => data.some(r => (r[k] || '') !== ''));
+}
+// Keys used for track ORDERING (not header nesting). The modality-order control
+// must keep working even when the user drops 'modality' from the sort chips, so
+// modality is appended as the finest ordering level whenever the data has it.
+function sortOrderKeys(items) {
+  const keys = activeSortKeys(items);
+  const data = items || state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');
+  if (!keys.includes('modality') && data.some(r => (r.modality || '') !== '')) return [...keys, 'modality'];
+  return keys;
+}
+// Order items by `keys` (default sortOrderKeys), each level using
+// first-appearance order; `modality` follows the user's chosen order
+// (state.modalityOrder) when set. Ties fall back to the original index, so the
+// within-leaf insertion / table order is preserved.
+function sortTrackItems(items, keys) {
+  keys = keys || sortOrderKeys(items);
   const idxMap = (key) => { const m = new Map(); let i = 0; for (const r of items) { const v = r[key] || ''; if (!m.has(v)) m.set(v, i++); } return m; };
-  const ci = idxMap('category'), gi = idxMap('group'), ni = idxMap('name'), mi = idxMap('modality');
+  // 'name' sorts alphabetically (in the comparator); every other key uses
+  // first-appearance rank.
+  const maps = {}; for (const k of keys) if (k !== 'name') maps[k] = idxMap(k);
   const mo = (state.modalityOrder && state.modalityOrder.length) ? state.modalityOrder : null;
-  const mrank = (v) => { v = v || ''; if (mo) { const k = mo.indexOf(v); return k < 0 ? mo.length + mi.get(v) : k; } return mi.get(v); };
-  return items.map((r, i) => ({ r, i })).sort((a, b) =>
-    (ci.get(a.r.category || '') - ci.get(b.r.category || '')) ||
-    (gi.get(a.r.group || '') - gi.get(b.r.group || '')) ||
-    (ni.get(a.r.name || '') - ni.get(b.r.name || '')) ||
-    (mrank(a.r.modality) - mrank(b.r.modality)) ||
-    (a.i - b.i)
-  ).map(x => x.r);
+  const rank = (key, v) => {
+    v = v || '';
+    if (key === 'modality' && mo) { const k = mo.indexOf(v); return k < 0 ? mo.length + (maps.modality.get(v) || 0) : k; }
+    return maps[key].get(v);
+  };
+  return items.map((r, i) => ({ r, i })).sort((a, b) => {
+    for (const key of keys) {
+      const d = (key === 'name')
+        ? String(a.r.name || '').localeCompare(String(b.r.name || ''), undefined, { numeric: true, sensitivity: 'base' })
+        : (rank(key, a.r[key]) - rank(key, b.r[key]));
+      if (d) return d;
+    }
+    return a.i - b.i;
+  }).map(x => x.r);
 }
 function sortTrackRows(rows) { return sortTrackItems(rows); }
 // Re-sort the already-loaded tracks in place (used after a modality reorder).
@@ -1635,7 +1726,7 @@ function makePendingTrack(r, color) {
   const t = {
     id: ++state.trackSeq, name: named, url,
     group: r.group || '', modality: r.modality || '', category: r.category || '',
-    color, ylim: 'auto', unopened: true,
+    color, ylim: 'auto', unopened: true, fromTable: true,
   };
   let fmt;
   if (isHicUrl(url)) { t.kind = 'hic'; t.resolutions = [2500000, 1000000, 500000, 250000, 100000, 50000, 25000, 10000, 5000, 1000]; fmt = 'hic'; }
@@ -1743,6 +1834,27 @@ function removeTrack(id) {
   render();
 }
 
+// Remove every track that came from a loaded track table (keeps genome
+// sequence, refGene and manually added tracks). Backs the "Unload" button.
+function unloadAllTracks() {
+  const removed = state.tracks.filter(t => t.fromTable);
+  if (!removed.length) { setStatus('No track-table tracks to unload.'); return; }
+  for (const t of removed) {
+    if (t.reader) t.reader.close();
+    state.selected.delete(t.id);
+  }
+  state.tracks = state.tracks.filter(t => !t.fromTable);
+  buildTrackRows();
+  render();
+  setStatus(`Unloaded ${removed.length} track(s) from the track table.`);
+}
+
+// Show the "Unload" button only while track-table tracks are present.
+function updateUnloadBtn() {
+  const btn = $('btnTrackTableUnload');
+  if (btn) btn.style.display = state.tracks.some(t => t.fromTable) ? '' : 'none';
+}
+
 // ── DOM: build ruler + track rows ────────────────────────────────────────────
 function buildTrackRows() {
   const host = $('tracks');
@@ -1751,6 +1863,7 @@ function buildTrackRows() {
   refreshSelByOptions();
   refreshModOrderUI();
   refreshTrackToolbars();
+  updateUnloadBtn();
   if (state.tracks.length === 0) {
     host.innerHTML = '<div class="empty hint">No tracks yet. Select a <b>Genome</b> to load sequence + gene tracks, or add a track with <b>+ Add track</b>.</div>';
     return;
@@ -1772,35 +1885,28 @@ function buildTrackRows() {
   const ordered = orderedTracksForDisplay();
   const gColors = groupColorMap(ordered);
   const cColors = categoryColorMap(ordered);
-  let prevGroup = null, prevCat = null;
+  const mColors = modalityColorMap(ordered);
+  const colorFor = { modality: mColors, category: cColors, group: gColors };
+  // 'name' is a sort level but never a header (names are unique) — nest only by
+  // modality/category/group.
+  const dims = activeSortKeys(ordered.filter(t => t.kind !== 'seq' && t.kind !== 'gene')).filter(d => d !== 'name');
+  const prev = {};
   for (const t of ordered) {
     const isData = t.kind !== 'seq' && t.kind !== 'gene';
-    const cat = isData ? (t.category || '') : '';
-    const grp = isData ? (t.group || '') : '';
-    // Category header (top level): before the first track of each named category.
-    if (cat && cat !== prevCat) {
-      const ch = document.createElement('div');
-      ch.className = 'categoryhdr';
-      ch.style.borderLeft = `5px solid ${cColors[cat]}`;
-      ch.textContent = cat;
-      ch.title = 'Click to select the whole category (then ↑/↓ moves it as a unit)';
-      ch.style.cursor = 'pointer';
-      ch.onclick = () => toggleCategorySelection(cat);
-      host.appendChild(ch);
+    // Emit a header for each nesting level whose value changed (a change at a
+    // coarser level forces re-emitting every finer level below it).
+    if (isData) {
+      let force = false;
+      for (let li = 0; li < dims.length; li++) {
+        const key = dims[li], val = t[key] || '';
+        if (force || val !== prev[key]) {
+          force = true;
+          if (val) host.appendChild(makeDimHeader(key, val, li, colorFor[key][val]));
+        }
+      }
     }
-    // Group header (mid level): before the first track of each named group.
-    if (grp && (grp !== prevGroup || cat !== prevCat)) {
-      const gh = document.createElement('div');
-      gh.className = 'grouphdr' + (cat ? ' nested' : '');
-      gh.style.borderLeft = `4px solid ${gColors[grp]}`;
-      gh.textContent = grp;
-      gh.title = 'Click to select / deselect all tracks in this group';
-      gh.style.cursor = 'pointer';
-      gh.onclick = () => toggleGroupSelection(grp);
-      host.appendChild(gh);
-    }
-    prevCat = cat; prevGroup = grp;
-    host.appendChild(createTrackRow(t, grp, gColors));
+    for (let li = 0; li < dims.length; li++) prev[dims[li]] = isData ? (t[dims[li]] || '') : '';
+    host.appendChild(createTrackRow(t, t.group || '', gColors));
   }
   // Drop selection entries for tracks that no longer exist, then refresh the bar.
   const liveIds = new Set(state.tracks.map(t => t.id));
@@ -1830,7 +1936,7 @@ function createTrackRow(t, grp, gColors) {
     `<input type="color" class="swatch" title="Change track color" value="${toHexColor(t.color)}">` +
     `<span class="tnametxt">${escapeHtml(t.name)}</span>` +
     (t.mismatch ? `<span title="${escapeHtml(t.mismatch)}" style="color:#b2182b;cursor:help;">⚠</span>` : '') +
-    `<button class="del" title="Remove">×</button></div>
+    `<button class="del" title="Remove" aria-label="Remove track">×</button></div>
      <div class="meta"></div>
      ${ctxCtrls}`;
   label.querySelector('.del').onclick = () => removeTrack(t.id);
@@ -1925,22 +2031,14 @@ function renameTrack(t, newName) {
 // layout collapses to the two-level Group → track form.
 const GROUP_PALETTE = ['#4a90d9', '#e08214', '#1b7837', '#b2182b', '#762a83', '#01665e', '#c51b7d', '#8a6d3b'];
 const CATEGORY_PALETTE = ['#334155', '#6d28d9', '#0f766e', '#9d174d', '#a16207', '#1e3a8a', '#b91c1c', '#115e59'];
-// Nested display blocks: [{ c: category, groups: [{ g: group, tracks: [...] }] }].
-function orderedBlocks() {
-  const data = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');   // mc + bw + bed/…
-  const catOrder = [];
-  for (const t of data) { const c = t.category || ''; if (!catOrder.includes(c)) catOrder.push(c); }
-  return catOrder.map(c => {
-    const inCat = data.filter(t => (t.category || '') === c);
-    const groupOrder = [];
-    for (const t of inCat) { const g = t.group || ''; if (!groupOrder.includes(g)) groupOrder.push(g); }
-    return { c, groups: groupOrder.map(g => ({ g, tracks: inCat.filter(t => (t.group || '') === g) })) };
-  });
-}
+const MODALITY_PALETTE = ['#0f766e', '#b45309', '#7e22ce', '#be123c', '#1d4ed8', '#15803d', '#a21caf', '#475569'];
+// Nested display order: sequence/gene tracks first, then data tracks ordered by
+// the active sort dimensions (activeSortKeys), each level first-appearance-
+// ordered with within-leaf insertion order preserved.
 function orderedTracksForDisplay() {
   const anchored = state.tracks.filter(t => t.kind === 'seq' || t.kind === 'gene');
-  const flat = orderedBlocks().flatMap(cb => cb.groups.flatMap(gb => gb.tracks));
-  return [...anchored, ...flat];
+  const data = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene');
+  return [...anchored, ...sortTrackItems(data, sortOrderKeys(data))];
 }
 function groupColorMap(ordered) {
   const map = {}; let i = 0;
@@ -1957,6 +2055,15 @@ function categoryColorMap(ordered) {
     if (t.kind === 'seq' || t.kind === 'gene') continue;
     const c = t.category || '';
     if (c && !(c in map)) map[c] = CATEGORY_PALETTE[i++ % CATEGORY_PALETTE.length];
+  }
+  return map;
+}
+function modalityColorMap(ordered) {
+  const map = {}; let i = 0;
+  for (const t of ordered) {
+    if (t.kind === 'seq' || t.kind === 'gene') continue;
+    const m = t.modality || '';
+    if (m && !(m in map)) map[m] = MODALITY_PALETTE[i++ % MODALITY_PALETTE.length];
   }
   return map;
 }
@@ -2003,8 +2110,6 @@ function updateSelBar() {
   if (n) {
     const c = $('selColor'); if (c) c.value = toHexColor(sel[0].color || '#888888');
     const h = $('selHeight'); if (h) h.value = trackHeight(sel[0]);
-    const cx = $('selCtx'); if (cx) cx.value = '';
-    const vv = $('selVal'); if (vv) vv.value = '';
   }
 }
 function clearSelection() {
@@ -2083,7 +2188,55 @@ function refreshTrackToolbars() {
 }
 // Render the drag-to-reorder modality chips (only when modalities exist), and
 // reconcile state.modalityOrder with the modalities currently loaded.
-let _moDrag = null;
+// Lazily load SortableJS once (for smooth, animated chip reordering); resolves
+// to the Sortable constructor, or null if it can't be fetched (CDN/CSP) so the
+// caller falls back to a plain native drag.
+let _SortableP = null;
+function getSortable() {
+  if (!_SortableP) {
+    _SortableP = import('https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/modular/sortable.esm.js')
+      .then(m => m.default || m.Sortable || m).catch(() => null);
+  }
+  return _SortableP;
+}
+// Make a chip container reorderable. Uses SortableJS (animated) when available,
+// else a native HTML5-drag fallback. `onOrder(values)` gets the new order (read
+// from each chip's `attr`). `itemSel` limits which children are draggable.
+function makeSortableChips(host, o) {
+  if (!host) return;
+  getSortable().then(S => {
+    if (S) {
+      if (host._sortable) { try { host._sortable.destroy(); } catch (_) {} }
+      host._sortable = S.create(host, {
+        animation: 160, easing: 'cubic-bezier(.2,.8,.2,1)',
+        draggable: o.itemSel, filter: o.filter || undefined, preventOnFilter: false,
+        ghostClass: 'chip-ghost', chosenClass: 'chip-chosen', dragClass: 'chip-drag',
+        onEnd: () => o.onOrder(Array.from(host.querySelectorAll(o.itemSel)).map(el => el.getAttribute(o.attr))),
+      });
+    } else {
+      attachNativeChipDrag(host, o);
+    }
+  });
+}
+function attachNativeChipDrag(host, o) {
+  let drag = null;
+  for (const chip of host.querySelectorAll(o.itemSel)) {
+    chip.setAttribute('draggable', 'true');
+    chip.addEventListener('dragstart', () => { drag = chip.getAttribute(o.attr); chip.classList.add('dragging'); });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+    chip.addEventListener('dragover', (e) => { e.preventDefault(); chip.classList.add('dragover'); });
+    chip.addEventListener('dragleave', () => chip.classList.remove('dragover'));
+    chip.addEventListener('drop', (e) => {
+      e.preventDefault(); chip.classList.remove('dragover');
+      const vals = Array.from(host.querySelectorAll(o.itemSel)).map(el => el.getAttribute(o.attr));
+      const from = vals.indexOf(drag); if (from < 0) return;
+      vals.splice(from, 1);
+      let to = vals.indexOf(chip.getAttribute(o.attr)); if (to < 0) to = vals.length;
+      vals.splice(to, 0, drag);
+      o.onOrder(vals);
+    });
+  }
+}
 function refreshModOrderUI() {
   const host = $('modOrder'); if (!host) return;
   const mods = currentModalities();
@@ -2092,25 +2245,9 @@ function refreshModOrderUI() {
   state.modalityOrder = prev.filter(m => mods.includes(m)).concat(mods.filter(m => !prev.includes(m)));
   host.style.display = '';
   host.innerHTML = `<span class="mo-label">Modality order:</span>` +
-    state.modalityOrder.map(m => `<span class="mo-chip" draggable="true" data-mod="${escapeHtml(m)}" title="Drag to reorder">${escapeHtml(m)}</span>`).join('');
-  for (const chip of host.querySelectorAll('.mo-chip')) {
-    chip.addEventListener('dragstart', () => { _moDrag = chip.dataset.mod; chip.classList.add('dragging'); });
-    chip.addEventListener('dragend', () => { chip.classList.remove('dragging'); _moDrag = null; });
-    chip.addEventListener('dragover', (e) => { e.preventDefault(); chip.classList.add('dragover'); });
-    chip.addEventListener('dragleave', () => chip.classList.remove('dragover'));
-    chip.addEventListener('drop', (e) => { e.preventDefault(); chip.classList.remove('dragover'); reorderModality(_moDrag, chip.dataset.mod); });
-  }
-}
-// Move modality `src` to just before `target`, then re-sort the loaded tracks.
-function reorderModality(src, target) {
-  if (!src || src === target) return;
-  const arr = state.modalityOrder.slice();
-  const from = arr.indexOf(src); if (from < 0) return;
-  arr.splice(from, 1);
-  let to = arr.indexOf(target); if (to < 0) to = arr.length;
-  arr.splice(to, 0, src);
-  state.modalityOrder = arr;
-  applyTrackSort();   // rebuilds rows (and the chips) with the new modality order
+    state.modalityOrder.map(m => `<span class="mo-chip" data-mod="${escapeHtml(m)}" title="Drag to reorder">${escapeHtml(m)}</span>`).join('');
+  makeSortableChips(host, { itemSel: '.mo-chip', attr: 'data-mod',
+    onOrder: (vals) => { state.modalityOrder = vals; applyTrackSort(); } });
 }
 // Toggle the whole group: select all its tracks, or clear them if all are on.
 function toggleGroupSelection(grp) {
@@ -2132,66 +2269,74 @@ function toggleCategorySelection(cat) {
   state.lastSelectedId = ids[ids.length - 1];
   updateSelBar();
 }
+// Toggle the whole modality: select/clear every track under it.
+function toggleModalitySelection(m) {
+  if (!m) return;
+  const ids = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene' && (t.modality || '') === m).map(t => t.id);
+  if (!ids.length) return;
+  const allSel = ids.every(id => state.selected.has(id));
+  for (const id of ids) { if (allSel) state.selected.delete(id); else state.selected.add(id); }
+  state.lastSelectedId = ids[ids.length - 1];
+  updateSelBar();
+}
+// One nesting header (modality / category / group). `level` drives the indent;
+// clicking selects every track under that dimension value.
+function makeDimHeader(key, val, level, color) {
+  const h = document.createElement('div');
+  h.className = (key === 'category' ? 'categoryhdr' : key === 'modality' ? 'modalityhdr' : 'grouphdr') + (level > 0 ? ' nested' : '');
+  h.style.paddingLeft = (10 + level * 12) + 'px';
+  if (color) h.style.borderLeft = `${key === 'group' ? 4 : 5}px solid ${color}`;
+  h.textContent = val;
+  h.title = `Click to select all tracks with ${key} “${val}” (then ↑/↓ moves them as a unit)`;
+  h.style.cursor = 'pointer';
+  h.onclick = () => {
+    if (key === 'category') toggleCategorySelection(val);
+    else if (key === 'group') toggleGroupSelection(val);
+    else toggleModalitySelection(val);
+  };
+  return h;
+}
 // Move the selected tracks up/down by one position (dir = -1 up, +1 down).
-// Movement snaps to the coarsest fully-selected unit: whole CATEGORY blocks
-// move as one, else whole GROUP blocks (within their category), else single
-// tracks. This keeps the Category → Group → track display from undoing a move.
+// Movement snaps to the coarsest fully-selected nesting unit (the active sort
+// dimensions, coarsest first), else single tracks — so a move never fights the
+// modality → category → group nesting.
 function moveSelected(dir) {
   if (!state.selected.size) return;
   const sel = state.selected;
   const anchored = state.tracks.filter(t => t.kind === 'seq' || t.kind === 'gene');
-  const cats = orderedBlocks();
-  const selData = state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene' && sel.has(t.id));
-  const isFullGroup = (gb) => gb.tracks.length && gb.tracks.every(t => sel.has(t.id));
-  const isFullCat = (cb) => cb.c && cb.groups.length && cb.groups.every(isFullGroup);
-  const flatten = () => [...anchored, ...cats.flatMap(cb => cb.groups.flatMap(gb => gb.tracks))];
-  const moveList = (list, isSel) => {
-    if (dir < 0) {
-      for (let i = 1; i < list.length; i++)
-        if (isSel(list[i]) && !isSel(list[i - 1])) [list[i - 1], list[i]] = [list[i], list[i - 1]];
-    } else {
-      for (let i = list.length - 2; i >= 0; i--)
-        if (isSel(list[i]) && !isSel(list[i + 1])) [list[i], list[i + 1]] = [list[i + 1], list[i]];
-    }
-  };
+  const dims = activeSortKeys().filter(d => d !== 'name');   // 'name' is not a move/nesting unit
+  const data = sortTrackItems(state.tracks.filter(t => t.kind !== 'seq' && t.kind !== 'gene'), sortOrderKeys());
+  const selData = data.filter(t => sel.has(t.id));
+  if (!selData.length) return;
+  const prefix = (t, L) => dims.slice(0, L + 1).map(k => t[k] || '').join('\u0000');
 
-  // Category-level move (only when categories exist and full ones are selected).
-  const hasCats = state.tracks.some(t => t.category);
-  const fullCats = cats.filter(isFullCat);
-  if (hasCats && fullCats.length && selData.length &&
-      selData.every(t => t.category && fullCats.some(cb => cb.c === t.category))) {
-    const selSet = new Set(fullCats.map(cb => cb.c));
-    moveList(cats, cb => selSet.has(cb.c));
-    state.tracks = flatten();
-    reorderRowsDom(); syncUrlState(); return;
+  // Coarsest level whose selected blocks are each wholly selected (and cover
+  // exactly the selection) is the unit we move; fall back to per-track.
+  let level = dims.length;
+  for (let L = 0; L < dims.length; L++) {
+    const blocks = new Map();
+    for (const t of data) { const k = prefix(t, L); if (!blocks.has(k)) blocks.set(k, []); blocks.get(k).push(t); }
+    const selKeys = new Set(selData.map(t => prefix(t, L)));
+    const whole = [...selKeys].every(k => blocks.get(k).every(t => sel.has(t.id)));
+    const exact = selData.length === [...selKeys].reduce((s, k) => s + blocks.get(k).length, 0);
+    if (whole && exact) { level = L; break; }
   }
 
-  // Group-level move: reorder full groups within their own category.
-  const fullGroups = cats.flatMap(cb => cb.groups.filter(gb => gb.g && isFullGroup(gb)).map(gb => ({ c: cb.c, g: gb.g })));
-  const key = (c, g) => c + '\u0000' + g;
-  if (fullGroups.length && selData.length &&
-      selData.every(t => t.group && fullGroups.some(x => x.g === (t.group || '') && x.c === (t.category || '')))) {
-    const selSet = new Set(fullGroups.map(x => key(x.c, x.g)));
-    for (const cb of cats) moveList(cb.groups, gb => selSet.has(key(cb.c, gb.g)));
-    state.tracks = flatten();
-    reorderRowsDom(); syncUrlState(); return;
+  let units;
+  if (level >= dims.length) units = data.map(t => [t]);
+  else {
+    const order = [], byKey = new Map();
+    for (const t of data) { const k = prefix(t, level); if (!byKey.has(k)) { byKey.set(k, []); order.push(k); } byKey.get(k).push(t); }
+    units = order.map(k => byKey.get(k));
   }
-
-  // Per-track move within the flattened display order.
-  const ordered = orderedTracksForDisplay();
-  const n = ordered.length;
+  const isSel = (u) => u.every(t => sel.has(t.id));
   if (dir < 0) {
-    for (let i = 1; i < n; i++)
-      if (sel.has(ordered[i].id) && !sel.has(ordered[i - 1].id))
-        [ordered[i - 1], ordered[i]] = [ordered[i], ordered[i - 1]];
+    for (let i = 1; i < units.length; i++) if (isSel(units[i]) && !isSel(units[i - 1])) { const tmp = units[i - 1]; units[i - 1] = units[i]; units[i] = tmp; }
   } else {
-    for (let i = n - 2; i >= 0; i--)
-      if (sel.has(ordered[i].id) && !sel.has(ordered[i + 1].id))
-        [ordered[i], ordered[i + 1]] = [ordered[i + 1], ordered[i]];
+    for (let i = units.length - 2; i >= 0; i--) if (isSel(units[i]) && !isSel(units[i + 1])) { const tmp = units[i]; units[i] = units[i + 1]; units[i + 1] = tmp; }
   }
-  state.tracks = ordered;
-  // Reordering needs no network or repaint: just move the existing row nodes
-  // (canvas bitmaps are preserved) instead of rebuilding + redrawing everything.
+  state.tracks = [...anchored, ...units.flat()];
+  // Reordering needs no network or repaint: just move the existing row nodes.
   reorderRowsDom();
   syncUrlState();
 }
@@ -2296,15 +2441,6 @@ function setSelectedHeight(h) {
   }
   quickRedraw();
 }
-function setSelectedCtx(ctx) {
-  for (const t of selectedTracks()) if (t.kind === 'mc') t.ctx = ctx;
-  buildTrackRows(); render();
-}
-function setSelectedVal(v) {
-  state.valType = v;
-  if ($('valSelGlobal')) $('valSelGlobal').value = v;
-  quickRedraw();
-}
 
 // ── Y-axis limit editor (single track via its button, or many via the bar) ───
 function applyYlim(tracks, ylim) {
@@ -2374,9 +2510,13 @@ function sizeCanvas(canvas, cssH) {
   // so the plot fills the whole row with no blank strip below it.
   const h = (view && view.clientHeight) || cssH;
   const cssW = view ? view.clientWidth : (canvas.clientWidth || 1);
-  canvas.width = Math.max(1, Math.round(cssW * dpr));
-  canvas.height = Math.max(1, Math.round(h * dpr));
+  const dw = Math.max(1, Math.round(cssW * dpr));
+  const dh = Math.max(1, Math.round(h * dpr));
   const ctx = canvas.getContext('2d');
+  // Assigning canvas.width/height reallocates+clears the backing store; skip it
+  // when unchanged so smooth pan/zoom repaints don't churn a fresh buffer every
+  // frame (drawTrack clearRect()s anyway).
+  if (canvas.width !== dw || canvas.height !== dh) { canvas.width = dw; canvas.height = dh; }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, w: cssW, h };
 }
@@ -2429,7 +2569,7 @@ function quickRedraw() {
       else if (t.kind === 'bedpe' && t._bedData) drawBedpeTrack(t, t._bedData);
       else if (t.kind === 'hic' && t._hicData) drawHicTrack(t, t._hicData);
       else if (t.kind === 'mc' && t._data) drawTrack(t, t._data.qi, t._data.vals);
-    } catch (_) { /* ignore during fast repaint */ }
+    } catch (err) { dbg('quickRedraw', t.name, err); }   // ignore during fast repaint
   }
   syncLocusInput();
   updateRulerMeta();
@@ -2443,15 +2583,27 @@ function quickRedraw() {
 // many tracks stays fast. state._drawCtx holds the current render context so a
 // scroll-triggered draw reuses the same generation / reference query.
 let _trackIO = null;
+// With many tracks loaded, drop cached data for rows scrolled far off-screen so
+// memory doesn't grow unbounded; they refetch when scrolled back into view.
+const EVICT_MIN_TRACKS = 40;
+function evictTrackCache(t) {
+  t._data = t._dataRange = t._draw = null;
+  t._bwData = t._bwRange = null;
+  t._bedData = t._bedRange = null;
+  t._hicData = t._hicRange = null;
+}
 function trackIO() {
   if (!_trackIO && typeof IntersectionObserver !== 'undefined') {
     _trackIO = new IntersectionObserver((entries) => {
       const c = state._drawCtx;
-      if (!c || c.gen !== state.gen) return;
       for (const e of entries) {
-        if (!e.isIntersecting) continue;
         const t = e.target._track;
-        if (t && t._pending) { t._pending = false; drawOneTrackCtx(t, c); }
+        if (!t) continue;
+        if (e.isIntersecting) {
+          if (c && c.gen === state.gen && t._pending) { t._pending = false; drawOneTrackCtx(t, c); }
+        } else if (state.tracks.length >= EVICT_MIN_TRACKS && !isRowNear(t)) {
+          evictTrackCache(t);
+        }
       }
     }, { root: null, rootMargin: '400px 0px' });
   }
@@ -3656,15 +3808,27 @@ function currentStateObject() {
     t: state.tracks.filter(t => ['mc', 'bw', 'bed', 'bedpe', 'hic'].includes(t.kind))
       .map(t => (t.kind === 'mc'
         ? { n: t.name, u: t.url, c: t.ctx, v: (t.valType && t.valType !== 'meth') ? t.valType : undefined, grp: t.group || undefined, cat: t.category || undefined, md: t.modality || undefined, col: t.color || undefined, yl: Array.isArray(t.ylim) ? t.ylim : undefined }
-        : { k: t.bedgraph ? 'bedgraph' : t.kind, n: t.name, u: t.url, grp: t.group || undefined, cat: t.category || undefined, md: t.modality || undefined, col: t.color || undefined, yl: (t.kind === 'bw' && Array.isArray(t.ylim)) ? t.ylim : undefined })),
+        : { k: t.bedgraph ? 'bedgraph' : t.kind, n: t.name, u: t.url, grp: t.group || undefined, cat: t.category || undefined, md: t.modality || undefined, col: t.color || undefined, yl: ((t.kind === 'bw' || t.kind === 'hic') && Array.isArray(t.ylim)) ? t.ylim : undefined })),
   };
 }
-let _urlTimer = null, _restoring = false;
+let _urlTimer = null, _restoring = false, _sessionImported = false;
+// True once the page was opened with a ?session=…/?s=… link (the canonical
+// shareable artifact is the JSON); the URL is then kept clean instead of
+// carrying the full inline state in the hash.
+function hasSessionParam() {
+  try { const p = new URLSearchParams(location.search); return !!(p.get('session') || p.get('s')); } catch { return false; }
+}
 function syncUrlState() {
   if (_restoring) return;
   clearTimeout(_urlTimer);
   _urlTimer = setTimeout(() => {
-    try { history.replaceState(null, '', '#' + encodeURIComponent(JSON.stringify(currentStateObject()))); } catch (_) {}
+    try {
+      if (_sessionImported || hasSessionParam()) {
+        if (location.search || location.hash) history.replaceState(null, '', location.pathname);
+        return;
+      }
+      history.replaceState(null, '', '#' + encodeURIComponent(JSON.stringify(currentStateObject())));
+    } catch (_) {}
   }, 400);
 }
 async function applyStateObject(st) {
@@ -3691,12 +3855,17 @@ async function applyStateObject(st) {
       if (needsCz && !state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
       for (const r of st.t) {
         try {
-          if (r.k === 'hic' || isHicUrl(r.u)) await openHicTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '' });
-          else if (r.k === 'bedpe' || isBedpeUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', kind: 'bedpe', modality: r.md || '' });
-          else if (r.k === 'bedgraph' || isBedGraphUrl(r.u)) await openBedGraphTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
-          else if (r.k === 'bw' || isBigWigUrl(r.u)) await openBigWigTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
-          else if (r.k === 'bed' || isBedUrl(r.u)) await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', kind: 'bed', modality: r.md || '' });
-          else await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' });
+          let fmt = 'mc';
+          if (r.k === 'hic' || isHicUrl(r.u)) { await openHicTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' }); fmt = 'hic'; }
+          else if (r.k === 'bedpe' || isBedpeUrl(r.u)) { await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', kind: 'bedpe', modality: r.md || '' }); fmt = 'bedpe'; }
+          else if (r.k === 'bedgraph' || isBedGraphUrl(r.u)) { await openBedGraphTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' }); fmt = 'bedgraph'; }
+          else if (r.k === 'bw' || isBigWigUrl(r.u)) { await openBigWigTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' }); fmt = 'bw'; }
+          else if (r.k === 'bed' || isBedUrl(r.u)) { await openBedTrack({ name: r.n, url: r.u, group: r.grp || '', category: r.cat || '', color: r.col || '', kind: 'bed', modality: r.md || '' }); fmt = 'bed'; }
+          else { await openCzTrack({ name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '', ylim: Array.isArray(r.yl) ? r.yl : 'auto' }); fmt = 'mc'; }
+          // Register the track in the saved-tracks manager so a removed one is re-addable.
+          saveTrack(fmt === 'mc'
+            ? { name: r.n, url: r.u, ctx: r.c, valType: r.v || 'meth', group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '' }
+            : { name: r.n, url: r.u, fmt, group: r.grp || '', category: r.cat || '', color: r.col || '', modality: r.md || '' });
         }
         catch (e) { /* skip a track that fails to open */ }
       }
@@ -3731,6 +3900,9 @@ async function restoreFromSessionUrl() {
     const resp = await fetch(url, { cache: 'no-cache' });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     await applyStateObject(await resp.json());
+    // Imported: detach the ?session= param and keep the URL clean.
+    _sessionImported = true;
+    try { history.replaceState(null, '', location.pathname); } catch (_) {}
     setStatus(`Loaded shared session from ${url.split('/').pop() || url}.`);
     return true;
   } catch (e) {
@@ -3783,8 +3955,7 @@ function attachPanZoom(view) {
         showDragBand(startClientX, e.clientX, dragTool);
       }
     }
-    updateHover(e);
-    updateCrosshair(e.clientX);
+    scheduleHover(e);
   });
   const endDrag = (e) => {
     if (dragId !== e.pointerId) return;
@@ -4082,6 +4253,7 @@ $('btnLoad').onclick = loadReference;
 $('btnAddTrack').onclick = () => addTrack();
 $('trackTable').onchange = onTrackTableFile;
 $('btnTrackTableUrl').onclick = onTrackTableUrl;
+$('btnTrackTableUnload').onclick = unloadAllTracks;
 $('btnTsv').onclick = exportDataTsv;
 $('btnSvg').onclick = () => downloadView('svg');
 $('btnPng').onclick = () => downloadView('png');
@@ -4186,13 +4358,18 @@ $('czCtx').onchange = () => setGlobalCzContext($('czCtx').value);
 $('valSelGlobal').onchange = () => { state.valType = $('valSelGlobal').value; quickRedraw(); };
 $('strandSel').onchange = () => { state.strand = $('strandSel').value; quickRedraw(); };
 $('newUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTrack(); });
-window.addEventListener('resize', () => render());
+// Repaint cached data instantly, then run the networked re-render once the
+// resize gesture settles (avoids a fetch storm while dragging the window edge).
+let _resizeTimer = null;
+window.addEventListener('resize', () => {
+  quickRedraw();
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(render, 150);
+});
 
 // ── Selection action bar ─────────────────────────────────────────────────────
 $('selUp').onclick = () => moveSelected(-1);
 $('selDown').onclick = () => moveSelected(1);
-$('selCtx').onchange = (e) => { if (e.target.value) { setSelectedCtx(e.target.value); e.target.value = ''; } };
-$('selVal').onchange = (e) => { if (e.target.value) { setSelectedVal(e.target.value); e.target.value = ''; } };
 $('selColor').oninput = (e) => setSelectedColor(e.target.value);
 $('selHeight').onchange = (e) => setSelectedHeight(parseInt(e.target.value, 10));
 $('selYlim').onclick = (e) => openYlimEditor(selectedTracks(), e.currentTarget);
@@ -4235,7 +4412,11 @@ document.addEventListener('keydown', (e) => {
 // Overlay layers are page-fixed relative to #trackwrap, so keep them aligned
 // when the page scrolls and hide the crosshair once the cursor leaves.
 $('trackwrap').addEventListener('mouseleave', () => { $('crosshair').style.display = 'none'; $('hover').style.display = 'none'; });
-window.addEventListener('scroll', () => { $('crosshair').style.display = 'none'; updateMarks(); }, { passive: true });
+let _scrollRaf = false;
+window.addEventListener('scroll', () => {
+  $('crosshair').style.display = 'none';
+  if (!_scrollRaf) { _scrollRaf = true; requestAnimationFrame(() => { _scrollRaf = false; updateMarks(); }); }
+}, { passive: true });
 
 // Drag the divider to resize the left track-header (label) column (global width).
 (function () {
@@ -4260,6 +4441,46 @@ window.addEventListener('scroll', () => { $('crosshair').style.display = 'none';
   };
   h.addEventListener('pointerup', end);
   h.addEventListener('pointercancel', end);
+})();
+
+// Fast tooltips: the native `title` tooltip has a fixed ~0.5-1s browser delay
+// that can't be changed. Move the text into a styled tooltip shown after a
+// short delay, restoring `title` on leave so accessibility is preserved.
+(function () {
+  const tip = $('tip'); if (!tip) return;
+  const DELAY = 120;   // ms
+  let el = null, timer = null, cx = 0, cy = 0;
+  const place = () => {
+    tip.style.left = Math.max(4, Math.min(cx + 12, window.innerWidth - tip.offsetWidth - 8)) + 'px';
+    tip.style.top = Math.max(4, Math.min(cy + 16, window.innerHeight - tip.offsetHeight - 8)) + 'px';
+  };
+  const hide = () => {
+    clearTimeout(timer); timer = null;
+    if (el && el.dataset.tip != null) { el.setAttribute('title', el.dataset.tip); delete el.dataset.tip; }
+    el = null; tip.style.display = 'none';
+  };
+  document.addEventListener('pointerover', (e) => {
+    const t = e.target.closest && e.target.closest('[title]');
+    if (!t || t === el) return;
+    hide();
+    const txt = t.getAttribute('title');
+    if (!txt) return;
+    el = t; t.dataset.tip = txt; t.removeAttribute('title');   // suppress the native tooltip
+    cx = e.clientX; cy = e.clientY;
+    timer = setTimeout(() => { tip.textContent = txt; tip.style.display = 'block'; place(); }, DELAY);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!el) return;
+    cx = e.clientX; cy = e.clientY;
+    if (tip.style.display === 'block') place();
+  });
+  document.addEventListener('pointerout', (e) => {
+    if (!el) return;
+    if (e.relatedTarget && el.contains(e.relatedTarget)) return;   // moving to a child: keep
+    hide();
+  });
+  document.addEventListener('pointerdown', hide, true);
+  window.addEventListener('scroll', hide, { passive: true });
 })();
 
 refreshSavedTracksUI();
