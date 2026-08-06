@@ -122,15 +122,18 @@
   .label .swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
   .label .swatch::-moz-color-swatch { border: none; border-radius: 2px; }
   .label .meta { font-size: 10.5px; color: var(--muted); }
-  /* Vertical (90° CCW) modality strip at the far left of the label column. */
-  .label.has-mod { padding-left: 26px; }
+  /* Vertical (90° CCW) modality strip at the far right of the label column. */
+  .label.has-mod { padding-right: 26px; }
   .modstrip {
-    position: absolute; left: 0; top: 0; bottom: 0; width: 20px;
-    display: flex; align-items: center; justify-content: center; overflow: hidden;
-    background: #e9edf3; border-right: 1px solid var(--border);
+    position: absolute; right: 0; top: 0; bottom: 0; width: 20px; overflow: hidden;
+    background: #e9edf3; border-left: 1px solid var(--border);
   }
+  /* Absolutely centered (not a flex item, so it stays content-sized) then
+     rotated, so the modality text renders as readable vertical text. */
   .modstrip span {
-    transform: rotate(-90deg); white-space: nowrap;
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-90deg); transform-origin: center;
+    white-space: nowrap;
     font-size: 10px; font-weight: 700; color: #3a3f57; letter-spacing: .3px;
   }
   .label .ctrls { display: flex; gap: 5px; margin-top: 2px; }
@@ -466,7 +469,7 @@
     </div>
   </div>
   <div class="field">
-    <label>New track URL — .cz (mc/cov, shares reference), .bw / .bigwig, .bedgraph.gz, .bed, .bedpe or .hic</label>
+    <label>New track URL — .cz, .bw / .bigwig, .bgzip.gz  or .hic</label>
     <div style="display:flex;gap:6px;align-items:center;">
       <input type="text" class="url" id="newUrl"
         value="https://neomorph.salk.edu/ftp/bican/UWA7648_CX1819_NAC_1_P10-1-K18-A10.cz" />
@@ -1027,7 +1030,7 @@ async function addSavedEntry(e) {
     else {
       if (!state.refReader) { setStatus('Load the reference .cz first before re-adding a methylation track.', true); return false; }
       if (!state.CzReader) { const mod = await loadModule(MODULE_URL); state.CzReader = mod.CzReader; }
-      await openCzTrack({ name, url, ctx: e.ctx || 'ALL', valType: e.valType || 'meth', group: e.group || '', modality: e.modality || '' });
+      await openCzTrack({ name, url, ctx: e.ctx || 'CG', valType: e.valType || 'meth', group: e.group || '', modality: e.modality || '' });
     }
     buildTrackRows(); render();
     return true;
@@ -1122,7 +1125,7 @@ function savedSelectNone() {
 }
 
 
-async function addTrack(defCtx = 'ALL', defVal = 'meth') {
+async function addTrack(defCtx = 'CG', defVal = 'meth') {
   const url = $('newUrl').value.trim();
   const name = $('newName').value.trim() || `track ${state.tracks.length + 1}`;
   const modality = ($('newModality') && $('newModality').value.trim()) || '';
@@ -1163,7 +1166,7 @@ async function addTrack(defCtx = 'ALL', defVal = 'meth') {
 }
 
 // Open a single methylation .cz track and push it into state (no UI side effects).
-async function openCzTrack({ name, url, ctx = 'ALL', valType = 'meth', group = '', modality = '', ylim = 'auto' }) {
+async function openCzTrack({ name, url, ctx = 'CG', valType = 'meth', group = '', modality = '', ylim = 'auto' }) {
   if (!state.refReader) throw new Error('Load the reference first.');
   if (!url) throw new Error('missing URL');
   const reader = await state.CzReader.fromUrl(url, { randomReadAhead: READ_AHEAD_BYTES });
@@ -1455,14 +1458,14 @@ function tableToTrackRows(parsed) {
     for (const it of arr) {
       if (Array.isArray(it)) {
         const [name, url, group, modality] = it;
-        if (url) rows.push({ name: String(name || url).trim() || url, url: String(url).trim(), group: String(group || '').trim(), modality: String(modality || '').trim(), ctx: 'ALL' });
+        if (url) rows.push({ name: String(name || url).trim() || url, url: String(url).trim(), group: String(group || '').trim(), modality: String(modality || '').trim(), ctx: 'CG' });
       } else if (it && typeof it === 'object') {
         const url = it.url || it.URL || it.Url; if (!url) continue;
         rows.push({
           name: String(it.name || it.Name || String(url).split('/').pop()).trim(),
           url: String(url).trim(), group: String(it.group || it.Group || '').trim(),
           modality: String(it.modality || it.Modality || '').trim(),
-          ctx: it.ctx || it.context || 'ALL',
+          ctx: it.ctx || it.context || 'CG',
         });
       }
     }
@@ -1477,7 +1480,7 @@ function tableToTrackRows(parsed) {
     const cells = (matrix[i] || []).map(c => String(c).trim());
     const url = cells[1];
     if (!url) continue;
-    rows.push({ name: cells[0] || url.split('/').pop(), url, group: cells[2] || '', modality: cells[3] || '', ctx: 'ALL' });
+    rows.push({ name: cells[0] || url.split('/').pop(), url, group: cells[2] || '', modality: cells[3] || '', ctx: 'CG' });
   }
   return rows;
 }
@@ -1698,6 +1701,9 @@ function createTrackRow(t, grp, gColors) {
      ${ctxCtrls}`;
   label.querySelector('.del').onclick = () => removeTrack(t.id);
   attachRowDrag(label.querySelector('.grip'), t);
+  // Double-click the name to rename the track inline.
+  const nameSpan = label.querySelector('.tnametxt');
+  if (nameSpan) nameSpan.addEventListener('dblclick', (e) => { e.stopPropagation(); startRenameTrack(t, nameSpan); });
   // Gene tracks: show which annotation set / source is being drawn.
   if (t.kind === 'gene') {
     const nt = label.querySelector('.tnametxt');
@@ -1750,6 +1756,38 @@ function appendTrackRowIfLast(t) {
 }
 function escapeHtml(s) {
   return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// Inline-edit a track's name (triggered by double-clicking the name span).
+function startRenameTrack(t, span) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = t.name;
+  input.style.cssText = 'font:inherit;font-weight:600;width:120px;padding:0 2px;';
+  span.replaceWith(input);
+  input.focus(); input.select();
+  let done = false;
+  const finish = (save) => {
+    if (done) return; done = true;
+    const nv = input.value.trim();
+    if (save && nv && nv !== t.name) renameTrack(t, nv);
+    else { buildTrackRows(); quickRedraw(); }
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+// Apply a new track name and keep the saved-track memory (matched by URL) in sync.
+function renameTrack(t, newName) {
+  t.name = newName;
+  try {
+    const list = loadSavedTracks();
+    const e = list.find(x => x.url === t.url);
+    if (e) { e.name = newName; localStorage.setItem(SAVED_TRACKS_KEY, JSON.stringify(list)); }
+  } catch {}
+  buildTrackRows(); quickRedraw(); refreshSavedTracksUI();
 }
 
 // Track display order: non-mc (sequence/gene) first, then methylation tracks
@@ -2499,8 +2537,6 @@ function drawTrack(track, qi, vals, dst) {
   // Store for hover tooltip (live only)
   if (live) track._draw = { start, end, W, sumMc, sumCov };
 
-  const meanM = totCov ? (totMc / totCov) : 0;
-  const meanShown = state.valType === 'unmeth' ? (1 - meanM) : meanM;
   const valTag = state.valType === 'unmeth' ? '1−mC' : 'mC';
   const resLabel = res ? ` · ${res} bp bins` : '';
   const scaleLabel = Array.isArray(track.ylim)
@@ -2510,14 +2546,12 @@ function drawTrack(track, qi, vals, dst) {
         : ' · y:[0–100%]');
   // Full description (kept for image export, which has no dropdown controls) vs.
   // the short on-screen text (context/value/ylim are already shown by the
-  // controls, so the label only needs mean / resolution).
+  // controls, so the on-screen label stays empty while there is signal).
   track._metaFull = nSites
-    ? `mean ${(meanShown * 100).toFixed(1)}% ${valTag} · ${track.ctx}${resLabel}${scaleLabel}`
+    ? `${valTag} · ${track.ctx}${resLabel}${scaleLabel}`
     : `no ${track.ctx} signal here`;
   if (live && track.metaEl) {
-    track.metaEl.textContent = nSites
-      ? `mean ${(meanShown * 100).toFixed(1)}%${resLabel}`
-      : `no ${track.ctx} signal here`;
+    track.metaEl.textContent = nSites ? '' : `no ${track.ctx} signal here`;
   }
 }
 
@@ -2536,20 +2570,52 @@ function drawBigWig(track, feats, dst) {
   const { start, end } = state.locus;
   const span = end - start;
   const W = Math.max(1, Math.floor(w));
-  const colMax = new Float64Array(W);
+  const res = effectiveResolution(w);   // null → per-pixel; else bin width (bp) — same grid as .cz tracks
+  const colMax = new Float64Array(W);   // per-pixel value used for drawing + hover
   const colHas = new Uint8Array(W);
   let dataMax = 0, dataMin = 0;
-  for (const f of feats) {
-    const s = Math.max(f.start, start), e2 = Math.min(f.end, end);
-    if (e2 <= s) continue;
-    const sc = f.score;
-    if (sc > dataMax) dataMax = sc;
-    if (sc < dataMin) dataMin = sc;
-    const px0 = Math.max(0, Math.floor((s - start) / span * W));
-    const px1 = Math.min(W, Math.ceil((e2 - start) / span * W));
-    for (let px = px0; px < px1; px++) {
-      if (!colHas[px] || sc > colMax[px]) colMax[px] = sc;
-      colHas[px] = 1;
+  if (!res) {
+    // Per-bp: each pixel column shows the max signal overlapping it.
+    for (const f of feats) {
+      const s = Math.max(f.start, start), e2 = Math.min(f.end, end);
+      if (e2 <= s) continue;
+      const sc = f.score;
+      if (sc > dataMax) dataMax = sc;
+      if (sc < dataMin) dataMin = sc;
+      const px0 = Math.max(0, Math.floor((s - start) / span * W));
+      const px1 = Math.min(W, Math.ceil((e2 - start) / span * W));
+      for (let px = px0; px < px1; px++) {
+        if (!colHas[px] || sc > colMax[px]) colMax[px] = sc;
+        colHas[px] = 1;
+      }
+    }
+  } else {
+    // Binned: genome-aligned bins of width `res` (identical grid to .cz tracks),
+    // each holding the length-weighted mean signal of its overlapping intervals.
+    const binStart0 = Math.floor(start / res) * res;
+    const nBins = Math.max(1, Math.ceil((end - binStart0) / res));
+    const binSum = new Float64Array(nBins), binLen = new Float64Array(nBins);
+    for (const f of feats) {
+      const s = Math.max(f.start, start), e2 = Math.min(f.end, end);
+      if (e2 <= s) continue;
+      const b0 = Math.max(0, Math.floor((s - binStart0) / res));
+      const b1 = Math.min(nBins - 1, Math.floor((e2 - 1 - binStart0) / res));
+      for (let b = b0; b <= b1; b++) {
+        const bs = Math.max(s, binStart0 + b * res);
+        const be = Math.min(e2, binStart0 + (b + 1) * res);
+        const ov = be - bs; if (ov <= 0) continue;
+        binSum[b] += f.score * ov; binLen[b] += ov;
+      }
+    }
+    for (let b = 0; b < nBins; b++) {
+      if (!binLen[b]) continue;
+      const v = binSum[b] / binLen[b];
+      if (v > dataMax) dataMax = v;
+      if (v < dataMin) dataMin = v;
+      const bpS = binStart0 + b * res, bpE = bpS + res;
+      const px0 = Math.max(0, Math.floor((bpS - start) / span * W));
+      const px1 = Math.min(W, Math.ceil((bpE - start) / span * W));
+      for (let px = px0; px < px1; px++) { colMax[px] = v; colHas[px] = 1; }
     }
   }
   // Y-limits: per-track ylim overrides; 'auto' spans 0..dataMax (or dataMin..max).
@@ -2580,7 +2646,7 @@ function drawBigWig(track, feats, dst) {
   if (live) track._bw = { start, end, W, colMax, colHas };
   if (live && track.metaEl) {
     track.metaEl.textContent = feats.length
-      ? `${fmtInt(feats.length)} intervals · max ${fmtLv(dataMax)}${Array.isArray(track.ylim) ? ` · y[${scaleMin}–${scaleMax}]` : ''}`
+      ? `max ${fmtLv(dataMax)}${Array.isArray(track.ylim) ? ` · y[${scaleMin}–${scaleMax}]` : ''}`
       : 'no signal in view';
   }
 }
@@ -3027,17 +3093,18 @@ async function composeExportSvg() {
   const totalW = labelW + viewW;
   const rec = new SvgRecorder(totalW, total);
 
-  // Vertical modality strip column (far left), matching the live UI.
+  // Vertical modality strip column (far right of the label, matching the live UI).
   if (modW) {
-    rec.fillStyle = '#e9edf3'; rec.fillRect(0, 0, modW, total);
+    const mx = labelW - modW;
+    rec.fillStyle = '#e9edf3'; rec.fillRect(mx, 0, modW, total);
     rec.strokeStyle = '#d6d9e0'; rec.lineWidth = 1;
-    rec.beginPath(); rec.moveTo(modW + 0.5, 0); rec.lineTo(modW + 0.5, total); rec.stroke();
+    rec.beginPath(); rec.moveTo(mx + 0.5, 0); rec.lineTo(mx + 0.5, total); rec.stroke();
   }
 
   // Ruler
   rec.save(); rec.translate(labelW, 0); drawRuler({ ctx: rec, w: viewW, h: rulerH }); rec.restore();
   rec.fillStyle = '#232635'; rec.font = 'bold 11px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
-  rec.fillText('Position', 5 + modW, rulerH / 2);
+  rec.fillText('Position', 5, rulerH / 2);
   rec.strokeStyle = '#d6d9e0'; rec.lineWidth = 1;
   rec.beginPath(); rec.moveTo(0, rulerH + 0.5); rec.lineTo(totalW, rulerH + 0.5); rec.stroke();
 
@@ -3047,25 +3114,25 @@ async function composeExportSvg() {
       rec.fillStyle = '#eef1f6'; rec.fillRect(0, y, totalW, hdrH);
       rec.fillStyle = gColors[ri.hdr] || '#4a90d9'; rec.fillRect(0, y, 4, hdrH);
       rec.fillStyle = '#3a3f57'; rec.font = 'bold 11px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
-      rec.fillText(ri.hdr, 10 + modW, y + hdrH / 2);
+      rec.fillText(ri.hdr, 10, y + hdrH / 2);
       y += hdrH;
     }
     const t = ri.t, h = ri.h;
-    // Vertical modality label at the far left of this row.
+    // Vertical modality label at the far right of this row.
     if (modW && t.modality) {
       rec.fillStyle = '#3a3f57'; rec.font = 'bold 10px sans-serif';
-      rec.vtext(t.modality, modW / 2, y + h / 2);
+      rec.vtext(t.modality, labelW - modW / 2, y + h / 2);
     }
     // Label: swatch (mc) + name
-    if (t.kind !== 'seq' && t.kind !== 'gene') { rec.fillStyle = t.color || '#333'; rec.fillRect(4 + modW, y + 6, 10, 10); }
+    if (t.kind !== 'seq' && t.kind !== 'gene') { rec.fillStyle = t.color || '#333'; rec.fillRect(4, y + 6, 10, 10); }
     rec.fillStyle = '#1c1e26'; rec.font = 'bold 12px sans-serif'; rec.textAlign = 'left'; rec.textBaseline = 'middle';
-    rec.fillText(t.name, ((t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5) + modW, y + 12);
+    rec.fillText(t.name, ((t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5), y + 12);
     // Sub-label (context / value / y-limit etc.) so the exported image keeps the
     // header info that is otherwise only visible in the interactive UI.
     const metaTxt = (t._metaFull || (t.metaEl && t.metaEl.textContent) || '').trim();
     if (metaTxt) {
-      const tx = ((t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5) + modW;
-      const maxChars = Math.max(14, Math.floor((labelW - tx - 4) / 5.0));
+      const tx = ((t.kind !== 'seq' && t.kind !== 'gene') ? 18 : 5);
+      const maxChars = Math.max(14, Math.floor((labelW - modW - tx - 4) / 5.0));
       const lines = [];
       let cur = '';
       for (const seg of metaTxt.split(' · ')) {
