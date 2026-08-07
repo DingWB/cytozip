@@ -514,9 +514,9 @@ def _text_input_parser(infile,formats,sep='\t',usecols=[1,4,5],key_cols=[0],
 		list of formats to pack into .cz file.
 	sep :str
 	usecols :list
-		columns index in input file to be packed into .cz file.
+		0-based column indices in the input file to pack into the .cz file.
 	key_cols : list
-		chunk_dims column index, default is [0]
+		0-based column indices used as chunk_dims (chunk keys), default [0].
 	batch_size :int
 
 	Returns
@@ -1539,7 +1539,8 @@ class Reader:
 			where positions live in ``reference``. Returns the same
 			vectorized slice paired with the reference position column.
 		sort_col : int or None
-			Column index to bisect on. Defaults to ``self.header['sort_col']``.
+			0-based column index (into ``header['columns']``) to bisect on.
+			Defaults to ``self.header['sort_col']``.
 		index : str, ``Reader``, dict or None, default None
 			Optional 1-D context index restricting rows to e.g. CG / CH
 			sites. The intersection of the region ``[start, end]`` and
@@ -1602,7 +1603,8 @@ class Reader:
 		reference : str, ``Reader``, or None
 			Same semantics as :meth:`query_numpy`.
 		sort_col : int or None
-			Column index used for bisection.
+			0-based column index (into ``header['columns']``) used for
+			bisection.
 
 		Returns
 		-------
@@ -1763,7 +1765,7 @@ class Reader:
 			Same semantics as :meth:`query_numpy`.  Each worker thread
 			opens its own reference Reader as well.
 		sort_col : int or None
-			Forwarded to :meth:`query_numpy`.
+			Forwarded to :meth:`query_numpy` (0-based column index).
 		max_workers : int or None
 			Thread count.  Defaults to ``min(8, len(regions))`` or the
 			value of ``CYTOZIP_QUERY_THREADS`` if set.
@@ -1915,8 +1917,9 @@ class Reader:
 			size. No effect on files without that column
 			(e.g. methylation-array beta files).
 		cov_col : str, default ``'cov'``
-			Name of the coverage column used by ``drop_zero_cov``. Set
-			this when the file uses a custom coverage column name.
+			Name (from ``header['columns']``) of the coverage column used by
+			``drop_zero_cov``. Set this when the file uses a custom coverage
+			column name.
 		"""
 		if isinstance(dims, str):
 			dims = tuple([dims])
@@ -2072,9 +2075,9 @@ class Reader:
 			effect on files without that column. Forwarded to
 			:meth:`chunk2df`.
 		cov_col : str, default ``'cov'``
-			Name of the coverage column used by ``drop_zero_cov``. Set this
-			when the file names its coverage column differently. Forwarded
-			to :meth:`chunk2df`.
+			Name (from ``header['columns']``) of the coverage column used by
+			``drop_zero_cov``. Set this when the file names its coverage column
+			differently. Forwarded to :meth:`chunk2df`.
 		"""
 		if chunk_order is not None and where is not None:
 			raise ValueError("Pass either `chunk_order` or `where`, not both.")
@@ -3105,7 +3108,8 @@ class Reader:
 			the first len(header['chunk_dims']) columns would be
 			used as chunk_key, and next two columns would be used as start and end.
 		query_col : list
-			index of columns (header['columns']) to be queried,for example,
+			0-based index of columns (into ``header['columns']``) to be
+			queried, for example,
 			if header['columns']=['pos','mv','cov'], then pos is what we want to
 			query, so query_col should be [0], but if
 			header['columns']=['start','end','peak'], then start and end are what
@@ -4213,8 +4217,8 @@ class Writer:
 
 			- ``None`` (default): auto-detect — pick the first column whose
 			  format is an integer, or disable if none exists.
-			- ``int``: use this column index (must be an integer format).
-			- ``str``: use the column with this name.
+			- ``int``: use this 0-based column index (must be an integer format).
+			- ``str``: use the column with this name (from ``columns``).
 			- ``False`` or ``'none'``: explicitly disable the index. Use this
 			  for files without genomic coordinates (e.g. a reference-less
 			  allc storing only ``mc, cov``), where region queries require
@@ -4224,8 +4228,9 @@ class Writer:
 			monotonic integer columns (typically ``pos`` in an allc file, or
 			``ID`` / ``ID_start`` / ``ID_end`` in a coordinate index) as
 			deltas lets DEFLATE compress the small residuals far more tightly
-			than absolute integers. Each entry can be either a column index
-			(int) or a column name (str) in parameter columns. The selected columns must use an
+			than absolute integers. Each entry can be either a 0-based column
+			index (int) or a column name (str, from ``columns``). The selected
+			columns must use an
 			integer struct format (``B/H/I/Q`` or signed counterparts).
 			Decoding requires one ``np.cumsum`` per delta column per block at
 			read time (~25-30 µs per 65 KB block) and is transparent to
@@ -4797,10 +4802,12 @@ class Writer:
 			list, tuple, np.ndarray or dataframe, stdin (input is None, "stdin" or "-"),
 			or a file path (need to specify sep,header and skiprows).
 		usecols : list
-			usecols is the index of columns to be packed into .cz columns.
+			0-based indices of columns to pack into the .cz columns. When
+			``input`` is a DataFrame, column names (str) are also accepted.
 		key_cols : list
-			index of columns to be set as chunk_dims of Writer, such as chrom
-			columns.
+			0-based indices of columns to set as the Writer chunk_dims (e.g.
+			the chrom column). When ``input`` is a DataFrame, column names
+			(str) are also accepted.
 		sep : str
 			defauls is "\t", used as separator for the input file path.
 		batch_size : int

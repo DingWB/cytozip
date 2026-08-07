@@ -295,13 +295,17 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
         chunk_dims passed to cytozip.Writer, chunk_key name, for allc file, chunk_key
         is chrom.
     usecols: list
-        default is [4, 5], for a typical .allc.tsv.gz, if no reference is provided,
-        the columns to be packed should be [1,4,5] (pos, mv and cov).
-        If reference is provided, then we only need to pack [4,5] (mc and cov).
+        0-based column indices in the input allc file to pack. Default
+        [4, 5]; for a typical .allc.tsv.gz (chrom=0, pos=1, strand=2,
+        context=3, mc=4, cov=5). If no reference is provided the columns
+        to be packed should be [1,4,5] (pos, mc and cov); if reference is
+        provided, only [4,5] (mc and cov) are needed.
     ref_pos_col: int
-        index of position column in reference .cz header columns [0]
+        0-based index of the position column in the reference .cz
+        ``header['columns']`` (default 0).
     allc_pos_col: int
-        index of position column in input input or bed column.
+        0-based index of the position column in the input allc / bed file
+        (default 1 for a standard allc).
     batch_size : int
         default is 5000
     chroms : path
@@ -316,13 +320,15 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     sort_col : None / int / str / False, optional
         Forwarded to :class:`cytozip.cz.Writer`. Selects the column whose
         per-block first values are recorded for O(log N) coordinate
-        binary search. ``None`` auto-detects (the integer ``pos`` column
-        when present); pass ``False`` to disable.
+        binary search. An int is a 0-based index into the output
+        ``columns``; a str is a name in ``columns``. ``None`` auto-detects
+        (the integer ``pos`` column when present); pass ``False`` to disable.
     delta_cols : None / int / str / list, optional
         Forwarded to :class:`cytozip.cz.Writer`. Columns to store with
         in-block delta encoding (typically ``'pos'`` for tighter
-        compression of monotonic positions). ``None`` (default) disables
-        delta encoding.
+        compression of monotonic positions). Entries are 0-based column
+        indices (int) or names in the output ``columns`` (str). ``None``
+        (default) disables delta encoding.
     _ref_pos_dict : dict, optional
         Internal: pre-decoded ``{chrom: pos_array}`` dict shared from the
         parent process in batch mode so reference decoding is paid once.

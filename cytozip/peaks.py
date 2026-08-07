@@ -294,10 +294,12 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     macs3_args : str
         Additional arguments passed to ``macs3 callpeak``.
     mc_col : int or str or None
-        Column index (0-based) or name for the methylation count.
+        0-based column index or column name (from the .cz
+        ``header['columns']``) for the methylation count.
         Defaults to the first data column (index 0, typically ``'mc'``).
     cov_col : int or str or None
-        Column index (0-based) or name for the coverage count.
+        0-based column index or column name (from the .cz
+        ``header['columns']``) for the coverage count.
         Defaults to the last data column (index -1, typically ``'cov'``).
     jobs : int
         Worker processes for pseudo-read generation and ``sort`` (default 1).
@@ -492,10 +494,12 @@ def to_bedgraph(input=None, reference=None, output=None,
     min_cov : int
         Minimum coverage to include a site.
     mc_col : int or str or None
-        Column index (0-based) or name for the methylation count.
+        0-based column index or column name (from the .cz
+        ``header['columns']``) for the methylation count.
         Defaults to the first data column (index 0, typically ``'mc'``).
     cov_col : int or str or None
-        Column index (0-based) or name for the coverage count.
+        0-based column index or column name (from the .cz
+        ``header['columns']``) for the coverage count.
         Defaults to the last data column (index -1, typically ``'cov'``).
 
     Returns

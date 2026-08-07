@@ -161,8 +161,8 @@ def _build_parser():
                         'ALLCools DMR clips coverage to 50 anyway')
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names, comma-separated')
     p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key (dimension) names, comma-separated')
-    p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack, comma-separated')
-    p.add_argument('-d', '--key_cols', type=_csv_int, default=[0], help='chunk-key column indices')
+    p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='0-based column indices to pack, comma-separated')
+    p.add_argument('-d', '--key_cols', type=_csv_int, default=[0], help='0-based chunk-key column indices')
     p.add_argument('-s', '--sep', default='\t', help='separator')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('--header', default=None, help='header row')
@@ -170,7 +170,8 @@ def _build_parser():
     p.add_argument('-m', '--message', default='', help='message stored in header')
     p.add_argument('-l', '--level', type=int, default=6, help='compression level')
     p.add_argument('--delta_cols', type=_csv_str, default=None,
-                   help='comma-separated column names or indices (from parameter --columns) to store '
+                   help='comma-separated column names (from --columns) or '
+                        '0-based indices to store '
                         'as in-block deltas (shrinks strictly-monotonic '
                         'columns like pos; trades some query speed for size)')
 
@@ -190,7 +191,7 @@ def _build_parser():
     # ---- view ----------------------------------------------------------------
     p = sub.add_parser('view', help='View .cz file contents', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
-    p.add_argument('--show_dims', type=_csv_int, default=None, help='chunk-key (dimension) indices to show')
+    p.add_argument('--show_dims', type=_csv_int, default=None, help='0-based chunk-key (dimension) indices to show')
     p.add_argument('--no_header', action='store_true', help='suppress header line')
     p.add_argument('-K', '--chunk_order', default=None, help='filter/order by chunk-key value (e.g. chr1)')
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
@@ -234,7 +235,7 @@ def _build_parser():
                         'exactly --end IS included (1-based for '
                         'ALLC-derived .cz)')
     p.add_argument('--regions', default=None, help='regions file (tab-separated, no header)')
-    p.add_argument('-q', '--query_col', type=_csv_int, default=[0], help='column indices to query on')
+    p.add_argument('-q', '--query_col', type=_csv_int, default=[0], help="0-based column indices (into header['columns']) to query on")
     p.add_argument('-r', '--reference', default=None, help='reference .cz for coordinate lookup')
 
     # ---- to_bgzip ------------------------------------------------------------
@@ -287,18 +288,20 @@ def _build_parser():
                         "recommanded), in this case, formats should be ['Q','H','H'].")
     p.add_argument('-C', '--columns', type=_csv_str, default=['mc', 'cov'], help='column names, comma-separated')
     p.add_argument('-D', '--chunk_dims', type=_csv_str, default=['chrom'], help='chunk-key names, comma-separated')
-    p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='column indices to pack')
-    p.add_argument('--ref_pos_col', type=int, default=0, help='position column index in reference')
-    p.add_argument('--allc_pos_col', type=int, default=1, help='position column index in input')
+    p.add_argument('-u', '--usecols', type=_csv_int, default=[4, 5], help='0-based column indices in the allc file to pack')
+    p.add_argument('--ref_pos_col', type=int, default=0, help="0-based position column index in reference header['columns']")
+    p.add_argument('--allc_pos_col', type=int, default=1, help='0-based position column index in the input allc')
     p.add_argument('-s', '--sep', default='\t', help='separator')
     p.add_argument('--chroms', default=None, help='chrom order file')
     p.add_argument('-c', '--batch_size', type=int, default=5000, help='rows per chunk')
     p.add_argument('--sort_col', default=None,
-                   help='column name or index to index via per-block '
+                   help='column name (from --columns) or 0-based index to '
+                        'index via per-block '
                         'first_coords (enables in-memory bisect for region '
                         'queries). Auto-enabled on "pos" when no reference is used.')
     p.add_argument('--delta_cols', type=_csv_str, default=None,
-                   help='comma-separated integer column names/indices to '
+                   help='comma-separated column names (from --columns) or '
+                        '0-based indices to '
                         'store as in-block deltas')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel workers in batch mode (input is a '
@@ -582,9 +585,9 @@ def _build_parser():
     p.add_argument('--max_row_count', type=int, default=50)
     p.add_argument('--max_total_count', type=int, default=3000)
     p.add_argument('--mc_col', default=None,
-                   help='mc column name or 0-based index (default: first column)')
+                   help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
     p.add_argument('--cov_col', default=None,
-                   help='cov column name or 0-based index (default: last column)')
+                   help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
     p.add_argument('--chroms', default=None,
                    help='restrict to these chromosomes: a path to a '
                         'chrom-size / .fai file (or any text file whose first '
@@ -638,8 +641,10 @@ def _build_parser():
     p.add_argument('--min_pvalue', type=float, default=0.001)
     p.add_argument('--max_row_count', type=int, default=200)
     p.add_argument('--max_total_count', type=int, default=10000)
-    p.add_argument('--mc_col', default=None)
-    p.add_argument('--cov_col', default=None)
+    p.add_argument('--mc_col', default=None,
+                   help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
+    p.add_argument('--cov_col', default=None,
+                   help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
     p.add_argument('--chroms', default=None,
                    help='restrict to these chromosomes: a path to a '
                         'chrom-size / .fai file (or any text file whose first '
@@ -732,8 +737,8 @@ def _build_parser():
     p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
     p.add_argument('--keep_bed', action='store_true', help='keep intermediate pseudo-reads BED')
     p.add_argument('--macs3_args', default='', help='additional MACS3 arguments (quoted string)')
-    p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
-    p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
+    p.add_argument('--mc_col', default=None, help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
+    p.add_argument('--cov_col', default=None, help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
     p.add_argument('--jobs', type=int, default=1, help='worker processes for pseudo-read generation + sort (macs3 callpeak stays single-threaded)')
 
     # ---- call_peaks_bdg ------------------------------------------------------
@@ -753,8 +758,8 @@ def _build_parser():
     p.add_argument('--llocal', type=int, default=10000, help='half-width (bp) of local-background window for the dynamic lambda; 0 disables (global rate only)')
     p.add_argument('--blacklist', default=None, help='BED(.gz) of blacklist regions; overlapping peaks are dropped')
     p.add_argument('--keep_bdg', action='store_true', help='keep intermediate bedGraph tracks')
-    p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
-    p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
+    p.add_argument('--mc_col', default=None, help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
+    p.add_argument('--cov_col', default=None, help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
     p.add_argument('--jobs', type=int, default=1, help='worker processes for the per-chromosome pileup/score/peak-call pass')
 
     # ---- to_bedgraph ---------------------------------------------------------
@@ -765,8 +770,8 @@ def _build_parser():
     p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth', 'frac_unmeth'], help='signal type')
     p.add_argument('--index', default=None, help='index file for context filtering')
     p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
-    p.add_argument('--mc_col', default=None, help='mc column name or 0-based index (default: first column)')
-    p.add_argument('--cov_col', default=None, help='cov column name or 0-based index (default: last column)')
+    p.add_argument('--mc_col', default=None, help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
+    p.add_argument('--cov_col', default=None, help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
 
     # ---- bam_to_cz -----------------------------------------------------------
     p = sub.add_parser('bam_to_cz', help='Convert position-sorted BAM directly to .cz (skip ALLC text)', formatter_class=_fmt)
@@ -827,9 +832,9 @@ def _build_parser():
     p.add_argument('--ext', default='.cz',
                    help='filename suffix stripped from per-file basenames '
                         'to derive sample names (default: .cz)')
-    p.add_argument('--pos_col', default='pos', help='name of position column in .cz header')
-    p.add_argument('--mc_col', default='mc', help='name of mc column')
-    p.add_argument('--cov_col', default='cov', help='name of cov column')
+    p.add_argument('--pos_col', default='pos', help="name of position column (in .cz header['columns'])")
+    p.add_argument('--mc_col', default='mc', help="name of mc column (in .cz header['columns'])")
+    p.add_argument('--cov_col', default='cov', help="name of cov column (in .cz header['columns'])")
     p.add_argument('--obs', default=None, help='optional TSV with cell metadata (index column = cell id)')
     p.add_argument('-r', '--reference', default=None,
                    help='reference .cz supplying pos coords for mc_cov-only cells')
@@ -895,9 +900,9 @@ def _build_parser():
     p.add_argument('--top_per_class', type=_int_or_none, default=None,
                    help='balanced per-cell-type marker selection: keep this many one-vs-rest '
                         'high + low markers per type per channel (replaces --top_cg/--top_ch)')
-    p.add_argument('--mc_col', default='mc', help='methylated-count column name')
-    p.add_argument('--cov_col', default='cov', help='coverage column name')
-    p.add_argument('--context_col', default='context', help='context column name (in the reference)')
+    p.add_argument('--mc_col', default='mc', help="methylated-count column name (in the .cz header['columns'])")
+    p.add_argument('--cov_col', default='cov', help="coverage column name (in the .cz header['columns'])")
+    p.add_argument('--context_col', default='context', help="context column name (in the reference header['columns'])")
     p.add_argument('--abstain_threshold', type=_float_or_none, default=None,
                    help="label a cell 'unassigned' when its top probability is below this")
     p.add_argument('--contexts', default='cg+ch',
@@ -943,9 +948,9 @@ def _build_parser():
                    help='keep a CpG site only if its across-type frequency range exceeds this')
     p.add_argument('--min_range_ch', type=float, default=0.0,
                    help='keep a CpH site only if its across-type frequency range exceeds this')
-    p.add_argument('--mc_col', default='mc', help='methylated-count column name')
-    p.add_argument('--cov_col', default='cov', help='coverage column name')
-    p.add_argument('--context_col', default='context', help='context column name (in the reference)')
+    p.add_argument('--mc_col', default='mc', help="methylated-count column name (in the .cz header['columns'])")
+    p.add_argument('--cov_col', default='cov', help="coverage column name (in the .cz header['columns'])")
+    p.add_argument('--context_col', default='context', help="context column name (in the reference header['columns'])")
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='parallel .cz readers / per-sample threads')
 

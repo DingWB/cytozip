@@ -742,8 +742,8 @@ def _aggregate_one_reader(
     Parameters
     ----------
     pos_col : int or None
-        Index of the ``pos`` column in the record layout. ``None`` for
-        ``[mc, cov]``-only cells that rely on ``ref_pos_map``.
+        0-based index of the ``pos`` column in the record layout. ``None``
+        for ``[mc, cov]``-only cells that rely on ``ref_pos_map``.
     cell_prefix : tuple, optional
         Non-chrom dim values (in their positional order) identifying the
         cell in a merged reader. For a single-cell reader, pass ``None``.
@@ -1038,8 +1038,8 @@ def cz_to_anndata(
         and what becomes the row label in ``adata.obs``. For merged
         inputs the chunk-key is used as-is and ``ext`` has no effect.
     pos_col, mc_col, cov_col : str
-        Column names in the ``.cz`` header to use for position / methylated
-        count / coverage.
+        Column names (in the ``.cz`` ``header['columns']``) to use for
+        position / methylated count / coverage.
     obs : DataFrame, optional
         Per-cell metadata (cluster, sample, donor, ...). Joined on cell id.
     reference : str, optional

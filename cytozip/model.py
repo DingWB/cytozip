@@ -253,7 +253,8 @@ def _read_mc_cov(path, mc_col='mc', cov_col='cov', chunk_keys=None,
     path : str
         Path to a ``.cz`` file with ``mc_col`` / ``cov_col`` columns.
     mc_col, cov_col : str
-        Column names holding the methylated count and coverage.
+        Column names (in the .cz ``header['columns']``) holding the
+        methylated count and coverage.
     chunk_keys : list of tuple or None
         Chunk keys (e.g. ``[('chr1',), ('chr2',), ...]``) in the desired
         concatenation order. ``None`` uses ``sorted(chunk_key2offset)``.
@@ -319,7 +320,7 @@ def _read_context(path, context_col='context', chunk_keys=None):
         ``build_ref`` reference with ``pos, strand, context``, or any file
         that stores its own context).
     context_col : str
-        Name of the context column.
+        Name of the context column (in the .cz ``header['columns']``).
     chunk_keys : list of tuple or None
         Chunk order; ``None`` uses ``sorted(chunk_key2offset)``.
 
@@ -374,7 +375,8 @@ def _read_mc_cov_by_chunk(path, mc_col='mc', cov_col='cov', needed_keys=None,
     path : str
         Path to a ``.cz`` file with ``mc_col`` / ``cov_col`` columns.
     mc_col, cov_col : str
-        Methylated-count and coverage column names.
+        Methylated-count and coverage column names (in the .cz
+        ``header['columns']``).
     needed_keys : iterable of tuple or None
         Chunk keys the model actually needs (those carrying selected sites).
         ``None`` reads every chunk in the file.
@@ -648,8 +650,8 @@ class CellTypeClassifier:
         numerous and often dominate implicitly; lower ``lambda_ch`` to
         rebalance.
     mc_col, cov_col, context_col : str
-        Column names for methylated count, coverage, and sequence context
-        in the ``.cz`` files.
+        Column names (in the .cz ``header['columns']``) for methylated
+        count, coverage, and sequence context in the ``.cz`` files.
 
     Attributes
     ----------

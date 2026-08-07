@@ -505,8 +505,9 @@ def call_dmr(group_a, group_b, reference, output,
         Per-row / total cap on counts (downsampling) before the test;
         matches ALLCools defaults of 50 / 3000.
     mc_col, cov_col : int or str or None
-        Column index (0-based) or name of the methylation / coverage
-        column.  Defaults: first / last data column.
+        0-based column index or column name (from the .cz
+        ``header['columns']``) of the methylation / coverage column.
+        Defaults: first / last data column.
     index : str or None
         Optional context-index ``.cz`` (e.g. CGN-only) to restrict to.
     dms_output : str or None
