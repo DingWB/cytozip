@@ -1459,7 +1459,8 @@ class CellTypeClassifier:
             query, self.mc_col, self.cov_col, needed, self._chunk_lens)
 
     def log_posterior(self, query, prior_alpha=0.0,
-                      max_query_cg=None, max_query_ch=None, contexts='cg+ch'):
+                      max_query_cg=None, max_query_ch=None, contexts='cg+ch',
+                      cov_cap=None):
         """Unnormalized log-posterior per cell type: pandas Series.
 
         Parameters
@@ -1485,11 +1486,12 @@ class CellTypeClassifier:
             raise RuntimeError("call fit() before predicting.")
         query_chunks = self._query_chunks(query)
         return self._log_posterior_from_chunks(
-            query_chunks, prior_alpha, max_query_cg, max_query_ch, contexts)
+            query_chunks, prior_alpha, max_query_cg, max_query_ch, contexts,
+            cov_cap=cov_cap)
 
     def _log_posterior_from_chunks(self, query_chunks, prior_alpha=0.0,
                                    max_query_cg=None, max_query_ch=None,
-                                   contexts='cg+ch'):
+                                   contexts='cg+ch', cov_cap=None):
         """Log-posterior from a pre-built ``{chunk_key: (mc, cov)}`` map."""
         use = self._resolve_contexts(contexts)
         if 'cg' in use and self._cg is None:
