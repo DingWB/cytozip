@@ -1344,7 +1344,7 @@ class CellTypeClassifier:
         return np.log(pi)
 
     @staticmethod
-    def _score(chan, query_chunks, downsample=None, rng=None):
+    def _score(chan, query_chunks, downsample=None, rng=None, cov_cap=None):
         """Aggregated Bernoulli log-likelihood for one channel: (n_types,).
 
         Sums each chunk's contribution; a chunk that is absent from
@@ -1356,6 +1356,16 @@ class CellTypeClassifier:
         (``cov > 0``) sites (drawn uniformly at random across all chunks via
         ``rng``) are kept; the rest are zeroed so they add nothing. If the
         query has at most ``downsample`` covered sites, all are used.
+
+        When ``cov_cap`` is given, each site's effective coverage is capped at
+        ``cov_cap`` (keeping the observed fraction ``beta = mc / cov``) before
+        it enters the log-likelihood. The reads at one cytosine in a single
+        cell measure the same 1-2 molecules, so they are not independent
+        Bernoulli draws; without a cap a deep-sequencing site contributes
+        ``~cov`` times a shallow site's evidence, saturating the softmax and
+        amplifying any query-vs-reference mismatch. ``cov_cap=1`` collapses
+        every covered site to a single fractional observation, making deep and
+        shallow (MiSeq) queries score on the same scale.
         """
         lt = chan['log_theta']
         l1 = chan['log1m_theta']
@@ -1405,7 +1415,17 @@ class CellTypeClassifier:
                 continue  # nothing covered in this chunk -> zero contribution
             gidx = lo + nz
             m = mc[nz]
-            umc = cov[nz] - m
+            c = cov[nz]
+            if cov_cap is not None:
+                # Cap each site's effective coverage, preserving beta = mc/cov,
+                # so correlated within-site reads (same molecule) count as at
+                # most ``cov_cap`` independent observations instead of ``cov``.
+                m = m.astype(np.float64)
+                c = c.astype(np.float64)
+                scale = np.minimum(1.0, float(cov_cap) / c)
+                m = m * scale
+                c = c * scale
+            umc = c - m
             part = m @ lt[gidx] + umc @ l1[gidx]
             acc = part if acc is None else acc + part
         return acc
@@ -1488,12 +1508,14 @@ class CellTypeClassifier:
         logpost = self._log_prior(prior_alpha)
         if 'cg' in use and self._cg is not None:
             part = self._score(self._cg, query_chunks,
-                               downsample=max_query_cg, rng=rng)
+                               downsample=max_query_cg, rng=rng,
+                               cov_cap=cov_cap)
             if part is not None:
                 logpost = logpost + self.lambda_cg * part
         if 'ch' in use and self._ch is not None:
             part = self._score(self._ch, query_chunks,
-                               downsample=max_query_ch, rng=rng)
+                               downsample=max_query_ch, rng=rng,
+                               cov_cap=cov_cap)
             if part is not None:
                 logpost = logpost + self.lambda_ch * part
         return pd.Series(logpost, index=self.cell_types)
@@ -1508,12 +1530,13 @@ class CellTypeClassifier:
         return p
 
     def predict_proba(self, query, prior_alpha=0.0,
-                      max_query_cg=None, max_query_ch=None, contexts='cg+ch'):
+                      max_query_cg=None, max_query_ch=None, contexts='cg+ch',
+                      cov_cap=None):
         """Softmax posterior probabilities per cell type: pandas Series."""
         logpost = self.log_posterior(
             query, prior_alpha,
             max_query_cg=max_query_cg, max_query_ch=max_query_ch,
-            contexts=contexts)
+            contexts=contexts, cov_cap=cov_cap)
         return pd.Series(self._softmax(logpost.values), index=self.cell_types)
 
     @staticmethod
@@ -1587,7 +1610,7 @@ class CellTypeClassifier:
 
     def predict(self, query, prior_alpha=0.0, abstain_threshold=None,
                 max_query_cg=None, max_query_ch=None, n_jobs=None,
-                contexts='cg+ch'):
+                contexts='cg+ch', cov_cap=None):
         """Predict cell type(s) for any query, dispatching on its form.
 
         Mirrors :func:`predict_cell_type`'s ``query`` handling: the shape of
@@ -1622,6 +1645,11 @@ class CellTypeClassifier:
         contexts : str, optional
             Which cytosine context(s) to score on: ``'cg'``, ``'ch'``, or
             ``'both'`` / ``'cg+ch'`` (default, use both channels).
+        cov_cap : int or None, optional
+            Cap each query site's effective coverage (keeping ``mc/cov``)
+            before scoring. ``None`` (default) uses raw counts; ``cov_cap=1``
+            makes deep-sequencing cells score on the same per-site scale as
+            shallow / MiSeq cells (see :meth:`log_posterior`).
 
         Returns
         -------
@@ -1635,20 +1663,20 @@ class CellTypeClassifier:
             return self._predict_single(
                 q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
                 max_query_cg=max_query_cg, max_query_ch=max_query_ch,
-                contexts=contexts)
+                contexts=contexts, cov_cap=cov_cap)
         if kind == 'multicell':
             return self.predict_multicell(
                 q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
                 max_query_cg=max_query_cg, max_query_ch=max_query_ch,
-                n_jobs=n_jobs, contexts=contexts)
+                n_jobs=n_jobs, contexts=contexts, cov_cap=cov_cap)
         return self.predict_batch(
             q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
             max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs,
-            contexts=contexts)
+            contexts=contexts, cov_cap=cov_cap)
 
     def _predict_single(self, query, prior_alpha=0.0, abstain_threshold=None,
                         max_query_cg=None, max_query_ch=None,
-                        contexts='cg+ch'):
+                        contexts='cg+ch', cov_cap=None):
         """Predict the most likely cell type for one query cell.
 
         Parameters
@@ -1674,7 +1702,7 @@ class CellTypeClassifier:
         logpost = self.log_posterior(
             query, prior_alpha,
             max_query_cg=max_query_cg, max_query_ch=max_query_ch,
-            contexts=contexts)
+            contexts=contexts, cov_cap=cov_cap)
         proba = pd.Series(self._softmax(logpost.values), index=self.cell_types)
         top = proba.idxmax()
         conf = float(proba.max())
@@ -1686,7 +1714,7 @@ class CellTypeClassifier:
 
     def predict_batch(self, queries, prior_alpha=0.0, abstain_threshold=None,
                       max_query_cg=None, max_query_ch=None, n_jobs=None,
-                      contexts='cg+ch'):
+                      contexts='cg+ch', cov_cap=None):
         """Predict many cells at once.
 
         Parameters
@@ -1716,7 +1744,7 @@ class CellTypeClassifier:
                                        abstain_threshold=abstain_threshold,
                                        max_query_cg=max_query_cg,
                                        max_query_ch=max_query_ch,
-                                       contexts=contexts)
+                                       contexts=contexts, cov_cap=cov_cap)
             return cid, res['label'], res['confidence'], res['proba'].rename(cid)
 
         n_workers = _resolve_n_jobs(n_jobs)
@@ -1736,7 +1764,7 @@ class CellTypeClassifier:
 
     def predict_multicell(self, path, prior_alpha=0.0, abstain_threshold=None,
                           max_query_cg=None, max_query_ch=None, n_jobs=None,
-                          contexts='cg+ch'):
+                          contexts='cg+ch', cov_cap=None):
         """Predict every cell packed in one concatenated (cat) ``.cz`` file.
 
         A ``catcz`` output stacks many single-cell ``.cz`` into one file,
@@ -1828,7 +1856,7 @@ class CellTypeClassifier:
                 rr.close()
             logpost = self._log_posterior_from_chunks(
                 query_chunks, prior_alpha, max_query_cg, max_query_ch,
-                contexts)
+                contexts, cov_cap=cov_cap)
             proba = self._softmax(logpost.values)
             top = int(np.argmax(proba))
             conf = float(proba[top])
@@ -2465,7 +2493,7 @@ def _resolve_queries(query):
 def predict_cell_type(query=None, pseudobulks=None, reference=None,
                       cell_counts=None, prior_alpha=0.0,
                       lambda_cg=1.0, lambda_ch=1.0,
-                      max_query_cg=None, max_query_ch=None,
+                      max_query_cg=None, max_query_ch=None, cov_cap=None,
                       alpha0_cg=None, beta0_cg=None,
                       alpha0_ch=None, beta0_ch=None, prior_min_cov=2,
                       top_cg=None, top_ch=None,
@@ -2522,6 +2550,15 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
         per cell). ``None`` (default) uses every covered site. This is a
         predict-time knob forwarded to :meth:`CellTypeClassifier.predict` /
         :meth:`CellTypeClassifier.predict_batch`.
+    cov_cap : int or None, optional
+        Cap each query site's effective coverage (keeping the observed
+        fraction ``mc/cov``) before scoring, so deeply covered sites do not
+        over-contribute to the naive-Bayes log-likelihood. ``None`` (default)
+        uses the raw counts (correct for shallow / MiSeq cells). For **deep**
+        snm3C-seq queries set ``cov_cap=1`` so each covered cytosine counts as
+        a single observation and the model scores on the same per-site scale
+        it is calibrated for; this is the depth-invariance fix that keeps deep
+        cells from saturating the softmax and mis-calling neighbouring types.
     contexts : str, optional
         Which cytosine context(s) to classify on: ``'cg'``, ``'ch'``, or
         ``'both'`` / ``'cg+ch'`` (default, use both channels). The model is
@@ -2594,7 +2631,7 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
     result = clf.predict(
         query, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
         max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs,
-        contexts=contexts)
+        contexts=contexts, cov_cap=cov_cap)
     if outdir is not None:
         if isinstance(result, dict):
             cid = _cz_stem(query) if isinstance(query, str) else 'query'
