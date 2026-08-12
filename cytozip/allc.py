@@ -366,7 +366,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
             sort_col=sort_col, delta_cols=delta_cols,
             jobs=jobs, pattern=pattern, skip_existing=skip_existing,
         )
-    if os.path.exists(output):
+    if skip_existing and os.path.exists(output):
         ok, reason = check_cz(output)
         if ok:
             logger.info(f"{output} existed and complete, skip.")
@@ -725,21 +725,13 @@ def _allc2cz_batch(input_dir, output_dir, reference=None, jobs=1,
                                _strip_allc_suffix(os.path.basename(inp)) + '.cz'))
             for inp in files]
 
+    # allc2cz() itself skips complete outputs and regenerates incomplete
+    # ones (via check_cz), so submit every file and let the worker decide.
+    # skip_existing is forwarded so it stays effective per file.
     files = [inp for inp, _ in out_by_inp]
-    job_args = []
-    for inp, outp in out_by_inp:
-        if skip_existing and os.path.exists(outp):
-            ok, reason = check_cz(outp)
-            if ok:
-                logger.info(f"{outp} existed and complete, skip.")
-                continue
-            # Existing output is incomplete/corrupt: drop it and regenerate.
-            logger.warning(f"{outp} incomplete ({reason}); removing and regenerating.")
-            try:
-                os.remove(outp)
-            except OSError:
-                pass
-        job_args.append((inp, outp, dict(reference=reference, **kwargs)))
+    job_args = [(inp, outp, dict(reference=reference,
+                                 skip_existing=skip_existing, **kwargs))
+                for inp, outp in out_by_inp]
 
     if not job_args:
         logger.info("Nothing to do (all outputs already exist).")
