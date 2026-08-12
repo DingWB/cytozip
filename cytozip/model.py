@@ -425,6 +425,47 @@ def _read_mc_cov_by_chunk(path, mc_col='mc', cov_col='cov', needed_keys=None,
     return out
 
 
+def _read_mc_cov_gather(path, mc_col='mc', cov_col='cov', gather_ids=None):
+    """Return ``{chunk_key: (mc, cov)}`` gathered at the model's selected rows.
+
+    Like :func:`_read_mc_cov_by_chunk` but, instead of materialising each whole
+    chunk and indexing afterwards, it passes the per-chunk 1-based row IDs to
+    :meth:`cz.Reader.chunk2numpy` (``index=``) so only the selected rows are
+    gathered from the decompressed block — the O(chunk) full-chunk copy is
+    skipped. ``gather_ids`` is ``{chunk_key: 0-based row ndarray}`` (the union
+    of the CpG/CpH sites the model keeps in that chunk); a chunk absent from
+    the file is skipped (zero contribution).
+    """
+    path = _abspath(path)
+    r = Reader(path)
+    out = {}
+    try:
+        cols = list(r.header['columns'])
+        if mc_col not in cols or cov_col not in cols:
+            raise ValueError(
+                f"{path}: expected columns {mc_col!r} and {cov_col!r}, "
+                f"got {cols!r}")
+        mi, ci = cols.index(mc_col), cols.index(cov_col)
+        dims = r.header.get('chunk_dims', []) or []
+        if len(dims) > 1:
+            raise ValueError(
+                f"{path}: multi-cell (cat) .cz with chunk_dims={list(dims)}; "
+                f"predict()/predict_batch() handle single-cell files only. Pass "
+                f"it to predict_cell_type(query=...) (auto-detected) or "
+                f"CellTypeClassifier.predict_multicell().")
+        for k, ids in (gather_ids or {}).items():
+            if k not in r.chunk_key2offset:
+                continue  # absent chunk -> skip (zero contribution)
+            ids = np.asarray(ids)
+            if ids.size == 0:
+                continue
+            arr = r.chunk2numpy(k, index={k: ids + 1})
+            out[k] = (np.asarray(arr[f'f{mi}']), np.asarray(arr[f'f{ci}']))
+    finally:
+        r.close()
+    return out
+
+
 def _context_masks(ctx):
     """Split a context byte array into (CpG mask, CpH mask).
 
@@ -694,6 +735,10 @@ class CellTypeClassifier:
         self._chunk_lens = None
         self._chunk_span = None
         self._n_full = None
+        # {chunk_key: 0-based row ndarray} — union of the CpG/CpH site rows the
+        # model keeps per chunk, so predict reads only those rows (skipping the
+        # full-chunk copy). Built by _build_gather() after fit()/load().
+        self._gather_ids = None
         # On-disk memory-mapped model store. ``fit`` spills the per-channel
         # log-theta / log1m-theta / sites arrays to ``.npy`` files under
         # ``_store_dir`` (a temp dir it owns), so neither fit nor predict has
@@ -750,11 +795,45 @@ class CellTypeClassifier:
         except Exception:
             pass
 
+    # ----------------------------------------------------------------------
+    def _build_gather(self):
+        """Precompute per-chunk read rows and each channel's position map.
+
+        For every chunk the model needs, ``self._gather_ids[k]`` is the sorted
+        union of the CpG/CpH site rows kept there; each channel also gets a
+        ``gpos`` array (parallel to its ``sites``) giving the position of each
+        of its sites inside that gathered order. This lets :meth:`_score` /
+        deconvolution read only the selected rows via ``chunk2numpy(index=)``
+        (skipping the full-chunk copy) while decompressing each chunk once.
+        """
+        rows_by_chunk = {}
+        for chan in (self._cg, self._ch):
+            if chan is None:
+                continue
+            sarr = chan['sites']
+            for k, (lo, hi) in chan['chunks'].items():
+                rows_by_chunk.setdefault(k, []).append(
+                    np.asarray(sarr[lo:hi], dtype=np.int64))
+        gather = {k: (np.unique(np.concatenate(lst)) if len(lst) > 1
+                      else np.unique(lst[0]))
+                  for k, lst in rows_by_chunk.items()}
+        for chan in (self._cg, self._ch):
+            if chan is None:
+                continue
+            sarr = chan['sites']
+            gpos = np.empty(int(chan['n_sites']), dtype=np.int64)
+            for k, (lo, hi) in chan['chunks'].items():
+                rows = np.asarray(sarr[lo:hi], dtype=np.int64)
+                gpos[lo:hi] = np.searchsorted(gather[k], rows)
+            chan['gpos'] = gpos
+        self._gather_ids = gather
+
     def fit(self, pseudobulks, reference=None, cell_counts=None,
             top_cg=None, top_ch=None, min_range_cg=0.0, min_range_ch=0.0,
             top_per_class=None,
             alpha0_cg=None, beta0_cg=None, alpha0_ch=None, beta0_ch=None,
-            prior_min_cov=2, contexts='cg+ch', n_jobs=None, outdir=None):
+            prior_min_cov=2, prior_chroms=('chr1', 'chr2', 'chr3'),
+            contexts='cg+ch', n_jobs=None, outdir=None):
         """Estimate per-type methylation frequencies from cell-type ``.cz`` files.
 
         Parameters
@@ -814,6 +893,15 @@ class CellTypeClassifier:
         prior_min_cov : int, optional
             Minimum coverage for a reference site to enter the empirical prior
             estimation (passed to :func:`estimate_beta_prior`; default 2).
+        prior_chroms : sequence of str, str, or None, optional
+            Restrict the Beta-prior estimation (PASS A) to these chromosomes
+            only (default ``('chr1', 'chr2', 'chr3')``). The prior is a global
+            scalar over millions of sites, so a few chromosomes give a
+            near-identical estimate while skipping a full-genome read (a large
+            fit speedup). ``None`` uses every chromosome; if no name matches
+            the reference it falls back to all (with a warning). A channel
+            whose ``alpha0``/``beta0`` are supplied explicitly skips PASS A
+            regardless.
         contexts : str, optional
             Which cytosine context channel(s) to actually fit: ``'cg'``,
             ``'ch'``, or ``'both'`` / ``'cg+ch'`` (default, fit both). Fitting
@@ -865,6 +953,10 @@ class CellTypeClassifier:
         self.alpha0_ch = None if alpha0_ch is None else float(alpha0_ch)
         self.beta0_ch = None if beta0_ch is None else float(beta0_ch)
         prior_min_cov = int(prior_min_cov)
+        if prior_chroms is not None:
+            if isinstance(prior_chroms, str):
+                prior_chroms = prior_chroms.replace(',', ' ').split()
+            prior_chroms = {str(c) for c in prior_chroms}
         cell_types = list(pseudobulks)
         paths = {t: _abspath(pseudobulks[t])
                  for t in cell_types}
@@ -974,6 +1066,20 @@ class CellTypeClassifier:
         need_ch = n_ch > 0 and (self.alpha0_ch is None or self.beta0_ch is None)
         if need_cg or need_ch:
             thr = max(prior_min_cov, 1)
+            if prior_chroms is None:
+                prior_spans = chunk_spans
+            else:
+                prior_spans = [t for t in chunk_spans if t[0][0] in prior_chroms]
+                if not prior_spans:
+                    logger.warning(
+                        f"prior_chroms={sorted(prior_chroms)} matched no "
+                        f"reference chromosome; estimating the Beta prior on "
+                        f"ALL chromosomes instead")
+                    prior_spans = chunk_spans
+                else:
+                    logger.info(
+                        f"estimating Beta prior on {len(prior_spans)} chunk(s) "
+                        f"(prior_chroms={sorted(prior_chroms)})")
 
             def _accum(acc, mc_k, cov_k, m):
                 if not m.any():
@@ -993,7 +1099,7 @@ class CellTypeClassifier:
                 loc_ch = [0.0, 0.0, 0.0, 0]
                 r, mi, ci = _open(t)
                 try:
-                    for k, s, e in chunk_spans:
+                    for k, s, e in prior_spans:
                         got = _chunk(r, k, mi, ci)
                         if got is None:
                             continue
@@ -1325,6 +1431,7 @@ class CellTypeClassifier:
         self._chunk_lens = chunk_lens
         self._chunk_span = chunk_span
         self._n_full = n_full
+        self._build_gather()
         return self
 
     # ----------------------------------------------------------------------
@@ -1369,17 +1476,17 @@ class CellTypeClassifier:
         """
         lt = chan['log_theta']
         l1 = chan['log1m_theta']
-        sarr = chan['sites']
-        # Materialise per-chunk (mc, cov) at the model's selected sites first,
-        # so optional downsampling can pick a random subset *across* chunks.
+        gpos = chan['gpos']
+        # query_chunks hold only the model's gathered rows per chunk (union of
+        # the CpG/CpH sites); gpos maps this channel's sites into that order.
         parts = []  # (lo, hi, mc, cov)
         for k, (lo, hi) in chan['chunks'].items():
             arrs = query_chunks.get(k)
             if arrs is None:
                 continue  # chunk missing from this query -> zero contribution
-            mc_k, cov_k = arrs
-            s = np.asarray(sarr[lo:hi])  # memmap slice -> small owned index array
-            parts.append((lo, hi, mc_k[s], cov_k[s]))
+            mc_g, cov_g = arrs
+            g = np.asarray(gpos[lo:hi])
+            parts.append((lo, hi, mc_g[g], cov_g[g]))
         if not parts:
             return None
         if downsample is not None:
@@ -1431,17 +1538,16 @@ class CellTypeClassifier:
         return acc
 
     def _query_chunks(self, query):
-        """Return ``{chunk_key: (mc, cov)}`` for the chunks the model needs.
+        """Return ``{chunk_key: (mc, cov)}`` gathered at the model's rows.
 
-        Reads only the chunks carrying selected sites (union over the CpG and
-        CpH channels), skipping any absent from the query. Accepts a ``.cz``
-        path or a preloaded full-axis ``(mc, cov)`` array pair (sliced by the
-        stored chunk spans).
+        Reads only the chunks carrying selected sites and, within each, only
+        the union of the CpG/CpH rows the model keeps (via
+        ``chunk2numpy(index=...)`` for a ``.cz`` path, or a fancy-index on a
+        preloaded pair), so the full-chunk copy is skipped. The arrays follow
+        the per-chunk gather order; :meth:`_score` maps each channel's sites
+        into it through ``gpos``.
         """
-        needed = set()
-        for chan in (self._cg, self._ch):
-            if chan is not None:
-                needed.update(chan['chunks'].keys())
+        gather_ids = self._gather_ids or {}
         if isinstance(query, (tuple, list)):
             mc = np.asarray(query[0], np.float64)
             cov = np.asarray(query[1], np.float64)
@@ -1451,12 +1557,12 @@ class CellTypeClassifier:
                     f"{self._n_full}; preloaded (mc, cov) arrays must span the "
                     f"full reference axis.")
             out = {}
-            for k in needed:
+            for k, ids in gather_ids.items():
                 s, e = self._chunk_span[k]
-                out[k] = (mc[s:e], cov[s:e])
+                out[k] = (mc[s:e][ids], cov[s:e][ids])
             return out
-        return _read_mc_cov_by_chunk(
-            query, self.mc_col, self.cov_col, needed, self._chunk_lens)
+        return _read_mc_cov_gather(
+            query, self.mc_col, self.cov_col, gather_ids)
 
     def log_posterior(self, query, prior_alpha=0.0,
                       max_query_cg=None, max_query_ch=None, contexts='cg+ch',
@@ -1844,16 +1950,15 @@ class CellTypeClassifier:
             try:
                 query_chunks = {}
                 for chrom, full_key in keymap.items():
-                    arr = rr.chunk2numpy(full_key)
-                    mc = np.asarray(arr[f'f{mc_i}'])
-                    cov = np.asarray(arr[f'f{cov_i}'])
-                    n_ref = self._chunk_lens.get(chrom)
-                    if n_ref is not None and mc.size != int(n_ref):
-                        raise ValueError(
-                            f"{path}: chunk {chrom!r} of cell {cell!r} has "
-                            f"{mc.size} rows but the reference axis has "
-                            f"{int(n_ref)}; query must share the training axis.")
-                    query_chunks[chrom] = (mc, cov)
+                    ids = self._gather_ids.get(chrom)
+                    if ids is None or np.asarray(ids).size == 0:
+                        continue
+                    arr = rr.chunk2numpy(
+                        full_key,
+                        index={tuple(full_key): np.asarray(ids) + 1})
+                    query_chunks[chrom] = (
+                        np.asarray(arr[f'f{mc_i}']),
+                        np.asarray(arr[f'f{cov_i}']))
             finally:
                 rr.close()
             logpost = self._log_posterior_from_chunks(
@@ -2017,13 +2122,13 @@ class CellTypeClassifier:
             if chan is None:
                 continue
             lt = chan['log_theta']
-            sarr = chan['sites']
+            gpos = chan['gpos']
             for k, (lo, hi) in chan['chunks'].items():
                 arrs = query_chunks.get(k)
                 if arrs is None:
                     continue
                 mc_k, cov_k = arrs
-                s = np.asarray(sarr[lo:hi])
+                s = np.asarray(gpos[lo:hi])
                 cov = np.asarray(cov_k[s], dtype=np.float64)
                 obs = cov >= float(min_cov)
                 if not obs.any():
@@ -2230,16 +2335,15 @@ class CellTypeClassifier:
             try:
                 query_chunks = {}
                 for chrom, full_key in keymap.items():
-                    arr = rr.chunk2numpy(full_key)
-                    mc = np.asarray(arr[f'f{mc_i}'])
-                    cov = np.asarray(arr[f'f{cov_i}'])
-                    n_ref = self._chunk_lens.get(chrom)
-                    if n_ref is not None and mc.size != int(n_ref):
-                        raise ValueError(
-                            f"{path}: chunk {chrom!r} of sample {cell!r} has "
-                            f"{mc.size} rows but the reference axis has "
-                            f"{int(n_ref)}; query must share the training axis.")
-                    query_chunks[chrom] = (mc, cov)
+                    ids = self._gather_ids.get(chrom)
+                    if ids is None or np.asarray(ids).size == 0:
+                        continue
+                    arr = rr.chunk2numpy(
+                        full_key,
+                        index={tuple(full_key): np.asarray(ids) + 1})
+                    query_chunks[chrom] = (
+                        np.asarray(arr[f'f{mc_i}']),
+                        np.asarray(arr[f'f{cov_i}']))
             finally:
                 rr.close()
             theta, beta, weight = self._deconv_design(
@@ -2404,6 +2508,7 @@ class CellTypeClassifier:
 
         obj._cg = _load_channel('cg')
         obj._ch = _load_channel('ch')
+        obj._build_gather()
         return obj
 
 
@@ -2498,6 +2603,7 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
                       max_query_cg=None, max_query_ch=None, cov_cap=None,
                       alpha0_cg=None, beta0_cg=None,
                       alpha0_ch=None, beta0_ch=None, prior_min_cov=2,
+                      prior_chroms=('chr1', 'chr2', 'chr3'),
                       top_cg=None, top_ch=None,
                       min_range_cg=0.0, min_range_ch=0.0, top_per_class=None,
                       mc_col='mc', cov_col='cov', context_col='context',
@@ -2622,7 +2728,8 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
             top_per_class=top_per_class,
             alpha0_cg=alpha0_cg, beta0_cg=beta0_cg,
             alpha0_ch=alpha0_ch, beta0_ch=beta0_ch,
-            prior_min_cov=prior_min_cov, contexts=contexts,
+            prior_min_cov=prior_min_cov, prior_chroms=prior_chroms,
+            contexts=contexts,
             n_jobs=n_jobs, outdir=model_dir)
     if outdir is not None and not _model_store_complete(model_dir):
         clf.save(model_dir)
@@ -2657,6 +2764,7 @@ def deconvolve_bulk(query=None, pseudobulks=None, reference=None,
                     allow_unknown=False, min_cov=1,
                     alpha0_cg=None, beta0_cg=None,
                     alpha0_ch=None, beta0_ch=None, prior_min_cov=2,
+                    prior_chroms=('chr1', 'chr2', 'chr3'),
                     top_cg=None, top_ch=None,
                     min_range_cg=0.0, min_range_ch=0.0,
                     mc_col='mc', cov_col='cov', context_col='context',
@@ -2723,7 +2831,8 @@ def deconvolve_bulk(query=None, pseudobulks=None, reference=None,
                 min_range_cg=min_range_cg, min_range_ch=min_range_ch,
                 alpha0_cg=alpha0_cg, beta0_cg=beta0_cg,
                 alpha0_ch=alpha0_ch, beta0_ch=beta0_ch,
-                prior_min_cov=prior_min_cov, contexts=contexts,
+                prior_min_cov=prior_min_cov, prior_chroms=prior_chroms,
+                contexts=contexts,
                 n_jobs=n_jobs, outdir=model_dir)
         if outdir is not None:
             clf.save(model_dir)

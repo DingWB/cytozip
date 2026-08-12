@@ -34,6 +34,7 @@ from .cz import (Reader, Writer, get_dtfuncs,
                  _fmt_to_np_dtype, _chrom_axis,
                  _all_numeric_formats, _pack_chunk_data,
                  _write_np_chunks, _parse_tabix_lines,
+                 check_cz,
                  np, pd)
 # Lazily access Cython accelerators via the cz module namespace so that
 # ``import cytozip.allc`` does not force cz_accel to load (~65 ms).
@@ -366,8 +367,16 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
             jobs=jobs, pattern=pattern, skip_existing=skip_existing,
         )
     if os.path.exists(output):
-        logger.info(f"{output} existed, skip.")
-        return
+        ok, reason = check_cz(output)
+        if ok:
+            logger.info(f"{output} existed and complete, skip.")
+            return
+        # Existing output is incomplete/corrupt: drop it and regenerate.
+        logger.warning(f"{output} incomplete ({reason}); removing and regenerating.")
+        try:
+            os.remove(output)
+        except OSError:
+            pass
     allc_path = os.path.abspath(os.path.expanduser(input))
     if not os.path.exists(allc_path + '.tbi'):
         raise ValueError("index file .tbi not existed, please create index first.")
@@ -720,8 +729,16 @@ def _allc2cz_batch(input_dir, output_dir, reference=None, jobs=1,
     job_args = []
     for inp, outp in out_by_inp:
         if skip_existing and os.path.exists(outp):
-            logger.info(f"{outp} existed, skip.")
-            continue
+            ok, reason = check_cz(outp)
+            if ok:
+                logger.info(f"{outp} existed and complete, skip.")
+                continue
+            # Existing output is incomplete/corrupt: drop it and regenerate.
+            logger.warning(f"{outp} incomplete ({reason}); removing and regenerating.")
+            try:
+                os.remove(outp)
+            except OSError:
+                pass
         job_args.append((inp, outp, dict(reference=reference, **kwargs)))
 
     if not job_args:
