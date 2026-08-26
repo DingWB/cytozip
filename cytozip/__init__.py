@@ -51,6 +51,10 @@ _LAZY_EXPORTS = {
     'CellTypeClassifier': 'model', 'predict_cell_type': 'model',
     'deconvolve_bulk': 'model',
     'estimate_theta': 'model', 'top_cytosine_fasta': 'model',
+    # dataloader.py — window-by-window single-cell cytosine loader (DL)
+    'load_chrom_matrix': 'dataloader',
+    'CzWindowLoader': 'dataloader', 'CzWindowDataset': 'dataloader',
+    'resolve_cell_ids': 'dataloader',
 }
 
 # Submodules that can be accessed as cytozip.cz / cytozip.allc

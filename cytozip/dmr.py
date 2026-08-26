@@ -120,6 +120,7 @@ def _reader_np_dtype(reader):
 
 
 def _close_cached_readers():
+    """Close and clear every reader cached by :func:`_get_cached_reader`."""
     for r in _READER_CACHE.values():
         try:
             r.close()

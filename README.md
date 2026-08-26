@@ -23,6 +23,7 @@ conda install -c bioconda htslib libdeflate samtools         # recommended
 pip install cytozip
 # or reinstall
 pip uninstall -y cytozip && pip install git+http://github.com/DingWB/cytozip
+
 ```
 
 ## Implementation

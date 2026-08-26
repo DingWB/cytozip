@@ -254,6 +254,8 @@ session file input to restore it later.
    The **Saved tracks** manager is per-session only (kept in memory): it lists
    the tracks loaded in the current tab and is not persisted across reloads.
    Use **Save** / the session URL to keep a view.
+   
+Example session: https://dingwb.github.io/cytozip/build/html/_static/cz_viewer.html?session=https://neomorph.salk.edu/ftp/cz/SPN.json
 
 Share a session via a remote JSON URL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

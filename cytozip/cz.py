@@ -672,6 +672,7 @@ class RemoteFile:
 			self._size = int(cl)
 
 	def read(self, size=-1):
+		"""Read *size* bytes at the current position via a cached HTTP Range request."""
 		if size == 0:
 			return b""
 		if size < 0:
@@ -716,6 +717,7 @@ class RemoteFile:
 		return data
 
 	def seek(self, offset, whence=0):
+		"""Move the read position (``whence`` 0/1/2 like a file object) and return it."""
 		if whence == 0:
 			self._pos = offset
 		elif whence == 1:
@@ -725,9 +727,11 @@ class RemoteFile:
 		return self._pos
 
 	def tell(self):
+		"""Return the current read position."""
 		return self._pos
 
 	def close(self):
+		"""Mark the remote file closed and drop the read-ahead cache."""
 		self._closed = True
 		self._cache = b""
 
@@ -1136,6 +1140,7 @@ class Reader:
 		self._chunk_info = value
 
 	def print_header(self):
+		"""Print every parsed header field."""
 		for k in self.header:
 			print(k, " : ", self.header[k])
 
@@ -1237,6 +1242,7 @@ class Reader:
 		return True
 
 	def get_chunks(self):
+		"""Yield per-chunk metadata (offsets, size, dims, block virtual offsets) for every chunk."""
 		r = self._load_chunk(self.header['header_size'], jump=False)
 		while r:
 			yield [self._chunk_start_offset, self._chunk_size,
@@ -1247,6 +1253,7 @@ class Reader:
 			r = self._load_chunk(jump=False)
 
 	def summary_chunks(self, printout=True):
+		"""Return (and optionally print) the per-chunk info DataFrame."""
 		chunk_info = self.chunk_info  # triggers lazy build if needed
 		if printout:
 			try:
@@ -1347,6 +1354,7 @@ class Reader:
 			self.chunk_key2offset = {dims: info['start'] for dims, info in idx.items()}
 
 	def summary_blocks(self, printout=True):
+		"""Return (and optionally print) a per-block summary across all chunks."""
 		r = self._load_chunk(self.header['header_size'], jump=True)
 		header = ['chunk_dims'] + ['block_start_offset', 'block_size',
 								   'block_data_start', 'block_data_len']
@@ -2598,6 +2606,7 @@ class Reader:
 							  end_col=1, zerobased=False)
 
 	def get_ids_from_index(self, dim):
+		"""Return the row IDs stored in a context/region index chunk ``dim`` (1-D or 2-D)."""
 		if len(self.header['columns']) == 1:
 			s, e = 0, 1  # only one columns, ID
 			return np.array([record[0] for record in self.__fetch__(dim, s=s, e=e)])
@@ -2972,11 +2981,13 @@ class Reader:
 		return reader
 
 	def fetch(self, dim):
+		"""Yield every record of chunk ``dim`` as decoded tuples (bytes columns decoded)."""
 		for record in self.__fetch__(dim):
 			yield self._byte2real(record)  # all columns of each row
 
 
 	def _fetchByStartID(self, dims, n=None):  # n is 1-based, n >=1
+		"""Yield records of chunk ``dims`` starting at the 1-based primary id ``n``."""
 		if isinstance(dims, str):
 			dims = tuple([dims])
 		self._load_chunk(self.chunk_key2offset[dims], jump=False)
@@ -2998,6 +3009,7 @@ class Reader:
 
 
 	def _query_regions(self, regions, s, e):
+		"""Yield records inside each ``(dim, start, end)`` region, bisecting on columns ``s``/``e``."""
 		prev_dim = None
 		for dim, start, end in regions:
 			if dim != prev_dim:
@@ -3248,6 +3260,7 @@ class Reader:
 			ref_reader.close()
 
 	def _query_iter(self, regions, s, e):
+		"""Yield region-query records as plain tuples (no reference join)."""
 		# Hot loop — avoid per-record Python overhead: two generator layers,
 		# one listcomp, two list() conversions per record add ~1 µs/record
 		# which dominates small-region queries.
@@ -3295,6 +3308,7 @@ class Reader:
 					]
 
 	def _query_iter_ref(self, regions, s, e, ref_reader):
+		"""Yield region-query records joined onto ``ref_reader`` rows by primary id."""
 		ref_records = ref_reader._query_regions(regions, s, e)
 		try:
 			ref_record = next(ref_records)
@@ -3319,6 +3333,7 @@ class Reader:
 		ref_reader.close()
 
 	def _seek_and_read_1record(self, virtual_offset):
+		"""Seek to ``virtual_offset`` and return the single record there as a tuple."""
 		if _c_seek_and_read_1record is not None:
 			return _c_seek_and_read_1record(self._handle, virtual_offset, self.fmts, self._unit_size,
 				self._delta_np_dtype, self._delta_col_names or None)
@@ -3657,6 +3672,7 @@ _WORKER_READERS = {}
 
 
 def _worker_reader(path):
+	"""Return a per-process cached :class:`Reader` for ``path`` (opened on first use)."""
 	r = _WORKER_READERS.get(path)
 	if r is None:
 		r = Reader(path)
@@ -3665,6 +3681,7 @@ def _worker_reader(path):
 
 
 def _close_worker_readers():
+	"""Close and clear every reader cached by :func:`_worker_reader`."""
 	for r in _WORKER_READERS.values():
 		try:
 			r.close()
@@ -4919,6 +4936,7 @@ class Writer:
 
 	@staticmethod
 	def create_new_dim(basename):
+		"""Derive a chunk-key value from a file basename by stripping a ``.cz`` suffix."""
 		if basename.endswith('.cz'):
 			return basename[:-3]
 		return basename
@@ -5266,6 +5284,7 @@ class Writer:
 		return make_virtual_offset(self._handle.tell(), len(self._buffer))
 
 	def _seekable(self):
+		"""Writers are not seekable; always return False."""
 		return False
 
 	def _isatty(self):

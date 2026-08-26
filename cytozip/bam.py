@@ -71,6 +71,7 @@ _VALID_MODES = ("full", "pos_mc_cov", "mc_cov")
 
 
 def _read_faidx(faidx_path):
+    """Read a ``.fai`` index into a DataFrame keyed by chromosome name."""
     return pd.read_csv(
         faidx_path, index_col=0, header=None, sep="\t",
         names=["NAME", "LENGTH", "OFFSET", "LINEBASES", "LINEWIDTH"],
@@ -273,6 +274,7 @@ def _start_mpileup(samtools_exe, genome, min_base_quality, min_mapq,
 # Mode -> Writer layout
 # ---------------------------------------------------------------------------
 def _resolve_mode(mode):
+    """Validate ``mode`` against the supported output layouts and return it."""
     if mode not in _VALID_MODES:
         raise ValueError(f"mode must be one of {_VALID_MODES}, got {mode!r}")
     return mode
@@ -284,6 +286,7 @@ _COUNT_FMT_MAX = {"B": 0xFF, "H": 0xFFFF, "I": 0xFFFFFFFF,
 
 
 def _layout_for_mode(mode, count_fmt="H"):
+    """Return ``(formats, columns, sort_col, delta_cols)`` for an output ``mode``."""
     if count_fmt not in _VALID_COUNT_FMTS:
         raise ValueError(
             f"count_fmt must be one of {_VALID_COUNT_FMTS}, got {count_fmt!r}"
@@ -339,6 +342,7 @@ class _LazyRefPositions:
         self._cache: dict = {}
 
     def __contains__(self, chrom):
+        """True if ``chrom`` is present in the reference .cz."""
         return chrom in self._chrom2dim
 
     @property
@@ -412,6 +416,7 @@ class _LazyRefPositions:
         return out
 
     def drop(self, chrom):
+        """Evict a chromosome's cached positions and release its mmap pages."""
         self._cache.pop(chrom, None)
         # Release the ref pages for this chunk back to the kernel.
         # Without this, walking ~1.3 GB of mmap'd ref keeps every
@@ -475,9 +480,11 @@ class _LazyRefPositions:
                 yield rec_view[pos_field].astype(np.uint32, copy=True)
 
     def has(self, chrom):
+        """True if ``chrom`` exists in the reference .cz."""
         return chrom in self._chrom2dim
 
     def close(self):
+        """Clear the position cache and close the underlying reference reader."""
         self._cache.clear()
         self._reader.close()
 

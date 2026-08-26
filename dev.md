@@ -158,7 +158,7 @@ python setup.py build_ext --inplace
 # or
 pip install -e .
 # install from local disk
-pip uninstall -y cytozip && python3 -m pip install .
+pip uninstall -y cytozip && pip install ~/Projects/Github/cytozip
 # rebuild .pyx
 python setup.py build_ext --inplace
 python -c "import cytozip.cz_accel; print(cytozip.cz_accel.__file__)"
@@ -213,6 +213,121 @@ with cz.open('out.cz') as r:
     for rec in r:                          # iterate every record
         ...
 ```
+
+## Deep-learning dataloader (`cytozip/dataloader.py`)
+
+For training deep-learning models on single-cell methylation, the most common
+access pattern is: **for one chromosome, stream every single cell's cytosine
+`mc` / `cov` in fixed-size genomic windows (bins)**, fast. The
+`cytozip.dataloader` module does exactly this, yielding
+`(n_cells, n_sites_in_window)` matrices window by window without materialising
+the whole genome.
+
+### Inputs
+
+* `reference` — reference `.cz` (from `build_ref` / `allc2cz`): supplies the
+  coordinate (`pos`) axis and the per-chromosome row count.
+* `cells` — the single-cell data, given as **any** of:
+  * a directory of per-cell `*.cz` files,
+  * a single `catcz`'d `.cz` (`chunk_dims=['chrom', 'cell_id', ...]`),
+  * a list / comma-separated string of `.cz` paths,
+  * a cell-table text file (one `.cz` path per line).
+* `index` — optional context index `.cz` (e.g. `*.CGN.cz` / `*.CHN.cz`) to
+  restrict rows to CG / CH sites.
+* `chrom` — one chromosome name (or a list of them).
+* `binsize` — window width in bp.
+
+> **Alignment requirement.** Per-cell `.cz` files must be row-aligned to
+> `reference` (reference-less `mc` / `cov` produced by `allc2cz`, `bam_to_cz` or other cytozip functions with a
+> `reference=`), so a window maps to the same row-index range across all cells.
+> Cells whose chunk is missing / length-mismatched contribute zeros.
+
+### Public API
+
+* `CzWindowLoader(reference, cells, index=None, ...)` — **recommended**. Opens the
+  reference, index and every cell **once** at construction and resolves the cell
+  order from headers. Then call `.iter_windows(chrom, binsize, ...)` (or
+  `.load_chrom(chrom)` → `(pos, mc, cov)`) for any chromosome without re-opening
+  files. `.chroms` lists every chromosome in the reference; `.cell_ids` gives the
+  row order; `.close()` (or a `with` block) releases the readers.
+* `load_chrom_matrix(reference, cells, chrom, index=None, ...)` →
+  `(cell_ids, pos, mc, cov)`. One-shot wrapper around `CzWindowLoader` for a whole
+  (optionally context-filtered) chromosome; `mc` / `cov` are `(n_cells, n_sites)`.
+* `resolve_cell_ids(cells)` — the cell row order (cheap; reads only headers), the
+  same list as `CzWindowLoader.cell_ids`.
+* `CzWindowDataset(...)` — a thin `CzWindowLoader` wrapper usable directly as a
+  PyTorch `IterableDataset` (set `to_torch=True` to yield tensors; `torch` is
+  imported lazily only then). Its `.cell_ids` property gives the row order.
+
+### Example — `CzWindowLoader` (recommended)
+
+```python
+from cytozip.dataloader import CzWindowLoader
+
+# Opens reference + index + all cells once.
+loader = CzWindowLoader(
+    reference="~/Ref/hg38/hg38_with_chrL.allc.cz",
+    cells="~/Projects/test_cytozip/benchmark/cz/",   # dir / catcz / list / table
+    index="~/Ref/hg38/hg38_with_chrL.CGN.cz",        # CG-only (optional)
+    jobs=8)                                           # threads to decode cells
+
+cell_ids = loader.cell_ids                            # row order of mc / cov
+print(loader.chroms)                                  # all chromosomes in the reference
+
+for chrom in loader.chroms:
+    for w in loader.iter_windows(chrom, binsize=100_000):
+        # w.mc, w.cov: (n_cells, n_sites_in_window) int arrays; rows follow cell_ids
+        # w.pos:       (n_sites_in_window,) genomic coordinates
+        frac = w.mc / np.clip(w.cov, 1, None)         # per-cell methylation fraction
+        ...  # feed frac (or mc & cov) into the model
+
+loader.close()   # or: with CzWindowLoader(...) as loader: ...
+```
+
+### Example — PyTorch `IterableDataset`
+
+```python
+import torch
+from torch.utils.data import DataLoader
+from cytozip.dataloader import CzWindowDataset
+
+ds = CzWindowDataset(
+    reference="~/Ref/hg38/hg38_with_chrL.allc.cz",
+    cells="~/Projects/test_cytozip/benchmark/cz/",
+    chrom=["chr1", "chr2", "chr3"], binsize=100_000,
+    index="~/Ref/hg38/hg38_with_chrL.CGN.cz",
+    jobs=8,
+    prefetch=True,        # background-load the next chromosome while training
+    to_torch=True)        # yield torch tensors instead of numpy
+
+# batch_size=None: the dataset already yields one (n_cells, sites) window per step.
+loader = DataLoader(ds, batch_size=None, num_workers=0)
+for w in loader:
+    mc, cov = w.mc, w.cov            # torch tensors, shape (n_cells, sites)
+    frac = mc / cov.clamp(min=1)
+    logits = model(frac)             # e.g. treat cells as a batch, sites as features
+    ...
+print("cell order:", ds.cell_ids)    # lazy property — available without iterating
+```
+
+### Performance notes
+
+* **`jobs`** parallelises per-cell chunk decoding with threads (decompression
+  releases the GIL, so it scales well). Increase it when you have many cells.
+* **`prefetch=True`** (only meaningful with a list of chromosomes) loads the
+  next chromosome's matrix on a background thread while the current
+  chromosome's windows are consumed, overlapping decompression with GPU
+  compute. A single background loader is used so the shared `Reader` cache is
+  never accessed concurrently.
+* The **first bin of each chromosome** pays the one-time cost of decompressing
+  that whole chromosome across all cells; every subsequent bin is a pure
+  in-RAM slice (microseconds). This amortises well across bins and epochs.
+* Call `loader.close()` (or use a `with CzWindowLoader(...) as loader:` block)
+  to release the open file handles when done.
+
+See `tests/test_dataloader.py` for a runnable correctness + timing check
+(prints the cell count and per-bin time; auto-skips if the example data is
+absent).
 
 ## Remote Reading
 Read .cz files from a remote HTTP/HTTPS server using HTTP Range requests.
