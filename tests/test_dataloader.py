@@ -48,7 +48,7 @@ def _first_cells(n=6):
 def test_load_chrom_matrix_shapes():
     cells = _first_cells()
     cell_ids, pos, mc, cov = dl.load_chrom_matrix(
-        REFERENCE, cells, chrom=CHROM, index=CGN_INDEX, jobs=4)
+        REFERENCE, cells, chrom=CHROM, index=CGN_INDEX, threads=4)
     assert len(cell_ids) == len(cells)
     assert mc.shape == cov.shape == (len(cells), pos.shape[0])
     assert pos.ndim == 1 and pos.shape[0] > 0
@@ -60,7 +60,7 @@ def test_matrix_matches_bruteforce():
     """The loaded per-cell CG columns must equal a direct chunk2numpy gather."""
     cells = _first_cells(4)
     cell_ids, pos, mc, cov = dl.load_chrom_matrix(
-        REFERENCE, cells, chrom=CHROM, index=CGN_INDEX, jobs=1)
+        REFERENCE, cells, chrom=CHROM, index=CGN_INDEX, threads=1)
 
     ix = Reader(CGN_INDEX)
     ids = ix.get_ids_from_index((CHROM,)).astype(np.int64) - 1  # 0-based
@@ -83,11 +83,11 @@ def test_iter_windows_partition():
     """Windows must partition the chromosome's sites with no overlap/gap."""
     cells = _first_cells(4)
     _, pos, mc, cov = dl.load_chrom_matrix(
-        REFERENCE, cells, chrom=CHROM, index=CGN_INDEX, jobs=2)
+        REFERENCE, cells, chrom=CHROM, index=CGN_INDEX, threads=2)
 
     total = 0
     prev_end = -1
-    loader = dl.CzWindowLoader(REFERENCE, cells, index=CGN_INDEX, jobs=2)
+    loader = dl.CzWindowLoader(REFERENCE, cells, index=CGN_INDEX, threads=2)
     try:
         for w in loader.iter_windows(CHROM, binsize=BINSIZE):
             assert w.mc.shape == w.cov.shape == (len(cells), w.pos.shape[0])
@@ -106,7 +106,7 @@ def test_bin_timing():
     print(f"\n[dataloader] #cells = {len(cells)}")
 
     t0 = time.perf_counter()
-    loader = dl.CzWindowLoader(REFERENCE, cells, index=CGN_INDEX, jobs=8)
+    loader = dl.CzWindowLoader(REFERENCE, cells, index=CGN_INDEX, threads=8)
     build_ms = (time.perf_counter() - t0) * 1e3
     print(f"[dataloader] loader build: {build_ms:.1f} ms, "
           f"{len(loader.chroms)} chroms")

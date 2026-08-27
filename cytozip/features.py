@@ -966,6 +966,181 @@ def _pool_process_prefix(args):
 
 
 # ---------------------------------------------------------------------------
+# Shared feature-prep / anndata-assembly helpers (used by cz_to_anndata and
+# cz_to_anndata_multiref)
+# ---------------------------------------------------------------------------
+def _prepare_feature_groups(features, chrom_size, exclude_chroms, blacklist,
+                            flank_bp, gtf_id_col):
+    """Parse ``features`` into ``(feat_df, features_by_chrom, n_feat,
+    gtf_meta_df)``.
+
+    ``features_by_chrom`` carries either per-region ``starts/ends/indices``
+    or, for genome tiling, ``tiled/bin_size/first_index/n_bins`` metadata.
+    Shared by :func:`cz_to_anndata` and :func:`cz_to_anndata_multiref`.
+    """
+    # Resolve features -> DataFrame.
+    tiled_bin_size: Optional[int] = None
+    # Metadata columns (gene_id, gene_name, gene_type, strand) extracted
+    # from the GTF for var_df construction. None for non-GTF inputs.
+    gtf_meta_df: Optional[pd.DataFrame] = None
+    if isinstance(features, str) and _looks_like_gtf(features):
+        gene_df = parse_gtf(features, flank_bp=flank_bp,
+                            id_col=gtf_id_col,
+                            exclude_chroms=exclude_chroms)
+        feat_df = gene_df[["chrom", "start", "end", "name"]].copy()
+        gtf_meta_df = gene_df.set_index("name")[
+            ["gene_id", "gene_name", "gene_type", "strand"]]
+    elif isinstance(features, (int, np.integer)):
+        if chrom_size is None:
+            raise ValueError(
+                "features=<int bin_size> requires chrom_size= (path to a "
+                "chrom-size or .fai file, DataFrame, or dict).")
+        tiled_bin_size = int(features)
+        feat_df = make_genome_bins(chrom_size, tiled_bin_size,
+                                   exclude_chroms=exclude_chroms)
+    else:
+        feat_df = parse_features(features)
+    n_feat = len(feat_df)
+
+    # Optionally exclude blacklisted regions (ENCODE-style BED). Applied
+    # *before* chrom-grouping so both the aggregation and downstream
+    # scoring see the pruned feature set.
+    if blacklist is not None:
+        bl_map = load_blacklist(blacklist)
+        keep_mask = _mask_features_by_blacklist(feat_df, bl_map)
+        n_dropped = int((~keep_mask).sum())
+        if n_dropped:
+            logger.info(
+                f"[cytozip] blacklist: dropped {n_dropped}/{len(feat_df)} "
+                f"features overlapping blacklist"
+            )
+            feat_df = feat_df.loc[keep_mask].reset_index(drop=True)
+            n_feat = len(feat_df)
+            # When tiled, blacklist breaks contiguity; force the slow
+            # (but correct) cumsum+searchsorted path by clearing the tag.
+            if isinstance(features, (int, np.integer)):
+                tiled_bin_size = None
+
+    # Pre-group by chrom, keeping original feature order via `indices`.
+    # When tiled_bin_size is set (features produced by make_genome_bins),
+    # we also flag each chrom with tiling metadata so the aggregation
+    # fast path (np.bincount) can be used.
+    features_by_chrom: dict = {}
+    if tiled_bin_size is not None:
+        # Features from make_genome_bins come out sorted per chrom and
+        # contiguous; recover (first_index, n_bins) in one pass.
+        chroms = feat_df["chrom"].to_numpy()
+        # First-occurrence index per chrom.
+        _, first_idx, counts = np.unique(chroms, return_index=True,
+                                         return_counts=True)
+        order = np.argsort(first_idx)
+        for k in order:
+            c = str(chroms[first_idx[k]])
+            features_by_chrom[c] = {
+                "tiled": True,
+                "bin_size": tiled_bin_size,
+                "first_index": int(first_idx[k]),
+                "n_bins": int(counts[k]),
+            }
+    else:
+        # Vectorized equivalent of the per-row iterrows loop: group by chrom
+        # in first-occurrence order, preserving each feature's original index
+        # label (what iterrows yielded as ``i``).
+        _chroms = feat_df["chrom"].to_numpy()
+        _starts = feat_df["start"].to_numpy()
+        _ends = feat_df["end"].to_numpy()
+        _index_labels = feat_df.index.to_numpy()
+        for c in pd.unique(_chroms):
+            sel = np.nonzero(_chroms == c)[0]
+            features_by_chrom[c] = {
+                "starts": _starts[sel].astype(int).tolist(),
+                "ends": _ends[sel].astype(int).tolist(),
+                "indices": _index_labels[sel].tolist(),
+            }
+    return feat_df, features_by_chrom, n_feat, gtf_meta_df
+
+
+def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
+                         score, score_cutoff, hvf_frac, obs, output,
+                         reference=None):
+    """Assemble an :class:`anndata.AnnData` from a filled streaming builder.
+
+    Shared tail of :func:`cz_to_anndata` and :func:`cz_to_anndata_multiref`:
+    materialises the sparse mc/cov layers, computes the requested ``.X``
+    score (plus the per-cell Beta prior / per-feature HVF accumulators for
+    ``posterior_frac``), and writes the ``.h5ad`` when ``output`` is given.
+    ``reference`` (a path or list of paths) is recorded in
+    ``adata.uns['cytozip_reference']``.
+    """
+    import anndata
+
+    # Materialise sparse layers (no dense intermediate).
+    mc_sp, cov_sp = builder.finalize()
+
+    # Build var_df. For GTF inputs we attach gene_id / gene_type /
+    # strand alongside the coordinates; for BED / bins var carries just
+    # the coordinates. `name` is always used verbatim as var_names.
+    var_df = feat_df.set_index("name")
+    if gtf_meta_df is not None:
+        var_df = var_df.join(gtf_meta_df)
+
+    # The per-cell Beta prior (alpha, beta) and the per-feature HVF
+    # accumulators are only needed for the posterior_frac score, so they are
+    # computed *only* in that branch to avoid wasted work on the other scores.
+    # alpha/beta are estimated once here and shared by the score transform, the
+    # HVF accumulators and adata.obs (no double estimation).
+    obs_df = pd.DataFrame(index=obs_names)
+    if score == "posterior_frac":
+        alpha, beta, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
+        X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
+                                         score_cutoff=score_cutoff,
+                                         alpha=alpha, beta=beta)
+        # Per-feature additive HVF accumulators -> adata.var. Additive across
+        # cells (and merged datasets), so mean / var / dispersion / normalized
+        # dispersion can be reconstructed downstream (e.g. pym3c
+        # MultiAdata.select_hvf) without re-reading the matrix.
+        hvf_n_cov, hvf_sum, hvf_sum_sq = _compute_hvf_var_stats_sparse(
+            mc_sp, cov_sp, alpha=alpha, beta=beta, method=hvf_frac)
+        var_df["hvf_n_cov"] = hvf_n_cov
+        var_df["hvf_sum"] = hvf_sum
+        var_df["hvf_sum_sq"] = hvf_sum_sq
+        # per-cell Beta prior + prior_mean + rho for downstream posterior use.
+        obs_df["alpha"] = alpha
+        obs_df["beta"] = beta
+        obs_df["prior_mean"] = prior_mean
+        # rho = 1 / (alpha + beta + 1)  == 1/(kappa+1): the intra-class
+        # correlation (over-dispersion) of the per-cell Beta-Binomial fit. It
+        # is coverage-independent (unlike a raw variance), so it doubles as a
+        # per-cell QC handle (flag degenerate/low-complexity cells) and lets
+        # downstream code recover the shrinkage strength kappa = (1 - rho)/rho.
+        # NaN wherever alpha/beta are NaN (degenerate rows).
+        obs_df["rho"] = (1.0 / (alpha.astype(np.float64)
+                                + beta.astype(np.float64) + 1.0)).astype(np.float32)
+    else:
+        X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
+                                         score_cutoff=score_cutoff)
+    if obs is not None:
+        obs_df = obs_df.join(obs, how="left")
+
+    adata = anndata.AnnData(
+        X=X,
+        obs=obs_df,
+        var=var_df,
+        layers={"mc": mc_sp, "cov": cov_sp},
+    )
+    adata.uns["cytozip_score"] = {
+        "score": score,
+        "score_cutoff": float(score_cutoff),
+        "hvf_frac": hvf_frac,
+    }
+    if reference is not None:
+        adata.uns["cytozip_reference"] = reference
+    if output:
+        adata.write_h5ad(os.path.abspath(os.path.expanduser(output)))
+    return adata
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 def cz_to_anndata(
@@ -1140,90 +1315,11 @@ def cz_to_anndata(
         ``.layers['mc']`` and ``.layers['cov']`` hold the raw integer
         counts (``uint32``) as CSR sparse matrices.
     """
-    import anndata
-
     if score not in _VALID_SCORES:
         raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
 
-    # Resolve features -> DataFrame.
-    tiled_bin_size: Optional[int] = None
-    # Metadata columns (gene_id, gene_name, gene_type, strand) extracted
-    # from the GTF for var_df construction. None for non-GTF inputs.
-    gtf_meta_df: Optional[pd.DataFrame] = None
-    if isinstance(features, str) and _looks_like_gtf(features):
-        gene_df = parse_gtf(features, flank_bp=flank_bp,
-                            id_col=gtf_id_col,
-                            exclude_chroms=exclude_chroms)
-        feat_df = gene_df[["chrom", "start", "end", "name"]].copy()
-        gtf_meta_df = gene_df.set_index("name")[
-            ["gene_id", "gene_name", "gene_type", "strand"]]
-    elif isinstance(features, (int, np.integer)):
-        if chrom_size is None:
-            raise ValueError(
-                "features=<int bin_size> requires chrom_size= (path to a "
-                "chrom-size or .fai file, DataFrame, or dict).")
-        tiled_bin_size = int(features)
-        feat_df = make_genome_bins(chrom_size, tiled_bin_size,
-                                   exclude_chroms=exclude_chroms)
-    else:
-        feat_df = parse_features(features)
-    n_feat = len(feat_df)
-
-    # Optionally exclude blacklisted regions (ENCODE-style BED). Applied
-    # *before* chrom-grouping so both the aggregation and downstream
-    # scoring see the pruned feature set.
-    if blacklist is not None:
-        bl_map = load_blacklist(blacklist)
-        keep_mask = _mask_features_by_blacklist(feat_df, bl_map)
-        n_dropped = int((~keep_mask).sum())
-        if n_dropped:
-            logger.info(
-                f"[cytozip] blacklist: dropped {n_dropped}/{len(feat_df)} "
-                f"features overlapping blacklist"
-            )
-            feat_df = feat_df.loc[keep_mask].reset_index(drop=True)
-            n_feat = len(feat_df)
-            # When tiled, blacklist breaks contiguity; force the slow
-            # (but correct) cumsum+searchsorted path by clearing the tag.
-            if isinstance(features, (int, np.integer)):
-                tiled_bin_size = None
-
-    # Pre-group by chrom, keeping original feature order via `indices`.
-    # When tiled_bin_size is set (features produced by make_genome_bins),
-    # we also flag each chrom with tiling metadata so the aggregation
-    # fast path (np.bincount) can be used.
-    features_by_chrom: dict = {}
-    if tiled_bin_size is not None:
-        # Features from make_genome_bins come out sorted per chrom and
-        # contiguous; recover (first_index, n_bins) in one pass.
-        chroms = feat_df["chrom"].to_numpy()
-        # First-occurrence index per chrom.
-        _, first_idx, counts = np.unique(chroms, return_index=True,
-                                         return_counts=True)
-        order = np.argsort(first_idx)
-        for k in order:
-            c = str(chroms[first_idx[k]])
-            features_by_chrom[c] = {
-                "tiled": True,
-                "bin_size": tiled_bin_size,
-                "first_index": int(first_idx[k]),
-                "n_bins": int(counts[k]),
-            }
-    else:
-        # Vectorized equivalent of the per-row iterrows loop: group by chrom
-        # in first-occurrence order, preserving each feature's original index
-        # label (what iterrows yielded as ``i``).
-        _chroms = feat_df["chrom"].to_numpy()
-        _starts = feat_df["start"].to_numpy()
-        _ends = feat_df["end"].to_numpy()
-        _index_labels = feat_df.index.to_numpy()
-        for c in pd.unique(_chroms):
-            sel = np.nonzero(_chroms == c)[0]
-            features_by_chrom[c] = {
-                "starts": _starts[sel].astype(int).tolist(),
-                "ends": _ends[sel].astype(int).tolist(),
-                "indices": _index_labels[sel].tolist(),
-            }
+    feat_df, features_by_chrom, n_feat, gtf_meta_df = _prepare_feature_groups(
+        features, chrom_size, exclude_chroms, blacklist, flank_bp, gtf_id_col)
 
     # Lazily load reference positions when needed.
     ref_pos_map_cache = {"loaded": False, "map": None}
@@ -1393,68 +1489,161 @@ def cz_to_anndata(
                 obs_names.append(label)
                 del arr
 
-    # Materialise sparse layers (no dense intermediate).
-    mc_sp, cov_sp = builder.finalize()
+    return _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
+                                score, score_cutoff, hvf_frac, obs, output,
+                                reference=(os.path.abspath(
+                                    os.path.expanduser(reference))
+                                    if reference else None))
 
-    # Build var_df. For GTF inputs we attach gene_id / gene_type /
-    # strand alongside the coordinates; for BED / bins var carries just
-    # the coordinates. `name` is always used verbatim as var_names.
-    var_df = feat_df.set_index("name")
-    if gtf_meta_df is not None:
-        var_df = var_df.join(gtf_meta_df)
 
-    # The per-cell Beta prior (alpha, beta) and the per-feature HVF
-    # accumulators are only needed for the posterior_frac score, so they are
-    # computed *only* in that branch to avoid wasted work on the other scores.
-    # alpha/beta are estimated once here and shared by the score transform, the
-    # HVF accumulators and adata.obs (no double estimation).
-    obs_df = pd.DataFrame(index=obs_names)
-    if score == "posterior_frac":
-        alpha, beta, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
-        X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
-                                         score_cutoff=score_cutoff,
-                                         alpha=alpha, beta=beta)
-        # Per-feature additive HVF accumulators -> adata.var. Additive across
-        # cells (and merged datasets), so mean / var / dispersion / normalized
-        # dispersion can be reconstructed downstream (e.g. pym3c
-        # MultiAdata.select_hvf) without re-reading the matrix.
-        hvf_n_cov, hvf_sum, hvf_sum_sq = _compute_hvf_var_stats_sparse(
-            mc_sp, cov_sp, alpha=alpha, beta=beta, method=hvf_frac)
-        var_df["hvf_n_cov"] = hvf_n_cov
-        var_df["hvf_sum"] = hvf_sum
-        var_df["hvf_sum_sq"] = hvf_sum_sq
-        # per-cell Beta prior + prior_mean + rho for downstream posterior use.
-        obs_df["alpha"] = alpha
-        obs_df["beta"] = beta
-        obs_df["prior_mean"] = prior_mean
-        # rho = 1 / (alpha + beta + 1)  == 1/(kappa+1): the intra-class
-        # correlation (over-dispersion) of the per-cell Beta-Binomial fit. It
-        # is coverage-independent (unlike a raw variance), so it doubles as a
-        # per-cell QC handle (flag degenerate/low-complexity cells) and lets
-        # downstream code recover the shrinkage strength kappa = (1 - rho)/rho.
-        # NaN wherever alpha/beta are NaN (degenerate rows).
-        obs_df["rho"] = (1.0 / (alpha.astype(np.float64)
-                                + beta.astype(np.float64) + 1.0)).astype(np.float32)
-    else:
-        X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
-                                         score_cutoff=score_cutoff)
-    if obs is not None:
-        obs_df = obs_df.join(obs, how="left")
+def cz_to_anndata_multiref(
+    cz_table: Union[str, pd.DataFrame],
+    features: Union[str, pd.DataFrame, int],
+    output: Optional[str] = None,
+    use_samples: Optional[Sequence[str]] = None,
+    ext: str = ".cz",
+    pos_col: str = "pos",
+    mc_col: str = "mc",
+    cov_col: str = "cov",
+    obs: Optional[pd.DataFrame] = None,
+    chrom_size: Optional[Union[str, pd.DataFrame, dict]] = None,
+    exclude_chroms: Optional[Sequence[str]] = ("chrL",),
+    blacklist: Optional[Union[str, pd.DataFrame]] = None,
+    flank_bp: int = 2000,
+    gtf_id_col: str = "gene_name",
+    score: str = "posterior_frac",
+    score_cutoff: float = 0.9,
+    hvf_frac: str = "posterior",
+    jobs: int = 1,
+):
+    """Build an ``AnnData`` from per-cell .cz with *different* references.
 
-    adata = anndata.AnnData(
-        X=X,
-        obs=obs_df,
-        var=var_df,
-        layers={"mc": mc_sp, "cov": cov_sp},
-    )
-    adata.uns["cytozip_score"] = {
-        "score": score,
-        "score_cutoff": float(score_cutoff),
-        "hvf_frac": hvf_frac,
-    }
-    if output:
-        adata.write_h5ad(os.path.abspath(os.path.expanduser(output)))
-    return adata
+    The multi-reference analogue of :func:`cz_to_anndata`. When cells come
+    from different donors, each was mapped to a donor-specific genome and is
+    therefore row-aligned to its *own* reference .cz (different C positions,
+    possibly different context at the same coordinate). A single shared
+    ``reference=`` (as in :func:`cz_to_anndata`) would attach the wrong
+    coordinates. Here every cell declares its own ``reference`` (and optional
+    context ``index``) per row of ``cz_table`` and is aggregated over
+    ``features`` using that reference for positions.
+
+    Because the output is per-cell (cells × features), no cross-cell
+    coordinate pooling is needed: every cell independently maps its mc/cov
+    onto the feature intervals via its own reference. Context mismatch is
+    handled naturally when a per-cell ``index`` (CG / CH) is supplied (each
+    cell's index reflects that donor's genome), so e.g. a position that is
+    CG in one donor but CH in another is counted correctly for each.
+
+    Parameters
+    ----------
+    cz_table : DataFrame or path
+        Per-cell table (DataFrame or headered TSV) with at least ``path``
+        (per-cell reference-less ``.cz``) and ``reference`` (that cell's
+        reference ``.cz``) columns; an optional ``index`` column gives each
+        cell's 1-D context index ``.cz`` (CG / CH), and an optional
+        ``cell_id`` column sets the row label (default: basename of ``path``
+        with ``ext`` stripped). See
+        :func:`cytozip.merge._resolve_cz_table`. A merged (catcz'd)
+        multi-donor ``.cz`` is NOT supported — list per-cell files.
+    features : str, DataFrame, or int
+        Same as :func:`cz_to_anndata` (BED / GTF path, DataFrame, or bin
+        size). See there for details.
+    output, use_samples, ext, pos_col, mc_col, cov_col, obs, chrom_size,
+    exclude_chroms, blacklist, flank_bp, gtf_id_col, score, score_cutoff,
+    hvf_frac, jobs
+        Same meaning as in :func:`cz_to_anndata`. ``use_samples`` filters on
+        the table's ``cell_id`` column.
+
+    Returns
+    -------
+    anndata.AnnData
+        Same layout as :func:`cz_to_anndata`.
+    """
+    if score not in _VALID_SCORES:
+        raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
+
+    feat_df, features_by_chrom, n_feat, gtf_meta_df = _prepare_feature_groups(
+        features, chrom_size, exclude_chroms, blacklist, flank_bp, gtf_id_col)
+    chroms_set = set(features_by_chrom.keys())
+
+    # Resolve the per-cell table (DataFrame or headered TSV).
+    from .merge import _resolve_cz_table
+    df = _resolve_cz_table(cz_table, ext=ext, require=("path", "reference"))
+    if use_samples is not None:
+        df = df.loc[df["cell_id"].isin(set(use_samples))]
+    if len(df) == 0:
+        raise ValueError("cz_to_anndata_multiref: no cells to process")
+    for p in df["path"]:
+        if not os.path.isfile(p):
+            raise FileNotFoundError(f"cz_to_anndata_multiref: cell not found: {p}")
+
+    # Group cells by (reference, index) so each reference position map and
+    # context index is resolved once and reused across its cells.
+    idx_col = df["index"].tolist() if "index" in df.columns else [None] * len(df)
+    groups: dict = {}
+    for p, ref, idx, lab in zip(df["path"], df["reference"], idx_col,
+                                df["cell_id"]):
+        groups.setdefault((ref, idx), []).append((p, lab))
+
+    from .bam import _LazyRefPositions
+
+    builder = _StreamingSparseBuilder(n_feat)
+    obs_names: List[str] = []
+    n_workers = int(jobs) if jobs and int(jobs) > 1 else 1
+    _POOL_CHUNK_CAP = 32
+
+    # Process each (reference, index) group so every cell uses its own
+    # reference / context index.
+    for (ref_path, idx_path), cells in groups.items():
+        idx_dict = None
+        if idx_path is not None:
+            idx_dict = _resolve_index_to_dict(idx_path, chroms=chroms_set)
+        if n_workers > 1 and len(cells) > 1:
+            # Fresh pool per group: each worker's _pool_init pins THIS
+            # group's reference + index, so no cross-reference contamination.
+            from concurrent.futures import ProcessPoolExecutor
+            paths_ = [p for p, _ in cells]
+            labels_ = [lab for _, lab in cells]
+            with ProcessPoolExecutor(
+                    max_workers=n_workers,
+                    initializer=_pool_init,
+                    initargs=(features_by_chrom, pos_col, mc_col, cov_col,
+                              ref_path, idx_dict)) as ex:
+                chunk = max(1, min(_POOL_CHUNK_CAP,
+                                   len(paths_) // (n_workers * 4) or 1))
+                for arr, lab in zip(
+                        ex.map(_pool_process_file, paths_, chunksize=chunk),
+                        labels_):
+                    builder.append(arr)
+                    obs_names.append(lab)
+                    del arr
+        else:
+            rpm = _LazyRefPositions(ref_path)
+            try:
+                for p, label in cells:
+                    r = Reader(p)
+                    try:
+                        cols = r.header["columns"]
+                        pi = cols.index(pos_col) if pos_col in cols else None
+                        mc_i = cols.index(mc_col)
+                        cov_i = cols.index(cov_col)
+                        chrom_axis = _detect_chrom_axis(r, chroms_set)
+                        arr = _aggregate_one_reader(
+                            r, features_by_chrom, pi, mc_i, cov_i,
+                            chrom_axis=chrom_axis,
+                            ref_pos_map=(rpm if pi is None else None),
+                            index_ids_by_chrom=idx_dict)
+                    finally:
+                        r.close()
+                    builder.append(arr)
+                    obs_names.append(label)
+                    del arr
+            finally:
+                rpm.close()
+
+    return _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
+                                score, score_cutoff, hvf_frac, obs, output,
+                                reference=sorted(set(df["reference"])))
 
 
 # ---------------------------------------------------------------------------

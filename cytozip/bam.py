@@ -873,9 +873,9 @@ def bam_to_cz(
     ref_pos_map = None
     if mode == "mc_cov":
         ref_pos_map = _LazyRefPositions(reference)
-        writer_message = os.path.basename(reference)
+        writer_message = os.path.abspath(os.path.expanduser(reference))
     else:
-        writer_message = os.path.basename(genome)
+        writer_message = os.path.abspath(os.path.expanduser(genome))
 
     # Chromosome whitelist for the pileup. ALLCools restricts mpileup to the
     # chroms in its chrom_size file; without a restriction we also pile up

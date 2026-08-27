@@ -269,7 +269,7 @@ loader = CzWindowLoader(
     reference="~/Ref/hg38/hg38_with_chrL.allc.cz",
     cells="~/Projects/test_cytozip/benchmark/cz/",   # dir / catcz / list / table
     index="~/Ref/hg38/hg38_with_chrL.CGN.cz",        # CG-only (optional)
-    jobs=8)                                           # threads to decode cells
+    threads=8)                                        # threads to decode cells
 
 cell_ids = loader.cell_ids                            # row order of mc / cov
 print(loader.chroms)                                  # all chromosomes in the reference
@@ -296,8 +296,7 @@ ds = CzWindowDataset(
     cells="~/Projects/test_cytozip/benchmark/cz/",
     chrom=["chr1", "chr2", "chr3"], binsize=100_000,
     index="~/Ref/hg38/hg38_with_chrL.CGN.cz",
-    jobs=8,
-    prefetch=True,        # background-load the next chromosome while training
+    threads=8,
     to_torch=True)        # yield torch tensors instead of numpy
 
 # batch_size=None: the dataset already yields one (n_cells, sites) window per step.
@@ -312,16 +311,19 @@ print("cell order:", ds.cell_ids)    # lazy property — available without itera
 
 ### Performance notes
 
-* **`jobs`** parallelises per-cell chunk decoding with threads (decompression
+* **`iter_windows` streams by default** — the **low-memory** path. Instead of
+  decompressing the whole chromosome into an `(n_cells, n_sites)` matrix up
+  front, it walks the chromosome in row-segments and decompresses **only the
+  `.cz` blocks covering each segment**, so each block is decompressed at most
+  once and the whole-chromosome matrix is never materialised. `max_sites`
+  controls the internal read-segment size (how many *consecutive bins* are
+  grouped per block-decompress — NOT the per-window site count, which follows
+  `binsize`); it defaults to `None`, which auto-sizes to about one `.cz` block,
+  so you normally never set it. `load_region(chrom, start, end)` loads a single
+  window the same way. `load_chrom(chrom)` still returns the whole chromosome
+  matrix when you explicitly want it.
+* **`threads`** parallelises per-cell chunk decoding with threads (decompression
   releases the GIL, so it scales well). Increase it when you have many cells.
-* **`prefetch=True`** (only meaningful with a list of chromosomes) loads the
-  next chromosome's matrix on a background thread while the current
-  chromosome's windows are consumed, overlapping decompression with GPU
-  compute. A single background loader is used so the shared `Reader` cache is
-  never accessed concurrently.
-* The **first bin of each chromosome** pays the one-time cost of decompressing
-  that whole chromosome across all cells; every subsequent bin is a pure
-  in-RAM slice (microseconds). This amortises well across bins and epochs.
 * Call `loader.close()` (or use a `with CzWindowLoader(...) as loader:` block)
   to release the open file handles when done.
 
@@ -1053,6 +1055,151 @@ czip call_peaks_bdg -I pseudobulk.cz -r mm10.allc.cz --index mm10.CGN.index \
 
 > MACS3's Poisson model is an approximation to `umc ~ Binomial(cov, 1-p)`, so
 > treat the reported p/q values as ranking thresholds, not exact FDR.
+
+## Multi-reference pooling (`merge_cz_multiref` / `cz_to_anndata_multiref`)
+
+The regular `merge_cz` and `cz_to_anndata` assume **every** per-cell `.cz` is
+row-aligned to **one shared reference** (reference-less `mc`/`cov` where row
+`i` is the reference's `i`-th cytosine). That breaks when cells come from
+**different donors mapped to donor-specific genomes**: the same genomic
+coordinate can be a C in one donor but not another (SNP), or a CG in one donor
+but a CH in another. Then row `i` means a *different* position across donors,
+so a plain row-wise sum (or a single `reference=`) is wrong.
+
+The `*_multiref` variants fix this by aligning on **genomic coordinate
+`(chrom, pos)`** instead of row index. Each cell declares its own reference
+(and optional context index) via a single **`cz_table`**.
+
+### The `cz_table`
+
+A pandas DataFrame or a headered TSV, one row per cell. Recognised columns
+(resolved by `cytozip.merge._resolve_cz_table`; path columns are
+`expanduser`+`abspath`'d):
+
+| Column | Required | Meaning |
+|--------|----------|---------|
+| `path` | ✅ | per-cell reference-less `.cz` (`mc`/`cov`) |
+| `reference` | ✅ | that cell's own reference `.cz` (cells from the same donor repeat the same path) |
+| `index` | optional | that cell's 1-D context index `.cz` (CG/CH); blank/NaN = no context filter. Used by `cz_to_anndata_multiref` only |
+| `cell_id` | optional | row label; default = `basename(path)` with `ext` (or `.cz`) stripped |
+| `cell_type` | for `merge_cell_type_multiref` | grouping column |
+
+```
+cell_id	path	reference	index	cell_type
+c1	cells/c1.cz	ref/donor1.allc.cz	ref/donor1.CGN.idx.cz	Neuron
+c2	cells/c2.cz	ref/donor2.allc.cz	ref/donor2.CGN.idx.cz	Neuron
+c3	cells/c3.cz	ref/donor1.allc.cz	ref/donor1.CGN.idx.cz	Astro
+```
+
+There is no separate "donor" concept — the donor is *implicitly* the
+`reference` value, so cells sharing a reference are grouped automatically.
+
+### `merge_cz_multiref` — pseudobulk pooling
+
+Sums `mc`/`cov` across cells onto a common **`target_reference`** axis
+(typically the standard-genome `allc.cz`). The output is reference-less and
+row-aligned to `target_reference` (so downstream tools attach coordinates the
+same way as any other pseudobulk `.cz`).
+
+**Principle (per chromosome):**
+
+1. Read the target reference `pos` (and `context`) → output axis of length `N`;
+   init `mc_sum` / `cov_sum` zeros of length `N`.
+2. Group cells by their `reference`. For each reference:
+   * read that reference's `pos` (and `context`);
+   * map each of its rows to a target row with
+     `np.searchsorted(target_pos, ref_pos)`, keeping only rows where the
+     coordinate matches (and, unless `context_policy='ignore'`, where the
+     context matches too);
+   * sum that reference's cells **row-aligned** (fast `+=`) on the valid subset;
+   * **scatter-add** the group total into `mc_sum` / `cov_sum` at the mapped
+     target indices (positions are unique per chrom on both axes, so each
+     target row is hit at most once per reference).
+3. Clip to the output dtype, write the chrom shard; `catcz` shards → output.
+
+The mapping is computed **once per reference** and reused across all that
+reference's cells, so the per-cell cost is just a decode + gather + `+=`.
+Work is parallelised across chromosomes (`jobs`).
+
+**Mismatch handling:**
+
+* Position in a donor reference but **not** in the target (donor-specific SNP
+  C) → dropped.
+* Target position **absent** from a donor (mutated away) → that donor
+  contributes no coverage there.
+* `context_policy` controls how the per-position context (the actual
+  trinucleotide, e.g. `CGA` / `CAG`, stored in both the cell's reference and
+  the target) is matched:
+  - `'strict'` (default) → require the exact 3-mer. A downstream SNP that
+    changes the +2 base (`CGA` → `CGG`, still a CpG) is a mismatch and dropped.
+  - `'category'` → only distinguish CG vs CH (2nd base `G` or not), so the CpG
+    above stays pooled while a true CG↔CH change is separated.
+  - `'ignore'` → pool purely by coordinate, regardless of context.
+
+```python
+import cytozip as cz            # merge_cz_multiref is exported from cytozip.merge
+
+cz.merge_cz_multiref(
+    cz_table="cells.tsv",                       # or a pandas DataFrame
+    target_reference="hg38_with_chrL.allc.cz",  # common output axis
+    output="Neuron.pseudobulk.cz",
+    context_policy="strict",                    # 'strict' (default) | 'category' | 'ignore'
+    formats=["H", "H"],                         # uint16 mc,cov
+    jobs=24)
+```
+
+```shell
+czip merge_cz_multiref --cz_table cells.tsv \
+  --target_reference hg38_with_chrL.allc.cz \
+  -O Neuron.pseudobulk.cz --context_policy strict -j 24
+```
+
+**`merge_cell_type_multiref`** is a thin wrapper: it groups `cz_table` by its
+`cell_type` column and calls `merge_cz_multiref` once per type, writing
+`{outdir}/{cell_type}.cz`.
+
+```shell
+czip merge_cell_type_multiref --cz_table cells.tsv -O pseudobulk_dir/ \
+  --target_reference hg38_with_chrL.allc.cz -j 64
+```
+
+### `cz_to_anndata_multiref` — per-cell feature matrix
+
+Builds a `(n_cells, n_features)` AnnData exactly like `cz_to_anndata`, but each
+cell is aggregated with **its own reference** (for the `pos` axis) and its own
+optional context `index`.
+
+**Why no coordinate pooling is needed here:** the output is *per-cell*, so each
+cell independently maps its `mc`/`cov` onto the feature intervals using its own
+reference. There is no cross-cell row alignment to get wrong. Context mismatch
+is handled naturally by the per-cell `index` column: a CG-in-donor1 /
+CH-in-donor2 position is included by donor1's CG index and excluded by donor2's
+CG index, so each cell is counted correctly.
+
+Cells are grouped by `(reference, index)` so each reference position map and
+context index is opened/resolved **once** per group and reused; groups with
+`jobs>1` run a fresh process pool pinned to that group's reference+index (no
+cross-reference contamination). Only per-cell files are supported (a merged
+multi-donor `.cz` cannot be split back to per-donor references).
+
+```python
+from cytozip.features import cz_to_anndata_multiref
+
+adata = cz_to_anndata_multiref(
+    cz_table="cells.tsv",              # path column = per-cell .cz; reference + optional index
+    features="genes.gtf",             # BED / GTF path, DataFrame, or int bin size
+    output="Neuron.genes.h5ad",
+    score="posterior_frac",
+    jobs=24)
+```
+
+```shell
+czip cz_to_anndata_multiref --cz_table cells.tsv -f genes.gtf \
+  -O Neuron.genes.h5ad -j 24
+```
+
+> If your per-cell `.cz` already contain only the target context (e.g.
+> donor-specific `CGN` files), omit the `index` column entirely.
 
 ## To-Do List
 - [x] Peak calling using umc (see "Peak calling from methylation" above)

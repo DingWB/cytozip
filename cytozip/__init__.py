@@ -35,8 +35,10 @@ _LAZY_EXPORTS = {
     # features.py — feature aggregation / anndata
     'cz_to_anndata': 'features', 'parse_features': 'features',
     'parse_gtf': 'features', 'make_genome_bins': 'features',
+    'cz_to_anndata_multiref': 'features',
     # merge.py — per-cell merging pipeline
     'merge_cz': 'merge', 'merge_cell_type': 'merge',
+    'merge_cz_multiref': 'merge', 'merge_cell_type_multiref': 'merge',
     # pivot.py — per-cell pivot matrices (fraction / fisher)
     'pivot_fraction': 'pivot', 'pivot_fisher': 'pivot',
     # dmr.py — DMR analysis
@@ -435,6 +437,36 @@ def _build_parser():
                         'BS-seq mc/cov) or "mean" (e.g. methylation-array '
                         'beta). Comma-separated values give per-column agg.')
 
+    # ---- merge_cz_multiref ---------------------------------------------------
+    p = sub.add_parser(
+        'merge_cz_multiref',
+        help='Pool per-cell .cz with different references into a '
+             'pseudobulk aligned to a common target reference',
+        formatter_class=_fmt,
+    )
+    p.add_argument('--cz_table', required=True,
+                   help='per-cell table (headered TSV) with columns path, '
+                        'reference (+ optional cell_id, index)')
+    p.add_argument('--target_reference', required=True,
+                   help='common reference .cz defining the output axis')
+    p.add_argument('-O', '--output', required=True, help='output pseudobulk .cz path')
+    p.add_argument('--context_policy', default='strict',
+                   choices=['strict', 'category', 'ignore'],
+                   help='strict: exact trinucleotide match (default); '
+                        'category: CG vs CH only; ignore: pool by coordinate')
+    p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'],
+                   help='per-column output struct formats (default H,H)')
+    p.add_argument('-j', '--jobs', type=int, default=12,
+                   help='parallel worker processes (across chromosomes)')
+    p.add_argument('--chroms', default=None,
+                   help='chrom whitelist/order file (default: target ref order)')
+    p.add_argument('--ext', default='.cz',
+                   help='per-cell filename extension used to derive cell_id')
+    p.add_argument('-l', '--level', type=int, default=6,
+                   help='DEFLATE compression level for output blocks')
+    p.add_argument('--temp', action='store_true',
+                   help='keep per-chrom tmp shard directory')
+
     # ---- merge_cell_type -----------------------------------------------------
     p = sub.add_parser('merge_cell_type', help='Merge by cell type', formatter_class=_fmt)
     p.add_argument('-i', '--indir', default=None, help='input directory')
@@ -443,6 +475,29 @@ def _build_parser():
     p.add_argument('-j', '--jobs', type=int, default=64, help='number of parallel processes (CPUs)')
     p.add_argument('--chroms', default=None, help='chrom order file')
     p.add_argument('--ext', default='.CGN.merged.cz', help='input file extension')
+
+    # ---- merge_cell_type_multiref --------------------------------------------
+    p = sub.add_parser(
+        'merge_cell_type_multiref',
+        help='Per-cell-type pseudobulk merge across different references',
+        formatter_class=_fmt)
+    p.add_argument('--cz_table', required=True,
+                   help='per-cell table (headered TSV) with columns path, '
+                        'reference, cell_type (+ optional cell_id, index)')
+    p.add_argument('-O', '--outdir', required=True, help='output directory')
+    p.add_argument('--target_reference', required=True,
+                   help='common reference .cz defining the output axis')
+    p.add_argument('--context_policy', default='strict',
+                   choices=['strict', 'category', 'ignore'],
+                   help='context-mismatch policy (see merge_cz_multiref)')
+    p.add_argument('-j', '--jobs', type=int, default=64,
+                   help='parallel worker processes')
+    p.add_argument('--chroms', default=None, help='chrom whitelist/order file')
+    p.add_argument('--ext', default='.cz', help='per-cell filename extension')
+    p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'],
+                   help='per-column output struct formats (default H,H)')
+    p.add_argument('-l', '--level', type=int, default=6,
+                   help='DEFLATE compression level')
 
     # ---- pivot_fraction ------------------------------------------------------
     for _name, _help in (
@@ -862,6 +917,43 @@ def _build_parser():
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel processes (CPUs)')
 
+    # ---- cz_to_anndata_multiref ----------------------------------------------
+    p = sub.add_parser(
+        'cz_to_anndata_multiref',
+        help='cz_to_anndata for per-cell .cz with different references',
+        formatter_class=_fmt)
+    p.add_argument('--cz_table', required=True,
+                   help='per-cell table (headered TSV) with columns path, '
+                        'reference (+ optional cell_id, index)')
+    p.add_argument('-f', '--features', required=True,
+                   help='BED / GTF path, or an int bin size (needs --chrom_size)')
+    p.add_argument('-O', '--output', default=None, help='output .h5ad path')
+    p.add_argument('--use_samples', type=_csv_str, default=None,
+                   help='comma-separated whitelist of cell_id values')
+    p.add_argument('--ext', default='.cz',
+                   help='filename suffix stripped to derive cell_id')
+    p.add_argument('--pos_col', default='pos', help='name of position column')
+    p.add_argument('--mc_col', default='mc', help='name of mc column')
+    p.add_argument('--cov_col', default='cov', help='name of cov column')
+    p.add_argument('--obs', default=None, help='optional TSV with cell metadata')
+    p.add_argument('--chrom_size', default=None,
+                   help='chrom-size / .fai file (required for int bin features)')
+    p.add_argument('--exclude_chroms', type=_csv_str, default=['chrL'],
+                   help='comma-separated chroms to drop (genome-bin tiling only)')
+    p.add_argument('--blacklist', default=None,
+                   help='BED / bed.gz of regions to exclude before aggregation')
+    p.add_argument('--flank_bp', type=int, default=2000,
+                   help='bp to extend each side of GTF gene intervals')
+    p.add_argument('--gtf_id_col', choices=['gene_name', 'gene_id'],
+                   default='gene_name', help='which GTF attribute becomes var_names')
+    p.add_argument('--score', choices=['frac', 'hypo-score', 'hyper-score',
+                                       'mc', 'cov', 'umc'],
+                   default='frac', help='what to store in .X')
+    p.add_argument('--score_cutoff', type=float, default=0.9,
+                   help='sparsification threshold for hypo/hyper scores')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='number of parallel processes (CPUs)')
+
     # ---- model.py: predict_cell_type ---------------------------------------
     p = sub.add_parser('predict_cell_type',
                        help='Classify query cell(s) against cell-type pseudobulk references',
@@ -1115,6 +1207,24 @@ def main():
         merge_cell_type(indir=args.indir, cell_table=args.cell_table,
                         outdir=args.outdir, jobs=args.jobs,
                         chroms=args.chroms, ext=args.ext)
+
+    elif cmd == 'merge_cell_type_multiref':
+        from .merge import merge_cell_type_multiref
+        merge_cell_type_multiref(
+            cz_table=args.cz_table, outdir=args.outdir,
+            target_reference=args.target_reference,
+            context_policy=args.context_policy, jobs=args.jobs,
+            chroms=args.chroms, ext=args.ext, formats=args.formats,
+            level=args.level)
+
+    elif cmd == 'merge_cz_multiref':
+        from .merge import merge_cz_multiref
+        merge_cz_multiref(
+            cz_table=args.cz_table,
+            target_reference=args.target_reference, output=args.output,
+            context_policy=args.context_policy, formats=args.formats,
+            jobs=args.jobs, chroms=args.chroms, ext=args.ext,
+            level=args.level, temp=args.temp)
 
     elif cmd == 'pivot_fraction':
         from .pivot import pivot_fraction
@@ -1374,6 +1484,26 @@ def main():
                       score=args.score,
                       score_cutoff=args.score_cutoff,
                       jobs=args.jobs)
+
+    elif cmd == 'cz_to_anndata_multiref':
+        from .features import cz_to_anndata_multiref
+        obs_df = None
+        if args.obs:
+            import pandas as pd
+            obs_df = pd.read_csv(args.obs, sep='\t', index_col=0)
+        feats = args.features
+        try:
+            feats = int(feats)
+        except (TypeError, ValueError):
+            pass
+        cz_to_anndata_multiref(
+            cz_table=args.cz_table, features=feats,
+            output=args.output, use_samples=args.use_samples, ext=args.ext,
+            pos_col=args.pos_col, mc_col=args.mc_col, cov_col=args.cov_col,
+            obs=obs_df, chrom_size=args.chrom_size,
+            exclude_chroms=args.exclude_chroms, blacklist=args.blacklist,
+            flank_bp=args.flank_bp, gtf_id_col=args.gtf_id_col,
+            score=args.score, score_cutoff=args.score_cutoff, jobs=args.jobs)
 
     elif cmd == 'predict_cell_type':
         from .model import predict_cell_type

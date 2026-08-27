@@ -393,7 +393,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
         all_chroms = contigs
     if not reference is None:
         reference = os.path.abspath(os.path.expanduser(reference))
-        message = os.path.basename(reference)
+        message = reference
     else:
         message = ''
     # When the .cz stores coordinates itself (no reference), auto-enable

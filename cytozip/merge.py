@@ -23,7 +23,7 @@ from loguru import logger
 import multiprocessing
 from .cz import (Reader, Writer,
                  _BLOCK_MAX_LEN, _VO_OFFSET_BITS, _VO_OFFSET_MASK,
-                 _chunk_magic, _NP_FMT_MAP, np, pd)
+                 _chunk_magic, _NP_FMT_MAP, _build_record_dtype, np, pd)
 
 
 # Per-format-char numpy max value (used to clip sums before packing).
@@ -643,7 +643,8 @@ def merge_cz(input=None, class_table=None,
     # Second, concatenate per-chrom .cz into the final output.
     writer = Writer(output=output, formats=formats,
                     columns=header['columns'], chunk_dims=header['chunk_dims'],
-                    message="merged")
+                    message=(os.path.abspath(os.path.expanduser(reference))
+                             if reference else "merged"))
     writer.catcz(input=[f"{outdir}/{chrom}.cz" for chrom in chroms],
                  key_added=None)
     if not keep_cat and not user_supplied_cat:
@@ -657,6 +658,368 @@ def merge_cz(input=None, class_table=None,
         cmd = f"bgzip {output} && tabix -S 1 -s 1 -b 2 -e 3 -f {output}.gz"
         logger.info(f"Run bgzip, CMD: {cmd}")
         os.system(cmd)
+
+
+# ==========================================================
+# Multi-reference merge: pool per-cell .cz mapped to *different*
+# (donor-specific) reference .cz files into a single pseudobulk aligned
+# to a common target reference. Unlike ``merge_cz`` (which assumes every
+# cell is row-aligned to one shared reference), here each cell declares its
+# own reference in a table, so cells are aligned by genomic coordinate
+# (chrom, pos) via scatter-add rather than by row index.
+# ==========================================================
+def _cell_id_from_path(path, ext):
+    """Derive a cell id from a .cz path by stripping ``ext`` (or ``.cz``)."""
+    name = os.path.basename(path)
+    for suf in (ext, '.cz'):
+        if suf and name.endswith(suf):
+            return name[:-len(suf)]
+    return name
+
+
+def _resolve_cz_table(cz_table, ext='.cz', require=('path', 'reference')):
+    """Normalize the per-cell table into a DataFrame.
+
+    Accepts a pandas DataFrame or a path to a TSV **with a header row**. Each
+    row describes one cell; recognised columns:
+
+      * ``path``      (required) — per-cell reference-less ``.cz`` path.
+      * ``reference`` (required) — that cell's reference ``.cz`` (cells from
+        the same donor simply repeat the same reference path).
+      * ``index``     (optional) — that cell's 1-D context index ``.cz``
+        (used by :func:`cytozip.features.cz_to_anndata_multiref`).
+      * ``cell_id``   (optional) — cell label; default = ``basename(path)``
+        with ``ext`` (or ``.cz``) stripped.
+      * ``cell_type`` (optional) — used by :func:`merge_cell_type_multiref`.
+
+    ``path`` / ``reference`` / ``index`` are expanded (``~``) and made
+    absolute; a missing ``cell_id`` is derived from ``path``.
+    """
+    if isinstance(cz_table, pd.DataFrame):
+        df = cz_table.copy()
+    elif isinstance(cz_table, str):
+        df = pd.read_csv(os.path.abspath(os.path.expanduser(cz_table)),
+                         sep='\t')
+    else:
+        raise TypeError(
+            f"cz_table must be a DataFrame or a TSV path, got "
+            f"{type(cz_table).__name__}")
+    for col in require:
+        if col not in df.columns:
+            raise ValueError(
+                f"cz_table is missing required column {col!r}; "
+                f"got columns {list(df.columns)}")
+
+    def _abspath(x):
+        return os.path.abspath(os.path.expanduser(str(x)))
+
+    df['path'] = df['path'].map(_abspath)
+    if 'reference' in df.columns:
+        df['reference'] = df['reference'].map(_abspath)
+    if 'index' in df.columns:
+        # Blank / NaN means "no per-cell index" -> keep as None.
+        df['index'] = df['index'].map(
+            lambda x: _abspath(x) if pd.notna(x) and str(x) != '' else None)
+    if 'cell_id' not in df.columns:
+        df['cell_id'] = df['path'].map(lambda p: _cell_id_from_path(p, ext))
+    else:
+        df['cell_id'] = df['cell_id'].astype(str)
+    return df
+
+
+def _ctx_key(ctx_s3, policy):
+    """Turn trinucleotide contexts (contiguous ``S3`` array) into the
+    comparison key for a given ``context_policy``:
+
+    * ``'strict'``   — the exact 3-mer bytes (returned as-is).
+    * ``'category'`` — CG vs CH only: ``0`` when the 2nd base is ``G`` (CpG),
+      else ``1`` (any CpH); collapses CHG/CHH together.
+    """
+    if policy == 'strict':
+        return ctx_s3
+    # 'category': CG (2nd base G) vs CH.
+    b = ctx_s3.view('S1').reshape(-1, 3)
+    return (b[:, 1] != b'G').astype(np.int8)
+
+
+def _ref_pos_ctx(reader, ck, policy):
+    """Decode only ``pos`` (and, unless ``policy == 'ignore'``, the context
+    comparison key) of a reference chunk directly from its raw bytes.
+
+    Returns ``(pos_uint64_contiguous, ctx_key_or_None, n)`` or
+    ``(None, None, 0)`` when the chunk is absent/empty. Avoids
+    ``chunk2numpy``'s full-record copy and the per-row unicode decode of the
+    strand/context string columns.
+    """
+    if ck not in reader.chunk_key2offset:
+        return None, None, 0
+    cols = reader.header['columns']
+    dt = _build_record_dtype(reader.header['formats'])
+    raw = reader.fetch_chunk_bytes(ck)
+    if not raw:
+        return None, None, 0
+    arr = np.frombuffer(raw, dtype=dt)
+    pos = np.ascontiguousarray(arr[f'f{cols.index("pos")}'], dtype=np.uint64)
+    key = None
+    if policy != 'ignore':
+        ctx = np.ascontiguousarray(arr[f'f{cols.index("context")}']).view('S3')
+        key = _ctx_key(ctx, policy)
+    return pos, key, pos.shape[0]
+
+
+# Shared read-only state for the per-chrom pool workers, populated once per
+# worker via ``_merge_mr_init`` so the (potentially large) ``ref_to_cells``
+# map is pickled once per worker instead of once per chromosome task.
+_MERGE_MR_STATE = {}
+
+
+def _merge_mr_init(target_reference, ref_to_cells, formats, columns,
+                   context_policy, level, outdir):
+    """Pool initializer: stash the shared merge state in the worker."""
+    _MERGE_MR_STATE.clear()
+    _MERGE_MR_STATE.update(
+        target_reference=target_reference, ref_to_cells=ref_to_cells,
+        formats=list(formats), columns=columns, context_policy=context_policy,
+        level=level, outdir=outdir)
+
+
+def _merge_multiref_chrom_worker(chrom):
+    """Aggregate one chromosome across references into a pseudobulk shard.
+
+    For the given chrom, sums mc/cov of every cell onto the target reference
+    axis. Cells are grouped by their own reference; each group is first summed
+    row-aligned to that reference, then scattered onto the target axis by
+    matching genomic position (and, when ``context_policy='match'``, the
+    methylation context class). Writes ``{outdir}/{chrom}.cz`` (reference-less
+    mc/cov, aligned to the target reference) or returns ``None`` if the chrom
+    is absent from target.
+    """
+    st = _MERGE_MR_STATE
+    target_reference = st['target_reference']
+    ref_to_cells = st['ref_to_cells']
+    formats = st['formats']
+    columns = st['columns']
+    context_policy = st['context_policy']
+    level = st['level']
+    outdir = st['outdir']
+    ck = (chrom,)
+
+    target = Reader(target_reference)
+    try:
+        target_pos, target_key, n = _ref_pos_ctx(target, ck, context_policy)
+    finally:
+        target.close()
+    if n == 0:
+        return None
+
+    mc_sum = np.zeros(n, dtype=np.int64)
+    cov_sum = np.zeros(n, dtype=np.int64)
+
+    for ref_path, cell_paths in ref_to_cells.items():
+        dref = Reader(ref_path)
+        try:
+            donor_pos, donor_key, m = _ref_pos_ctx(dref, ck, context_policy)
+        finally:
+            dref.close()
+        if m == 0:
+            continue
+        # reference row -> target row by coordinate (and optional context key).
+        idx = np.searchsorted(target_pos, donor_pos, side='left')
+        in_range = idx < n
+        idx_clip = np.where(in_range, idx, 0)
+        valid = in_range & (target_pos[idx_clip] == donor_pos)
+        if context_policy != 'ignore':
+            valid &= target_key[idx_clip] == donor_key
+        donor_rows = np.nonzero(valid)[0]
+        if donor_rows.size == 0:
+            continue
+        tgt_idx = idx[donor_rows]
+        # Sum these cells row-aligned to their shared reference, on the valid
+        # subset only (keeps memory ~ intersection size). frombuffer gives a
+        # zero-copy view; the fancy-index gather produces the owned subset,
+        # and ``+=`` upcasts the uint16/uint8 counts without a full temp.
+        donor_mc = np.zeros(donor_rows.size, dtype=np.int64)
+        donor_cov = np.zeros(donor_rows.size, dtype=np.int64)
+        for cp in cell_paths:
+            cr = Reader(cp)
+            try:
+                if ck not in cr.chunk_key2offset:
+                    continue  # cell has no data on this chrom
+                cell_dt = _build_record_dtype(cr.header['formats'])
+                raw = cr.fetch_chunk_bytes(ck)
+            finally:
+                cr.close()
+            if not raw:
+                continue
+            cell_arr = np.frombuffer(raw, dtype=cell_dt)
+            if cell_arr.shape[0] != m:
+                raise ValueError(
+                    f"cell {cp} chrom {chrom}: {cell_arr.shape[0]} rows but its "
+                    f"reference {ref_path} has {m}; cell is not aligned to its "
+                    f"reference.")
+            donor_mc += cell_arr['f0'][donor_rows]
+            donor_cov += cell_arr['f1'][donor_rows]
+        # Positions are unique within a chrom on both axes, so each target row
+        # is hit at most once per reference -> plain indexed += is correct.
+        mc_sum[tgt_idx] += donor_mc
+        cov_sum[tgt_idx] += donor_cov
+
+    out_fmts = ''.join(formats)
+    out_dt = _structured_dtype_for(out_fmts)
+    np.minimum(mc_sum, _NP_FMT_MAX[out_fmts[0]], out=mc_sum)
+    np.minimum(cov_sum, _NP_FMT_MAX[out_fmts[1]], out=cov_sum)
+    out_arr = np.empty(n, dtype=out_dt)
+    out_arr['f0'] = mc_sum
+    out_arr['f1'] = cov_sum
+    out_bytes = out_arr.tobytes()
+
+    outname = os.path.join(outdir, f"{chrom}.cz")
+    writer = Writer(outname, formats=formats, columns=columns,
+                    chunk_dims=['chrom'], message=target_reference, level=level)
+    rec_size = out_dt.itemsize
+    step = 50000 * rec_size
+    for s in range(0, len(out_bytes), step):
+        writer.write_chunk(out_bytes[s:s + step], [chrom])
+    writer.close()
+    return outname
+
+
+def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
+                      context_policy='strict', formats=['H', 'H'], jobs=12,
+                      chroms=None, ext='.cz', level=6, temp=False):
+    """Merge per-cell .cz files with *different* references into one
+    pseudobulk .cz aligned to a common target reference.
+
+    Unlike :func:`merge_cz`, cells here are NOT all row-aligned to a single
+    reference: each cell was mapped to a donor-specific genome and thus
+    row-aligns to its *own* reference ``.cz`` (declared per row in
+    ``cz_table``; different C positions, possibly different context at the
+    same coordinate). Cells are pooled by genomic coordinate: for each chrom,
+    every cell's mc/cov is scattered onto the ``target_reference`` axis via
+    its own reference, matching on position (and, with
+    ``context_policy='match'``, on context).
+
+    Mismatch handling
+    -----------------
+    * A position present in a cell's reference but absent from the target
+      (e.g. a donor-specific SNP creating a C) is dropped.
+    * A target position absent from a cell's reference (mutated away in that
+      donor) simply receives no coverage from that cell.
+    * ``context_policy`` controls how the per-position context is matched
+      between a cell's reference and the target (both store the actual
+      trinucleotide, e.g. ``CGA`` / ``CAG``):
+
+      - ``'strict'`` (default): require the exact 3-mer to be identical. A
+        downstream SNP that changes the +2 base (``CGA`` -> ``CGG``, still a
+        CpG) counts as a mismatch and is dropped.
+      - ``'category'``: only distinguish CG vs CH (2nd base ``G`` or not), so
+        the CpG above stays pooled while a true CG<->CH change is separated.
+      - ``'ignore'``: pool purely by coordinate, regardless of context.
+
+    Parameters
+    ----------
+    cz_table : DataFrame or path
+        Per-cell table (DataFrame or headered TSV) with at least ``path``
+        (per-cell reference-less ``.cz``) and ``reference`` (that cell's
+        reference ``.cz``) columns. See :func:`_resolve_cz_table` for the
+        full column set. Cells sharing a ``reference`` value are grouped so
+        the reference→target mapping is computed once per reference.
+    target_reference : path
+        Common reference ``.cz`` (e.g. a standard-genome allC.cz) defining
+        the output coordinate axis. The output is reference-less and
+        row-aligned to this file.
+    output : path
+        Output pseudobulk ``.cz`` path.
+    context_policy : {'strict', 'category', 'ignore'}
+        See *Mismatch handling* above. Default ``'strict'``.
+    formats : list of str
+        Output per-column struct formats (default ``['H', 'H']``).
+    jobs : int
+        Number of parallel worker processes (across chromosomes).
+    chroms : path, optional
+        Chrom-size / whitelist file; output chunks follow its first-column
+        order. Default: target reference order.
+    ext : str
+        Per-cell filename extension used to derive ``cell_id`` when the
+        table has no ``cell_id`` column (default ``'.cz'``).
+    level : int
+        DEFLATE level for output blocks (default 6).
+    temp : bool
+        Keep the per-chrom temp shard directory (default False).
+    """
+    if context_policy not in ('strict', 'category', 'ignore'):
+        raise ValueError(
+            f"context_policy must be 'strict', 'category' or 'ignore', "
+            f"got {context_policy!r}")
+    if target_reference is None:
+        raise ValueError("merge_cz_multiref requires target_reference")
+    if cz_table is None:
+        raise ValueError("merge_cz_multiref requires cz_table")
+    if output is None:
+        raise ValueError("merge_cz_multiref requires output")
+    target_reference = os.path.abspath(os.path.expanduser(target_reference))
+    output = os.path.abspath(os.path.expanduser(output))
+    if os.path.exists(output):
+        logger.info(f"{output} existed, skip.")
+        return
+
+    df = _resolve_cz_table(cz_table, ext=ext, require=('path', 'reference'))
+    for p in df['path']:
+        if not os.path.isfile(p):
+            raise FileNotFoundError(f"merge_cz_multiref: cell not found: {p}")
+
+    # Group cells by their reference so each reference->target mapping is
+    # computed once and reused across all cells sharing it.
+    ref_to_cells = {ref: sub['path'].tolist()
+                    for ref, sub in df.groupby('reference')}
+
+    # Column names come from a cell; a reference-less mc/cov cell has these.
+    r0 = Reader(df['path'].iloc[0])
+    columns = list(r0.header['columns'])
+    r0.close()
+
+    # Chromosome order: target reference order, optionally filtered/ordered
+    # by a user chrom file.
+    tref = Reader(target_reference)
+    target_chroms = [k[0] for k in tref.chunk_key2offset.keys()]
+    tref.close()
+    if chroms is not None:
+        chroms = os.path.abspath(os.path.expanduser(chroms))
+        cdf = pd.read_csv(chroms, sep='\t', header=None, usecols=[0])
+        order = cdf.iloc[:, 0].astype(str).tolist()
+        chrom_list = [c for c in order if c in set(target_chroms)]
+    else:
+        chrom_list = target_chroms
+
+    outdir = output + '.tmp'
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    init_args = (target_reference, ref_to_cells, list(formats), columns,
+                 context_policy, level, outdir)
+    written = []
+    if jobs and int(jobs) > 1 and len(chrom_list) > 1:
+        with multiprocessing.Pool(int(jobs), initializer=_merge_mr_init,
+                                  initargs=init_args) as pool:
+            for res in pool.imap_unordered(_merge_multiref_chrom_worker,
+                                           chrom_list):
+                if res is not None:
+                    written.append(res)
+    else:
+        _merge_mr_init(*init_args)
+        for chrom in chrom_list:
+            res = _merge_multiref_chrom_worker(chrom)
+            if res is not None:
+                written.append(res)
+
+    # Concatenate per-chrom shards in target order into the final output.
+    shard_paths = [os.path.join(outdir, f"{c}.cz") for c in chrom_list
+                   if os.path.exists(os.path.join(outdir, f"{c}.cz"))]
+    writer = Writer(output=output, formats=formats, columns=columns,
+                    chunk_dims=['chrom'], message=target_reference, level=level)
+    writer.catcz(input=shard_paths, key_added=None)
+    if not temp:
+        _bg_rmtree(outdir)
+    logger.info(f"Done: {output}")
 
 
 def merge_cell_type(indir=None, cell_table=None, outdir=None,
@@ -682,6 +1045,54 @@ def merge_cell_type(indir=None, cell_table=None, outdir=None,
         cz_paths = [os.path.join(indir, sname + ext) for sname in snames]
         merge_cz(input=cz_paths, bgzip=False,
                  output=output, jobs=jobs, chroms=chroms)
+
+
+def merge_cell_type_multiref(cz_table=None, outdir=None,
+                             target_reference=None, context_policy='strict',
+                             jobs=64, chroms=None, ext='.cz',
+                             formats=['H', 'H'], level=6):
+    """Per-cell-type pseudobulk merge across *different* references.
+
+    The multi-reference analogue of :func:`merge_cell_type`: groups the cells
+    in ``cz_table`` by their ``cell_type`` column and calls
+    :func:`merge_cz_multiref` once per group so each cell is pooled by genomic
+    coordinate onto the common ``target_reference`` (see
+    :func:`merge_cz_multiref` for the mismatch handling and ``context_policy``
+    semantics).
+
+    Parameters
+    ----------
+    cz_table : DataFrame or path
+        Per-cell table (DataFrame or headered TSV) with columns ``path``,
+        ``reference`` and ``cell_type`` (plus optional ``cell_id`` /
+        ``index``). See :func:`_resolve_cz_table`.
+    outdir : path
+        Output directory; one ``{cell_type}.cz`` pseudobulk per group.
+    target_reference : path
+        Common reference ``.cz`` defining the output axis.
+    context_policy : {'match', 'ignore'}
+        Context-mismatch policy, forwarded to :func:`merge_cz_multiref`.
+    jobs, chroms, ext, formats, level
+        Forwarded to :func:`merge_cz_multiref`.
+    """
+    if outdir is None:
+        raise ValueError("merge_cell_type_multiref requires outdir")
+    outdir = os.path.abspath(os.path.expanduser(outdir))
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    df = _resolve_cz_table(cz_table, ext=ext,
+                           require=('path', 'reference', 'cell_type'))
+    for ct in df['cell_type'].unique():
+        output = os.path.join(outdir, str(ct) + '.cz')
+        if os.path.exists(output):
+            logger.info(f"{output} existed.")
+            continue
+        logger.info(ct)
+        sub = df.loc[df['cell_type'] == ct]
+        merge_cz_multiref(
+            cz_table=sub, target_reference=target_reference, output=output,
+            context_policy=context_policy, formats=formats,
+            jobs=jobs, chroms=chroms, ext=ext, level=level)
 
 
 if __name__ == "__main__":
