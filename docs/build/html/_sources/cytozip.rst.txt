@@ -12,6 +12,7 @@ Submodules
    cytozip.bam
    cytozip.cz
    cytozip.cz_accel
+   cytozip.dataloader
    cytozip.dmr
    cytozip.dmr_accel
    cytozip.features

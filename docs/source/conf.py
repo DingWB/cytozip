@@ -84,7 +84,7 @@ html_theme = "sphinx_rtd_theme"  # Read the Docs; pip install --upgrade sphinx-r
 # documentation: https://sphinx-rtd-theme.readthedocs.io/en/stable/configuring.html
 
 html_theme_options = {
-    "analytics_id": "G-F0T1MBS19V",
+    "analytics_id": "G-6CXLY8R88P",
     "collapse_navigation": False,
     "globaltoc_collapse": False,
     "globaltoc_maxdepth": 3,
