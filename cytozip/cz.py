@@ -402,8 +402,46 @@ def _all_int_usecol_formats(formats):
 	return bool(formats) and all(f[-1] in _INT_FMT_CHARS for f in formats)
 
 
+def _scale_mc_cov_arrays(arrays, mc_ci, cov_ci, cov_cap):
+	"""Cap ``cov`` to ``cov_cap`` and scale ``mc`` by ``cap/cov`` to keep mc/cov.
+
+	Operates on the parsed (unclipped) per-column integer arrays, returning the
+	same list with the mc/cov entries replaced by scaled int64 arrays. Only the
+	positions where cov exceeds the cap are touched, so it is ~free when nothing
+	overflows. Preserves the methylation fraction under saturation instead of
+	clipping mc/cov independently (see :func:`cytozip.allc.allc2cz`).
+	"""
+	cov = np.asarray(arrays[cov_ci])
+	over = cov > cov_cap
+	if over.any():
+		mc = np.asarray(arrays[mc_ci]).astype(np.int64, copy=True)
+		cov = cov.astype(np.int64, copy=True)
+		ratio = cov_cap / cov[over].astype(np.float64)
+		mc[over] = np.rint(mc[over] * ratio).astype(np.int64)
+		cov[over] = cov_cap
+		arrays[mc_ci] = mc
+		arrays[cov_ci] = cov
+	return arrays
+
+
+def _scale_mc_cov_pair(mc, cov, cov_cap):
+	"""Cap ``cov`` to ``cov_cap`` and scale ``mc`` by ``cap/cov`` in place.
+
+	``mc`` / ``cov`` are integer numpy arrays sharing a length (e.g. summed
+	pseudobulk counts). Only the ``cov > cov_cap`` subset is touched, so it is
+	~free when nothing overflows. Preserves the methylation fraction under
+	saturation instead of clipping mc/cov independently. Returns ``(mc, cov)``.
+	"""
+	over = cov > cov_cap
+	if over.any():
+		ratio = cov_cap / cov[over].astype(np.float64)
+		mc[over] = np.rint(mc[over] * ratio).astype(mc.dtype)
+		cov[over] = cov_cap
+	return mc, cov
+
+
 def _int_slab_parser(f, formats, sep, usecols, key_cols, batch_size,
-					 read_size=8 * 1024 * 1024):
+					 read_size=8 * 1024 * 1024, scale_pair=None):
 	"""Vectorized all-integer ingestion: read the input in large byte slabs,
 	parse + group by ``key_cols`` in a single C scan, and yield
 	``(packed_bytes, dims)`` segments.
@@ -429,6 +467,11 @@ def _int_slab_parser(f, formats, sep, usecols, key_cols, batch_size,
 	def _emit(slab_bytes):
 		arrays, runs = _c_parse_tocz_int_slab(slab_bytes, usecols, key_cols,
 											  sep_byte)
+		# Fraction-preserving overflow: scale mc when cov is capped.
+		if scale_pair is not None:
+			arrays = _scale_mc_cov_arrays(
+				list(arrays), scale_pair[0], scale_pair[1],
+				bounds[scale_pair[1]][1])
 		for dims, s, e in runs:
 			out = np.empty(e - s, dtype=rec_dtype)
 			for j in range(n_use):
@@ -457,7 +500,7 @@ def _int_slab_parser(f, formats, sep, usecols, key_cols, batch_size,
 
 # ==========================================================
 def _gz_input_parser(infile, formats, sep='\t', usecols=[1,4,5], key_cols=[0],
-					 batch_size=5000):
+					 batch_size=5000, scale_pair=None):
 	"""Parse a gzip-compressed text file into chunks.
 
 	Similar to ``_text_input_parser`` but handles ``.gz`` byte decoding.
@@ -472,7 +515,7 @@ def _gz_input_parser(infile, formats, sep='\t', usecols=[1,4,5], key_cols=[0],
 			and _all_int_usecol_formats(formats)):
 		try:
 			yield from _int_slab_parser(f, formats, sep, usecols, key_cols,
-										batch_size)
+										batch_size, scale_pair=scale_pair)
 		finally:
 			f.close()
 		return
@@ -501,7 +544,7 @@ def _gz_input_parser(infile, formats, sep='\t', usecols=[1,4,5], key_cols=[0],
 
 # ==========================================================
 def _text_input_parser(infile,formats,sep='\t',usecols=[1,4,5],key_cols=[0],
-					   batch_size=5000):
+					   batch_size=5000, scale_pair=None):
 	"""
 	Parse text input file (txt, csv, tsv and so on.) into chunks, every chunk has
 	the same key_cols (for example, chromosomes).
@@ -533,7 +576,7 @@ def _text_input_parser(infile,formats,sep='\t',usecols=[1,4,5],key_cols=[0],
 			and _all_int_usecol_formats(formats)):
 		try:
 			yield from _int_slab_parser(f, formats, sep, usecols, key_cols,
-										batch_size)
+										batch_size, scale_pair=scale_pair)
 		finally:
 			f.close()
 		return
@@ -561,14 +604,17 @@ def _text_input_parser(infile,formats,sep='\t',usecols=[1,4,5],key_cols=[0],
 
 # ==========================================================
 def _input_parser(infile, formats, sep='\t', usecols=[1, 4, 5], key_cols=[0],
-				  batch_size=5000):
+				  batch_size=5000, scale_pair=None):
 	"""Dispatch to gz or text parser based on whether *infile* is gzip-compressed."""
 	if hasattr(infile, 'readline'):
-		yield from _text_input_parser(infile, formats, sep, usecols, key_cols, batch_size)
+		yield from _text_input_parser(infile, formats, sep, usecols, key_cols,
+									  batch_size, scale_pair=scale_pair)
 	elif infile.endswith('.gz'):
-		yield from _gz_input_parser(infile, formats, sep, usecols, key_cols, batch_size)
+		yield from _gz_input_parser(infile, formats, sep, usecols, key_cols,
+									batch_size, scale_pair=scale_pair)
 	else:
-		yield from _text_input_parser(infile, formats, sep, usecols, key_cols, batch_size)
+		yield from _text_input_parser(infile, formats, sep, usecols, key_cols,
+									  batch_size, scale_pair=scale_pair)
 
 
 # ==========================================================
@@ -4179,7 +4225,7 @@ class Writer:
 	def __init__(self, output=None, mode="wb", formats=['B', 'B'],
 				 columns=['mc', 'cov'], chunk_dims=['chrom'],
 				 fileobj=None, message='', level=6, verbose=0,
-				 sort_col=None, delta_cols=None):
+				 sort_col=None, delta_cols=None, cov_overflow='scale'):
 		"""
 		cytozip .cz writer.
 
@@ -4261,6 +4307,17 @@ class Writer:
 			indices in the header and are still concatenable with
 			:meth:`Writer.catcz` provided every input file uses the same
 			``delta_cols`` set.
+		cov_overflow : {'scale', 'clip'}, optional
+			How ``mc`` / ``cov`` values exceeding the format max (255 for
+			``'B'``, 65535 for ``'H'``, ...) are handled on the :meth:`tocz`
+			ingestion paths. ``'scale'`` (default) caps ``cov`` to the max and
+			scales ``mc`` by the same ``cap/cov`` ratio so the methylation
+			fraction ``mc/cov`` survives; ``'clip'`` truncates ``mc`` and
+			``cov`` independently. Only takes effect when the output
+			``columns`` contain both integer ``'mc'`` and ``'cov'``; otherwise
+			plain clipping is used. (Pre-packed ``write_chunk`` bytes — e.g.
+			from :func:`cytozip.allc.allc2cz` — are untouched, since that path
+			applies its own scaling before packing.)
 		"""
 		if output and fileobj:
 			raise ValueError("Supply either output or fileobj, not both")
@@ -4297,6 +4354,21 @@ class Writer:
 				f"formats and columns must have the same length, "
 				f"got {len(self.formats)} formats and {len(self.columns)} columns"
 			)
+		# Fraction-preserving overflow for mc/cov: cap cov to its format max and
+		# scale mc by the same ratio (see _scale_mc_cov_arrays). Applied on the
+		# tocz ingestion paths; requires both 'mc' and 'cov' integer columns.
+		if cov_overflow not in ('scale', 'clip'):
+			raise ValueError(
+				f"cov_overflow must be 'scale' or 'clip', got {cov_overflow!r}")
+		self.cov_overflow = cov_overflow
+		self._scale_pair = None
+		if (cov_overflow == 'scale' and 'mc' in self.columns
+				and 'cov' in self.columns):
+			mc_i = self.columns.index('mc')
+			cov_i = self.columns.index('cov')
+			if (self.formats[mc_i][-1] in _INT_FMT_CHARS
+					and self.formats[cov_i][-1] in _INT_FMT_CHARS):
+				self._scale_pair = (mc_i, cov_i)
 		if isinstance(chunk_dims, str):
 			self.chunk_dims = chunk_dims.split(',')
 		else:
@@ -4803,7 +4875,29 @@ class Writer:
 		else:
 			yield from _input_parser(input_handle, self.formats, self.sep,
 									 self.usecols, self.key_cols,
-									 self.batch_size)
+									 self.batch_size, scale_pair=self._scale_pair)
+
+	def _apply_scale_df(self, df, np_fmt_map):
+		"""Scale mc/cov of a DataFrame chunk to preserve mc/cov under cov cap.
+
+		``df`` columns are in output (``self.columns``) order. Only touches rows
+		where cov exceeds its format max, so it is a no-op for already-clipped
+		or in-range chunks.
+		"""
+		mc_ci, cov_ci = self._scale_pair
+		cov_cap = int(np.iinfo(np.dtype(np_fmt_map[self.formats[cov_ci]])).max)
+		cov = df.iloc[:, cov_ci].to_numpy(dtype=np.int64, copy=True)
+		over = cov > cov_cap
+		if not over.any():
+			return df
+		mc = df.iloc[:, mc_ci].to_numpy(dtype=np.int64, copy=True)
+		ratio = cov_cap / cov[over].astype(np.float64)
+		mc[over] = np.rint(mc[over] * ratio).astype(np.int64)
+		cov[over] = cov_cap
+		df = df.copy()
+		df.iloc[:, mc_ci] = mc
+		df.iloc[:, cov_ci] = cov
+		return df
 
 	def tocz(self, input=None, usecols=[4, 5], key_cols=[0],
 			 sep='\t', batch_size=5000, header=None, skiprows=0):
@@ -4914,10 +5008,15 @@ class Writer:
 
 		for df, dim in data_generator:
 			# The all-integer ingestion fast path (``_int_slab_parser``)
-			# yields already-packed record bytes; write them directly.
+			# yields already-packed record bytes (mc/cov already scaled);
+			# write them directly.
 			if isinstance(df, (bytes, bytearray, memoryview)):
 				self.write_chunk(df, dim)
 				continue
+			# DataFrame chunks: apply fraction-preserving mc/cov scaling on the
+			# raw values before packing (no-op once cov is already <= cap).
+			if self._scale_pair is not None:
+				df = self._apply_scale_df(df, _NP_FMT_MAP)
 			if _np_dt is not None:
 				# Numpy fast path: pack via structured array (no tolist)
 				vals = df.values

@@ -23,7 +23,8 @@ from loguru import logger
 import multiprocessing
 from .cz import (Reader, Writer,
                  _BLOCK_MAX_LEN, _VO_OFFSET_BITS, _VO_OFFSET_MASK,
-                 _chunk_magic, _NP_FMT_MAP, _build_record_dtype, np, pd)
+                 _chunk_magic, _NP_FMT_MAP, _build_record_dtype,
+                 _scale_mc_cov_pair, np, pd)
 
 
 # Per-format-char numpy max value (used to clip sums before packing).
@@ -162,7 +163,7 @@ def _bg_rmtree(path):
 # ==========================================================
 def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
                     block_idx_start, batch_nblock, batch_size=5000,
-                    level=6, agg='sum'):
+                    level=6, agg='sum', cov_overflow='scale'):
     """Worker function for parallel merge of per-cell .cz data.
 
     Reads a batch of blocks (``batch_nblock`` blocks starting at
@@ -310,6 +311,12 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
                      message=outfile_cat, level=level)
     out_fmts = ''.join(writer1.formats)
     out_dt = _structured_dtype_for(out_fmts)
+    # Fraction-preserving overflow: cap cov to its output max and scale mc by
+    # the same ratio (see _scale_mc_cov_pair). Only for the mc/cov summed
+    # layout; otherwise fall back to independent per-column clipping.
+    _out_cols = writer1.columns
+    _do_scale = (cov_overflow == 'scale' and len(_out_cols) >= 2
+                 and _out_cols[0] == 'mc' and _out_cols[1] == 'cov')
     if fast_dtype is not None:
         n = data_mc.shape[0]
         # Fused 1-pass clip: replaces ``data.max()`` scan + conditional
@@ -320,6 +327,9 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         # uint32 output).
         max0, max1 = _NP_FMT_MAX[out_fmts[0]], _NP_FMT_MAX[out_fmts[1]]
         accum_max = np.iinfo(data_mc.dtype).max
+        if _do_scale and max1 < accum_max:
+            # Cap cov (col1) and scale mc (col0) for the overflow subset.
+            _scale_mc_cov_pair(data_mc, data_cov, max1)
         if max0 < accum_max:
             np.minimum(data_mc, max0, out=data_mc)
         if max1 < accum_max:
@@ -335,6 +345,12 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         # then clip/cast to output dtype.
         n = accum_cols[0].shape[0]
         out_arr = np.empty(n, dtype=out_dt)
+        # Fraction-preserving overflow for summed mc/cov (col0/col1).
+        if (_do_scale and len(agg_list) >= 2
+                and agg_list[0] == 'sum' and agg_list[1] == 'sum'
+                and out_fmts[1] in _NP_FMT_MAX):
+            _scale_mc_cov_pair(accum_cols[0], accum_cols[1],
+                               _NP_FMT_MAX[out_fmts[1]])
         for i, (col, op, ofmt) in enumerate(zip(accum_cols, agg_list, out_fmts)):
             if op == 'mean' and n_cells_used > 1:
                 col = col / n_cells_used
@@ -355,7 +371,8 @@ def merge_cz(input=None, class_table=None,
              output=None, prefix=None, jobs=12, formats=['H', 'H'],
              chroms=None, reference=None,
              keep_cat=False, blocks_per_batch=None, temp=False, bgzip=True,
-             batch_size=50000, ext='.cz', level=6, agg='sum'):
+             batch_size=50000, ext='.cz', level=6, agg='sum',
+             cov_overflow='scale'):
     """
     Merge multiple per-cell .cz files into one summed .cz. Example:
 
@@ -442,6 +459,13 @@ def merge_cz(input=None, class_table=None,
         e.g. ``['mean', 'mean']``. With non-default ``agg`` the
         output ``formats`` should match: typically ``['f','f']``
         (float32) for ``'mean'``.
+    cov_overflow : {'scale', 'clip'}, optional
+        How summed ``cov`` (and ``mc``) exceeding the output format max
+        (65535 for ``'H'``, ...) is handled when the columns are the summed
+        ``mc`` / ``cov`` layout. ``'scale'`` (default) caps ``cov`` to the max
+        and scales ``mc`` by the same ``cap/cov`` ratio so the pseudobulk
+        methylation fraction survives; ``'clip'`` truncates ``mc`` and ``cov``
+        independently. No effect for non-mc/cov or ``'mean'`` columns.
 
     Returns
     -------
@@ -567,7 +591,7 @@ def merge_cz(input=None, class_table=None,
             task = pool.apply_async(merge_cz_worker,
                                    (outfile_cat, outdir, chrom, dims, formats,
                                     block_idx_start, batch_nblock, 5000, level,
-                                    agg))
+                                    agg, cov_overflow))
             tasks.append(task)
             block_idx_start += batch_nblock
     for task in tasks:
@@ -774,13 +798,13 @@ _MERGE_MR_STATE = {}
 
 
 def _merge_mr_init(target_reference, ref_to_cells, formats, columns,
-                   context_policy, level, outdir):
+                   context_policy, level, outdir, cov_overflow='scale'):
     """Pool initializer: stash the shared merge state in the worker."""
     _MERGE_MR_STATE.clear()
     _MERGE_MR_STATE.update(
         target_reference=target_reference, ref_to_cells=ref_to_cells,
         formats=list(formats), columns=columns, context_policy=context_policy,
-        level=level, outdir=outdir)
+        level=level, outdir=outdir, cov_overflow=cov_overflow)
 
 
 def _merge_multiref_chrom_worker(chrom):
@@ -866,6 +890,11 @@ def _merge_multiref_chrom_worker(chrom):
 
     out_fmts = ''.join(formats)
     out_dt = _structured_dtype_for(out_fmts)
+    # Fraction-preserving overflow for the summed mc/cov target axis.
+    if (st.get('cov_overflow', 'scale') == 'scale' and len(columns) >= 2
+            and columns[0] == 'mc' and columns[1] == 'cov'
+            and out_fmts[1] in _NP_FMT_MAX):
+        _scale_mc_cov_pair(mc_sum, cov_sum, _NP_FMT_MAX[out_fmts[1]])
     np.minimum(mc_sum, _NP_FMT_MAX[out_fmts[0]], out=mc_sum)
     np.minimum(cov_sum, _NP_FMT_MAX[out_fmts[1]], out=cov_sum)
     out_arr = np.empty(n, dtype=out_dt)
@@ -886,7 +915,8 @@ def _merge_multiref_chrom_worker(chrom):
 
 def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
                       context_policy='strict', formats=['H', 'H'], jobs=12,
-                      chroms=None, ext='.cz', level=6, temp=False):
+                      chroms=None, ext='.cz', level=6, temp=False,
+                      cov_overflow='scale'):
     """Merge per-cell .cz files with *different* references into one
     pseudobulk .cz aligned to a common target reference.
 
@@ -995,7 +1025,7 @@ def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     init_args = (target_reference, ref_to_cells, list(formats), columns,
-                 context_policy, level, outdir)
+                 context_policy, level, outdir, cov_overflow)
     written = []
     if jobs and int(jobs) > 1 and len(chrom_list) > 1:
         with multiprocessing.Pool(int(jobs), initializer=_merge_mr_init,
@@ -1023,7 +1053,8 @@ def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
 
 
 def merge_cell_type(indir=None, cell_table=None, outdir=None,
-                    jobs=64, chroms=None, ext='.CGN.merged.cz'):
+                    jobs=64, chroms=None, ext='.CGN.merged.cz',
+                    cov_overflow='scale'):
     """Merge per-cell .cz files into per-cell-type aggregates.
 
     Reads a TSV ``cell_table`` with columns (cell, cell_type), groups
@@ -1044,13 +1075,15 @@ def merge_cell_type(indir=None, cell_table=None, outdir=None,
         snames = df_ct.loc[df_ct.ct == ct, 'cell'].tolist()
         cz_paths = [os.path.join(indir, sname + ext) for sname in snames]
         merge_cz(input=cz_paths, bgzip=False,
-                 output=output, jobs=jobs, chroms=chroms)
+                 output=output, jobs=jobs, chroms=chroms,
+                 cov_overflow=cov_overflow)
 
 
 def merge_cell_type_multiref(cz_table=None, outdir=None,
                              target_reference=None, context_policy='strict',
                              jobs=64, chroms=None, ext='.cz',
-                             formats=['H', 'H'], level=6):
+                             formats=['H', 'H'], level=6,
+                             cov_overflow='scale'):
     """Per-cell-type pseudobulk merge across *different* references.
 
     The multi-reference analogue of :func:`merge_cell_type`: groups the cells
@@ -1092,7 +1125,8 @@ def merge_cell_type_multiref(cz_table=None, outdir=None,
         merge_cz_multiref(
             cz_table=sub, target_reference=target_reference, output=output,
             context_policy=context_policy, formats=formats,
-            jobs=jobs, chroms=chroms, ext=ext, level=level)
+            jobs=jobs, chroms=chroms, ext=ext, level=level,
+            cov_overflow=cov_overflow)
 
 
 if __name__ == "__main__":

@@ -36,6 +36,8 @@ _LAZY_EXPORTS = {
     'cz_to_anndata': 'features', 'parse_features': 'features',
     'parse_gtf': 'features', 'make_genome_bins': 'features',
     'cz_to_anndata_multiref': 'features',
+    'covered_mask': 'features', 'to_dense_nan': 'features',
+    'to_dense': 'features',
     # merge.py — per-cell merging pipeline
     'merge_cz': 'merge', 'merge_cell_type': 'merge',
     'merge_cz_multiref': 'merge', 'merge_cell_type_multiref': 'merge',
@@ -180,6 +182,11 @@ def _build_parser():
                         '0-based indices to store '
                         'as in-block deltas (shrinks strictly-monotonic '
                         'columns like pos; trades some query speed for size)')
+    p.add_argument('--cov_overflow', choices=['scale', 'clip'], default='scale',
+                   help="how to handle mc/cov exceeding the format max "
+                        "(255 for B, 65535 for H): 'scale' (default) caps cov "
+                        "and scales mc by cap/cov to keep mc/cov; 'clip' "
+                        "truncates both independently")
 
     # ---- catcz --------------------------------------------------------------
     p = sub.add_parser('catcz', help='Concatenate multiple .cz files into one', formatter_class=_fmt)
@@ -309,6 +316,11 @@ def _build_parser():
                    help='comma-separated column names (from --columns) or '
                         '0-based indices to '
                         'store as in-block deltas')
+    p.add_argument('--cov_overflow', choices=['scale', 'clip'], default='scale',
+                   help="how to handle mc/cov exceeding the format max "
+                        "(255 for B, 65535 for H): 'scale' (default) caps cov "
+                        "and scales mc by cap/cov to keep mc/cov; 'clip' "
+                        "truncates both independently")
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel workers in batch mode (input is a '
                         'directory). Reference is decoded once and shared via '
@@ -436,6 +448,10 @@ def _build_parser():
                    help='aggregation across cells/samples: "sum" (default, '
                         'BS-seq mc/cov) or "mean" (e.g. methylation-array '
                         'beta). Comma-separated values give per-column agg.')
+    p.add_argument('--cov_overflow', choices=['scale', 'clip'], default='scale',
+                   help='when summed cov exceeds the output format max: '
+                        "'scale' (default) caps cov and scales mc by cap/cov "
+                        "to keep mc/cov; 'clip' truncates both independently")
 
     # ---- merge_cz_multiref ---------------------------------------------------
     p = sub.add_parser(
@@ -466,6 +482,8 @@ def _build_parser():
                    help='DEFLATE compression level for output blocks')
     p.add_argument('--temp', action='store_true',
                    help='keep per-chrom tmp shard directory')
+    p.add_argument('--cov_overflow', choices=['scale', 'clip'], default='scale',
+                   help="summed mc/cov overflow: 'scale' (default) / 'clip'")
 
     # ---- merge_cell_type -----------------------------------------------------
     p = sub.add_parser('merge_cell_type', help='Merge by cell type', formatter_class=_fmt)
@@ -475,6 +493,8 @@ def _build_parser():
     p.add_argument('-j', '--jobs', type=int, default=64, help='number of parallel processes (CPUs)')
     p.add_argument('--chroms', default=None, help='chrom order file')
     p.add_argument('--ext', default='.CGN.merged.cz', help='input file extension')
+    p.add_argument('--cov_overflow', choices=['scale', 'clip'], default='scale',
+                   help="summed mc/cov overflow: 'scale' (default) / 'clip'")
 
     # ---- merge_cell_type_multiref --------------------------------------------
     p = sub.add_parser(
@@ -498,6 +518,8 @@ def _build_parser():
                    help='per-column output struct formats (default H,H)')
     p.add_argument('-l', '--level', type=int, default=6,
                    help='DEFLATE compression level')
+    p.add_argument('--cov_overflow', choices=['scale', 'clip'], default='scale',
+                   help="summed mc/cov overflow: 'scale' (default) / 'clip'")
 
     # ---- pivot_fraction ------------------------------------------------------
     for _name, _help in (
@@ -530,6 +552,9 @@ def _build_parser():
                    help='parallel worker processes across chunks; a catcz\'d '
                         'multi-cell input has many chunks so jobs>1 gives a '
                         'near-linear speed-up')
+    p.add_argument('--cov_overflow', choices=['scale', 'clip'], default='scale',
+                   help="with --merge_cg, summed fwd+rev mc/cov overflow: "
+                        "'scale' (default) caps cov and scales mc; 'clip'")
 
     # ---- compare_allc --------------------------------------------------------
     p = sub.add_parser('compare_allc', help='Compare two allc.tsv[.gz] files', formatter_class=_fmt)
@@ -877,6 +902,9 @@ def _build_parser():
                         'contig in the genome fasta (alt/decoy/unplaced) is '
                         'piled up and counted. In --mode mc_cov the pileup is '
                         'always limited to the reference chroms regardless.')
+    p.add_argument('--cov_overflow', choices=['scale', 'clip'], default='scale',
+                   help="per-site cov exceeding count_fmt max: 'scale' "
+                        "(default) caps cov and scales mc by cap/cov; 'clip'")
 
     # ---- cz_to_anndata -------------------------------------------------------
     p = sub.add_parser('cz_to_anndata', help='Aggregate many single-cell .cz files over a feature BED into AnnData h5ad', formatter_class=_fmt)
@@ -908,12 +936,19 @@ def _build_parser():
     p.add_argument('--gtf_id_col', choices=['gene_name', 'gene_id'],
                    default='gene_name',
                    help='which GTF attribute becomes var_names (GTF input only)')
-    p.add_argument('--score', choices=['frac', 'hypo-score', 'hyper-score',
-                                       'mc', 'cov', 'umc'],
+    p.add_argument('--score', choices=['frac', 'posterior_frac', 'hypo-score',
+                                       'hyper-score', 'umc'],
                    default='frac',
-                   help='what to store in .X (mc/cov/umc place raw counts in .X)')
+                   help='what to store in .X (mc/cov always live in .layers)')
     p.add_argument('--score_cutoff', type=float, default=0.9,
                    help='sparsification threshold for hypo/hyper scores')
+    p.add_argument('--nan_policy',
+                   choices=['zero', 'nan', 'prior_mean'],
+                   default='zero',
+                   help='how uncovered (cov==0) entries appear in .X: zero '
+                        '(sparse 0, default; use cytozip.to_dense to fill on '
+                        'demand), nan (dense NaN), prior_mean (dense, fill '
+                        'cell Beta prior mean)')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel processes (CPUs)')
 
@@ -946,11 +981,16 @@ def _build_parser():
                    help='bp to extend each side of GTF gene intervals')
     p.add_argument('--gtf_id_col', choices=['gene_name', 'gene_id'],
                    default='gene_name', help='which GTF attribute becomes var_names')
-    p.add_argument('--score', choices=['frac', 'hypo-score', 'hyper-score',
-                                       'mc', 'cov', 'umc'],
+    p.add_argument('--score', choices=['frac', 'posterior_frac', 'hypo-score',
+                                       'hyper-score', 'umc'],
                    default='frac', help='what to store in .X')
     p.add_argument('--score_cutoff', type=float, default=0.9,
                    help='sparsification threshold for hypo/hyper scores')
+    p.add_argument('--nan_policy',
+                   choices=['zero', 'nan', 'prior_mean'],
+                   default='zero',
+                   help='how uncovered (cov==0) entries appear in .X (see '
+                        'cz_to_anndata)')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel processes (CPUs)')
 
@@ -1070,7 +1110,7 @@ def main():
         w = Writer(output=args.output, formats=args.formats,
                    columns=args.columns, chunk_dims=args.chunk_dims,
                    message=args.message, level=args.level,
-                   delta_cols=args.delta_cols)
+                   delta_cols=args.delta_cols, cov_overflow=args.cov_overflow)
         w.tocz(input=args.input, usecols=args.usecols,
                key_cols=args.key_cols, sep=args.sep,
                batch_size=args.batch_size, header=args.header,
@@ -1151,6 +1191,7 @@ def main():
                ref_pos_col=args.ref_pos_col, allc_pos_col=args.allc_pos_col, sep=args.sep,
                chroms=args.chroms, batch_size=args.batch_size,
                sort_col=args.sort_col, delta_cols=args.delta_cols,
+               cov_overflow=args.cov_overflow,
                jobs=args.jobs, pattern=args.pattern,
                skip_existing=not args.no_skip_existing)
 
@@ -1200,13 +1241,15 @@ def main():
                  reference=args.reference, keep_cat=args.keep_cat,
                  blocks_per_batch=args.blocks_per_batch, temp=args.temp,
                  bgzip=not args.no_bgzip, batch_size=args.batch_size,
-                 ext=args.ext, level=args.level, agg=agg_arg)
+                 ext=args.ext, level=args.level, agg=agg_arg,
+                 cov_overflow=args.cov_overflow)
 
     elif cmd == 'merge_cell_type':
         from .merge import merge_cell_type
         merge_cell_type(indir=args.indir, cell_table=args.cell_table,
                         outdir=args.outdir, jobs=args.jobs,
-                        chroms=args.chroms, ext=args.ext)
+                        chroms=args.chroms, ext=args.ext,
+                        cov_overflow=args.cov_overflow)
 
     elif cmd == 'merge_cell_type_multiref':
         from .merge import merge_cell_type_multiref
@@ -1215,7 +1258,7 @@ def main():
             target_reference=args.target_reference,
             context_policy=args.context_policy, jobs=args.jobs,
             chroms=args.chroms, ext=args.ext, formats=args.formats,
-            level=args.level)
+            level=args.level, cov_overflow=args.cov_overflow)
 
     elif cmd == 'merge_cz_multiref':
         from .merge import merge_cz_multiref
@@ -1224,7 +1267,7 @@ def main():
             target_reference=args.target_reference, output=args.output,
             context_policy=args.context_policy, formats=args.formats,
             jobs=args.jobs, chroms=args.chroms, ext=args.ext,
-            level=args.level, temp=args.temp)
+            level=args.level, temp=args.temp, cov_overflow=args.cov_overflow)
 
     elif cmd == 'pivot_fraction':
         from .pivot import pivot_fraction
@@ -1252,7 +1295,8 @@ def main():
         from .allc import extractCG
         extractCG(input=args.input, output=args.output,
                   index=args.index, batch_size=args.batch_size,
-                  merge_cg=args.merge_cg, jobs=args.jobs)
+                  merge_cg=args.merge_cg, jobs=args.jobs,
+                  cov_overflow=args.cov_overflow)
 
     elif cmd == 'compare_allc':
         from .allc import compare_allc
@@ -1443,7 +1487,8 @@ def main():
                   save_count_df=args.save_count_df,
                   name_sorted=args.name_sorted,
                   env=args.env,
-                  chroms=args.chroms)
+                  chroms=args.chroms,
+                  cov_overflow=args.cov_overflow)
 
     elif cmd == 'name_sort_bam_to_deduped':
         from .bam import name_sort_bam_to_deduped
@@ -1483,6 +1528,7 @@ def main():
                       gtf_id_col=args.gtf_id_col,
                       score=args.score,
                       score_cutoff=args.score_cutoff,
+                      nan_policy=args.nan_policy,
                       jobs=args.jobs)
 
     elif cmd == 'cz_to_anndata_multiref':
@@ -1503,7 +1549,8 @@ def main():
             obs=obs_df, chrom_size=args.chrom_size,
             exclude_chroms=args.exclude_chroms, blacklist=args.blacklist,
             flank_bp=args.flank_bp, gtf_id_col=args.gtf_id_col,
-            score=args.score, score_cutoff=args.score_cutoff, jobs=args.jobs)
+            score=args.score, score_cutoff=args.score_cutoff,
+            nan_policy=args.nan_policy, jobs=args.jobs)
 
     elif cmd == 'predict_cell_type':
         from .model import predict_cell_type

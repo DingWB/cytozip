@@ -34,6 +34,7 @@ from .cz import (Reader, Writer, get_dtfuncs,
                  _fmt_to_np_dtype, _chrom_axis,
                  _all_numeric_formats, _pack_chunk_data,
                  _write_np_chunks, _parse_tabix_lines,
+                 _scale_mc_cov_pair,
                  check_cz,
                  np, pd)
 # Lazily access Cython accelerators via the cz module namespace so that
@@ -248,10 +249,37 @@ class AllC:
             os.system(f"rm -rf {self.outdir}")
 
 
+def _scale_mc_on_cov_clip(mc_raw, cov_raw, mc_dtype, cov_dtype):
+    """Cap ``cov`` to its dtype max, scaling ``mc`` by the same ratio.
+
+    ``mc_raw`` / ``cov_raw`` are unclipped int64 arrays. Positions whose cov
+    exceeds the cov dtype's max are capped to it, and their mc is multiplied
+    by ``cap / cov`` (rounded) so the methylation fraction ``mc/cov`` survives
+    the saturation instead of being distorted by independent clipping (e.g.
+    mc=300, cov=400 -> 191/255 ≈ 0.75 rather than 255/255 = 1.0). Relies on
+    the ``mc <= cov`` invariant, so the scaled mc is always within range.
+    Returns ``(mc, cov)`` cast to the target dtypes.
+    """
+    mc_raw = np.asarray(mc_raw)
+    cov_raw = np.asarray(cov_raw)
+    cov_cap = int(np.iinfo(cov_dtype).max)
+    over = cov_raw > cov_cap
+    if over.any():
+        mc_raw = mc_raw.copy()
+        cov_raw = cov_raw.copy()
+        ratio = cov_cap / cov_raw[over].astype(np.float64)
+        mc_raw[over] = np.rint(mc_raw[over] * ratio).astype(np.int64)
+        cov_raw[over] = cov_cap
+    # mc<=cov keeps scaled mc within cov_cap; clip is a cheap defensive bound.
+    mc = np.clip(mc_raw, 0, int(np.iinfo(mc_dtype).max)).astype(mc_dtype)
+    cov = cov_raw.astype(cov_dtype)
+    return mc, cov
+
+
 def allc2cz(input, output, reference=None, missing_value=[0, 0],
            formats=['B', 'B'], columns=['mc', 'cov'], chunk_dims=['chrom'],
            usecols=[4, 5], ref_pos_col=0, allc_pos_col=1, sep='\t', chroms=None,
-           batch_size=5000, sort_col=None, delta_cols=None,
+           batch_size=5000, sort_col=None, delta_cols=None, cov_overflow='scale',
            jobs=1, pattern='*.allc.tsv.gz', skip_existing=True,
            _ref_pos_dict=None):
     """
@@ -330,6 +358,16 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
         compression of monotonic positions). Entries are 0-based column
         indices (int) or names in the output ``columns`` (str). ``None``
         (default) disables delta encoding.
+    cov_overflow : {'scale', 'clip'}, optional
+        How to handle ``cov`` (and ``mc``) values exceeding the target
+        format's max (255 for ``'B'``, 65535 for ``'H'``, ...). ``'scale'``
+        (default) caps ``cov`` to the max and scales ``mc`` by the same
+        ``cap/cov`` ratio so the methylation fraction ``mc/cov`` is
+        preserved; ``'clip'`` truncates ``mc`` and ``cov`` independently
+        (the previous behaviour), which distorts the fraction when the cap
+        bites. Only affects the numeric (numpy) path and requires the output
+        ``columns`` to contain both ``'mc'`` and ``'cov'``; otherwise plain
+        clipping is used.
     _ref_pos_dict : dict, optional
         Internal: pre-decoded ``{chrom: pos_array}`` dict shared from the
         parent process in batch mode so reference decoding is paid once.
@@ -350,7 +388,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
             chunk_dims=chunk_dims, usecols=usecols,
             ref_pos_col=ref_pos_col, allc_pos_col=allc_pos_col, sep=sep,
             chroms=chroms, batch_size=batch_size,
-            sort_col=sort_col, delta_cols=delta_cols,
+            sort_col=sort_col, delta_cols=delta_cols, cov_overflow=cov_overflow,
             jobs=jobs, pattern=pattern, skip_existing=skip_existing,
         )
     # ---- Batch mode: input is an allc_path table (cell_id, allc_path) -----
@@ -363,7 +401,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
             chunk_dims=chunk_dims, usecols=usecols,
             ref_pos_col=ref_pos_col, allc_pos_col=allc_pos_col, sep=sep,
             chroms=chroms, batch_size=batch_size,
-            sort_col=sort_col, delta_cols=delta_cols,
+            sort_col=sort_col, delta_cols=delta_cols, cov_overflow=cov_overflow,
             jobs=jobs, pattern=pattern, skip_existing=skip_existing,
         )
     if skip_existing and os.path.exists(output):
@@ -412,6 +450,18 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     unit_size = writer._unit_size
     use_numpy = _all_numeric_formats(formats)  # use vectorized numpy path if all columns are numeric
 
+    # Fraction-preserving overflow: cap cov to its format max and scale mc by
+    # the same ratio (see _scale_mc_on_cov_clip). Only meaningful when both
+    # mc and cov are integer output columns; otherwise fall back to plain clip.
+    if cov_overflow not in ('scale', 'clip'):
+        raise ValueError(
+            f"cov_overflow must be 'scale' or 'clip', got {cov_overflow!r}")
+    do_scale = (cov_overflow == 'scale' and 'mc' in columns and 'cov' in columns
+                and formats[columns.index('mc')][-1] in 'BbHhIiLlQq'
+                and formats[columns.index('cov')][-1] in 'BbHhIiLlQq')
+    mc_ci = columns.index('mc') if do_scale else -1
+    cov_ci = columns.index('cov') if do_scale else -1
+
     if not reference is None:
         # When a pre-decoded ref_pos dict is supplied (batch mode), we can
         # skip opening the reference Reader entirely — every worker shares
@@ -440,7 +490,13 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
             struct_dtype = np.dtype([(f'f{i}', dt) for i, dt in enumerate(np_dtypes)])
             mv_arr = np.array(tuple(missing_value), dtype=struct_dtype)  # template for missing values
             parse_cols = [allc_pos_col] + list(usecols)  # position col + data cols
-            parse_dtypes = ['<i8'] + np_dtypes  # int64 for pos, user dtypes for data
+            # In scale mode parse mc/cov unclipped (wide i8) so the ratio can
+            # be computed before saturation; other cols keep their target dtype.
+            data_dtypes = list(np_dtypes)
+            if do_scale:
+                data_dtypes[mc_ci] = '<i8'
+                data_dtypes[cov_ci] = '<i8'
+            parse_dtypes = ['<i8'] + data_dtypes  # int64 for pos, user dtypes for data
             for chrom in all_chroms:
                 # FAST PATH: bulk-read all reference positions for this chrom
                 # as a numpy array, then use searchsorted for O(n log n)
@@ -468,6 +524,11 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                 parsed = _parse_tabix_lines(lines, parse_cols, parse_dtypes, sep)
                 query_pos = parsed[0].astype(np.int64)
                 query_cols = parsed[1:]
+                if do_scale:
+                    query_cols = list(query_cols)
+                    query_cols[mc_ci], query_cols[cov_ci] = _scale_mc_on_cov_clip(
+                        query_cols[mc_ci], query_cols[cov_ci],
+                        np_dtypes[mc_ci], np_dtypes[cov_ci])
                 # Vectorized matching: use searchsorted to find where each
                 # query position falls in the sorted reference position array.
                 # `valid` mask identifies which query positions have an exact
@@ -536,12 +597,22 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
         if use_numpy:
             np_dtypes = [_fmt_to_np_dtype(f[-1]) for f in formats]
             struct_dtype = np.dtype([(f'f{i}', dt) for i, dt in enumerate(np_dtypes)])
+            # In scale mode parse mc/cov unclipped (wide i8) to preserve mc/cov.
+            data_dtypes = list(np_dtypes)
+            if do_scale:
+                data_dtypes[mc_ci] = '<i8'
+                data_dtypes[cov_ci] = '<i8'
             for chrom in all_chroms:
                 lines = list(tbi.fetch(chrom))
                 if not lines:
                     continue
                 # Vectorized line parsing via pd.read_csv
-                parsed = _parse_tabix_lines(lines, list(usecols), np_dtypes, sep)
+                parsed = _parse_tabix_lines(lines, list(usecols), data_dtypes, sep)
+                if do_scale:
+                    parsed = list(parsed)
+                    parsed[mc_ci], parsed[cov_ci] = _scale_mc_on_cov_clip(
+                        parsed[mc_ci], parsed[cov_ci],
+                        np_dtypes[mc_ci], np_dtypes[cov_ci])
                 n = len(lines)
                 out = np.empty(n, dtype=struct_dtype)
                 for ci in range(len(usecols)):
@@ -791,7 +862,8 @@ def _extractcg_chunk_worker(args):
     catted file's ``cell_id`` axis is preserved; the CGN index is looked up
     by chromosome only.
     """
-    (input_path, index_path, dim, chrom_axis, merge_cg, vec_merge) = args
+    (input_path, index_path, dim, chrom_axis, merge_cg, vec_merge,
+     cov_overflow) = args
     reader = _cz._worker_reader(input_path)
     index_reader = _cz._worker_reader(index_path)
     idx_key = (dim[chrom_axis],)
@@ -802,6 +874,12 @@ def _extractcg_chunk_worker(args):
         raise ValueError("Only support 1D index now!")
     formats = reader.header['formats']
     fmts = reader.fmts
+    # Fraction-preserving overflow when summing the fwd/rev CG strands: cap cov
+    # to its format max and scale mc by the same ratio. Requires mc/cov columns.
+    columns = reader.header['columns']
+    do_scale = (cov_overflow == 'scale' and 'mc' in columns and 'cov' in columns)
+    mc_ci = columns.index('mc') if do_scale else -1
+    cov_ci = columns.index('cov') if do_scale else -1
     # for CG, if pos is forward (+), then pos+1 is reverse strand (-)
     if vec_merge:
         if IDs.size == 0:
@@ -819,17 +897,23 @@ def _extractcg_chunk_worker(args):
         fwd = arr[:2 * m:2]
         rev = arr[1:2 * m:2]
         out = np.empty(m, dtype=_rec_dtype)
+        summed_cols = [fwd[f'f{i}'].astype(np.int64) + rev[f'f{i}'].astype(np.int64)
+                       for i in range(len(formats))]
+        if do_scale:
+            cov_cap = int(np.iinfo(_rec_dtype[f'f{cov_ci}']).max)
+            _scale_mc_cov_pair(summed_cols[mc_ci], summed_cols[cov_ci], cov_cap)
         for i in range(len(formats)):
             fn = f'f{i}'
             dt = _rec_dtype[fn]
-            summed = fwd[fn].astype(np.int64) + rev[fn].astype(np.int64)
             info = np.iinfo(dt)
-            out[fn] = np.clip(summed, info.min, info.max).astype(dt)
+            out[fn] = np.clip(summed_cols[i], info.min, info.max).astype(dt)
         return dim, out.tobytes()
     records = reader._getRecordsByIds(dim, IDs)
     data_parts = []
     if merge_cg:
         dtfuncs = get_dtfuncs(formats)
+        cov_cap = (2 ** (struct.calcsize(formats[cov_ci]) * 8) - 1
+                   if do_scale else 0)
         v0 = None
         for i, record in enumerate(records):  # unpacked bytes
             if i % 2 == 0:
@@ -837,6 +921,10 @@ def _extractcg_chunk_worker(args):
             else:
                 v1 = struct.unpack(f"<{fmts}", record)
                 values = [r1 + r2 for r1, r2 in zip(v0, v1)]
+                if do_scale and values[cov_ci] > cov_cap:
+                    values[mc_ci] = int(round(
+                        values[mc_ci] * cov_cap / values[cov_ci]))
+                    values[cov_ci] = cov_cap
                 data_parts.append(struct.pack(fmts,
                                     *[func(v) for v, func in zip(values, dtfuncs)]))
     else:
@@ -846,7 +934,7 @@ def _extractcg_chunk_worker(args):
 
 
 def extractCG(input=None, output=None, index=None, batch_size=5000,
-              merge_cg=False, jobs=1):
+              merge_cg=False, jobs=1, cov_overflow='scale'):
     """
     Extract CG context from .cz file
 
@@ -879,6 +967,11 @@ def extractCG(input=None, output=None, index=None, batch_size=5000,
         Number of parallel worker processes across chunks (default 1). A
         catted file has ``n_chroms * n_cells`` chunks, so ``jobs > 1`` gives
         a near-linear speed-up on multi-cell inputs.
+    cov_overflow : {'scale', 'clip'}, optional
+        Only relevant with ``merge_cg=True``. How summed fwd+rev ``cov`` (and
+        ``mc``) exceeding the format max is handled: ``'scale'`` (default) caps
+        ``cov`` and scales ``mc`` by ``cap/cov`` to keep mc/cov; ``'clip'``
+        truncates both independently. Requires ``mc`` / ``cov`` columns.
 
     Returns
     -------
@@ -902,7 +995,8 @@ def extractCG(input=None, output=None, index=None, batch_size=5000,
                     message=index_path)
     dims = list(reader.chunk_key2offset.keys())
     reader.close()
-    tasks = [(cz_path, index_path, dim, chrom_axis, merge_cg, _vec_merge)
+    tasks = [(cz_path, index_path, dim, chrom_axis, merge_cg, _vec_merge,
+              cov_overflow)
              for dim in dims]
     if jobs and int(jobs) > 1 and len(tasks) > 1:
         with multiprocessing.Pool(int(jobs)) as pool:

@@ -39,7 +39,11 @@ import pandas as pd
 from .cz import Reader, _fmt_to_np_dtype
 
 
-_VALID_SCORES = ("frac", "posterior_frac", "hypo-score", "hyper-score", "mc", "cov", "umc")
+_VALID_SCORES = ("frac", "posterior_frac", "hypo-score", "hyper-score", "umc")
+# mc / cov are intentionally excluded from the public score choices: they are
+# always available in adata.layers['mc'] / ['cov'], so storing them in .X is
+# redundant. _compute_score_matrix_sparse still handles them internally.
+_VALID_NAN_POLICIES = ("zero", "nan", "prior_mean")
 
 
 def _record_dtype_for(formats):
@@ -1062,7 +1066,7 @@ def _prepare_feature_groups(features, chrom_size, exclude_chroms, blacklist,
 
 def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
                          score, score_cutoff, hvf_frac, obs, output,
-                         reference=None):
+                         reference=None, nan_policy="zero"):
     """Assemble an :class:`anndata.AnnData` from a filled streaming builder.
 
     Shared tail of :func:`cz_to_anndata` and :func:`cz_to_anndata_multiref`:
@@ -1071,10 +1075,16 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
     ``posterior_frac``), and writes the ``.h5ad`` when ``output`` is given.
     ``reference`` (a path or list of paths) is recorded in
     ``adata.uns['cytozip_reference']``.
+
+    ``nan_policy`` controls how uncovered (``cov == 0``) entries appear in
+    ``.X`` (see :func:`_apply_nan_policy`).
     """
     import anndata
 
-    # Materialise sparse layers (no dense intermediate).
+    # Materialise sparse layers (no dense intermediate). mc_sp / cov_sp are the
+    # (n_cells, n_features) CSR uint32 matrices of methylated counts and total
+    # coverage; only covered (cov > 0) entries are stored, so their shared
+    # non-zero structure is the covered mask.
     mc_sp, cov_sp = builder.finalize()
 
     # Build var_df. For GTF inputs we attach gene_id / gene_type /
@@ -1090,6 +1100,7 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
     # alpha/beta are estimated once here and shared by the score transform, the
     # HVF accumulators and adata.obs (no double estimation).
     obs_df = pd.DataFrame(index=obs_names)
+    prior_mean = None
     if score == "posterior_frac":
         alpha, beta, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
         X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
@@ -1119,6 +1130,12 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
     else:
         X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
                                          score_cutoff=score_cutoff)
+    # Apply nan_policy to uncovered (cov==0) entries of .X. 'zero' keeps the
+    # sparse implicit 0; 'nan' / 'prior_mean' densify .X to float32.
+    if nan_policy != "zero":
+        if nan_policy == "prior_mean" and prior_mean is None:
+            _, _, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
+        X = _apply_nan_policy(X, cov_sp, nan_policy, prior_mean=prior_mean)
     if obs is not None:
         obs_df = obs_df.join(obs, how="left")
 
@@ -1133,11 +1150,164 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
         "score_cutoff": float(score_cutoff),
         "hvf_frac": hvf_frac,
     }
+    # Uncovered (cov==0) features carry no measurement. How they appear in .X
+    # depends on nan_policy (resolved to eff_policy); the raw layers['mc'] /
+    # ['cov'] always keep the sparse implicit 0, so the covered mask is exactly
+    # the non-zero structure of layers['cov'] (covered iff cov>0). Restore NaN
+    # on demand with :func:`covered_mask` / :func:`to_dense_nan`.
+    adata.uns["cytozip_coverage"] = {
+        "nan_policy": nan_policy,
+        "covered_mask": "layers['cov'] != 0",
+        "note": ("Uncovered (cov==0) entries in layers are implicit 0 (not "
+                 "real zeros). In .X they follow nan_policy. For posterior_frac "
+                 "the uncovered posterior equals obs['prior_mean']. Covered "
+                 "mask == nonzero structure of layers['cov']. Restore NaN with "
+                 "cytozip.features.to_dense_nan(adata)."),
+    }
     if reference is not None:
         adata.uns["cytozip_reference"] = reference
     if output:
-        adata.write_h5ad(os.path.abspath(os.path.expanduser(output)))
+        adata.write_h5ad(os.path.abspath(os.path.expanduser(output)),
+                         compression='lzf')
     return adata
+
+
+# ---------------------------------------------------------------------------
+# Coverage-mask helpers (restore the covered / uncovered NaN distinction the
+# sparse .X collapses to 0). See uns['cytozip_coverage'].
+# ---------------------------------------------------------------------------
+def _uncovered_mask(cov_sp, shape):
+    """Dense boolean ``cov == 0`` mask built from the cov sparsity structure.
+
+    Avoids densifying ``cov`` to uint32 (4 B/entry) just to test ``== 0``: the
+    mask is a bool array (1 B/entry) seeded ``True`` and cleared at the stored
+    (covered) coordinates, which are only ~5% of entries for single-cell data.
+    """
+    import scipy.sparse as ss
+    if ss.issparse(cov_sp):
+        uncovered = np.ones(shape, dtype=bool)
+        cc = cov_sp.tocoo()
+        uncovered[cc.row, cc.col] = False
+        return uncovered
+    return np.asarray(cov_sp) == 0
+
+
+def _apply_nan_policy(X, cov_sp, policy, prior_mean=None):
+    """Densify ``X`` to ``float32`` filling uncovered (``cov == 0``) per policy.
+
+    ``'nan'`` fills ``np.nan``; ``'prior_mean'`` fills each cell's Beta prior
+    mean (per-row broadcast, NaN fallback for degenerate cells). ``'zero'`` is
+    handled by the caller (keeps ``X`` sparse) and never reaches here.
+    """
+    import scipy.sparse as ss
+    # X is the freshly-built sparse score matrix here, so toarray() already
+    # yields an owned float32 array — avoid a second redundant copy.
+    if ss.issparse(X):
+        dense = X.toarray()
+        if dense.dtype != np.float32:
+            dense = dense.astype(np.float32, copy=False)
+    else:
+        dense = np.array(X, dtype=np.float32)
+    uncovered = _uncovered_mask(cov_sp, dense.shape)
+    if policy == "nan":
+        dense[uncovered] = np.nan
+    elif policy == "prior_mean":
+        if prior_mean is None:
+            raise ValueError(
+                "nan_policy='prior_mean' requires per-cell prior_mean")
+        fill = np.broadcast_to(
+            np.asarray(prior_mean, dtype=np.float32).reshape(-1, 1),
+            dense.shape)
+        dense[uncovered] = fill[uncovered]
+    else:
+        raise ValueError(
+            f"nan_policy must be one of {_VALID_NAN_POLICIES}, got {policy!r}")
+    return dense
+
+
+def covered_mask(adata):
+    """Sparse boolean mask that is ``True`` exactly where a feature is covered.
+
+    An entry is *covered* iff ``cov > 0``. Because :func:`cz_to_anndata`
+    stores only ``cov > 0`` entries, the covered mask equals the stored
+    (non-zero) structure of ``adata.layers['cov']``. Uncovered entries are
+    the implicit zeros of ``.X`` / every layer and represent **missing data**,
+    not measured zeros.
+
+    Returns
+    -------
+    scipy.sparse.csr_matrix (bool)
+        Same shape as ``adata.X``; explicit ``True`` at covered entries only.
+    """
+    import scipy.sparse as ss
+    cov = adata.layers["cov"]
+    if ss.issparse(cov):
+        m = cov.tocsr(copy=True)
+        m.eliminate_zeros()
+        m.data = np.ones_like(m.data, dtype=bool)
+        return m
+    return ss.csr_matrix(np.asarray(cov) != 0)
+
+
+def to_dense_nan(adata, layer=None):
+    """Dense ``float32`` view of ``.X`` (or a layer) with uncovered = NaN.
+
+    Thin wrapper over :func:`to_dense` with ``fill='nan'``. Warning: allocates
+    ``n_cells * n_features * 4`` bytes.
+
+    Parameters
+    ----------
+    layer : str or None
+        Which matrix to densify. ``None`` (default) uses ``adata.X``;
+        otherwise ``adata.layers[layer]`` (e.g. ``'mc'`` / ``'cov'``).
+    """
+    return to_dense(adata, fill="nan", layer=layer)
+
+
+def to_dense(adata, fill="prior_mean", layer=None):
+    """Dense ``float32`` view of ``.X`` (or a layer) with uncovered entries filled.
+
+    The memory-cheap counterpart to storing a dense ``.X``: keep ``.X`` sparse
+    (uncovered = implicit 0) and only materialise a filled dense matrix when a
+    downstream step actually needs it. Warning: allocates
+    ``n_cells * n_features * 4`` bytes.
+
+    Parameters
+    ----------
+    fill : {'prior_mean', 'nan', 'zero'}, default ``'prior_mean'``
+        How uncovered (``cov == 0``) entries are filled. ``'prior_mean'`` uses
+        each cell's Beta prior mean from ``adata.obs['prior_mean']`` — the exact
+        ``posterior_frac`` value with no data (requires that column, i.e. a
+        ``score='posterior_frac'`` build). ``'nan'`` marks them missing;
+        ``'zero'`` leaves the implicit 0.
+    layer : str or None
+        Which matrix to densify. ``None`` (default) uses ``adata.X``;
+        otherwise ``adata.layers[layer]`` (e.g. ``'mc'`` / ``'cov'``).
+    """
+    import scipy.sparse as ss
+    src = adata.X if layer is None else adata.layers[layer]
+    if ss.issparse(src):
+        dense = src.toarray()
+        dense = dense.astype(np.float32, copy=(dense.dtype != np.float32))
+    else:
+        dense = np.array(src, dtype=np.float32)
+    if fill == "zero":
+        return dense
+    uncovered = _uncovered_mask(adata.layers["cov"], dense.shape)
+    if fill == "nan":
+        dense[uncovered] = np.nan
+    elif fill == "prior_mean":
+        if "prior_mean" not in adata.obs:
+            raise ValueError(
+                "fill='prior_mean' requires adata.obs['prior_mean'] "
+                "(only present for score='posterior_frac' builds)")
+        pm = np.asarray(adata.obs["prior_mean"].to_numpy(), dtype=np.float32)
+        pm_col = np.broadcast_to(pm.reshape(-1, 1), dense.shape)
+        dense[uncovered] = pm_col[uncovered]
+    else:
+        raise ValueError(
+            f"fill must be 'prior_mean', 'nan', or 'zero'; got {fill!r}")
+    return dense
 
 
 # ---------------------------------------------------------------------------
@@ -1163,6 +1333,7 @@ def cz_to_anndata(
     score: str = "posterior_frac",
     score_cutoff: float = 0.9,
     hvf_frac: str = "posterior",
+    nan_policy: str = "zero",
     jobs: int = 1,
 ):
     """Build an :class:`anndata.AnnData` of shape ``(n_cells, n_features)``.
@@ -1251,35 +1422,35 @@ def cz_to_anndata(
         becomes ``var_names``. When ``'gene_name'`` (the default), GENCODE
         records that share a symbol on one chrom are merged into a single
         interval so the output has exactly one row per gene symbol.
-    score : {'frac', 'posterior_frac', 'hypo-score', 'hyper-score', 'mc', 'cov', 'umc'}
+    score : {'frac', 'posterior_frac', 'hypo-score', 'hyper-score', 'umc'}
         What to store in ``.X``:
 
-        - ``'frac'``: raw ``mc/cov`` fraction. Zero-cov
-          features are ``0``.
+        - ``'frac'``: raw ``mc/cov`` fraction. Uncovered features follow
+          ``nan_policy`` (implicit ``0`` under the default ``'zero'``; use
+          ``nan_policy='nan'`` or :func:`to_dense` for NaN).
         - ``'posterior_frac'`` (default): per-cell empirical-Bayes posterior mean
           ``(mc + alpha) / (cov + alpha + beta)`` using the per-cell Beta
           prior estimated by the Beta-Binomial method of moments (see
           ``docs/Methods.md``). Shrinks noisy low-coverage estimates toward
-          the cell's prior mean. Only covered features get a value;
-          zero-cov features stay ``0`` (same sparsity as ``'frac'``).
+          the cell's prior mean. Uncovered features' posterior equals that
+          prior mean (a per-cell constant kept in ``obs['prior_mean']``); with
+          the default ``nan_policy='zero'`` ``.X`` stays **sparse** (implicit
+          ``0``) and the prior-filled dense matrix is reconstructed on demand
+          via :func:`to_dense` (``fill='prior_mean'``).
         - ``'hypo-score'``: per-cell binomial survival function
           ``P(X > mc | Binomial(cov, p_cell))``, with ``p_cell = total_mc /
           total_cov`` for that cell. Values below ``score_cutoff`` are set
           to zero. High values mark hypo-methylated sites.
         - ``'hyper-score'``: ``1 - sf`` with the same sparsification;
           high values mark hyper-methylated sites.
-        - ``'mc'``: raw methylated-count per (cell, feature) (sum of
-          per-site mc inside the feature interval).
-        - ``'cov'``: raw coverage count per (cell, feature) (sum of
-          per-site cov).
         - ``'umc'``: raw unmethylated count = ``cov - mc`` per
           (cell, feature). Useful when you want to assemble ``mc`` and
           ``umc`` matrices side-by-side for downstream Beta-binomial /
           ALLCools-style modeling without recomputing.
 
-        ``mc`` / ``cov`` always also live in ``.layers['mc']`` /
-        ``.layers['cov']`` regardless of which score is selected; the
-        ``score`` choice only changes ``.X``.
+        Raw ``mc`` / ``cov`` counts always live in ``.layers['mc']`` /
+        ``.layers['cov']`` regardless of ``score`` (which only changes ``.X``),
+        so they are not offered as ``score`` choices.
 
         Only when ``score='posterior_frac'`` are the per-cell Beta prior
         columns ``['alpha', 'beta', 'prior_mean', 'rho']`` written to
@@ -1298,6 +1469,30 @@ def cz_to_anndata(
         degenerate cells); ``'raw'`` uses ``mc/cov``. These three additive
         accumulators let mean / var / dispersion / normalized dispersion be
         reconstructed downstream (see ``docs/Methods.md``).
+    nan_policy : {'zero', 'nan', 'prior_mean'}, default ``'zero'``
+        How uncovered (``cov == 0``) entries are represented in ``.X``.
+
+        - ``'zero'`` (default, **memory-cheap — strongly preferred for large
+          cohorts / genome-wide bins**): keep ``.X`` a sparse CSR with implicit
+          ``0`` everywhere. Reconstruct a filled dense matrix on demand with
+          :func:`to_dense` (``fill='prior_mean'`` / ``'nan'``).
+        - ``'nan'``: densify ``.X`` and set uncovered entries to ``np.nan``.
+        - ``'prior_mean'``: densify ``.X`` and fill uncovered entries with each
+          cell's Beta prior mean (computed on demand for non-``posterior_frac``
+          scores). Degenerate cells fall back to ``np.nan``.
+
+        .. warning::
+           ``'nan'`` and ``'prior_mean'`` force a **dense** ``float32`` ``.X``
+           of ``n_cells * n_features * 4`` bytes (peak ~1.5-2x that during
+           construction and h5ad write), so they can easily **OOM** for large
+           cell counts or genome-wide bins (e.g. 1M cells x 540k 5kb bins ≈
+           2 TB dense). Only use them for small feature sets (gene-level /
+           100 kb bins). Otherwise keep the default ``'zero'`` and materialise
+           NaN lazily / block-wise via :func:`to_dense` / :func:`to_dense_nan`.
+
+        ``.layers['mc']`` / ``.layers['cov']`` always stay sparse with implicit
+        ``0``; the covered mask equals their non-zero structure
+        (see :func:`covered_mask`).
     jobs : int
         Number of worker processes (CPUs) for parallel per-cell aggregation.
         ``1`` (default) runs serially in-process. ``>1`` uses a
@@ -1310,13 +1505,18 @@ def cz_to_anndata(
     Returns
     -------
     anndata.AnnData
-        ``.X`` holds the requested score as a CSR sparse ``float32``
-        matrix (uncovered features are implicit zeros).
-        ``.layers['mc']`` and ``.layers['cov']`` hold the raw integer
-        counts (``uint32``) as CSR sparse matrices.
+        ``.X`` holds the requested score as ``float32``. Under the default
+        ``nan_policy='zero'`` it is a CSR sparse matrix with implicit-``0``
+        uncovered features; under ``'nan'`` / ``'prior_mean'`` it is a dense
+        array with uncovered entries set to ``np.nan`` / the cell prior mean.
+        ``.layers['mc']`` and ``.layers['cov']`` hold the raw integer counts
+        (``uint32``) as CSR sparse matrices.
     """
     if score not in _VALID_SCORES:
         raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
+    if nan_policy not in _VALID_NAN_POLICIES:
+        raise ValueError(
+            f"nan_policy must be one of {_VALID_NAN_POLICIES}, got {nan_policy!r}")
 
     feat_df, features_by_chrom, n_feat, gtf_meta_df = _prepare_feature_groups(
         features, chrom_size, exclude_chroms, blacklist, flank_bp, gtf_id_col)
@@ -1493,7 +1693,8 @@ def cz_to_anndata(
                                 score, score_cutoff, hvf_frac, obs, output,
                                 reference=(os.path.abspath(
                                     os.path.expanduser(reference))
-                                    if reference else None))
+                                    if reference else None),
+                                nan_policy=nan_policy)
 
 
 def cz_to_anndata_multiref(
@@ -1514,6 +1715,7 @@ def cz_to_anndata_multiref(
     score: str = "posterior_frac",
     score_cutoff: float = 0.9,
     hvf_frac: str = "posterior",
+    nan_policy: str = "zero",
     jobs: int = 1,
 ):
     """Build an ``AnnData`` from per-cell .cz with *different* references.
@@ -1550,7 +1752,7 @@ def cz_to_anndata_multiref(
         size). See there for details.
     output, use_samples, ext, pos_col, mc_col, cov_col, obs, chrom_size,
     exclude_chroms, blacklist, flank_bp, gtf_id_col, score, score_cutoff,
-    hvf_frac, jobs
+    hvf_frac, nan_policy, jobs
         Same meaning as in :func:`cz_to_anndata`. ``use_samples`` filters on
         the table's ``cell_id`` column.
 
@@ -1561,6 +1763,9 @@ def cz_to_anndata_multiref(
     """
     if score not in _VALID_SCORES:
         raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
+    if nan_policy not in _VALID_NAN_POLICIES:
+        raise ValueError(
+            f"nan_policy must be one of {_VALID_NAN_POLICIES}, got {nan_policy!r}")
 
     feat_df, features_by_chrom, n_feat, gtf_meta_df = _prepare_feature_groups(
         features, chrom_size, exclude_chroms, blacklist, flank_bp, gtf_id_col)
@@ -1643,7 +1848,8 @@ def cz_to_anndata_multiref(
 
     return _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
                                 score, score_cutoff, hvf_frac, obs, output,
-                                reference=sorted(set(df["reference"])))
+                                reference=sorted(set(df["reference"])),
+                                nan_policy=nan_policy)
 
 
 # ---------------------------------------------------------------------------

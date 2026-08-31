@@ -727,6 +727,7 @@ def bam_to_cz(
     name_sorted: bool = False,
     env: Optional[str] = None,
     chroms=None,
+    cov_overflow: str = "scale",
 ) -> Optional[pd.DataFrame]:
     """Convert a position-sorted BAM to a ``.cz`` methylation file.
 
@@ -802,6 +803,12 @@ def bam_to_cz(
         is **always** limited to the reference's chromosomes regardless of
         this argument (sites on other chroms are discarded at write time
         anyway); passing ``chroms`` then further narrows that set.
+    cov_overflow : {'scale', 'clip'}, optional
+        How a per-site ``cov`` (and ``mc``) exceeding ``count_fmt``'s max is
+        handled. ``'scale'`` (default) caps ``cov`` to the max and scales
+        ``mc`` by ``cap/cov`` so the site's methylation fraction survives;
+        ``'clip'`` truncates ``mc`` and ``cov`` independently. Only matters
+        for high-coverage sites (rare in single-cell data).
 
     Returns
     -------
@@ -1082,10 +1089,15 @@ def bam_to_cz(
             if not _overflow_warned[0]:
                 logger.warning(
                     f"mc/cov value exceeds count_fmt={count_fmt!r} max "
-                    f"({count_max}); clipping. Consider count_fmt='H' for "
+                    f"({count_max}); {cov_overflow}. Consider count_fmt='H' for "
                     f"bulk/high-coverage data."
                 )
                 _overflow_warned[0] = True
+            # 'scale' caps cov and scales mc by cap/cov so mc/cov survives;
+            # 'clip' truncates both independently.
+            if cov_overflow == "scale" and cov > count_max:
+                unconverted = int(round(unconverted * count_max / cov))
+                cov = count_max
             if unconverted > count_max:
                 unconverted = count_max
             if cov > count_max:
