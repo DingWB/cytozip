@@ -1205,4 +1205,5 @@ czip cz_to_anndata_multiref --cz_table cells.tsv -f genes.gtf \
 - [x] Peak calling using umc (see "Peak calling from methylation" above)
 - [x] Cell type prediction using Bayes model (see "Cell-type prediction" above)
 - [x] Bulk deconvolution into cell-type fractions (see "Bulk deconvolution" above)
-- Online cz visualizing tool: modify pyGenomeTrack to support .cz file
+- [x] Online cz visualizing tool: modify pyGenomeTrack to support .cz file
+- [ ] Benchmark time usage and memory usage for ALLCools -> mcds -> h5ad and cz2anndata for single-cell and pseodubulk data.
