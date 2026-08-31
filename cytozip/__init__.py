@@ -943,11 +943,13 @@ def _build_parser():
     p.add_argument('--score_cutoff', type=float, default=0.9,
                    help='sparsification threshold for hypo/hyper scores')
     p.add_argument('--nan_policy',
-                   choices=['zero', 'nan', 'prior_mean'],
-                   default='zero',
-                   help='how uncovered (cov==0) entries appear in .X: zero '
-                        '(sparse 0, default; use cytozip.to_dense to fill on '
-                        'demand), nan (dense NaN), prior_mean (dense, fill '
+                   choices=['auto', 'zero', 'nan', 'prior_mean'],
+                   default='auto',
+                   help='how uncovered (cov==0) entries appear in .X: auto '
+                        '(per score: posterior_frac->prior_mean, frac/umc->nan, '
+                        'hypo/hyper->sparse 0; default), zero (sparse 0; use '
+                        'cytozip.to_dense to fill on demand, switch to this if '
+                        'you OOM), nan (dense NaN), prior_mean (dense, fill '
                         'cell Beta prior mean)')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel processes (CPUs)')
@@ -987,8 +989,8 @@ def _build_parser():
     p.add_argument('--score_cutoff', type=float, default=0.9,
                    help='sparsification threshold for hypo/hyper scores')
     p.add_argument('--nan_policy',
-                   choices=['zero', 'nan', 'prior_mean'],
-                   default='zero',
+                   choices=['auto', 'zero', 'nan', 'prior_mean'],
+                   default='auto',
                    help='how uncovered (cov==0) entries appear in .X (see '
                         'cz_to_anndata)')
     p.add_argument('-j', '--jobs', type=int, default=1,
