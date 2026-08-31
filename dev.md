@@ -667,6 +667,7 @@ git commit -m "Add cytozip 0.3.5"
 git push origin add-cytozip
 # PR to bioconda/bioconda-recipes:master, and finally:
 conda install -c bioconda cytozip
+# @BiocondaBot Please add label, review and merge
 ```
 
 ### Upload to your own conda channel
@@ -674,7 +675,7 @@ conda install -c bioconda cytozip
 conda create -y -p ~/Software/conda/czbuild -c conda-forge \
     conda-build conda-forge-pinning anaconda-client
 # update meta.yaml (version & sha256sum)
-curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.9.tar.gz | sha256sum
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.4.1.tar.gz | sha256sum
 
 conda activate ~/Software/conda/czbuild
 rm -rf conda-build

@@ -201,7 +201,8 @@ def _resolve_chunk_keys(chunk_keys):
 def _build_context_index_worker(input, output, dim, formats, columns,
 								chunk_dims, pattern, batch_size, message):
 	"""Per-chrom vectorised worker for :func:`index_context`."""
-	reader = Reader(input)
+	# Reads one chrom's whole chunk front-to-back -> sequential.
+	reader = Reader(input, mmap_advise="sequential")
 	try:
 		arr = reader.chunk2numpy(dim, reformat=False)
 		writer = Writer(output, formats=formats, columns=columns,
@@ -239,7 +240,8 @@ def _build_region_index_worker(input, output, dim, df1, formats, columns,
 	(matches the pre-vectorised ``pos2id`` ``yield None`` branch).
 	"""
 	logger.debug(dim)
-	reader = Reader(input)
+	# Reads one chrom's whole chunk front-to-back -> sequential.
+	reader = Reader(input, mmap_advise="sequential")
 	try:
 		arr = reader.chunk2numpy(dim, reformat=False)
 		header_columns = reader.header['columns']
@@ -389,7 +391,7 @@ def index_context(input, output=None, pattern="CGN", jobs=4, chunk_keys=None):
 	# Validate pattern up front (raises early on bad input).
 	_parse_context_pattern(pattern)
 
-	reader = Reader(input)
+	reader = Reader(input, mmap_advise="random")
 	try:
 		key_filter = _resolve_chunk_keys(chunk_keys)
 		dims = [d for d in reader.chunk_key2offset
@@ -533,7 +535,7 @@ def index_regions(input, output=None, bed=None, jobs=4, chunk_keys=None):
 
 	key_filter = _resolve_chunk_keys(chunk_keys)
 
-	reader = Reader(input)
+	reader = Reader(input, mmap_advise="random")
 	try:
 		outdir = output + '.tmp'
 		os.makedirs(outdir, exist_ok=True)

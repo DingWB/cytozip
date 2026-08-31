@@ -270,7 +270,8 @@ def _read_mc_cov(path, mc_col='mc', cov_col='cov', chunk_keys=None,
         The keys actually used and the concatenated arrays.
     """
     path = _abspath(path)
-    r = Reader(path)
+    # Concatenates the whole reference axis (all chunks) -> sequential.
+    r = Reader(path, mmap_advise="sequential")
     try:
         cols = list(r.header['columns'])
         if mc_col not in cols or cov_col not in cols:
@@ -333,7 +334,8 @@ def _read_context(path, context_col='context', chunk_keys=None):
         chunks missing from a query/pseudobulk).
     """
     path = _abspath(path)
-    r = Reader(path)
+    # Concatenates the whole reference axis (all chunks) -> sequential.
+    r = Reader(path, mmap_advise="sequential")
     try:
         cols = list(r.header['columns'])
         if context_col not in cols:
@@ -389,7 +391,8 @@ def _read_mc_cov_by_chunk(path, mc_col='mc', cov_col='cov', needed_keys=None,
     dict {chunk_key: (np.ndarray float64, np.ndarray float64)}
     """
     path = _abspath(path)
-    r = Reader(path)
+    # Reads whole chunks for the needed chroms front-to-back -> sequential.
+    r = Reader(path, mmap_advise="sequential")
     out = {}
     try:
         cols = list(r.header['columns'])
@@ -437,7 +440,8 @@ def _read_mc_cov_gather(path, mc_col='mc', cov_col='cov', gather_ids=None):
     the file is skipped (zero contribution).
     """
     path = _abspath(path)
-    r = Reader(path)
+    # ID-gathers only selected rows per chunk -> random.
+    r = Reader(path, mmap_advise="random")
     out = {}
     try:
         cols = list(r.header['columns'])
@@ -1006,7 +1010,8 @@ class CellTypeClassifier:
         # O(n_full) shared arrays + ``n_workers`` in-flight chunks, still
         # independent of the number of cell types.
         def _open(t):
-            r = Reader(paths[t])
+            # Streams every chunk of a pseudobulk front-to-back -> sequential.
+            r = Reader(paths[t], mmap_advise="sequential")
             cols = list(r.header['columns'])
             if self.mc_col not in cols or self.cov_col not in cols:
                 r.close()
@@ -1905,7 +1910,7 @@ class CellTypeClassifier:
             if chan is not None:
                 needed.update(chan['chunks'].keys())
         # Inspect the layout once: column indices, chunk dims, and all keys.
-        r = Reader(path)
+        r = Reader(path, mmap_advise="random")
         try:
             cols = list(r.header['columns'])
             if self.mc_col not in cols or self.cov_col not in cols:
@@ -1946,7 +1951,8 @@ class CellTypeClassifier:
 
         def _predict_one(item):
             cell, keymap = item
-            rr = Reader(path)
+            # ID-gathers selected rows per chrom -> random.
+            rr = Reader(path, mmap_advise="random")
             try:
                 query_chunks = {}
                 for chrom, full_key in keymap.items():
@@ -2033,7 +2039,7 @@ class CellTypeClassifier:
             logger.warning(
                 f"site_importance is materialising {n_total:,} sites x "
                 f"{len(types)} theta columns; pass top= to bound memory.")
-        ref_reader = Reader(_abspath(reference)) if reference is not None else None
+        ref_reader = Reader(_abspath(reference), mmap_advise="sequential") if reference is not None else None
         parts = []
         try:
             for cname, chan in (('CG', self._cg), ('CH', self._ch)):
@@ -2292,7 +2298,7 @@ class CellTypeClassifier:
         for chan in (self._cg, self._ch):
             if chan is not None:
                 needed.update(chan['chunks'].keys())
-        r = Reader(path)
+        r = Reader(path, mmap_advise="random")
         try:
             cols = list(r.header['columns'])
             if self.mc_col not in cols or self.cov_col not in cols:
@@ -2331,7 +2337,8 @@ class CellTypeClassifier:
 
         def _one(item):
             cell, keymap = item
-            rr = Reader(path)
+            # ID-gathers selected rows per chrom -> random.
+            rr = Reader(path, mmap_advise="random")
             try:
                 query_chunks = {}
                 for chrom, full_key in keymap.items():
@@ -2527,7 +2534,7 @@ def _cz_stem(path):
 
 def _cz_is_multicell(path):
     """True if a ``.cz`` is a concatenated multi-cell file (>1 chunk dim)."""
-    r = Reader(_abspath(path))
+    r = Reader(_abspath(path), mmap_advise="random")
     try:
         return len(r.header.get('chunk_dims', []) or []) > 1
     finally:

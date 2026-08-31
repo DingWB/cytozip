@@ -174,7 +174,7 @@ def _expand_cell_specs(paths):
     """
     specs = []
     for p in paths:
-        r = Reader(p)
+        r = Reader(p, mmap_advise="random")
         try:
             if len(r.header['chunk_dims']) <= 1:
                 specs.append((p, ()))
@@ -576,7 +576,7 @@ def call_dmr(group_a, group_b, reference, output,
             "(built via `czip index context -p CGN`) to restrict to CpG sites.")
 
     # Resolve mc / cov column names from the first cell's header
-    probe = Reader(a_paths[0])
+    probe = Reader(a_paths[0], mmap_advise="random")
     cols = probe.header['columns']
     if mc_col is None:
         mc_col = cols[0]
@@ -588,7 +588,7 @@ def call_dmr(group_a, group_b, reference, output,
         cov_col = cols[cov_col]
 
     # Iterate over chunks defined by the reference
-    ref = Reader(ref_path)
+    ref = Reader(ref_path, mmap_advise="random")
     chunk_keys = list(ref.chunk_key2offset)
     ref.close()
     probe.close()
@@ -1330,7 +1330,7 @@ def call_dmr_ch(group_a, group_b, reference, output,
             "`index=<reference>.CAN.index` / `.CAC.index` etc. for "
             "sub-context analyses (built via `czip index context -p CHN|CAN|CAC|...`).")
 
-    probe = Reader(a_paths[0])
+    probe = Reader(a_paths[0], mmap_advise="random")
     cols = probe.header['columns']
     if mc_col is None:
         mc_col = cols[0]
@@ -1342,7 +1342,7 @@ def call_dmr_ch(group_a, group_b, reference, output,
         cov_col = cols[cov_col]
     probe.close()
 
-    ref = Reader(ref_path)
+    ref = Reader(ref_path, mmap_advise="random")
     chunk_keys = list(ref.chunk_key2offset)
     ref.close()
     if chroms is not None:
@@ -1739,7 +1739,7 @@ def call_dmr_one_vs_rest(indir, reference, outdir,
         # Each pseudobulk is a single 'cell' for our purposes.
         ref_path_abs = os.path.abspath(os.path.expanduser(reference))
         # Resolve mc/cov column from the first cz's header
-        probe = Reader(paths_all[0])
+        probe = Reader(paths_all[0], mmap_advise="random")
         cols = probe.header['columns']
         mc_col_resolved = dmr_kwargs.get('mc_col')
         cov_col_resolved = dmr_kwargs.get('cov_col')
@@ -1753,7 +1753,7 @@ def call_dmr_one_vs_rest(indir, reference, outdir,
             cov_col_resolved = cols[cov_col_resolved]
         probe.close()
 
-        ref_r = Reader(ref_path_abs)
+        ref_r = Reader(ref_path_abs, mmap_advise="random")
         chunk_keys = list(ref_r.chunk_key2offset)
         ref_r.close()
         chroms = dmr_kwargs.get('chroms')
@@ -2373,7 +2373,7 @@ def call_dmr_array(group_a, group_b, reference, output,
     os.makedirs(cpv_dir, exist_ok=True)
 
     # ---- 1. Discover chunk layout from the reference -----------------
-    ref_reader = Reader(ref_path)
+    ref_reader = Reader(ref_path, mmap_advise="random")
     if 'pos' not in ref_reader.header['columns']:
         ref_reader.close()
         raise ValueError(

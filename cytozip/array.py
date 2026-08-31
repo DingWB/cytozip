@@ -118,7 +118,8 @@ def dequantize_cz(cz_path, dim):
     integer-storage format was recorded there. Non-quantized columns
     are returned as-is.
     """
-    reader = Reader(cz_path)
+    # Reads a single chunk (one dim) -> random.
+    reader = Reader(cz_path, mmap_advise="random")
     quant = _parse_quant_message(reader.header.get('message', ''))
     df = reader.chunk2df(dim, reformat=True)
     reader.close()

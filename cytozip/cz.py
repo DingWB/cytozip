@@ -870,8 +870,53 @@ class Reader:
 	    decompressed block (lower 16 bits).
 	"""
 
-	def __init__(self, input, mode="rb", fileobj=None, max_cache=100):
-		r"""Initialize the class for reading a CZ (cytozip) file.
+	def __init__(self, input, mode="rb", fileobj=None, max_cache=100,
+	             mmap_advise="normal"):
+		r"""Initialize a reader for a ``.cz`` (cytozip) file.
+
+		Parameters
+		----------
+		input : str
+			Path to a local ``.cz`` file, or an ``http(s)://`` / fsspec URL.
+		mode : str, default ``"rb"``
+			Read mode; only read modes (``"r"``/``"rb"``/...) are accepted.
+		fileobj : file-like or None
+			An already-open **binary** handle to read from instead of ``input``.
+		max_cache : int, default 100
+			Maximum number of cached decompressed blocks kept in memory.
+		mmap_advise : {"willneed", "sequential", "random", "normal", None}, default "normal"
+			``madvise`` hint applied to the whole-file memory map. It only
+			affects **how the kernel prefetches / retains file pages in the OS
+			page cache** — never the data returned. Applies to local mmap-backed
+			paths only; it is a silent no-op for remote / fsspec / ``fileobj``
+			handles and on platforms without ``madvise`` (e.g. Windows). The
+			pages it touches live in the **reclaimable** page cache (not private
+			process RSS), so an over-eager hint inflates ``buff/cache`` and I/O
+			but does not by itself trigger the OOM killer. Options:
+
+			* ``"willneed"`` — ``MADV_WILLNEED``: eagerly prefetch
+			  **every page of the file** into the page cache at open. Best when
+			  the whole (or nearly whole) file will be read right away in one
+			  pass — e.g. :meth:`to_bgzip`, :meth:`view`, :meth:`to_df`,
+			  :meth:`Writer.catcz`. Wasteful when opening *many* files or when
+			  only a few chunks are read, since it reads bytes that are never used.
+			* ``"sequential"`` — ``MADV_SEQUENTIAL``: read ahead of the current
+			  position and let the kernel drop already-read pages behind it.
+			  Ideal for a single front-to-back scan of a large file while
+			  keeping resident memory (RSS) low (see :meth:`advise_sequential`).
+			* ``"random"`` — ``MADV_RANDOM``: disable read-ahead; fault pages in
+			  one at a time only as they are accessed. Best for sparse / random
+			  access — opening thousands of files that only read the header +
+			  tail index, or window / point queries
+			  (:class:`~cytozip.dataloader.CzWindowLoader`, :meth:`query_numpy`).
+			  Avoids prefetching whole files at open.
+			* ``"normal"`` (default) — ``MADV_NORMAL``: clear any prior advice and
+			  use the kernel's default read-ahead. A balanced, general-purpose
+			  choice — callers that know their access pattern override with
+			  ``"sequential"`` (whole-file scans) or ``"random"`` (point/window
+			  queries, opening many files).
+			* ``None`` — issue no ``madvise`` call at all (leave the mapping at
+			  the kernel default).
 		"""
 		if max_cache < 1:
 			raise ValueError("Use max_cache with a minimum of 1")
@@ -933,14 +978,22 @@ class Reader:
 				fd = os.open(input, os.O_RDONLY)
 				try:
 					handle = mmap.mmap(fd, 0, prot=mmap.PROT_READ)
-					# Hint the kernel to prefetch pages on sequential
-					# scans (chunk-by-chunk reads, fetch_chunk_bytes loops,
-					# whole-file rewrites).  Best-effort: ignored on
-					# platforms without madvise (Windows).
-					try:
-						handle.madvise(mmap.MADV_WILLNEED)
-					except (AttributeError, OSError):
-						pass
+					# Best-effort madvise hint (ignored on platforms without
+					# madvise, e.g. Windows). "willneed" prefetches the whole
+					# file for a single sequential scan/rewrite; opening many
+					# files (dataloader) passes "random" so open only touches
+					# the header + tail index instead of prefetching every page.
+					_adv = {
+						"willneed": getattr(mmap, "MADV_WILLNEED", None),
+						"random": getattr(mmap, "MADV_RANDOM", None),
+						"normal": getattr(mmap, "MADV_NORMAL", None),
+						"sequential": getattr(mmap, "MADV_SEQUENTIAL", None),
+					}.get(mmap_advise) if mmap_advise else None
+					if _adv is not None:
+						try:
+							handle.madvise(_adv)
+						except (AttributeError, OSError):
+							pass
 					self._mm = handle
 					self._fd = fd
 				except (ValueError, OSError):
@@ -1727,9 +1780,9 @@ class Reader:
 			hi = pos.searchsorted(ends, side='right')
 			return [arr[lo[i]:hi[i]] for i in range(n)]
 
-		# Ref-aligned mode.
-		ref_reader = (Reader(reference) if isinstance(reference, str)
-		              else reference)
+		# Ref-aligned mode. Point/region query -> random access on the ref.
+		ref_reader = (Reader(reference, mmap_advise="random")
+		              if isinstance(reference, str) else reference)
 		try:
 			ref_sc = sort_col if sort_col is not None else (
 				ref_reader.header.get('sort_col'))
@@ -1846,8 +1899,8 @@ class Reader:
 
 		# Single-thread fast path: reuse self.
 		if max_workers <= 1 or len(regions) == 1:
-			ref_obj = (Reader(reference) if isinstance(reference, str)
-			           else reference)
+			ref_obj = (Reader(reference, mmap_advise="random")
+			           if isinstance(reference, str) else reference)
 			try:
 				return [self.query_numpy(ck, s, e, reference=ref_obj,
 				                         sort_col=sort_col, index=index)
@@ -1888,12 +1941,13 @@ class Reader:
 		def _get_reader():
 			r = getattr(_local, 'r', None)
 			if r is None:
-				r = Reader(path)
+				# Point/region queries -> random access; skip whole-file prefetch.
+				r = Reader(path, mmap_advise="random")
 				_local.r = r
 				_openers.append(r)
 				if reference is not None:
 					if ref_path is not None:
-						rr = Reader(ref_path)
+						rr = Reader(ref_path, mmap_advise="random")
 						_openers.append(rr)
 						_local.ref = rr
 					else:
@@ -1901,7 +1955,7 @@ class Reader:
 				else:
 					_local.ref = None
 				if index_path is not None:
-					ir = Reader(index_path)
+					ir = Reader(index_path, mmap_advise="random")
 					_openers.append(ir)
 					_local.index = ir
 				else:
@@ -1988,7 +2042,9 @@ class Reader:
 			if isinstance(reference, Reader):
 				ref_reader = reference
 			else:
-				ref_reader = Reader(_resolve_ref_path(reference))
+				# Single-chunk read -> random access on the reference.
+				ref_reader = Reader(_resolve_ref_path(reference),
+				                    mmap_advise="random")
 				close_ref = True
 			# `self` is a 1-D context index -> gather ref rows by ID.
 			if self_cols == ['ID'] and self_fmts == ['I']:
@@ -2133,6 +2189,8 @@ class Reader:
 			``drop_zero_cov``. Set this when the file names its coverage column
 			differently. Forwarded to :meth:`chunk2df`.
 		"""
+		# Whole-file scan: sequential readahead + drop-behind keeps RSS low.
+		self.advise_sequential()
 		if chunk_order is not None and where is not None:
 			raise ValueError("Pass either `chunk_order` or `where`, not both.")
 		if chunk_order is None:
@@ -2156,12 +2214,14 @@ class Reader:
 		close_ref = False
 		ref_reader = reference
 		if reference is not None and not isinstance(reference, Reader):
-			ref_reader = Reader(_resolve_ref_path(reference))
+			# Reference is scanned genome-wide alongside self -> sequential.
+			ref_reader = Reader(_resolve_ref_path(reference),
+			                    mmap_advise="sequential")
 			close_ref = True
 		close_index = False
 		index_obj = index
 		if index is not None and isinstance(index, str):
-			index_obj = Reader(index)
+			index_obj = Reader(index, mmap_advise="random")
 			close_index = True
 
 		chunk_dims = self.header['chunk_dims']
@@ -2306,6 +2366,8 @@ class Reader:
 		-------
 
 		"""
+		# Whole-file scan: sequential readahead + drop-behind keeps RSS low.
+		self.advise_sequential()
 		if isinstance(show_dims, int):
 			show_dims = [show_dims]
 		elif isinstance(show_dims, str):
@@ -2339,7 +2401,7 @@ class Reader:
 		id_join = False  # True if `self` is a context-index (single 'ID' column)
 		if not reference is None:
 			reference = _resolve_ref_path(reference)
-			ref_reader = Reader(reference)
+			ref_reader = Reader(reference, mmap_advise="sequential")
 			# Auto-detect a 1-D context index produced by `index_context`:
 			# a single uint32 'ID' column. In that case `self` does NOT
 			# row-align with `ref` -- it stores 1-based row pointers into
@@ -2541,6 +2603,8 @@ class Reader:
 			``1`` to produce the standard ALLCools ``allc.tsv.gz`` 7-column
 			layout. Default ``False``.
 		"""
+		# Whole-file scan: sequential readahead + drop-behind keeps RSS low.
+		self.advise_sequential()
 		import pysam
 		output = os.path.abspath(os.path.expanduser(output))
 		if not output.endswith('.gz'):
@@ -2571,7 +2635,7 @@ class Reader:
 		ref_reader = None
 		if reference is not None:
 			reference = _resolve_ref_path(reference)
-			ref_reader = Reader(reference)
+			ref_reader = Reader(reference, mmap_advise="sequential")
 
 		# ---- Build numpy structured dtypes for zero-copy decoding ---------
 		self_np_dtype = _make_np_dtype(self.header['formats'], self.header['columns'])
@@ -2731,7 +2795,8 @@ class Reader:
 		# Not cached — open / read.
 		close_after = False
 		if isinstance(index, str):
-			index_reader = Reader(index)
+			# Small context index, read once and cached -> random.
+			index_reader = Reader(index, mmap_advise="random")
 			close_after = True
 		else:
 			index_reader = index
@@ -3268,7 +3333,7 @@ class Reader:
 				return self._query_iter(regions, s, e)
 		else:
 			reference = _resolve_ref_path(reference)
-			ref_reader = Reader(reference)
+			ref_reader = Reader(reference, mmap_advise="random")
 			header = (self.header['chunk_dims'] + ref_reader.header['columns']
 					  + self.header['columns'])
 			if printout:
@@ -3779,7 +3844,8 @@ def extract(input=None, output=None, index=None, batch_size=5000, jobs=1):
 	"""
 	input_path = os.path.abspath(os.path.expanduser(input))
 	index_path = os.path.abspath(os.path.expanduser(index))
-	reader = Reader(input_path)
+	# Header-only here (just enumerates chunk keys); workers do the reads.
+	reader = Reader(input_path, mmap_advise="random")
 	chrom_axis = _chrom_axis(reader)
 	writer = Writer(output, formats=reader.header['formats'],
 					columns=reader.header['columns'],
@@ -3902,9 +3968,13 @@ def align_cz(input1=None, input2=None, output=None, reference=None,
 			"align_cz requires a reference .cz (reference=...); both inputs "
 			"must be reference-less files aligned to that reference.")
 
-	ref = Reader(os.path.abspath(os.path.expanduser(reference)))
-	r1 = Reader(os.path.abspath(os.path.expanduser(input1)))
-	r2 = Reader(os.path.abspath(os.path.expanduser(input2)))
+	# Whole-file scan across every common chunk -> sequential.
+	ref = Reader(os.path.abspath(os.path.expanduser(reference)),
+	             mmap_advise="sequential")
+	r1 = Reader(os.path.abspath(os.path.expanduser(input1)),
+	            mmap_advise="sequential")
+	r2 = Reader(os.path.abspath(os.path.expanduser(input2)),
+	            mmap_advise="sequential")
 	try:
 		ref_fmts = list(ref.header['formats'])
 		ref_cols = list(ref.header['columns'])
@@ -4184,7 +4254,8 @@ def aggregate(input=None, output=None, index=None, intersect=None, exclude=None,
 	"""
 	cz_path = os.path.abspath(os.path.expanduser(input))
 	index_path = os.path.abspath(os.path.expanduser(index))
-	reader = Reader(cz_path)
+	# Header-only here (just enumerates chunk keys); workers do the reads.
+	reader = Reader(cz_path, mmap_advise="random")
 	chrom_axis = _chrom_axis(reader)
 	in_formats = list(reader.header['formats'])
 	writer = Writer(output, formats=formats,
@@ -5166,7 +5237,7 @@ class Writer:
 			from concurrent.futures import ThreadPoolExecutor
 
 			def _prefetch(path):
-				_r = Reader(path)
+				_r = Reader(path, mmap_advise="sequential")
 				try:
 					return self._catcz_load_file_chunks(_r)
 				finally:
@@ -5179,7 +5250,7 @@ class Writer:
 
 
 		for file_path in input:
-			reader = Reader(file_path)
+			reader = Reader(file_path, mmap_advise="sequential")
 			# Enforce matching sort_col between destination and source so the
 			# per-block first_coords arrays can be copied verbatim.
 			if reader.sort_col != self.sort_col:

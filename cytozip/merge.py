@@ -52,7 +52,7 @@ def _is_merged_cz(path):
     if not os.path.isfile(path):
         return False
     try:
-        r = Reader(path)
+        r = Reader(path, mmap_advise="random")
         try:
             return len(r.header['chunk_dims']) >= 2
         finally:
@@ -192,7 +192,8 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
     :mod:`cytozip.pivot`.
     """
     outname = os.path.join(outdir, chrom + f'.{block_idx_start}.cz')
-    reader1 = Reader(outfile_cat)
+    # Whole per-chrom block-range scan across all cells -> sequential.
+    reader1 = Reader(outfile_cat, mmap_advise="sequential")
     in_fmts = reader1.fmts
     in_unit_size = sum(struct.calcsize(c) for c in in_fmts)
     n_cols = len(in_fmts)
@@ -526,7 +527,7 @@ def merge_cz(input=None, class_table=None,
         # User passed an already-catcz'd file; reuse it directly.
         outfile_cat = merged_path
         user_supplied_cat = True
-        reader = Reader(outfile_cat)
+        reader = Reader(outfile_cat, mmap_advise="random")
         # Synthesize the per-cell-shape header used by downstream
         # writers: keep formats/columns/etc., but trim ``chunk_dims``
         # back to just the chrom axis (first dim) so per-chrom shards
@@ -537,7 +538,7 @@ def merge_cz(input=None, class_table=None,
         logger.info(f"Detected pre-catcz'd input {outfile_cat}; "
                     f"skipping catcz step.")
     else:
-        reader = Reader(cz_paths_abs[0])
+        reader = Reader(cz_paths_abs[0], mmap_advise="random")
         header = reader.header
         reader.close()
         outfile_cat = output + '.cat.cz'
@@ -548,7 +549,7 @@ def merge_cz(input=None, class_table=None,
                         message="catcz")
         writer.catcz(input=cz_paths_abs)
 
-    reader = Reader(outfile_cat)
+    reader = Reader(outfile_cat, mmap_advise="random")
     chrom_col = reader.header['chunk_dims'][0]
     chunk_info = reader.chunk_info
     reader.close()
@@ -637,7 +638,7 @@ def merge_cz(input=None, class_table=None,
         writer._block_first_coords = []
         writer._chunk_dims = [chrom]
         for shard_path in shard_paths:
-            reader = Reader(shard_path)
+            reader = Reader(shard_path, mmap_advise="sequential")
             reader._load_chunk(reader.header['header_size'], jump=False)
             shard_payload_start = reader._chunk_start_offset + 10
             # chunk_size = 10 (magic+size field) + payload (blocks);
@@ -828,7 +829,7 @@ def _merge_multiref_chrom_worker(chrom):
     outdir = st['outdir']
     ck = (chrom,)
 
-    target = Reader(target_reference)
+    target = Reader(target_reference, mmap_advise="random")
     try:
         target_pos, target_key, n = _ref_pos_ctx(target, ck, context_policy)
     finally:
@@ -840,7 +841,7 @@ def _merge_multiref_chrom_worker(chrom):
     cov_sum = np.zeros(n, dtype=np.int64)
 
     for ref_path, cell_paths in ref_to_cells.items():
-        dref = Reader(ref_path)
+        dref = Reader(ref_path, mmap_advise="random")
         try:
             donor_pos, donor_key, m = _ref_pos_ctx(dref, ck, context_policy)
         finally:

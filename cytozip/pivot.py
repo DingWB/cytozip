@@ -139,7 +139,8 @@ def _pivot_worker(outfile_cat, outdir, chrom, dims, mode,
     """
     assert mode in ('fraction', 'fisher')
     outname = os.path.join(outdir, chrom + f'.{block_idx_start}.txt')
-    reader1 = Reader(outfile_cat)
+    # Whole per-chrom block-range scan across all cells -> sequential.
+    reader1 = Reader(outfile_cat, mmap_advise="sequential")
     in_fmts = reader1.fmts
     in_unit_size = sum(struct.calcsize(c) for c in in_fmts)
     in_dt_struct = _structured_dtype_for(in_fmts)
@@ -249,7 +250,7 @@ def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
         return
     if cz_paths is None:
         cz_paths = [file for file in os.listdir(indir) if file.endswith(ext)]
-    reader = Reader(os.path.join(indir, cz_paths[0]))
+    reader = Reader(os.path.join(indir, cz_paths[0]), mmap_advise="random")
     header = reader.header
     reader.close()
     outfile_cat = output + '.cat.cz'
@@ -258,7 +259,7 @@ def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
                     message="catcz")
     writer.catcz(input=[os.path.join(indir, p) for p in cz_paths])
 
-    reader = Reader(outfile_cat)
+    reader = Reader(outfile_cat, mmap_advise="random")
     chrom_col = reader.header['chunk_dims'][0]
     chunk_info = reader.chunk_info
     reader.close()

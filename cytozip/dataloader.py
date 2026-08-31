@@ -154,12 +154,14 @@ def _expand_cell_specs(paths, threads=1):
     readers = {}
     if threads and int(threads) > 1 and len(unique) > 1:
         from concurrent.futures import ThreadPoolExecutor
+        from functools import partial
+        _open = partial(Reader, mmap_advise="random")
         with ThreadPoolExecutor(max_workers=int(threads)) as ex:
-            for p, r in zip(unique, ex.map(Reader, unique)):
+            for p, r in zip(unique, ex.map(_open, unique)):
                 readers[p] = r
     else:
         for p in unique:
-            readers[p] = Reader(p)
+            readers[p] = Reader(p, mmap_advise="random")
     try:
         specs = []
         for p in paths:
@@ -325,8 +327,10 @@ class CzWindowLoader:
         unique_paths = list(dict.fromkeys(paths))
         if self.threads > 1 and len(unique_paths) > 1:
             from concurrent.futures import ThreadPoolExecutor
+            from functools import partial
+            _open_cell = partial(Reader, mmap_advise="random")
             with ThreadPoolExecutor(max_workers=self.threads) as ex:
-                for p, r in zip(unique_paths, ex.map(Reader, unique_paths)):
+                for p, r in zip(unique_paths, ex.map(_open_cell, unique_paths)):
                     self._readers.setdefault(p, r)
         else:
             for p in unique_paths:
@@ -353,7 +357,10 @@ class CzWindowLoader:
         """Return the cached :class:`Reader` for ``path``, opening it on first use."""
         r = self._readers.get(path)
         if r is None:
-            r = Reader(path)
+            # Open without whole-file MADV_WILLNEED prefetch: the loader only
+            # reads the header + tail index at open and a few blocks per window,
+            # so random access avoids prefetching thousands of full cell files.
+            r = Reader(path, mmap_advise="random")
             self._readers[path] = r
         return r
 

@@ -72,9 +72,11 @@ def _pseudo_reads_chrom_worker(dim, cz_path, ref_path, index_path,
     returns ``(chrom, bed_path, n_reads, ctrl_path, n_ctrl)`` with ``*_path``
     set to ``None`` when empty. Used by :func:`call_peaks` when ``jobs > 1``.
     """
-    reader = Reader(cz_path)
-    ref_reader = Reader(ref_path)
-    index_reader = Reader(index_path) if index_path else None
+    # Per-chrom worker reads one chrom's full data+ref chunk -> sequential;
+    # the context index is a small ID lookup -> random.
+    reader = Reader(cz_path, mmap_advise="sequential")
+    ref_reader = Reader(ref_path, mmap_advise="sequential")
+    index_reader = Reader(index_path, mmap_advise="random") if index_path else None
     try:
         chrom = dim[0]
         if dim not in ref_reader.chunk_key2offset:
@@ -363,7 +365,7 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     index_reader = None
     if index is not None:
         index_path = os.path.abspath(os.path.expanduser(index))
-        index_reader = Reader(index_path)
+        index_reader = Reader(index_path, mmap_advise="random")
 
     # ---- Step 2: Build numpy structured dtypes for zero-copy binary decoding ----
     data_dtype = _make_np_dtype(reader.header['formats'],
@@ -535,7 +537,7 @@ def to_bedgraph(input=None, reference=None, output=None,
     index_reader = None
     if index is not None:
         index_path = os.path.abspath(os.path.expanduser(index))
-        index_reader = Reader(index_path)
+        index_reader = Reader(index_path, mmap_advise="random")
 
     data_dtype = _make_np_dtype(reader.header['formats'],
                                 reader.header['columns'])
@@ -874,9 +876,11 @@ def _bdg_chrom_worker(dim, cz_path, ref_path, index_path, mc_col, cov_col,
     treat_bdg_or_None, score_bdg_or_None)``; the bdg pieces are written only
     when ``keep_bdg``. Used by :func:`call_peaks_bdg`.
     """
-    reader = Reader(cz_path)
-    ref_reader = Reader(ref_path)
-    index_reader = Reader(index_path) if index_path else None
+    # Per-chrom worker reads one chrom's full data+ref chunk -> sequential;
+    # the context index is a small ID lookup -> random.
+    reader = Reader(cz_path, mmap_advise="sequential")
+    ref_reader = Reader(ref_path, mmap_advise="sequential")
+    index_reader = Reader(index_path, mmap_advise="random") if index_path else None
     try:
         chrom = dim[0]
         data_dtype = _make_np_dtype(reader.header['formats'],

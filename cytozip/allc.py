@@ -653,7 +653,8 @@ def _load_ref_pos_dict(reference, ref_pos_col=0):
     ``np.searchsorted`` directly without re-opening the reference file.
     """
     ref_path = os.path.abspath(os.path.expanduser(reference))
-    ref_reader = Reader(ref_path)
+    # Decodes the entire reference (all chroms) once -> sequential.
+    ref_reader = Reader(ref_path, mmap_advise="sequential")
     ref_fmts = ref_reader.header['formats']
     ref_record_dtype = np.dtype(
         [(f'c{i}', _fmt_to_np_dtype(f[-1]) if _fmt_to_np_dtype(f[-1]) else f'S{struct.calcsize(f)}')

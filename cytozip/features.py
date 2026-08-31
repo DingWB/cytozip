@@ -917,7 +917,8 @@ def _pool_get_ref_pos_map(hint_path=None):
 def _pool_process_file(cz_path):
     """Worker entry: aggregate a whole per-cell ``.cz`` file."""
     fbc = _WORKER_STATE["features_by_chrom"]
-    r = Reader(cz_path)
+    # Whole-file per-cell aggregation (all chroms once) -> sequential.
+    r = Reader(cz_path, mmap_advise="sequential")
     try:
         cols = r.header["columns"]
         pi = cols.index(_WORKER_STATE["pos_col"]) \
@@ -949,7 +950,7 @@ def _pool_process_prefix(args):
     if r is None or _WORKER_STATE.get("_merged_path") != cz_path:
         if r is not None:
             r.close()
-        r = Reader(cz_path)
+        r = Reader(cz_path, mmap_advise="sequential")
         _WORKER_STATE["_merged_reader"] = r
         _WORKER_STATE["_merged_path"] = cz_path
         cols = r.header["columns"]
@@ -1639,7 +1640,7 @@ def cz_to_anndata(
 
     if len(paths) == 1:
         # ---- Single-file mode: per-cell or pre-catcz'd merged file.
-        r = Reader(paths[0])
+        r = Reader(paths[0], mmap_advise="sequential")
         try:
             n_keys = len(r.header["chunk_dims"])
             pi, mc_i, cov_i = _resolve_cols(r)
@@ -1704,7 +1705,7 @@ def cz_to_anndata(
                 del arr
         else:
             for p, label in zip(keep_paths, labels):
-                r = Reader(p)
+                r = Reader(p, mmap_advise="sequential")
                 try:
                     pi, mc_i, cov_i = _resolve_cols(r)
                     rpm = _get_ref_pos_map(r.header.get("message")) \
@@ -1858,7 +1859,7 @@ def cz_to_anndata_multiref(
             rpm = _LazyRefPositions(ref_path)
             try:
                 for p, label in cells:
-                    r = Reader(p)
+                    r = Reader(p, mmap_advise="sequential")
                     try:
                         cols = r.header["columns"]
                         pi = cols.index(pos_col) if pos_col in cols else None
@@ -1901,7 +1902,7 @@ def _resolve_index_to_dict(index, chroms=None) -> dict:
         return {k: np.asarray(v, dtype=np.int64) for k, v in index.items()}
     close_after = False
     if isinstance(index, str):
-        ir = Reader(index)
+        ir = Reader(index, mmap_advise="random")
         close_after = True
     elif isinstance(index, Reader):
         ir = index
