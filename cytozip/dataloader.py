@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import os
 import glob
+import threading
 import collections
 
 from .cz import (Reader, _make_np_dtype, _find_pos_col,
@@ -258,10 +259,11 @@ class CzWindowLoader:
     """Reusable loader that opens the reference, index and cells **once**.
 
     Construct it with the reference, the single-cell data and (optionally) a
-    context index; the reference / index readers and every per-cell reader are
-    opened at construction and the cell order is resolved from headers. Then
-    call :meth:`iter_windows` (or :meth:`load_chrom`) repeatedly for any
-    chromosome without re-resolving cells or re-opening files — ideal for a
+    context index; the reference / index readers stay open for the loader's
+    lifetime, per-cell files are opened lazily through a bounded LRU cache
+    (see ``max_open_readers``), and the cell order is resolved from headers at
+    construction. Then call :meth:`iter_windows` (or :meth:`load_chrom`)
+    repeatedly for any chromosome without re-resolving cells — ideal for a
     deep-learning training loop that revisits chromosomes across epochs.
 
     Parameters
@@ -287,8 +289,20 @@ class CzWindowLoader:
         the default ``int32`` (and speed up allocation / gather).
     threads : int, default 1
         Number of threads used to (a) open the per-cell files at construction
-        and (b) decode per-cell chunks concurrently. Both are I/O / C-bound and
-        release the GIL, so threads scale well.
+        and (b) read per-cell chunks concurrently. The file I/O (reads / mmap
+        faults) and the numpy post-processing release the GIL and overlap
+        across threads; note the ``libdeflate`` block decompression itself runs
+        under the GIL, so threads mainly help I/O-bound (cold-cache / network
+        FS) reads rather than pure decompression throughput.
+    max_open_readers : int or None, default 1000
+        Upper bound on how many per-cell ``.cz`` files hold a live file
+        descriptor at once. Past this limit the least-recently-used reader is
+        *detached* — its fd / mmap is released (so the file stops counting
+        against ``ulimit -n``) but its parsed header / chunk index stay in
+        memory, so re-acquiring it only re-mmaps instead of re-parsing. This
+        caps live fds (preventing ``OSError: Too many open files``) while
+        keeping re-opens cheap. The reference / index files and any ``catcz``'d
+        multi-cell file are not counted. ``None`` / ``0`` disables eviction.
 
     Example
     -------
@@ -304,45 +318,87 @@ class CzWindowLoader:
     """
 
     def __init__(self, reference, cells, index=None, mc_col=None, cov_col=None,
-                 dtype=np.int32, threads=1):
+                 dtype=np.int32, threads=1, max_open_readers=1000):
         """Open the reference / index / cells and resolve cell order (see the
-        class docstring for the parameters)."""
+        class docstring for the parameters).
+
+        ``max_open_readers`` bounds how many per-cell ``.cz`` files hold a live
+        file descriptor at once: past the limit the least-recently-used reader
+        is *detached* (fd / mmap released, parsed metadata kept), so a huge
+        per-cell cohort can't exhaust the process fd limit (``OSError: Too many
+        open files``) yet re-opening stays cheap (just re-mmap, no re-parse).
+        The reference / index files and any ``catcz``'d multi-cell file are not
+        counted. Set to ``None`` / ``0`` to disable eviction (keep all open).
+        """
         self.dtype = dtype
         self.threads = int(threads)
-        # Instance-owned reader cache (independent of the module-global one)
-        # so close() has a well-defined lifetime.
-        self._readers = {}
-        self._ref = self._reader(os.path.abspath(os.path.expanduser(reference)))
+        self._max_open = int(max_open_readers) if max_open_readers else 0
+        # Per-cell readers live in a bounded LRU cache (``_readers``); an entry
+        # is *pinned* while a read is using it and is never evicted then.
+        # ``_lru_lock`` guards both the LRU order and the pin counts.
+        self._readers = collections.OrderedDict()
+        self._detached_readers = {}   # path -> fd-released Reader (metadata kept)
+        self._pinned = collections.Counter()
+        self._lru_lock = threading.Lock()
+        # Per-path spare-Reader pools for threaded reads on a shared file: a
+        # Reader carries transient decode state (block buffer + file position),
+        # so cells that live in one file (a ``catcz``'d multi-cell ``.cz``)
+        # can't be read concurrently through a single Reader. Threads borrow a
+        # private Reader here and return it after each read.
+        self._pool_lock = threading.Lock()
+        self._reader_pools = {}
+        self._pooled_readers = []
+        self._shared_paths = set()
+        # Reference and index stay open for the loader's lifetime (touched on
+        # every window), so they bypass the LRU and its budget.
+        self._ref = Reader(os.path.abspath(os.path.expanduser(reference)),
+                           mmap_advise="random")
         self._ref.advise_sequential()
         self._ref_dt = _reader_np_dtype(self._ref)
         self._ref_pos_name = self._ref.header["columns"][_find_pos_col(self._ref)]
         self._ix = None
         if index is not None:
-            self._ix = self._reader(os.path.abspath(os.path.expanduser(index)))
-        # Open every unique per-cell file ONCE on a thread pool (opening is
-        # I/O / latency-bound: mmap + header + chunk-index read). The same
-        # readers are reused both to enumerate cells and for every later read,
-        # so files are never opened twice.
+            self._ix = Reader(os.path.abspath(os.path.expanduser(index)),
+                              mmap_advise="random")
+        # Enumerate cells by opening each unique file through the LRU (so even
+        # here we never hold more than ``max_open_readers`` open); a file is
+        # pinned only while its structure is read, then released / evictable.
         paths = _resolve_cell_paths(cells)
         unique_paths = list(dict.fromkeys(paths))
+
+        def _enum(p):
+            r, kind = self._acquire_reader(p)
+            try:
+                return _specs_from_reader(p, r)
+            finally:
+                self._release_reader(p, r, kind)
+
+        path_specs = {}
         if self.threads > 1 and len(unique_paths) > 1:
             from concurrent.futures import ThreadPoolExecutor
-            from functools import partial
-            _open_cell = partial(Reader, mmap_advise="random")
             with ThreadPoolExecutor(max_workers=self.threads) as ex:
-                for p, r in zip(unique_paths, ex.map(_open_cell, unique_paths)):
-                    self._readers.setdefault(p, r)
+                for p, specs in zip(unique_paths, ex.map(_enum, unique_paths)):
+                    path_specs[p] = specs
         else:
             for p in unique_paths:
-                self._reader(p)
-        # Derive (path, suffix) cell specs from the already-open readers.
+                path_specs[p] = _enum(p)
+        # Derive (path, suffix) cell specs in the caller's path order.
         self._specs = []
         for p in paths:
-            self._specs.extend(_specs_from_reader(p, self._readers[p]))
+            self._specs.extend(path_specs[p])
         if not self._specs:
             raise ValueError("no cells resolved from `cells` argument")
         self.cell_ids = [_spec_cell_id(p, s) for (p, s) in self._specs]
-        cols = self._readers[self._specs[0][0]].header["columns"]
+        # A path carrying more than one cell (a ``catcz``'d file) needs a
+        # private Reader per concurrent read; per-cell paths keep the shared one.
+        _counts = collections.Counter(p for (p, _s) in self._specs)
+        self._shared_paths = {p for p, c in _counts.items() if c > 1}
+        first = self._specs[0][0]
+        r0, kind0 = self._acquire_reader(first)
+        try:
+            cols = r0.header["columns"]
+        finally:
+            self._release_reader(first, r0, kind0)
         self.mc_col = _resolve_col(cols, mc_col, 0)
         self.cov_col = _resolve_col(cols, cov_col, -1)
         self._sel_cache = {}   # chrom dim -> 0-based sel_ids (or None)
@@ -353,16 +409,91 @@ class CzWindowLoader:
         """List of chromosome names in the reference (in on-disk order)."""
         return [k[0] for k in self._ref.chunk_key2offset]
 
-    def _reader(self, path):
-        """Return the cached :class:`Reader` for ``path``, opening it on first use."""
-        r = self._readers.get(path)
-        if r is None:
-            # Open without whole-file MADV_WILLNEED prefetch: the loader only
-            # reads the header + tail index at open and a few blocks per window,
-            # so random access avoids prefetching thousands of full cell files.
+    def _acquire_reader(self, path):
+        """Borrow a Reader for ``path`` for exclusive use during one read.
+
+        Per-cell paths come from a bounded LRU cache: at most
+        ``max_open_readers`` files stay open, so a large per-cell cohort can't
+        exhaust file descriptors. The borrowed reader is *pinned* so eviction
+        can't close it mid-read. A ``catcz``'d file read by several threads
+        instead gets a private reader from a per-path pool (its cells share one
+        file and would otherwise clobber a single decode buffer). Returns
+        ``(reader, kind)``; pass both to :meth:`_release_reader`.
+        """
+        if self.threads > 1 and path in self._shared_paths:
+            with self._pool_lock:
+                pool = self._reader_pools.get(path)
+                if pool:
+                    return pool.pop(), "pool"
             r = Reader(path, mmap_advise="random")
+            with self._pool_lock:
+                self._pooled_readers.append(r)
+            return r, "pool"
+        with self._lru_lock:
+            r = self._readers.get(path)
+            if r is not None:
+                self._readers.move_to_end(path)
+                self._pinned[path] += 1
+                self._evict_locked()
+                return r, "lru"
+            detached = self._detached_readers.pop(path, None)
+        # Outside the lock: reattach a previously-detached reader (cheap
+        # re-mmap that reuses its parsed metadata) or open a fresh one. A
+        # non-shared path is only acquired by one thread at a time, so there
+        # is no duplicate-open race.
+        if detached is not None:
+            detached.reattach()
+            r = detached
+        else:
+            r = Reader(path, mmap_advise="random")
+        with self._lru_lock:
             self._readers[path] = r
-        return r
+            self._pinned[path] += 1
+            self._evict_locked()
+        return r, "lru"
+
+    def _release_reader(self, path, r, kind):
+        """Return a Reader borrowed from :meth:`_acquire_reader`."""
+        if kind == "pool":
+            with self._pool_lock:
+                self._reader_pools.setdefault(path, []).append(r)
+            return
+        with self._lru_lock:
+            n = self._pinned.get(path, 0) - 1
+            if n > 0:
+                self._pinned[path] = n
+            else:
+                self._pinned.pop(path, None)
+            self._evict_locked()
+
+    def _evict_locked(self):
+        """Detach least-recently-used *unpinned* readers above the budget.
+
+        Caller must hold ``self._lru_lock``. An evicted reader releases its
+        fd / mmap (so the file stops counting against the fd limit) but keeps
+        its parsed metadata, moving to ``_detached_readers``; re-acquiring it
+        later only re-mmaps instead of re-parsing. Pinned (in-use) readers are
+        never touched, so the open count may briefly exceed the budget when
+        more than ``max_open_readers`` reads run concurrently.
+        """
+        if not self._max_open:
+            return
+        while len(self._readers) > self._max_open:
+            victim = None
+            for p in self._readers:            # oldest first
+                if p not in self._pinned:
+                    victim = p
+                    break
+            if victim is None:
+                break                          # everything currently open is pinned
+            vr = self._readers.pop(victim)
+            if vr.detach():                    # free fd, keep parsed metadata
+                self._detached_readers[victim] = vr
+            else:                              # non-detachable -> full close
+                try:
+                    vr.close()
+                except Exception:
+                    pass
 
     def _sel_ids(self, dim):
         """0-based context-index row ids for a chrom, cached; None if no index."""
@@ -385,27 +516,30 @@ class CzWindowLoader:
         chunk yields zero rows."""
         path, suffix = spec
         nsel = n_sites if sel_ids is None else sel_ids.shape[0]
-        r = self._reader(path)
-        key = (dim[0],) + suffix if suffix else dim
-        if key not in r.chunk_key2offset:
-            return np.zeros(nsel, self.dtype), np.zeros(nsel, self.dtype)
-        raw = r.fetch_chunk_bytes(key)
-        if not raw:
-            return np.zeros(nsel, self.dtype), np.zeros(nsel, self.dtype)
-        arr = np.frombuffer(raw, dtype=_reader_np_dtype(r))
-        if arr.shape[0] != n_sites:
+        r, kind = self._acquire_reader(path)
+        try:
+            key = (dim[0],) + suffix if suffix else dim
+            if key not in r.chunk_key2offset:
+                return np.zeros(nsel, self.dtype), np.zeros(nsel, self.dtype)
+            raw = r.fetch_chunk_bytes(key)
+            if not raw:
+                return np.zeros(nsel, self.dtype), np.zeros(nsel, self.dtype)
+            arr = np.frombuffer(raw, dtype=_reader_np_dtype(r))
+            if arr.shape[0] != n_sites:
+                r.release_chunk(key)
+                return np.zeros(nsel, self.dtype), np.zeros(nsel, self.dtype)
+            mc_full = arr[self.mc_col]
+            cov_full = arr[self.cov_col]
+            if sel_ids is not None:
+                mc_row = mc_full[sel_ids].astype(self.dtype, copy=False)
+                cov_row = cov_full[sel_ids].astype(self.dtype, copy=False)
+            else:
+                mc_row = mc_full.astype(self.dtype, copy=False)
+                cov_row = cov_full.astype(self.dtype, copy=False)
             r.release_chunk(key)
-            return np.zeros(nsel, self.dtype), np.zeros(nsel, self.dtype)
-        mc_full = arr[self.mc_col]
-        cov_full = arr[self.cov_col]
-        if sel_ids is not None:
-            mc_row = mc_full[sel_ids].astype(self.dtype, copy=False)
-            cov_row = cov_full[sel_ids].astype(self.dtype, copy=False)
-        else:
-            mc_row = mc_full.astype(self.dtype, copy=False)
-            cov_row = cov_full.astype(self.dtype, copy=False)
-        r.release_chunk(key)
-        return mc_row, cov_row
+            return mc_row, cov_row
+        finally:
+            self._release_reader(path, r, kind)
 
     def _chrom_axis(self, dim):
         """Return ``(pos, n_sites, sel_ids)`` for a chrom, caching the (small)
@@ -440,50 +574,53 @@ class CzWindowLoader:
         filter). A missing / length-mismatched chunk yields zero rows.
         """
         path, suffix = spec
-        r = self._reader(path)
-        key = (dim[0],) + suffix if suffix else dim
-        zero = (np.zeros(width, self.dtype), np.zeros(width, self.dtype))
-        if key not in r.chunk_key2offset:
-            return zero
-        np_dt = _reader_np_dtype(r)
-        unit = np_dt.itemsize
-        if not r._load_chunk(r.chunk_key2offset[key], jump=False):
-            return zero
-        if r._chunk_data_len // unit != n_sites:
-            return zero  # not row-aligned to the reference -> contribute zeros
-        if getattr(r, "_delta_cols", ()):
-            # Delta blocks are record-aligned (different geometry); the
-            # byte-range slice below assumes contiguous packing, so fall back
-            # to a whole-chunk decode for the rare delta-encoded cell.
-            arr = np.frombuffer(r.fetch_chunk_bytes(key), dtype=np_dt)[abs0:abs1]
-        else:
-            # Non-delta blocks hold exactly _BLOCK_MAX_LEN decompressed bytes
-            # each (except the last), so record r starts at byte r*unit and
-            # block b starts at byte b*_BLOCK_MAX_LEN in the decompressed stream.
-            byte0 = abs0 * unit
-            byte1 = abs1 * unit
-            blk0 = byte0 // _BLOCK_MAX_LEN
-            blk1 = (byte1 - 1) // _BLOCK_MAX_LEN
-            vos = r._chunk_block_1st_record_virtual_offsets
-            if blk1 == blk0:
-                r._load_block(start_offset=vos[blk0] >> _VO_OFFSET_BITS)
-                buf = r._buffer
+        r, kind = self._acquire_reader(path)
+        try:
+            key = (dim[0],) + suffix if suffix else dim
+            zero = (np.zeros(width, self.dtype), np.zeros(width, self.dtype))
+            if key not in r.chunk_key2offset:
+                return zero
+            np_dt = _reader_np_dtype(r)
+            unit = np_dt.itemsize
+            if not r._load_chunk(r.chunk_key2offset[key], jump=False):
+                return zero
+            if r._chunk_data_len // unit != n_sites:
+                return zero  # not row-aligned to the reference -> contribute zeros
+            if getattr(r, "_delta_cols", ()):
+                # Delta blocks are record-aligned (different geometry); the
+                # byte-range slice below assumes contiguous packing, so fall back
+                # to a whole-chunk decode for the rare delta-encoded cell.
+                arr = np.frombuffer(r.fetch_chunk_bytes(key), dtype=np_dt)[abs0:abs1]
             else:
-                parts = []
-                for b in range(blk0, blk1 + 1):
-                    r._load_block(start_offset=vos[b] >> _VO_OFFSET_BITS)
-                    parts.append(r._buffer)
-                buf = b"".join(parts)
-            local0 = byte0 - blk0 * _BLOCK_MAX_LEN
-            local1 = byte1 - blk0 * _BLOCK_MAX_LEN
-            arr = np.frombuffer(buf[local0:local1], dtype=np_dt)
-        mc_full = arr[self.mc_col]
-        cov_full = arr[self.cov_col]
-        if sel_local is not None:
-            return (mc_full[sel_local].astype(self.dtype, copy=False),
-                    cov_full[sel_local].astype(self.dtype, copy=False))
-        return (mc_full.astype(self.dtype, copy=False),
-                cov_full.astype(self.dtype, copy=False))
+                # Non-delta blocks hold exactly _BLOCK_MAX_LEN decompressed bytes
+                # each (except the last), so record r starts at byte r*unit and
+                # block b starts at byte b*_BLOCK_MAX_LEN in the decompressed stream.
+                byte0 = abs0 * unit
+                byte1 = abs1 * unit
+                blk0 = byte0 // _BLOCK_MAX_LEN
+                blk1 = (byte1 - 1) // _BLOCK_MAX_LEN
+                vos = r._chunk_block_1st_record_virtual_offsets
+                if blk1 == blk0:
+                    r._load_block(start_offset=vos[blk0] >> _VO_OFFSET_BITS)
+                    buf = r._buffer
+                else:
+                    parts = []
+                    for b in range(blk0, blk1 + 1):
+                        r._load_block(start_offset=vos[b] >> _VO_OFFSET_BITS)
+                        parts.append(r._buffer)
+                    buf = b"".join(parts)
+                local0 = byte0 - blk0 * _BLOCK_MAX_LEN
+                local1 = byte1 - blk0 * _BLOCK_MAX_LEN
+                arr = np.frombuffer(buf[local0:local1], dtype=np_dt)
+            mc_full = arr[self.mc_col]
+            cov_full = arr[self.cov_col]
+            if sel_local is not None:
+                return (mc_full[sel_local].astype(self.dtype, copy=False),
+                        cov_full[sel_local].astype(self.dtype, copy=False))
+            return (mc_full.astype(self.dtype, copy=False),
+                    cov_full.astype(self.dtype, copy=False))
+        finally:
+            self._release_reader(path, r, kind)
 
     def _read_all_cells_range(self, dim, abs0, abs1, sel_local, width, n_sites):
         """Read reference row range ``[abs0, abs1)`` (gathered to ``sel_local``
@@ -569,7 +706,11 @@ class CzWindowLoader:
         # Segment cap in reference rows; auto ≈ one .cz block (aligns reads to a
         # decompression unit) unless the caller overrides via ``max_sites``.
         if max_sites is None:
-            unit = _reader_np_dtype(self._reader(self._specs[0][0])).itemsize
+            r0, kind0 = self._acquire_reader(self._specs[0][0])
+            try:
+                unit = _reader_np_dtype(r0).itemsize
+            finally:
+                self._release_reader(self._specs[0][0], r0, kind0)
             cap = max(1, _BLOCK_MAX_LEN // unit)
         else:
             cap = int(max_sites) if int(max_sites) > 0 else pos.shape[0]
@@ -763,9 +904,7 @@ class CzWindowLoader:
 
             Keep the depth small: ``True`` (1 segment) is usually enough; raise
             to ``2`` only if profiling shows reads are not fully hidden and you
-            have the RAM. Note: with a single ``catcz``'d multi-cell file (all
-            cells share one Reader), ``threads > 1`` reads are not thread-safe
-            regardless of this flag — prefetch does not change that.
+            have the RAM.
 
         Row order of ``mc`` / ``cov`` follows :attr:`cell_ids`.
         """
@@ -779,12 +918,26 @@ class CzWindowLoader:
 
     def close(self):
         """Close every reader opened by this loader."""
-        for r in self._readers.values():
+        readers = []
+        if getattr(self, "_ref", None) is not None:
+            readers.append(self._ref)
+        if getattr(self, "_ix", None) is not None:
+            readers.append(self._ix)
+        with self._lru_lock:
+            readers.extend(self._readers.values())
+            readers.extend(self._detached_readers.values())
+            self._readers.clear()
+            self._detached_readers.clear()
+            self._pinned.clear()
+        with self._pool_lock:
+            readers.extend(self._pooled_readers)
+            self._pooled_readers.clear()
+            self._reader_pools.clear()
+        for r in readers:
             try:
                 r.close()
             except Exception:
                 pass
-        self._readers.clear()
         self._ref_cache.clear()
 
     def __enter__(self):

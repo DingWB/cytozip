@@ -1008,6 +1008,9 @@ class Reader:
 		self._handle = handle
 		self._is_remote = isinstance(handle, RemoteFile) or hasattr(self, '_fsspec_handle')
 		self.input = input
+		# Remember the madvise mode so detach()/reattach() can re-apply it.
+		self._mmap_advise = mmap_advise
+		self._detached = False
 		self.max_cache = max_cache
 		self._block_start_offset = None
 		self._block_raw_length = None
@@ -1269,6 +1272,8 @@ class Reader:
 		       when the magic doesn't match.
 		"""
 		_ensure_cz_accel()
+		if getattr(self, "_detached", False):
+			self.reattach()
 		if start_offset is None:  # continue from end of previous chunk
 			start_offset = self._chunk_end_offset
 		if start_offset >= self.header['total_size']:
@@ -3574,9 +3579,78 @@ class Reader:
 		except (AttributeError, OSError, ValueError):
 			pass
 
+	def detach(self):
+		"""Release the fd/mmap but keep parsed metadata (header/index) resident.
+
+		Frees the OS file descriptor and memory map so the file no longer
+		counts against the process fd limit, while keeping the in-memory
+		header and ``chunk_key2offset`` so a later :meth:`reattach` resumes
+		reads without re-parsing. Returns ``True`` if detached, ``False`` for
+		handles that can't be (remote / fsspec / fileobj / non-mmap fallback).
+		"""
+		mm = getattr(self, "_mm", None)
+		fd = getattr(self, "_fd", None)
+		if mm is None or fd is None or getattr(self, "_is_remote", False):
+			return False
+		try:
+			mm.close()
+		except Exception:
+			pass
+		if isinstance(fd, int):
+			try:
+				os.close(fd)
+			except Exception:
+				pass
+		self._mm = None
+		self._fd = None
+		self._handle = None
+		# Transient block state indexes into the now-freed map; reset it so the
+		# next read reloads instead of trusting a stale offset/buffer.
+		self._buffer = None
+		self._block_start_offset = None
+		self._block_raw_length = None
+		self._detached = True
+		return True
+
+	def reattach(self):
+		"""Re-open the fd/mmap released by :meth:`detach`; metadata is reused.
+
+		Much cheaper than a fresh open: the header and chunk index already
+		live in memory, so only the file descriptor and memory map (plus the
+		madvise hint) are rebuilt. No-op when the reader is not detached.
+		"""
+		if not getattr(self, "_detached", False):
+			return
+		fd = os.open(self.input, os.O_RDONLY)
+		try:
+			mm = mmap.mmap(fd, 0, prot=mmap.PROT_READ)
+		except (ValueError, OSError):
+			os.close(fd)
+			self._handle = _open(self.input, "rb")
+			self._mm = None
+			self._fd = None
+			self._detached = False
+			return
+		_adv = {
+			"willneed": getattr(mmap, "MADV_WILLNEED", None),
+			"random": getattr(mmap, "MADV_RANDOM", None),
+			"normal": getattr(mmap, "MADV_NORMAL", None),
+			"sequential": getattr(mmap, "MADV_SEQUENTIAL", None),
+		}.get(self._mmap_advise) if getattr(self, "_mmap_advise", None) else None
+		if _adv is not None:
+			try:
+				mm.madvise(_adv)
+			except (AttributeError, OSError):
+				pass
+		self._handle = mm
+		self._mm = mm
+		self._fd = fd
+		self._detached = False
+
 	def close(self):
 		"""Close BGZF file."""
-		self._handle.close()
+		if self._handle is not None:
+			self._handle.close()
 		# Close the underlying fd that was kept open to back the mmap.
 		fd = getattr(self, '_fd', None)
 		if fd is not None and fd is not self._handle:
