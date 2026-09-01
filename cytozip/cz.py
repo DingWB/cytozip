@@ -5307,6 +5307,9 @@ class Writer:
 			prefetch_workers = 4
 		_prefetch_executor = None
 		_prefetch_future_by_path = {}
+		# Index of the next input file not yet submitted for prefetch. Used
+		# to slide the prefetch window forward as the main loop consumes files.
+		_prefetch_next_idx = 0
 		if prefetch_workers > 0 and len(input) > 1:
 			from concurrent.futures import ThreadPoolExecutor
 
@@ -5318,9 +5321,16 @@ class Writer:
 					_r.close()
 
 			_prefetch_executor = ThreadPoolExecutor(max_workers=prefetch_workers)
-			_prefetch_future_by_path = {
-				p: _prefetch_executor.submit(_prefetch, p) for p in input
-			}
+			# Bounded sliding window: keep at most ``prefetch_workers + 1``
+			# files' raw bytes in flight. Submitting every input up front
+			# (e.g. 100k per-cell files) let completed futures pile up whole
+			# files in RAM faster than the disk-bound writer consumed them,
+			# blowing up peak memory. The window is refilled one file at a
+			# time as each is consumed below.
+			_prefetch_window = prefetch_workers + 1
+			_prefetch_next_idx = min(_prefetch_window, len(input))
+			for _p in input[:_prefetch_next_idx]:
+				_prefetch_future_by_path[_p] = _prefetch_executor.submit(_prefetch, _p)
 
 
 		for file_path in input:
@@ -5350,6 +5360,13 @@ class Writer:
 			fut = _prefetch_future_by_path.pop(file_path, None)
 			if fut is not None:
 				prefetched = fut.result()
+				# Slide the window: submit the next unsubmitted file so at
+				# most ``prefetch_workers + 1`` files are held in memory.
+				if _prefetch_executor is not None and _prefetch_next_idx < len(input):
+					_next_path = input[_prefetch_next_idx]
+					_prefetch_future_by_path[_next_path] = _prefetch_executor.submit(
+						_prefetch, _next_path)
+					_prefetch_next_idx += 1
 			else:
 				prefetched = self._catcz_load_file_chunks(reader)
 			# data_size = reader.header['total_size'] - reader.header['header_size']
@@ -5382,11 +5399,17 @@ class Writer:
 				# self._handle.write(reader._handle.read(end_offset - start_offset))
 				self._handle.write(raw_chunk_bytes)
 				# modify the chunk_black_1st_record_virtual_offsets
-				# Vectorized: shift all block physical offsets by delta_offset
+				# Vectorized: shift all block physical offsets by delta_offset.
+				# ``delta_offset`` may be negative; mask to its 64-bit two's
+				# complement so ``np.uint64`` accepts it (numpy 2.x raises
+				# OverflowError on negative Python ints, unlike numpy 1.x which
+				# wrapped silently). The subsequent uint64 add wraps mod 2**64,
+				# giving the same block_starts + delta result on both versions.
+				delta_u64 = np.uint64(delta_offset & 0xFFFFFFFFFFFFFFFF)
 				offsets = np.array(b1str_virtual_offsets, dtype=np.uint64)
 				block_starts = offsets >> np.uint64(_VO_OFFSET_BITS)
 				within_offsets = offsets & np.uint64(_VO_OFFSET_MASK)
-				new_offsets = (((block_starts + np.uint64(delta_offset)).astype(np.uint64) << np.uint64(_VO_OFFSET_BITS))
+				new_offsets = (((block_starts + delta_u64).astype(np.uint64) << np.uint64(_VO_OFFSET_BITS))
 							   | within_offsets.astype(np.uint64))
 				self._handle.write(new_offsets.tobytes())
 				# Copy first_coords array (if sort_col is enabled) between

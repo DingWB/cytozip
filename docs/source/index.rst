@@ -1,4 +1,4 @@
-Chunk ZIP
+cytozip
 ======================================
 `cytozip <https://github.com/DingWB/cytozip>`_ is a scalable, cloud-native ecosystem for single-cell and population DNA methylation analysis.
 
