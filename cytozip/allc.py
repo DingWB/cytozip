@@ -1273,6 +1273,295 @@ def compare_allc(allc1, allc2, drop_zero_cov=True, dtype='B',
 
     return diff
 
+
+# ==========================================================
+# Per-cell methylation summary (context mC fractions + lambda spike-in)
+# ==========================================================
+_LAMBDA_DINUCS = ('CA', 'CC', 'CT', 'CG')
+
+
+def _resolve_mc_inputs(input):
+    """Expand a list / directory / glob / comma-separated string / path-list file into file paths."""
+    import glob as _glob
+    if isinstance(input, (list, tuple)):
+        paths = [str(p) for p in input]
+    else:
+        s = os.path.expanduser(str(input))
+        if os.path.isdir(s):
+            paths = sorted(_glob.glob(os.path.join(s, '*.cz'))
+                           + _glob.glob(os.path.join(s, '*.allc.tsv.gz')))
+        elif any(ch in s for ch in '*?['):
+            paths = sorted(_glob.glob(s))
+        elif ',' in s:
+            paths = [p for p in s.split(',') if p]
+        elif s.endswith(('.cz', '.tsv.gz', '.tsv')):
+            paths = [s]
+        else:
+            # text file listing one path per line (first tab-separated column)
+            with open(s) as f:
+                paths = [line.split('\t')[0].strip() for line in f if line.strip()]
+    if not paths:
+        raise ValueError(f"no input files found from {input!r}")
+    return [os.path.abspath(os.path.expanduser(p)) for p in paths]
+
+
+def _context_sums(ctx, mc, cov):
+    """Sum mc / cov per context; ``ctx`` is a fixed-width bytes (void/S) array."""
+    if len(ctx) == 0:
+        return pd.DataFrame(columns=['mc', 'cov'], dtype='int64')
+    w = ctx.dtype.itemsize
+    b = np.frombuffer(ctx.tobytes(), dtype=np.uint8).reshape(-1, w)
+    code = np.zeros(len(b), dtype=np.int64)
+    for i in range(w):
+        code = (code << 8) | b[:, i].astype(np.int64)
+    inv, uniq = pd.factorize(code)
+    mc_sum = np.bincount(inv, weights=mc, minlength=len(uniq)).astype(np.int64)
+    cov_sum = np.bincount(inv, weights=cov, minlength=len(uniq)).astype(np.int64)
+    names = [bytes((int(c) >> (8 * (w - 1 - i))) & 0xFF for i in range(w)).decode()
+             for c in uniq]
+    return pd.DataFrame({'mc': mc_sum, 'cov': cov_sum}, index=names)
+
+
+def _add_sums(frames):
+    if not frames:
+        return pd.DataFrame(columns=['mc', 'cov'], dtype='int64')
+    return pd.concat(frames).groupby(level=0).sum().astype('int64')
+
+
+def _cz_context_counts(path, reference, lambda_chrom, lambda_only=False):
+    """Per-context (all chroms, lambda chrom) mc / cov sums of one single-cell .cz."""
+    if reference is None:
+        raise ValueError(f"reference .cz is required to summarize {path} "
+                         f"(no {os.path.basename(path)}.count.csv found)")
+    cell = Reader(path)
+    ref = Reader(os.path.abspath(os.path.expanduser(reference)))
+    try:
+        if len(cell.header['chunk_dims']) != 1:
+            raise ValueError(f"{path}: expected a per-cell .cz (chunk_dims=['chrom']), "
+                             f"got {cell.header['chunk_dims']}")
+        cols = cell.header['columns']
+        mc_f, cov_f = f"f{cols.index('mc')}", f"f{cols.index('cov')}"
+        ctx_f = f"f{ref.header['columns'].index('context')}"
+        parts, lam_parts = [], []
+        for key in cell.chunk_key2offset:
+            chrom = key[0]
+            if lambda_only and chrom != lambda_chrom:
+                continue
+            c = cell.chunk2numpy(key)
+            r = ref.chunk2numpy((chrom,))
+            if len(c) != len(r):
+                raise ValueError(f"{path}: chunk {chrom} has {len(c)} rows but the "
+                                 f"reference has {len(r)}; wrong reference?")
+            cov = c[cov_f].astype(np.int64)
+            nz = cov > 0
+            sums = _context_sums(r[ctx_f][nz], c[mc_f][nz].astype(np.int64), cov[nz])
+            parts.append(sums)
+            if chrom == lambda_chrom:
+                lam_parts.append(sums)
+    finally:
+        cell.close()
+        ref.close()
+    return _add_sums(parts), _add_sums(lam_parts)
+
+
+def _allc_context_counts(path, lambda_chrom, lambda_only=False):
+    """Per-context (all chroms, lambda chrom) mc / cov sums of one allc.tsv.gz."""
+    if lambda_only and os.path.exists(path + '.tbi'):
+        import pysam
+        with pysam.TabixFile(path) as tbi:
+            rows = ([line.split('\t')[3:6] for line in tbi.fetch(lambda_chrom)]
+                    if lambda_chrom in tbi.contigs else [])
+        df = pd.DataFrame(rows, columns=['context', 'mc', 'cov'])
+        df[['mc', 'cov']] = df[['mc', 'cov']].astype('int64')
+        lam = df[df['cov'] > 0].groupby('context')[['mc', 'cov']].sum()
+        return _add_sums([]), _add_sums([lam])
+    parts, lam_parts = [], []
+    for chunk in pd.read_csv(path, sep='\t', header=None, names=_ALLC_COLS,
+                             usecols=['chrom', 'context', 'mc', 'cov'],
+                             dtype={'chrom': str, 'context': str},
+                             chunksize=5_000_000):
+        chunk = chunk[chunk['cov'] > 0]
+        parts.append(chunk.groupby('context')[['mc', 'cov']].sum())
+        if lambda_chrom:
+            lam = chunk[chunk['chrom'] == lambda_chrom]
+            lam_parts.append(lam.groupby('context')[['mc', 'cov']].sum())
+    return _add_sums(parts), _add_sums(lam_parts)
+
+
+def context_counts(path, reference=None, lambda_chrom='chrL', use_count_csv=True):
+    """
+    Per-context methylation counts of one single-cell .cz or allc.tsv.gz.
+
+    Parameters
+    ----------
+    path : str
+        Single-cell ``.cz`` (as written by :func:`bam_to_cz` / :func:`allc2cz`)
+        or ``allc.tsv.gz``.
+    reference : str, optional
+        Reference ``.cz`` (from ``czip build_ref``) supplying the per-row
+        context. Required for a ``.cz`` input without a ``.count.csv``.
+    lambda_chrom : str or None, default 'chrL'
+        Unmethylated lambda spike-in contig; its counts are returned
+        separately as ``lambda_mc`` / ``lambda_cov``. ``None`` disables.
+    use_count_csv : bool, default True
+        Read ``<path>.count.csv`` (written by ``bam_to_cz(save_count_df=True)``
+        or ``allcools bam-to-allc --save_count_df``) when present instead of
+        rescanning the file. It holds raw (unclipped) counts and
+        ``genome_cov``; missing lambda columns are filled from the data.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Indexed by context with columns ``mc``, ``cov``, ``lambda_mc``,
+        ``lambda_cov`` and ``genome_cov`` (NaN when no count table was used),
+        i.e. the ``.count.csv`` layout of :func:`bam_to_cz`. Counts recomputed
+        from a ``.cz`` reflect the stored values, which ``count_fmt='B'``
+        caps at 255 per site.
+    """
+    path = os.path.abspath(os.path.expanduser(path))
+    table = None
+    count_path = path + '.count.csv'
+    if use_count_csv and os.path.exists(count_path):
+        table = pd.read_csv(count_path, index_col=0)
+    need_counts = table is None
+    need_lambda = bool(lambda_chrom) and (table is None or 'lambda_cov' not in table.columns)
+
+    counts = lam = None
+    if need_counts or need_lambda:
+        if path.endswith('.cz'):
+            counts, lam = _cz_context_counts(path, reference, lambda_chrom,
+                                             lambda_only=not need_counts)
+        else:
+            counts, lam = _allc_context_counts(path, lambda_chrom,
+                                               lambda_only=not need_counts)
+    genome_cov = np.nan
+    if table is not None:
+        counts = table[['mc', 'cov']]
+        if 'genome_cov' in table.columns and len(table):
+            genome_cov = table['genome_cov'].iloc[0]
+        if not need_lambda:
+            lam = (table[['lambda_mc', 'lambda_cov']]
+                   .rename(columns={'lambda_mc': 'mc', 'lambda_cov': 'cov'})
+                   if lambda_chrom and 'lambda_cov' in table.columns else _add_sums([]))
+    out = counts.join(lam.rename(columns={'mc': 'lambda_mc', 'cov': 'lambda_cov'}),
+                      how='outer').fillna(0).astype('int64')
+    out.index.name = 'context'
+    out['genome_cov'] = genome_cov
+    return out
+
+
+def _frac(mc, cov):
+    return mc / cov if cov > 0 else 0.0
+
+
+def _summarize_counts(counts, features, aliases, num_upstr_bases):
+    """One MappingSummary-style record from a :func:`context_counts` table."""
+    from .index import _expand_iupac
+    rec = {}
+    for feature, alias in zip(features, aliases):
+        contexts = {s.decode() for s in _expand_iupac(feature)}
+        sub = counts.loc[counts.index.isin(contexts)]
+        mc, cov = int(sub['mc'].sum()), int(sub['cov'].sum())
+        rec[f'{alias}mC'], rec[f'{alias}Cov'], rec[f'{alias}Frac'] = mc, cov, _frac(mc, cov)
+    rec['GenomeCov'] = counts['genome_cov'].iloc[0] if len(counts) else np.nan
+
+    c_pos = int(num_upstr_bases)
+    lam_mc = dict.fromkeys(_LAMBDA_DINUCS, 0)
+    lam_cov = dict.fromkeys(_LAMBDA_DINUCS, 0)
+    for context, lmc, lcov in zip(counts.index, counts['lambda_mc'], counts['lambda_cov']):
+        # NOMe: skip GpC sites methylated by M.CviPI
+        if c_pos > 0 and context[c_pos - 1] == 'G':
+            continue
+        dinuc = context[c_pos:c_pos + 2]
+        if dinuc in lam_mc:
+            lam_mc[dinuc] += int(lmc)
+            lam_cov[dinuc] += int(lcov)
+    for name, members in (('CH', ('CA', 'CC', 'CT')), ('CY', ('CC', 'CT'))):
+        lam_mc[name] = sum(lam_mc[m] for m in members)
+        lam_cov[name] = sum(lam_cov[m] for m in members)
+    for ctx in ('CA', 'CC', 'CT', 'CH', 'CY', 'CG'):
+        rec[f'Lambda{ctx}mC'] = lam_mc[ctx]
+        rec[f'Lambda{ctx}Cov'] = lam_cov[ctx]
+        rec[f'Lambda{ctx}Frac'] = _frac(lam_mc[ctx], lam_cov[ctx])
+    return rec
+
+
+def _context_counts_worker(args):
+    return context_counts(*args)
+
+
+def mc_summary(input, reference=None, output=None,
+               mc_stat_feature='CHN CGN CCC', mc_stat_alias='mCH mCG mCCC',
+               num_upstr_bases=0, lambda_chrom='chrL', use_count_csv=True, jobs=1):
+    """
+    Per-cell methylation summary table for many single-cell .cz / allc.tsv.gz files.
+
+    Each row is one cell with the mC columns of the yap ``MappingSummary``:
+    ``{alias}mC / {alias}Cov / {alias}Frac`` for every context pattern,
+    ``GenomeCov``, and the lambda spike-in unconversion stats
+    ``Lambda{CA,CC,CT,CH,CY,CG}{mC,Cov,Frac}`` (e.g. ``LambdaCYFrac``,
+    ``LambdaCYCov``).
+
+    Parameters
+    ----------
+    input : list, str
+        Input files: a list of paths, a directory (``*.cz`` and
+        ``*.allc.tsv.gz``), a glob pattern, a comma-separated string, or a text
+        file listing one path per line. ``.cz`` and allc may be mixed. The
+        cell id is the file basename up to the first ``'.'``.
+    reference : str, optional
+        Reference ``.cz``; required for ``.cz`` inputs without a ``.count.csv``.
+    output : str, optional
+        Write the table here (csv; ``.gz`` suffix compresses).
+    mc_stat_feature, mc_stat_alias : str or list
+        Space-separated IUPAC context patterns (full context length, e.g.
+        ``CHN`` / ``CGN`` / ``CCC``; ``HCHN`` etc. for NOMe) and their column
+        prefixes, as in the yap mapping config.
+    num_upstr_bases : int, default 0
+        Bases upstream of the C in the context (1 for NOMe); lambda stats
+        use the dinucleotide starting at the C.
+    lambda_chrom : str or None, default 'chrL'
+        Lambda spike-in contig name.
+    use_count_csv : bool, default True
+        See :func:`context_counts`.
+    jobs : int, default 1
+        Number of parallel worker processes (one file per task).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Indexed by ``cell_id``. Fractions are 0 when coverage is 0 (as in
+        the yap MappingSummary).
+    """
+    paths = _resolve_mc_inputs(input)
+    features = mc_stat_feature.split() if isinstance(mc_stat_feature, str) else list(mc_stat_feature)
+    aliases = mc_stat_alias.split() if isinstance(mc_stat_alias, str) else list(mc_stat_alias)
+    if len(features) != len(aliases):
+        raise ValueError("mc_stat_feature and mc_stat_alias must have the same length")
+    cell_ids = [os.path.basename(p).split('.')[0] for p in paths]
+    from collections import Counter
+    dup = sorted(c for c, n in Counter(cell_ids).items() if n > 1)
+    if dup:
+        raise ValueError(f"duplicated cell ids in input: {dup[:5]}")
+
+    tasks = [(p, reference, lambda_chrom, use_count_csv) for p in paths]
+    if jobs and int(jobs) > 1 and len(tasks) > 1:
+        with multiprocessing.Pool(min(int(jobs), len(tasks))) as pool:
+            all_counts = pool.map(_context_counts_worker, tasks)
+    else:
+        all_counts = [_context_counts_worker(t) for t in tasks]
+
+    df = pd.DataFrame.from_dict(
+        {cid: _summarize_counts(c, features, aliases, num_upstr_bases)
+         for cid, c in zip(cell_ids, all_counts)}, orient='index')
+    df.index.name = 'cell_id'
+    if output is not None:
+        output = os.path.abspath(os.path.expanduser(output))
+        df.to_csv(output)
+        logger.info(f"mc_summary of {len(df)} cells written to {output}")
+    return df
+
+
 if __name__ == "__main__":
     from cytozip import main
     main()

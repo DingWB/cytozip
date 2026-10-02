@@ -784,7 +784,9 @@ def _ref_pos_ctx(reader, ck, policy):
     if not raw:
         return None, None, 0
     arr = np.frombuffer(raw, dtype=dt)
-    pos = np.ascontiguousarray(arr[f'f{cols.index("pos")}'], dtype=np.uint64)
+    # uint32 positions: per-chrom genomic coord is < 2^32 for all real
+    # genomes, halving the pos/searchsorted footprint versus uint64.
+    pos = np.ascontiguousarray(arr[f'f{cols.index("pos")}'], dtype=np.uint32)
     key = None
     if policy != 'ignore':
         ctx = np.ascontiguousarray(arr[f'f{cols.index("context")}']).view('S3')
@@ -799,13 +801,15 @@ _MERGE_MR_STATE = {}
 
 
 def _merge_mr_init(target_reference, ref_to_cells, formats, columns,
-                   context_policy, level, outdir, cov_overflow='scale'):
+                   context_policy, level, outdir, cov_overflow='scale',
+                   accum_dtype='uint32'):
     """Pool initializer: stash the shared merge state in the worker."""
     _MERGE_MR_STATE.clear()
     _MERGE_MR_STATE.update(
         target_reference=target_reference, ref_to_cells=ref_to_cells,
         formats=list(formats), columns=columns, context_policy=context_policy,
-        level=level, outdir=outdir, cov_overflow=cov_overflow)
+        level=level, outdir=outdir, cov_overflow=cov_overflow,
+        accum_dtype=np.dtype(accum_dtype))
 
 
 def _merge_multiref_chrom_worker(chrom):
@@ -827,6 +831,7 @@ def _merge_multiref_chrom_worker(chrom):
     context_policy = st['context_policy']
     level = st['level']
     outdir = st['outdir']
+    accum_dtype = st.get('accum_dtype', np.dtype('uint32'))
     ck = (chrom,)
 
     target = Reader(target_reference, mmap_advise="random")
@@ -837,8 +842,12 @@ def _merge_multiref_chrom_worker(chrom):
     if n == 0:
         return None
 
-    mc_sum = np.zeros(n, dtype=np.int64)
-    cov_sum = np.zeros(n, dtype=np.int64)
+    # Accumulator dtype (``accum_dtype``, default uint32): each cell contributes
+    # uint16 mc/cov, so the pooled sum fits uint32 for any realistic cell count
+    # (same assumption as merge_cz_worker) and halves the per-chrom accumulator
+    # memory vs int64. Widen to int64 via ``accum_dtype`` for extreme depths.
+    mc_sum = np.zeros(n, dtype=accum_dtype)
+    cov_sum = np.zeros(n, dtype=accum_dtype)
 
     for ref_path, cell_paths in ref_to_cells.items():
         dref = Reader(ref_path, mmap_advise="random")
@@ -863,8 +872,8 @@ def _merge_multiref_chrom_worker(chrom):
         # subset only (keeps memory ~ intersection size). frombuffer gives a
         # zero-copy view; the fancy-index gather produces the owned subset,
         # and ``+=`` upcasts the uint16/uint8 counts without a full temp.
-        donor_mc = np.zeros(donor_rows.size, dtype=np.int64)
-        donor_cov = np.zeros(donor_rows.size, dtype=np.int64)
+        donor_mc = np.zeros(donor_rows.size, dtype=accum_dtype)
+        donor_cov = np.zeros(donor_rows.size, dtype=accum_dtype)
         for cp in cell_paths:
             cr = Reader(cp)
             try:
@@ -917,7 +926,7 @@ def _merge_multiref_chrom_worker(chrom):
 def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
                       context_policy='strict', formats=['H', 'H'], jobs=12,
                       chroms=None, ext='.cz', level=6, temp=False,
-                      cov_overflow='scale'):
+                      cov_overflow='scale', accum_dtype='uint32'):
     """Merge per-cell .cz files with *different* references into one
     pseudobulk .cz aligned to a common target reference.
 
@@ -977,6 +986,12 @@ def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
         DEFLATE level for output blocks (default 6).
     temp : bool
         Keep the per-chrom temp shard directory (default False).
+    accum_dtype : str or numpy dtype
+        Integer dtype for the internal mc/cov accumulators (default
+        ``'uint32'``). uint32 halves the per-chrom accumulator memory vs
+        int64 and is safe for any realistic cell count (each cell adds
+        uint16 mc/cov). Widen to ``'int64'`` only for extreme pooled depths
+        where a single site's summed cov could exceed ~4.29e9.
     """
     if context_policy not in ('strict', 'category', 'ignore'):
         raise ValueError(
@@ -1026,7 +1041,7 @@ def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     init_args = (target_reference, ref_to_cells, list(formats), columns,
-                 context_policy, level, outdir, cov_overflow)
+                 context_policy, level, outdir, cov_overflow, accum_dtype)
     written = []
     if jobs and int(jobs) > 1 and len(chrom_list) > 1:
         with multiprocessing.Pool(int(jobs), initializer=_merge_mr_init,
@@ -1084,7 +1099,7 @@ def merge_cell_type_multiref(cz_table=None, outdir=None,
                              target_reference=None, context_policy='strict',
                              jobs=64, chroms=None, ext='.cz',
                              formats=['H', 'H'], level=6,
-                             cov_overflow='scale'):
+                             cov_overflow='scale', accum_dtype='uint32'):
     """Per-cell-type pseudobulk merge across *different* references.
 
     The multi-reference analogue of :func:`merge_cell_type`: groups the cells
@@ -1106,7 +1121,7 @@ def merge_cell_type_multiref(cz_table=None, outdir=None,
         Common reference ``.cz`` defining the output axis.
     context_policy : {'match', 'ignore'}
         Context-mismatch policy, forwarded to :func:`merge_cz_multiref`.
-    jobs, chroms, ext, formats, level
+    jobs, chroms, ext, formats, level, accum_dtype
         Forwarded to :func:`merge_cz_multiref`.
     """
     if outdir is None:
@@ -1127,7 +1142,7 @@ def merge_cell_type_multiref(cz_table=None, outdir=None,
             cz_table=sub, target_reference=target_reference, output=output,
             context_policy=context_policy, formats=formats,
             jobs=jobs, chroms=chroms, ext=ext, level=level,
-            cov_overflow=cov_overflow)
+            cov_overflow=cov_overflow, accum_dtype=accum_dtype)
 
 
 if __name__ == "__main__":

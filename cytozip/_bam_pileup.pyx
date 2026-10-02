@@ -263,6 +263,8 @@ cdef class PileupCounter:
     cdef int _strand_mode
     cdef bytes _bam_path
     cdef bytes _fasta_path
+    # Pileup positions in the last iter_chrom call (= samtools mpileup lines).
+    cdef readonly long long last_n_positions
 
     def __cinit__(self, bam_path, fasta_path,
                   int min_mapq=10, int min_base_quality=20,
@@ -438,6 +440,7 @@ cdef class PileupCounter:
         cdef bint base_unconverted, base_converted
         cdef int fwd
         cdef int strand_mode = self._strand_mode
+        cdef long long n_positions = 0
 
         with nogil:
             while bam_mplp64_auto(mplp, &plp_tid, &plp_pos,
@@ -448,6 +451,7 @@ cdef class PileupCounter:
                     continue
                 if plp_pos < 0 or plp_pos >= fetched_len:
                     continue
+                n_positions += 1
                 ref_base = seq_c[plp_pos]
                 is_C = (ref_base == b'C')
                 is_G = (ref_base == b'G')
@@ -528,6 +532,7 @@ cdef class PileupCounter:
         bam_mplp_destroy(mplp)
         hts_itr_destroy(pdata.iter)
         free(seq_c)
+        self.last_n_positions = n_positions
 
         # Trim to actual size.
         return (pos_arr[:n_out].copy(),

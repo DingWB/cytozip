@@ -1461,6 +1461,13 @@ def cz_to_anndata(
           ``nan_policy='zero'`` to keep ``.X`` **sparse** with implicit ``0``
           and reconstruct the prior-filled dense matrix on demand via
           :func:`to_dense` (``fill='prior_mean'``)).
+          When score is posterior_frac, the raw frac could be easily calculated 
+          on the fly:
+          ```
+            frac=adata.to_df(layer='mc').astype(np.float32) / np.maximum(adata.to_df(layer='cov').astype(np.float32), 1)
+            uncovered = adata.to_df(layer='cov')==0
+            frac[uncovered] = np.nan
+        ```
         - ``'hypo-score'``: per-cell binomial survival function
           ``P(X > mc | Binomial(cov, p_cell))``, with ``p_cell = total_mc /
           total_cov`` for that cell. Values below ``score_cutoff`` are set

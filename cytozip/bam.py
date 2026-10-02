@@ -728,6 +728,7 @@ def bam_to_cz(
     env: Optional[str] = None,
     chroms=None,
     cov_overflow: str = "scale",
+    lambda_chrom: Optional[str] = "chrL",
 ) -> Optional[pd.DataFrame]:
     """Convert a position-sorted BAM to a ``.cz`` methylation file.
 
@@ -743,13 +744,13 @@ def bam_to_cz(
         Output ``.cz`` path. Defaults to ``<bam_stem>.cz`` next to the BAM.
     mode : {"full", "pos_mc_cov", "mc_cov"}
         Storage layout. See module docstring.
-    count_fmt : {"B", "H", "I", "L", "Q"}
+    count_fmt : {"B", "H", "I", "Q"}
         struct code used for the ``mc`` and ``cov`` columns. ``'B'`` (uint8,
         1 byte; max 255) is the most compact and is sufficient for typical
         single-cell bisulfite data where per-site coverage rarely exceeds
-        a few tens. Values that exceed the chosen dtype max are clipped
-        (with a one-time warning). Defaults to ``'H'`` (uint16, 2 bytes;
-        max 65535) for safety.
+        a few tens. Values that exceed the chosen dtype max are handled by
+        ``cov_overflow`` (with a one-time warning). Defaults to ``'B'``; use
+        ``'H'`` (uint16, max 65535) for bulk / high-coverage data.
     reference : str, optional
         Reference .cz (containing a ``pos`` column per chrom). **Required
         when ``mode='mc_cov'``** - output records are aligned one-to-one
@@ -778,7 +779,8 @@ def bam_to_cz(
         ``ValueError`` is raised; pass ``convert_bam_strandness=False`` for
         plain (already strand-correct) BAMs such as bismark SE.
     save_count_df : bool
-        If True, write a ``<output>.count.csv`` with total mC / cov per context.
+        If True, write a ``<output>.count.csv`` with total mC / cov per context
+        (plus ``lambda_mc`` / ``lambda_cov``, see ``lambda_chrom``).
 
     name_sorted : bool
         If True, ``bam_path`` is a **name-sorted** BAM (e.g. the hisat-3n
@@ -798,17 +800,25 @@ def bam_to_cz(
         chrom-size / ``.fai`` file (first column). This mirrors ALLCools
         ``bam_to_allc(..., chrom_size=...)``, which limits ``samtools
         mpileup`` to the listed chroms; without it every contig in the
-        genome fasta (including alt/decoy/unplaced) is piled up and counted,
-        inflating the returned ``count_df``. In ``mode='mc_cov'`` the pileup
-        is **always** limited to the reference's chromosomes regardless of
-        this argument (sites on other chroms are discarded at write time
-        anyway); passing ``chroms`` then further narrows that set.
+        genome fasta (including alt/decoy/unplaced) is piled up and counted
+        in the returned ``count_df``, exactly like ALLCools. In
+        ``mode='mc_cov'`` only chroms present in ``reference`` are written
+        to the .cz, but ``count_df`` still covers all piled-up chroms so it
+        matches ALLCools' ``.count.csv``.
     cov_overflow : {'scale', 'clip'}, optional
         How a per-site ``cov`` (and ``mc``) exceeding ``count_fmt``'s max is
         handled. ``'scale'`` (default) caps ``cov`` to the max and scales
         ``mc`` by ``cap/cov`` so the site's methylation fraction survives;
         ``'clip'`` truncates ``mc`` and ``cov`` independently. Only matters
         for high-coverage sites (rare in single-cell data).
+    lambda_chrom : str or None, default 'chrL'
+        Name of the unmethylated lambda DNA spike-in contig used to estimate
+        the bisulfite unconversion rate. Its sites are always piled up (even
+        if excluded by ``chroms`` / absent from ``reference``; they are then
+        only counted, not written). Their raw per-context counts are added
+        to ``count_df`` as ``lambda_mc`` / ``lambda_cov`` columns (0 when
+        the contig is missing or uncovered), from which downstream pipelines
+        (e.g. cemba_data) derive ``LambdaCYFrac`` etc. ``None`` disables.
 
     Returns
     -------
@@ -884,17 +894,21 @@ def bam_to_cz(
     else:
         writer_message = os.path.abspath(os.path.expanduser(genome))
 
-    # Chromosome whitelist for the pileup. ALLCools restricts mpileup to the
-    # chroms in its chrom_size file; without a restriction we also pile up
-    # alt/decoy/unplaced contigs, which inflates the returned count_df.
+    # Chroms counted in count_df (None = all, like ALLCools without a
+    # chrom_size whitelist). mc_cov can only write chroms in the reference.
     allowed_chroms = _parse_chrom_whitelist(chroms)
+    write_chroms = allowed_chroms
     if mode == "mc_cov" and ref_pos_map is not None:
-        # Sites on chroms absent from the reference are discarded at write
-        # time anyway, so skip them during pileup too (faster, and keeps the
-        # returned count_df consistent with what is actually written).
         ref_chroms = ref_pos_map.chroms
-        allowed_chroms = (ref_chroms if allowed_chroms is None
-                          else (allowed_chroms & ref_chroms))
+        write_chroms = (ref_chroms if allowed_chroms is None
+                        else (allowed_chroms & ref_chroms))
+    # The lambda spike-in is always piled up for the unconversion-rate stats.
+    pileup_chroms = allowed_chroms
+    if (lambda_chrom and allowed_chroms is not None
+            and lambda_chrom in fai_df.index):
+        pileup_chroms = allowed_chroms | {lambda_chrom}
+    lambda_mc: dict = {}
+    lambda_cov: dict = {}
 
     writer = Writer(
         output,
@@ -941,8 +955,10 @@ def bam_to_cz(
     import array as _array
     buf_records: list = []
     chrom_pos_buf = _array.array('I')          # uint32 positions
-    chrom_mc_buf = _array.array('H')           # uint16 mc counts (already clipped)
-    chrom_cov_buf = _array.array('H')          # uint16 cov counts
+    # counts are already clipped to count_max, so the buffer must hold it
+    _cnt_code = 'H' if count_fmt in ('B', 'H') else count_fmt
+    chrom_mc_buf = _array.array(_cnt_code)
+    chrom_cov_buf = _array.array(_cnt_code)
 
     _np_count_dtype = _fmt_to_np_dtype(count_fmt) or "<u2"
     mc_cov_struct_dtype = np.dtype([("mc", _np_count_dtype), ("cov", _np_count_dtype)])
@@ -966,13 +982,13 @@ def bam_to_cz(
         # a single full uint32 ref_pos array (~316 MB on mm10 chr1).
         if len(chrom_pos_buf) > 0:
             q_pos = np.frombuffer(chrom_pos_buf, dtype=np.uint32)
-            q_mc = np.frombuffer(chrom_mc_buf, dtype=np.uint16)
-            q_cov = np.frombuffer(chrom_cov_buf, dtype=np.uint16)
+            q_mc = np.frombuffer(chrom_mc_buf, dtype=_cnt_code)
+            q_cov = np.frombuffer(chrom_cov_buf, dtype=_cnt_code)
             n_q = int(q_pos.size)
         else:
             q_pos = np.empty(0, dtype=np.uint32)
-            q_mc = np.empty(0, dtype=np.uint16)
-            q_cov = np.empty(0, dtype=np.uint16)
+            q_mc = np.empty(0, dtype=_cnt_code)
+            q_cov = np.empty(0, dtype=_cnt_code)
             n_q = 0
 
         q_ptr = 0
@@ -1033,6 +1049,8 @@ def bam_to_cz(
         _malloc_trim = None
 
     def _flush(chrom: str) -> None:
+        if write_chroms is not None and chrom not in write_chroms:
+            return
         if mode == "mc_cov":
             _flush_mc_cov(chrom)
             # Tell the kernel we're done with this chrom's slice of the
@@ -1053,7 +1071,8 @@ def bam_to_cz(
 
     def _handle_site(chrom: str, pos0: int, ref_base: str,
                       unconverted: int, converted: int) -> None:
-        nonlocal_state["total_line"] += 1
+        out_ok = write_chroms is None or chrom in write_chroms
+        count_ok = allowed_chroms is None or chrom in allowed_chroms
         if chrom != nonlocal_state["cur_chrom"]:
             if nonlocal_state["cur_chrom"]:
                 # Release the previous chromosome's sequence string
@@ -1083,8 +1102,14 @@ def bam_to_cz(
         cov = unconverted + converted
         if cov == 0 or len(context) != context_len:
             return
-        cov_dict[context] = cov_dict.get(context, 0) + cov
-        mc_dict[context] = mc_dict.get(context, 0) + unconverted
+        if chrom == lambda_chrom:
+            lambda_cov[context] = lambda_cov.get(context, 0) + cov
+            lambda_mc[context] = lambda_mc.get(context, 0) + unconverted
+        if count_ok:
+            cov_dict[context] = cov_dict.get(context, 0) + cov
+            mc_dict[context] = mc_dict.get(context, 0) + unconverted
+        if not out_ok:
+            return
         if unconverted > count_max or cov > count_max:
             if not _overflow_warned[0]:
                 logger.warning(
@@ -1118,8 +1143,99 @@ def bam_to_cz(
             chrom_mc_buf.append(unconverted)
             chrom_cov_buf.append(cov)
 
+    _comp_lut = np.arange(256, dtype=np.uint8)
+    for _a, _b in zip(b"ACGTN", b"TGCAN"):
+        _comp_lut[_a] = _b
+
+    def _add_context_counts(target_mc, target_cov, codes, mc, cov):
+        uniq, inv = np.unique(codes, return_inverse=True)
+        mc_sum = np.bincount(inv, weights=mc, minlength=len(uniq))
+        cov_sum = np.bincount(inv, weights=cov, minlength=len(uniq))
+        for code, m, c in zip(uniq.tolist(), mc_sum.tolist(), cov_sum.tolist()):
+            ctx = int(code).to_bytes(context_len, "big").decode("latin-1")
+            target_mc[ctx] = target_mc.get(ctx, 0) + int(m)
+            target_cov[ctx] = target_cov.get(ctx, 0) + int(c)
+
+    def _handle_chrom_arrays(chrom, seq_u8, pos_arr, ref_arr, mc_arr, cov_arr):
+        """Vectorized equivalent of calling ``_handle_site`` on every site of one chrom."""
+        out_ok = write_chroms is None or chrom in write_chroms
+        count_ok = allowed_chroms is None or chrom in allowed_chroms
+        is_lambda = chrom == lambda_chrom
+        if not (out_ok or count_ok or is_lambda):
+            return
+        n_seq = len(seq_u8)
+        pos0 = pos_arr.astype(np.int64) - 1
+        is_c = ref_arr == ord("C")
+        is_g = ref_arr == ord("G")
+        keep = (cov_arr > 0) & (
+            (is_c & (pos0 - num_upstr_bases >= 0)
+             & (pos0 + num_downstr_bases + 1 <= n_seq))
+            | (is_g & (pos0 - num_downstr_bases >= 0)
+               & (pos0 + num_upstr_bases + 1 <= n_seq)))
+        if not keep.any():
+            return
+        pos0, is_c = pos0[keep], is_c[keep]
+        mc = mc_arr[keep].astype(np.int64)
+        cov = cov_arr[keep].astype(np.int64)
+        # context bytes: forward for C sites, reverse complement for G sites
+        ctx = np.empty((len(pos0), context_len), dtype=np.uint8)
+        for k in range(context_len):
+            fwd = seq_u8[np.where(is_c, pos0 - num_upstr_bases + k, 0)]
+            rev = _comp_lut[seq_u8[np.where(is_c, 0, pos0 + num_upstr_bases - k)]]
+            ctx[:, k] = np.where(is_c, fwd, rev)
+        codes = np.zeros(len(pos0), dtype=np.int64)
+        for k in range(context_len):
+            codes = (codes << 8) | ctx[:, k].astype(np.int64)
+        if is_lambda:
+            _add_context_counts(lambda_mc, lambda_cov, codes, mc, cov)
+        if count_ok:
+            _add_context_counts(mc_dict, cov_dict, codes, mc, cov)
+        if not out_ok:
+            return
+        over = np.nonzero((mc > count_max) | (cov > count_max))[0]
+        if len(over):
+            if not _overflow_warned[0]:
+                logger.warning(
+                    f"mc/cov value exceeds count_fmt={count_fmt!r} max "
+                    f"({count_max}); {cov_overflow}. Consider count_fmt='H' for "
+                    f"bulk/high-coverage data."
+                )
+                _overflow_warned[0] = True
+            # rare sites: reuse the exact scalar rule of _handle_site
+            for i in over.tolist():
+                u, c = int(mc[i]), int(cov[i])
+                if cov_overflow == "scale" and c > count_max:
+                    u = int(round(u * count_max / c))
+                    c = count_max
+                mc[i], cov[i] = min(u, count_max), min(c, count_max)
+        pos1 = pos0 + 1
+        if mode == "mc_cov":
+            chrom_pos_buf.frombytes(pos1.astype(np.uint32).tobytes())
+            chrom_mc_buf.frombytes(mc.astype(_cnt_code).tobytes())
+            chrom_cov_buf.frombytes(cov.astype(_cnt_code).tobytes())
+            return
+        if mode == "full":
+            rec = np.empty(len(pos1), dtype=[("pos", "<u8"), ("strand", "S1"),
+                                             ("ctx", "V3"), ("mc", _np_count_dtype),
+                                             ("cov", _np_count_dtype)])
+            rec["strand"] = np.where(is_c, b"+", b"-")
+            ctx3 = np.full((len(pos1), 3), ord("N"), dtype=np.uint8)
+            ctx3[:, :min(3, context_len)] = ctx[:, :3]
+            rec["ctx"] = ctx3.view("V3").ravel()
+        else:  # pos_mc_cov
+            rec = np.empty(len(pos1), dtype=[("pos", "<u8"), ("mc", _np_count_dtype),
+                                             ("cov", _np_count_dtype)])
+        rec["pos"] = pos1
+        rec["mc"] = mc
+        rec["cov"] = cov
+        # same chunking as _handle_site: one chunk per batch_size records
+        for start in range(0, len(rec), batch_size):
+            writer.write_chunk(rec[start:start + batch_size].tobytes(), [chrom])
+
     try:
         if use_htslib:
+            if context_len > 8:
+                raise ValueError("num_upstr_bases + num_downstr_bases + 1 must be <= 8")
             # In-process htslib mpileup wrapper. Byte-equivalent to
             # ``samtools mpileup -Q -q -B -f`` (and therefore to
             # ALLCools ``bam_to_allc``), but ~10-20x faster because we
@@ -1134,38 +1250,33 @@ def bam_to_cz(
             for chrom in pc.references:
                 if chrom not in fai_df.index:
                     continue
-                if allowed_chroms is not None and chrom not in allowed_chroms:
+                if pileup_chroms is not None and chrom not in pileup_chroms:
+                    continue
+                pos_arr, ref_arr, mc_arr, cov_arr = pc.iter_chrom(chrom)
+                # genome_cov counts every pileup position, like ALLCools.
+                if allowed_chroms is None or chrom in allowed_chroms:
+                    nonlocal_state["total_line"] += pc.last_n_positions
+                # chroms without covered C/G sites are not written (as with mpileup)
+                if not pos_arr.shape[0]:
                     continue
                 if chrom != nonlocal_state["cur_chrom"]:
                     if nonlocal_state["cur_chrom"]:
-                        nonlocal_state["seq"] = None
                         _flush(nonlocal_state["cur_chrom"])
                     nonlocal_state["cur_chrom"] = chrom
-                    nonlocal_state["seq"] = _get_chromosome_sequence_upper(
-                        genome, fai_df, chrom)
-                pos_arr, ref_arr, mc_arr, cov_arr = pc.iter_chrom(chrom)
-                # ref_arr is uint8 (ascii). Vectorize the dispatch:
-                # ``_handle_site`` expects (chrom, pos0, ref_base,
-                # unconverted=mc, converted=cov-mc).
-                for i in range(pos_arr.shape[0]):
-                    cov_i = int(cov_arr[i])
-                    if cov_i == 0:
-                        continue
-                    mc_i = int(mc_arr[i])
-                    _handle_site(
-                        chrom,
-                        int(pos_arr[i]) - 1,
-                        chr(int(ref_arr[i])),
-                        mc_i,
-                        cov_i - mc_i,
-                    )
+                seq_u8 = np.frombuffer(_get_chromosome_sequence_upper(
+                    genome, fai_df, chrom).encode("latin-1"), dtype=np.uint8)
+                _handle_chrom_arrays(chrom, seq_u8, pos_arr, ref_arr,
+                                     mc_arr, cov_arr)
+                del seq_u8
         elif use_mpileup:
             for line in mpileup_out:
                 fields = line.rstrip("\n").split("\t")
                 if len(fields) < 5:
                     continue
-                if allowed_chroms is not None and fields[0] not in allowed_chroms:
+                if pileup_chroms is not None and fields[0] not in pileup_chroms:
                     continue
+                if allowed_chroms is None or fields[0] in allowed_chroms:
+                    nonlocal_state["total_line"] += 1
                 ref_base = fields[2].upper()
                 if ref_base not in _MC_SITES:
                     # Still need to register chrom change so seq gets
@@ -1214,6 +1325,10 @@ def bam_to_cz(
             ref_pos_map.close()
 
     count_df = pd.DataFrame({"mc": mc_dict, "cov": cov_dict})
+    if lambda_chrom:
+        lam = pd.DataFrame({"lambda_mc": pd.Series(lambda_mc, dtype="int64"),
+                            "lambda_cov": pd.Series(lambda_cov, dtype="int64")})
+        count_df = count_df.join(lam, how="outer").fillna(0).astype("int64")
     if not count_df.empty:
         count_df["mc_rate"] = count_df["mc"] / count_df["cov"]
         total_genome_length = int(fai_df["LENGTH"].sum())

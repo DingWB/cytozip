@@ -29,6 +29,7 @@ _LAZY_EXPORTS = {
     'AllC': 'allc', 'allc2cz': 'allc',
     'extractCG': 'allc',
     'compare_allc': 'allc',
+    'mc_summary': 'allc', 'context_counts': 'allc',
     # bam.py — BAM → .cz
     'bam_to_cz': 'bam',
     'name_sort_bam_to_deduped': 'bam',
@@ -575,6 +576,29 @@ def _build_parser():
     p.add_argument('-O', '--output', default=None, help='output TSV of differing rows')
     p.add_argument('--sep', default='\t', help='column separator of input files')
 
+    # ---- mc_summary ----------------------------------------------------------
+    p = sub.add_parser('mc_summary',
+                       help='Per-cell mC summary (mCH/mCG/mCCC fractions, GenomeCov, '
+                            'lambda LambdaCYFrac etc.) of single-cell .cz / allc.tsv.gz',
+                       formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, nargs='+',
+                   help='input .cz / allc.tsv.gz files, a directory, a glob, or a '
+                        'text file listing one path per line')
+    p.add_argument('-r', '--reference', default=None,
+                   help='reference .cz; required for .cz inputs without <file>.count.csv')
+    p.add_argument('-O', '--output', default=None, help='output csv (.gz to compress)')
+    p.add_argument('--mc_stat_feature', default='CHN CGN CCC',
+                   help='space-separated IUPAC context patterns')
+    p.add_argument('--mc_stat_alias', default='mCH mCG mCCC',
+                   help='space-separated column prefixes for --mc_stat_feature')
+    p.add_argument('--num_upstr_bases', type=int, default=0,
+                   help='bases upstream of C in the context (1 for NOMe)')
+    p.add_argument('--lambda_chrom', type=_dtype_or_none, default='chrL',
+                   help="lambda spike-in contig ('None' to disable)")
+    p.add_argument('--no_count_csv', action='store_true',
+                   help='ignore <file>.count.csv and recompute from the data')
+    p.add_argument('-j', '--jobs', type=int, default=1, help='parallel processes (one file each)')
+
     # ---- aggregate -----------------------------------------------------------
     p = sub.add_parser('aggregate', help='Aggregate records within regions', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, help='input .cz file')
@@ -898,10 +922,13 @@ def _build_parser():
                    help='restrict the pileup to these chromosomes: '
                         'comma-separated list (chr1,chr2,...) or a path to a '
                         'chrom-size / .fai file (first column). Mirrors '
-                        'ALLCools bam_to_allc --chrom_size; without it every '
+                        'ALLCools bam-to-allc --chroms; without it every '
                         'contig in the genome fasta (alt/decoy/unplaced) is '
-                        'piled up and counted. In --mode mc_cov the pileup is '
-                        'always limited to the reference chroms regardless.')
+                        'piled up and counted in count.csv. In --mode mc_cov '
+                        'only chroms present in the reference are written.')
+    p.add_argument('--lambda_chrom', type=_dtype_or_none, default='chrL',
+                   help="lambda spike-in contig; its counts go to the "
+                        "lambda_mc/lambda_cov columns of count.csv ('None' disables)")
     p.add_argument('--cov_overflow', choices=['scale', 'clip'], default='scale',
                    help="per-site cov exceeding count_fmt max: 'scale' "
                         "(default) caps cov and scales mc by cap/cov; 'clip'")
@@ -1307,6 +1334,18 @@ def main():
                      dtype=args.dtype, output=args.output,
                      sep=args.sep)
 
+    elif cmd == 'mc_summary':
+        from .allc import mc_summary
+        inp = args.input[0] if len(args.input) == 1 else args.input
+        df = mc_summary(input=inp, reference=args.reference, output=args.output,
+                        mc_stat_feature=args.mc_stat_feature,
+                        mc_stat_alias=args.mc_stat_alias,
+                        num_upstr_bases=args.num_upstr_bases,
+                        lambda_chrom=args.lambda_chrom,
+                        use_count_csv=not args.no_count_csv, jobs=args.jobs)
+        if args.output is None:
+            print(df.to_csv(), end='')
+
     elif cmd == 'aggregate':
         from .cz import aggregate
         aggregate(input=args.input, output=args.output,
@@ -1490,6 +1529,7 @@ def main():
                   name_sorted=args.name_sorted,
                   env=args.env,
                   chroms=args.chroms,
+                  lambda_chrom=args.lambda_chrom,
                   cov_overflow=args.cov_overflow)
 
     elif cmd == 'name_sort_bam_to_deduped':
