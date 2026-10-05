@@ -6,6 +6,7 @@ Public API:
   - AllC:    Extract cytosine positions from a reference genome.
   - allc2cz:  Convert tabix-indexed allc.tsv.gz to .cz format.
   - merge_cz: Merge multiple per-cell .cz files.
+  - mc_summary / context_counts:  Per-cell mC + lambda (chrL) summary of single-cell .cz.
   - extract / extractCG / aggregate:  Subset and aggregate .cz data.
   - call_dmr / call_dmr_ch:  BS-seq / single-cell DMR calling.
   - call_dmr_array:  methylation-array (450K/EPIC) DMR calling via comb-p.
@@ -29,7 +30,7 @@ _LAZY_EXPORTS = {
     'AllC': 'allc', 'allc2cz': 'allc',
     'extractCG': 'allc',
     'compare_allc': 'allc',
-    'mc_summary': 'allc', 'context_counts': 'allc',
+    'mc_summary': 'merge', 'context_counts': 'merge',
     # bam.py — BAM → .cz
     'bam_to_cz': 'bam',
     'name_sort_bam_to_deduped': 'bam',
@@ -579,14 +580,16 @@ def _build_parser():
     # ---- mc_summary ----------------------------------------------------------
     p = sub.add_parser('mc_summary',
                        help='Per-cell mC summary (mCH/mCG/mCCC fractions, GenomeCov, '
-                            'lambda LambdaCYFrac etc.) of single-cell .cz / allc.tsv.gz',
+                            'lambda LambdaCYFrac etc.) of single-cell .cz files',
                        formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, nargs='+',
-                   help='input .cz / allc.tsv.gz files, a directory, a glob, or a '
-                        'text file listing one path per line')
+                   help='input .cz files, a directory, a glob, or a '
+                        'text file listing one .cz path per line')
     p.add_argument('-r', '--reference', default=None,
-                   help='reference .cz; required for .cz inputs without <file>.count.csv')
-    p.add_argument('-O', '--output', default=None, help='output csv (.gz to compress)')
+                   help='reference .cz; required for cells whose <cell>.cz.count.csv '
+                        'is missing (it is then generated) or with --overwrite')
+    p.add_argument('-O', '--output', default=None,
+                   help='output csv (.gz to compress); printed to stdout if omitted')
     p.add_argument('--mc_stat_feature', default='CHN CGN CCC',
                    help='space-separated IUPAC context patterns')
     p.add_argument('--mc_stat_alias', default='mCH mCG mCCC',
@@ -595,8 +598,9 @@ def _build_parser():
                    help='bases upstream of C in the context (1 for NOMe)')
     p.add_argument('--lambda_chrom', type=_dtype_or_none, default='chrL',
                    help="lambda spike-in contig ('None' to disable)")
-    p.add_argument('--no_count_csv', action='store_true',
-                   help='ignore <file>.count.csv and recompute from the data')
+    p.add_argument('--overwrite', action='store_true',
+                   help='regenerate <cell>.cz.count.csv from the .cz even if it exists '
+                        '(keeps its genome_cov)')
     p.add_argument('-j', '--jobs', type=int, default=1, help='parallel processes (one file each)')
 
     # ---- aggregate -----------------------------------------------------------
@@ -1335,14 +1339,14 @@ def main():
                      sep=args.sep)
 
     elif cmd == 'mc_summary':
-        from .allc import mc_summary
+        from .merge import mc_summary
         inp = args.input[0] if len(args.input) == 1 else args.input
         df = mc_summary(input=inp, reference=args.reference, output=args.output,
                         mc_stat_feature=args.mc_stat_feature,
                         mc_stat_alias=args.mc_stat_alias,
                         num_upstr_bases=args.num_upstr_bases,
                         lambda_chrom=args.lambda_chrom,
-                        use_count_csv=not args.no_count_csv, jobs=args.jobs)
+                        overwrite=args.overwrite, jobs=args.jobs)
         if args.output is None:
             print(df.to_csv(), end='')
 
