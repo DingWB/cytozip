@@ -318,12 +318,26 @@ print("cell order:", ds.cell_ids)    # lazy property — available without itera
   once and the whole-chromosome matrix is never materialised. `max_sites`
   controls the internal read-segment size (how many *consecutive bins* are
   grouped per block-decompress — NOT the per-window site count, which follows
-  `binsize`); it defaults to `None`, which auto-sizes to about one `.cz` block,
-  so you normally never set it. `load_region(chrom, start, end)` loads a single
+  `binsize`); it defaults to `None`, which auto-sizes the segment to as many
+  `.cz` blocks as fit the loader's `segment_bytes` budget (default 32 MB of
+  transient `(n_cells, sites)` mc+cov; ≥ 1 block), so you normally never set
+  it. The per-(cell, segment) Python overhead dominates streaming, so larger
+  segments are faster (`segment_bytes=`) at the cost of first-window latency
+  and transient memory. `load_region(chrom, start, end)` loads a single
   window the same way. `load_chrom(chrom)` still returns the whole chromosome
-  matrix when you explicitly want it.
+  matrix when you explicitly want it — for a **sparse single-cytosine matrix**
+  of many cells use `cz_to_anndata_sites` instead (see below).
 * **`threads`** parallelises per-cell chunk decoding with threads (decompression
   releases the GIL, so it scales well). Increase it when you have many cells.
+* **`max_open_readers`** (default `'auto'`) bounds how many per-cell files stay
+  open; the budget is derived from the process' `RLIMIT_NOFILE` minus the fds
+  already in use minus a 25 % / ≥ 512 reserve. When cells outnumber the budget
+  the surplus readers are detached / re-attached on every segment, which
+  roughly doubles streaming time — raise `ulimit -n` for large cohorts.
+* The loader holds file handles, locks and a thread pool and is **not
+  picklable**: use `DataLoader(dataset, num_workers=0)` (it already reads cells
+  in parallel threads and can `prefetch`), or build the loader inside each
+  worker process.
 * Call `loader.close()` (or use a `with CzWindowLoader(...) as loader:` block)
   to release the open file handles when done.
 
@@ -588,6 +602,47 @@ vim .nojekyll #create empty file
 ## Run test & notebooks
 ```shell
 cd /home/x-wding2/Projects/Github/cytozip
+# self-contained regression tests (synthetic data, ~10 s)
+pytest tests/test_perf_regression.py tests/test_catcz.py tests/test_merge_cz.py -q
+# save / compare outputs + timings of the exercised APIs across code versions
+python tests/test_perf_regression.py capture /tmp/golden_a   # before a change
+python tests/test_perf_regression.py compare /tmp/golden_a /tmp/golden_b
+# after editing a .pyx (use plain gcc, not mpicc, so the .so does not link libmpi)
+CC=gcc CXX=g++ python setup.py build_ext --inplace
+```
+
+Behavioural notes (performance / bug-fix rounds):
+
+* Context-index IDs are **1-based**; use ``Reader.get_index_rows(dim)`` to
+  get 0-based rows for fancy-indexing (``peaks`` previously indexed with the
+  raw IDs and was off by one row).
+* ``rms_run_sites`` derives the RNG state per site from ``seed``: results are
+  reproducible for a fixed seed regardless of ``n_threads``; permutation
+  p-values are capped at 1.0 (ALLCools' ``(k+1)/n`` convention otherwise).
+* ``call_dmr_one_vs_rest(method='cg')`` reads every chunk once per class
+  (fused one-vs-rest) — same outputs as the per-sample ``call_dmr`` loop.
+* ``pivot_*`` outputs keep the workers' ``%.3g`` text (``0``, ``nan``) and
+  are bgzip/tabix'ed via pysam (no ``bgzip``/``tabix`` binaries needed).
+* ``_solve_fractions`` ``r2`` is the weighted R^2 around the weighted mean.
+* ``array2cz``: probes missing from a sample become NaN (float) / 0 (int).
+* ``Reader(max_cache=N)`` is a bounded LRU of decoded blocks used by the
+  Python random-access paths (``_load_block``); bulk sweeps pass
+  ``cache=False``. ``Reader.gather_rows(dim, rows)`` gathers sparse rows
+  decompressing only the blocks that hold them.
+* ``cz_to_anndata_sites(cells, reference, index=CGN, chroms=[...], score='frac'|'posterior_frac')``
+  builds the single-cytosine ``(n_cells, n_sites)`` matrix as sparse CSR
+  layers (covered sites only); ~9 s for 300 cells x chr19 CGN with jobs=8,
+  vs ~160 s / 5 GB for the dense ``CzWindowLoader.load_chrom`` route.
+* ``check_cz`` also rejects structurally complete files with **no chunks**
+  (``"no chunks ..."``); ``catcz`` skips such inputs with a warning.
+* ``CzWindowLoader``: ``max_open_readers='auto'`` (per-process ``RLIMIT_NOFILE``
+  minus fds already open minus a 25%/>=512 reserve; raise ``ulimit -n`` so all cells stay open -- evicting/re-attaching
+  readers every segment roughly doubles streaming time) and
+  ``segment_bytes`` (default 32 MB) sizing the read segment to several
+  blocks; the per-(cell, segment) Python overhead dominates streaming, so
+  bigger segments / fewer cells per loader / ``dtype=np.uint8`` all help.
+
+```shell
 pip uninstall -y cytozip && python3 -m pip install .
 rm -rf cytozip_example_data/output/cz
 czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O cytozip_example_data/output/mm10_with_chrL.allc.cz -j 20
@@ -712,8 +767,77 @@ Only **discriminative** sites are kept: the per-site score is the across-type
 range `theta.max - theta.min`; sites with score `== 0` (all types share the
 same theta) are dropped because they add an identical constant to every type
 and cancel in the softmax — dropping them is lossless. Use `top_cg`/`top_ch`
-(keep top-N) or `min_range_cg`/`min_range_ch` (keep score > threshold) to prune
-harder and shrink the model.
+(keep top-N / top-fraction), `min_range_cg`/`min_range_ch` (keep score >
+threshold) or `top_per_class` (balanced one-vs-rest markers per type) to prune
+harder and shrink the model — but see "Site selection vs shallow cells" below:
+a ~10 k-site MiSeq cell only overlaps a tiny fraction of a heavily pruned
+model, so for shallow queries keep (nearly) all sites.
+
+### How scoring is implemented (why it is fast on huge models)
+
+Scoring is **sparse-first** — its cost scales with the *query's* covered sites
+(10^4–10^7), not with the model's (up to 10^9):
+
+1. A query chunk is decompressed once (`fetch_chunk_bytes`, zero-copy
+   structured view, no whole-chunk copy). Its `cov > 0` rows are found by one
+   vectorised scan of the raw bytes as `uint64` words (`_nonzero_rows`).
+2. Those rows are intersected with the channel's **row-sorted `*_sites`** by
+   `np.searchsorted` (`_chunk_hits`; dense fallback for bulk-like queries).
+   `fit` writes `sites` sorted within every chunk's `[lo, hi)` range — this
+   is an invariant scoring relies on.
+3. Per channel the hits become compact **terms** `(gidx, m, 1-m)`
+   (`_prepare_terms`; `max_query_*` downsampling and `cov_cap` are applied
+   here), then the matching `log_theta`/`log1m_theta` rows are applied.
+
+Step 3 has two I/O modes, because a `log_theta` row is a random 4 KB read and
+network / spinning storage serves only a few thousand of those per second
+(Lustre measured: ~3.9 k rows/s random vs ~4–5 GB/s sequential):
+
+- **random** (`_score`): gather each cell's rows; fine for small / cached
+  models.
+- **stream** (`_stream_scores`): read the tables **sequentially once** in
+  `2^20`-row blocks (`_RowReader`: large `os.pread` + prefetch) and apply every
+  cell's terms in the block as a sparse `(cells × rows) @ (rows × types)`
+  product. One scan serves the whole batch (~1–2 min for a 312 GB model), so
+  2000 cells cost minutes instead of hours.
+
+`stream=None` (default) picks per batch/cell: stream when the random page reads
+would exceed `table pages / 256` (`_should_stream`). Batches are read in
+windows and scored in groups bounded by `_TERMS_BUDGET` (4 GB of terms) so
+memory stays flat. Sums are accumulated in float64 (float32 drifts by ~1e-3
+over 10^6 terms). `.cz` block inflation releases the GIL, so `n_jobs` threads
+scale the read phase across cores.
+
+### Global-level adjustment — `level_adjust=True`
+
+Shallow queries (e.g. MiSeq) often have a *global* mC-level / conversion /
+platform shift relative to the deep pseudobulks (SALK045 MiSeq cells: global
+mCH ~18 % below what the reference predicts). Plain naive Bayes then pulls
+every cell toward whichever type has the closest global level (e.g. an
+intermediate "Hybrid" type) rather than the matching site pattern. With
+`level_adjust=True`, each cell gets — per channel and per candidate type — one
+scalar logit offset `delta_t`, `P(meth | c, t) = sigmoid(logit(theta[c,t]) +
+delta_t)`, estimated by maximum likelihood (4 Newton steps on ≤ 20 k evenly
+spaced covered sites, `_level_adjusted_ll`), and the log-likelihood at that
+offset is scored on all covered sites. No labels are needed. On 1003 labelled
+SALK045 MiSeq cells: accuracy 0.61 → 0.79, macro-F1 0.69 → 0.72, D1-MSN recall
+0.36 → 0.73. Works in both I/O modes; memory is `4 * n_types` bytes per
+covered site while a cell is scored.
+
+### Site selection vs shallow cells (measured)
+
+Simulated cells thinned from the Subclass pseudobulks, scored with three
+models fit on the same 32 pseudobulks:
+
+| model | tables | 300 k-site cells | 30 k | 10 k | 10 M (deep) |
+|---|---|---|---|---|---|
+| all sites (1.2 G) | 312 GB | 1.00 | 1.00 | 1.00 | 1.00 |
+| `top_cg=0.2, top_ch=0.05` (69 M) | 17 GB | 1.00 | 1.00 | 1.00 | 1.00 |
+| `top_per_class=2000` (256 k) | 65 MB | 0.77 | 0.19 | 0.09 | 1.00 |
+
+Aggressive pruning is fine for deep cells and fatal for shallow ones (a 300 k-
+site cell overlaps only ~60 of 256 k markers). On the **real** SALK045 MiSeq
+cells the all-sites model + `level_adjust` gave 0.79, the `top_*` model 0.73.
 
 ### Two entry points
 
@@ -733,20 +857,25 @@ labels, proba = predict_cell_type(
     query="cells_dir_or_table_or.cz",     # see "query forms" below
     pseudobulks="pseudobulk_dir/",        # or {cell_type: path} dict
     reference="ref.cz",                   # build_ref .cz (pos/strand/context)
-    top_cg=50000, top_ch=50000,           # prune to keep the model small
-    n_jobs=-1,
+    level_adjust=True,                    # recommended for MiSeq / cross-platform queries
+    n_jobs=-1,                            # stream=None: table scan picked automatically
     outdir="~/out")                       # writes model + predictions here
 
 # --- B) explicit: fit once, save, reuse ---
 clf = CellTypeClassifier(lambda_cg=1.0, lambda_ch=1.0)
 clf.fit(pseudobulks="pseudobulk_dir/", reference="ref.cz",
-        top_cg=50000, top_ch=50000, outdir="~/out/model")
+        top_cg=None, top_ch=None,                  # keep all sites for shallow queries
+        outdir="~/out/model")                      # memmap store straight to disk
 clf.save("~/out/model")
 
-clf = CellTypeClassifier.load("~/out/model")   # arrays are mmap-ed, low RAM
-res = clf.predict("one_cell.cz")               # -> dict(label, confidence, proba, log_posterior)
-labels, proba = clf.predict_batch(["a.cz", "b.cz"], n_jobs=-1)
+clf = CellTypeClassifier.load("~/out/model")   # 0.5 s, arrays are mmap-ed
+res = clf.predict("one_cell.cz", level_adjust=True)   # -> dict(label, confidence, proba, log_posterior)
+labels, proba = clf.predict_batch(["a.cz", "b.cz"], n_jobs=-1, level_adjust=True)
 ```
+
+CLI equivalent: `czip predict_cell_type -q cells/ -s pseudobulk_dir/ -e ref.cz
+-o ~/out --level_adjust true -j -1` (`--stream`, `--cov_cap`, `--prefix`,
+`--max_query_cg/ch`, `--top_per_class` are also exposed).
 
 **`query` forms** (auto-detected): a single `.cz` (→ one prediction `dict`); a
 **concatenated multi-cell** `.cz` (a `catcz` output; → `(labels, proba)`); a
@@ -780,7 +909,7 @@ model/
 ├── meta.json            # all scalars + axis + per-channel layout
 ├── cg_log_theta.npy     # float32 (n_cg,  n_types)  = log(theta)   CpG channel
 ├── cg_log1m_theta.npy   # float32 (n_cg,  n_types)  = log(1-theta) CpG channel
-├── cg_sites.npy         # int32   (n_cg,)           reference-row index per site
+├── cg_sites.npy         # int32   (n_cg,)           reference-row index per site (sorted within each chunk)
 ├── ch_log_theta.npy     # float32 (n_ch,  n_types)  = log(theta)   CpH channel
 ├── ch_log1m_theta.npy   # float32 (n_ch,  n_types)  = log(1-theta) CpH channel
 └── ch_sites.npy         # int32   (n_ch,)           reference-row index per site
@@ -826,13 +955,16 @@ theta = np.exp(lt[:])                          # methylation frequency per site�
 - `*_log1m_theta.npy` = `log(1 - theta)` (precomputed only to speed scoring;
   it is recoverable as `log1p(-exp(log_theta))`).
 - `*_sites.npy[i]` = the **row index within that chromosome's reference axis**
-  of site `i` (i.e. which reference cytosine). Map to a genomic coordinate by
-  reading the same `build_ref` reference `.cz` chunk at that row (or, more
-  conveniently, use `site_importance(reference=...)`).
+  of site `i` (i.e. which reference cytosine), **ascending within each
+  chunk's `[lo, hi)`** (scoring binary-searches it). Map to a genomic
+  coordinate by reading the same `build_ref` reference `.cz` chunk at that row
+  (or, more conveniently, use `site_importance(reference=...)`).
 
-Because `load()` only mmaps these, a model can be **10s of GB on disk yet score
-with a small RAM footprint**; pruning at fit time (`top_*` / `min_range_*`) is
-the main lever to shrink both.
+Because `load()` only mmaps these, a model can be **100s of GB on disk yet
+score with a small RAM footprint** (the 312 GB all-sites BG model loads in
+0.5 s and scores 1000 MiSeq cells in ~4 min on 16 threads); pruning at fit
+time (`top_*` / `min_range_*` / `top_per_class`) shrinks the tables but costs
+accuracy on shallow cells.
 
 ### Biological interpretation — `site_importance()`
 
@@ -894,9 +1026,19 @@ Needs `pysam` (reads the genome via a `.fai` index); `pos_base` defaults to 1
 
 ### Other predict-time options
 
+- `level_adjust` (bool): per-cell/per-type global logit offset, see above.
+  Recommended whenever queries and pseudobulks differ in platform or depth.
+- `stream` (`None`/`True`/`False`): sequential table scan vs per-cell random
+  row reads; `None` decides automatically (see "How scoring is implemented").
+- `cov_cap` (int): cap each site's effective coverage keeping `mc/cov`;
+  `cov_cap=1` makes deep snm3C cells score on the same per-site scale as
+  shallow cells (reads at one cytosine measure the same molecule, so they are
+  not independent draws).
 - `max_query_cg` / `max_query_ch` (on `predict*`): randomly keep at most that
   many of the query's **covered** cytosines per channel (downsampling); `None`
-  uses all. Re-drawn per cell.
+  uses all. Re-drawn per cell. With streaming there is no longer a speed
+  reason to downsample shallow cells — use all their sites.
+- `contexts`: `'cg'`, `'ch'` or `'cg+ch'` (one model serves all three).
 - `prior_alpha` + `cell_counts`: temper the abundance prior (`0` = uniform).
 - `abstain_threshold`: label a cell `'unassigned'` when top probability is below it.
 
@@ -1201,6 +1343,103 @@ czip cz_to_anndata_multiref --cz_table cells.tsv -f genes.gtf \
 
 > If your per-cell `.cz` already contain only the target context (e.g.
 > donor-specific `CGN` files), omit the `index` column entirely.
+
+## Single-cytosine matrix (`cz_to_anndata_sites`)
+
+`cz_to_anndata` aggregates over *regions* (genes / bins / BED). When you need
+the methylation level of **every cytosine in many cells** — e.g. per-CpG raw
+fractions or posterior fractions for a site-level model — use
+`cz_to_anndata_sites`. It is the fastest route in cytozip for this:
+
+* each cell's chromosome chunk is bulk-decompressed **once** (parallel
+  libdeflate; or block-gathered when the context index selects <~1.5% of
+  rows), the rows are restricted to the context index, and only **covered**
+  sites (`cov >= min_cov`) are kept;
+* the result is assembled as **sparse CSR** `layers['mc']` / `layers['cov']`
+  (`uint32`) — no dense `n_cells x n_sites` intermediate. Single-cell data is
+  ~2-5% covered, so memory is ≈ `nnz * 12 B` (int32 index + mc + cov);
+* `.X` is computed on the stored entries only: raw `mc/cov` or the per-cell
+  empirical-Bayes posterior mean `(mc + a_c) / (cov + a_c + b_c)` (same
+  Beta-Binomial fit as `cz_to_anndata`; `a_c, b_c, prior_mean, rho` land in
+  `adata.obs`).
+
+Benchmark (hg38, 300 single cells, chr19, CGN index = 2.21M sites,
+nnz = 13.6M): **8.8 s** with `jobs=8`, 27 s with `jobs=1` (file opens on
+GPFS dominate). The dense alternative (`CzWindowLoader.load_chrom` + numpy)
+takes ~160 s and 5 GB for the same matrix.
+
+### Quick start
+
+```python
+import cytozip as cz
+
+adata = cz.cz_to_anndata_sites(
+    "pseudobulk/cells/",                 # dir of per-cell .cz, a list of paths,
+                                         # or ONE catcz-merged .cz (chrom, cell_id)
+    reference="~/Ref/hg38/hg38_with_chrL.allc.cz",
+    index="~/Ref/hg38/hg38_with_chrL.CGN.cz",   # CG sites only (strongly recommended)
+    chroms=["chr19"],                    # one or more chromosomes, in this order
+    score="posterior_frac",              # or 'frac' | 'mc' | 'cov' | 'umc'
+    min_cov=1,                           # cov < min_cov -> treated as uncovered
+    jobs=8,
+    output="chr19.CG.sites.h5ad")
+
+adata                     # AnnData: obs = cells, var = sites
+adata.var.head()          # chrom, start (0-based), end, pos (1-based), strand, context
+adata.layers["mc"]        # csr_matrix uint32, covered sites only
+adata.layers["cov"]       # same sparsity pattern as mc
+adata.X                   # csr_matrix float32 posterior fraction on covered sites
+adata.obs[["alpha", "beta", "prior_mean", "rho"]]   # per-cell Beta prior
+```
+
+```shell
+czip cz_to_anndata_sites -I pseudobulk/cells/ -r hg38.allc.cz -s hg38.CGN.cz \
+     -c chr19 --score posterior_frac -O chr19.CG.sites.h5ad -j 8
+# a catcz-merged input works the same:
+czip cz_to_anndata_sites -I all_cells.cz -r hg38.allc.cz -s hg38.CGN.cz -c chr1,chr2 -O out.h5ad -j 8
+```
+
+### Working with the result
+
+Uncovered sites are **implicit zeros** in `.X` and every layer (default
+`nan_policy='zero'`), *not* measured zeros. The covered mask is the stored
+structure of `layers['cov']`:
+
+```python
+import numpy as np
+from cytozip.features import covered_mask, to_dense
+
+mask = covered_mask(adata)                 # sparse bool, True where cov > 0
+mc, cov = adata.layers["mc"], adata.layers["cov"]        # identical sparsity pattern
+frac = cov.astype(np.float32); frac.data = mc.data / cov.data   # raw frac, sparse
+
+# dense views only when you really need them (n_cells * n_sites * 4 bytes!)
+X_nan = to_dense(adata, fill="nan")          # NaN at uncovered sites
+X_prior = to_dense(adata, fill="prior_mean") # fill each cell's prior mean (posterior_frac)
+
+# per-site summaries without densifying
+cov = adata.layers["cov"]
+n_cells_covered = np.diff(cov.tocsc().indptr)            # cells covering each site
+mean_frac = np.asarray(adata.X.sum(0)).ravel() / np.maximum(n_cells_covered, 1)
+keep = n_cells_covered >= 10                             # e.g. sites seen in >= 10 cells
+adata_f = adata[:, keep].copy()
+```
+
+Tips
+
+* **Memory / scale.** `n_sites` is the number of index rows (CGN ≈ 28M for
+  hg38); `var` holds one string name per site, so build genome-wide
+  matrices **per chromosome** (`chroms=[...]`) and concatenate / filter
+  afterwards, or pass `use_samples=` to subset cells.
+* `nan_policy='nan'` / `'prior_mean'` densify `.X` — only for small matrices.
+* `var_names='pos'` gives bare positions (unique only within one chromosome).
+* Cells whose chunk has a different row count than the reference (not
+  row-aligned) are skipped for that chromosome with a warning; a file lacking
+  `mc`/`cov` columns (a reference or index file inside the input directory)
+  raises a clear error — point `-I` at the cell files only.
+* Compared with `pivot_fraction` (wide TSV of `%.3g` fractions for browsing)
+  this produces an analysis-ready sparse AnnData with counts, posterior and
+  per-cell priors; use `pivot_*` only when a text table is the goal.
 
 ## To-Do List
 - [x] Peak calling using umc (see "Peak calling from methylation" above)

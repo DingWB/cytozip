@@ -38,6 +38,7 @@ _LAZY_EXPORTS = {
     'cz_to_anndata': 'features', 'parse_features': 'features',
     'parse_gtf': 'features', 'make_genome_bins': 'features',
     'cz_to_anndata_multiref': 'features',
+    'cz_to_anndata_sites': 'features',
     'covered_mask': 'features', 'to_dense_nan': 'features',
     'to_dense': 'features',
     # merge.py — per-cell merging pipeline
@@ -956,6 +957,11 @@ def _build_parser():
     p.add_argument('--obs', default=None, help='optional TSV with cell metadata (index column = cell id)')
     p.add_argument('-r', '--reference', default=None,
                    help='reference .cz supplying pos coords for mc_cov-only cells')
+    p.add_argument('-s', '--index', default=None,
+                   help='1-D context index built by `czip index context` '
+                        '(e.g. mm10.allc.cz.CGN.index / .CHN.index); when '
+                        'given, aggregation is restricted to the indexed '
+                        'positions (CG-only or CH-only matrices)')
     p.add_argument('--chrom_size', default=None,
                    help='chrom-size / .fai file (required when --features is an int bin size)')
     p.add_argument('--exclude_chroms', type=_csv_str, default=['chrL'],
@@ -984,6 +990,46 @@ def _build_parser():
                         'cell Beta prior mean)')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel processes (CPUs)')
+
+    # ---- cz_to_anndata_sites -------------------------------------------------
+    p = sub.add_parser('cz_to_anndata_sites',
+                       help='Single-cytosine (n_cells x n_sites) sparse '
+                            'AnnData of raw / posterior methylation fractions',
+                       formatter_class=_fmt)
+    p.add_argument('-I', '--input', required=True, nargs='+',
+                   help='per-cell .cz file(s) or a directory, or one '
+                        'catcz-merged .cz (chunk_dims chrom,cell_id)')
+    p.add_argument('-r', '--reference', required=True,
+                   help='reference .cz the cells are row-aligned to')
+    p.add_argument('-O', '--output', default=None, help='output .h5ad path')
+    p.add_argument('-s', '--index', default=None,
+                   help='1-D context index .cz (e.g. hg38.CGN.cz) restricting '
+                        'the site axis; strongly recommended')
+    p.add_argument('-c', '--chroms', type=_csv_str, default=None,
+                   help='comma-separated chromosomes to include, in order '
+                        '(default: all); build per chromosome if the genome '
+                        'does not fit in RAM')
+    p.add_argument('--use_samples', type=_csv_str, default=None,
+                   help='comma-separated whitelist of sample names')
+    p.add_argument('--ext', default='.cz',
+                   help='suffix stripped from per-file basenames (default .cz)')
+    p.add_argument('--mc_col', default='mc', help='mc column name')
+    p.add_argument('--cov_col', default='cov', help='cov column name')
+    p.add_argument('--min_cov', type=int, default=1,
+                   help='sites with cov < min_cov count as uncovered')
+    p.add_argument('--score', choices=['frac', 'posterior_frac', 'mc', 'cov',
+                                       'umc'], default='posterior_frac',
+                   help='content of .X on covered sites (default posterior_frac)')
+    p.add_argument('--nan_policy', choices=['zero', 'nan', 'prior_mean'],
+                   default='zero',
+                   help='uncovered entries in .X: zero keeps .X sparse '
+                        '(default); nan / prior_mean densify')
+    p.add_argument('--var_names', choices=['coord', 'pos'], default='coord',
+                   help="var_names as 'chr1:10469' (coord) or position only")
+    p.add_argument('--obs', default=None,
+                   help='optional TSV with cell metadata (index = cell id)')
+    p.add_argument('-j', '--jobs', type=int, default=1,
+                   help='number of worker processes')
 
     # ---- cz_to_anndata_multiref ----------------------------------------------
     p = sub.add_parser(
@@ -1052,6 +1098,9 @@ def _build_parser():
                    help='randomly keep at most this many covered CpG sites per query cell')
     p.add_argument('--max_query_ch', type=_int_or_none, default=None,
                    help='randomly keep at most this many covered CpH sites per query cell')
+    p.add_argument('--cov_cap', type=_int_or_none, default=None,
+                   help='cap each query site\'s effective coverage (keeping mc/cov); use 1 for '
+                        'deep-sequencing cells so they score on the same per-site scale as MiSeq')
     p.add_argument('--alpha0_cg', type=_float_or_none, default=None, help='CpG Beta-prior alpha0 (auto if None)')
     p.add_argument('--beta0_cg', type=_float_or_none, default=None, help='CpG Beta-prior beta0 (auto if None)')
     p.add_argument('--alpha0_ch', type=_float_or_none, default=None, help='CpH Beta-prior alpha0 (auto if None)')
@@ -1076,6 +1125,16 @@ def _build_parser():
                    help="label a cell 'unassigned' when its top probability is below this")
     p.add_argument('--contexts', default='cg+ch',
                    help="cytosine context(s) to classify on: 'cg', 'ch', or 'both'/'cg+ch'")
+    p.add_argument('--prefix', default='',
+                   help='prepended to <outdir>/predictions.csv and predict_proba.csv so several '
+                        'query batches can share one model dir')
+    p.add_argument('--stream', type=_str2bool, default=None,
+                   help='batch scoring: true = one sequential pass over the model tables, '
+                        'false = per-cell random row reads; omit to choose automatically')
+    p.add_argument('--level_adjust', type=_str2bool, default=False,
+                   help='fit a per-cell, per-type global methylation-level (logit) offset per '
+                        'channel before scoring; removes a global mC-level / platform shift '
+                        'between query and reference (recommended for MiSeq cells vs a deep atlas)')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='parallel .cz readers / per-cell scoring threads')
 
@@ -1548,6 +1607,22 @@ def main():
                                  keep_pos_sort=args.keep_pos_sort,
                                  env=args.env)
 
+    elif cmd == 'cz_to_anndata_sites':
+        from .features import cz_to_anndata_sites
+        inputs = args.input if len(args.input) > 1 else args.input[0]
+        obs_df = None
+        if args.obs:
+            import pandas as pd
+            obs_df = pd.read_csv(args.obs, sep='\t', index_col=0)
+        cz_to_anndata_sites(cz_inputs=inputs, reference=args.reference,
+                            output=args.output, index=args.index,
+                            chroms=args.chroms, use_samples=args.use_samples,
+                            ext=args.ext, mc_col=args.mc_col,
+                            cov_col=args.cov_col, min_cov=args.min_cov,
+                            score=args.score, nan_policy=args.nan_policy,
+                            obs=obs_df, var_names=args.var_names,
+                            jobs=args.jobs)
+
     elif cmd == 'cz_to_anndata':
         from .features import cz_to_anndata
         inputs = args.input if len(args.input) > 1 else args.input[0]
@@ -1567,6 +1642,7 @@ def main():
                       pos_col=args.pos_col, mc_col=args.mc_col,
                       cov_col=args.cov_col, obs=obs_df,
                       reference=args.reference,
+                      index=args.index,
                       chrom_size=args.chrom_size,
                       exclude_chroms=args.exclude_chroms,
                       blacklist=args.blacklist,
@@ -1612,6 +1688,7 @@ def main():
             prior_alpha=args.prior_alpha,
             lambda_cg=args.lambda_cg, lambda_ch=args.lambda_ch,
             max_query_cg=args.max_query_cg, max_query_ch=args.max_query_ch,
+            cov_cap=args.cov_cap,
             alpha0_cg=args.alpha0_cg, beta0_cg=args.beta0_cg,
             alpha0_ch=args.alpha0_ch, beta0_ch=args.beta0_ch,
             prior_min_cov=args.prior_min_cov,
@@ -1622,7 +1699,8 @@ def main():
             context_col=args.context_col,
             abstain_threshold=args.abstain_threshold,
             contexts=args.contexts,
-            n_jobs=args.jobs, outdir=args.outdir)
+            n_jobs=args.jobs, outdir=args.outdir, prefix=args.prefix,
+            stream=args.stream, level_adjust=args.level_adjust)
 
     elif cmd == 'deconvolve_bulk':
         from .model import deconvolve_bulk

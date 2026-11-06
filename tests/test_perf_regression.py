@@ -402,6 +402,39 @@ def test_delta_random_block_access(dataset):
     r.close()
 
 
+def test_block_cache_consistency(dataset):
+    """LRU-cached block loads: identical buffers, correct sequential
+    continuation after a cache hit, bounded size."""
+    r = Reader(dataset["ref"], max_cache=4)
+    dim = ("chr1",)
+    full = r.fetch_chunk_bytes(dim)
+    r._load_chunk(r.chunk_key2offset[dim], jump=False)
+    vos = [vo >> _VO_BITS for vo in r._chunk_block_1st_record_virtual_offsets]
+    blocks = []
+    for st in vos:
+        r._block_start_offset = -1
+        r._load_block(st)
+        blocks.append(bytes(r._buffer))
+    assert b"".join(blocks) == full
+    assert len(r._block_cache) <= 4
+    rng = np.random.default_rng(0)
+    for i in rng.integers(0, len(vos), 40):
+        r._block_start_offset = -1
+        r._load_block(vos[i])
+        assert r._buffer == blocks[i]
+        if i + 1 < len(vos):
+            r._load_block()  # sequential continuation after a (possible) hit
+            assert r._buffer == blocks[i + 1]
+    # cached random-id lookups equal the direct per-record decode
+    ids = np.sort(rng.choice(len(full) // 12, 500, replace=False)) + 1
+    got = r.get_records_by_ids_bytes(dim, ids)
+    exp = b"".join(full[(i - 1) * 12:i * 12] for i in ids)
+    assert got == exp
+    assert b"".join(r._getRecordsByIds(dim, ids)) == exp
+    r.close()
+    assert not r._block_cache
+
+
 def test_query_regions_file_matches_list(dataset, tmp_path):
     r = Reader(dataset["noref_cells"][0])
     df = pd.read_csv(dataset["regions"], sep="\t", header=None)
@@ -506,6 +539,236 @@ def test_estimate_theta_float32_exact():
     mc = rng.integers(0, cov + 1)
     exp = ((mc.astype(np.float64) + 1) / (cov + 2.0)).astype(np.float32)
     assert np.array_equal(estimate_theta(mc, cov), exp)
+
+
+def test_rms_permutation_reproducible_across_threads():
+    """Same seed -> identical p-values regardless of thread count/schedule."""
+    from cytozip.dmr_accel import rms_run_sites
+    rng = np.random.default_rng(12)
+    n_cells, n_sites = 8, 3000
+    cov = rng.integers(0, 12, size=(n_cells, n_sites)).astype(np.int64)
+    mc = rng.binomial(cov, np.where(np.arange(n_cells) < 4, 0.2, 0.7)[:, None])
+    mc = np.ascontiguousarray(mc.astype(np.int64))
+    idx = np.arange(n_sites, dtype=np.int64)
+    p1, d1 = rms_run_sites(mc, cov, idx, 4, n_permute=300, n_threads=1, seed=7)
+    p2, d2 = rms_run_sites(mc, cov, idx, 4, n_permute=300, n_threads=4, seed=7)
+    p3, _ = rms_run_sites(mc, cov, idx, 4, n_permute=300, n_threads=4, seed=8)
+    assert np.array_equal(p1, p2) and np.array_equal(d1, d2)
+    assert not np.array_equal(p1, p3)
+    assert p1.max() <= 1.0
+    # malformed mc > cov is clamped: |delta| <= 1
+    bad = mc.copy()
+    bad[0] = cov[0] + 5
+    _, d = rms_run_sites(bad, cov, idx, 4, n_permute=50, seed=1)
+    assert np.abs(d).max() <= 1.0
+
+
+def test_peaks_index_rows_are_one_based(dataset, tmp_path):
+    """Context-index IDs are 1-based: peaks must select CG sites only."""
+    from cytozip.index import index_context
+    from cytozip.peaks import _pseudo_reads_chrom_worker
+    idx = str(tmp_path / "cgn.cz")
+    index_context(dataset["ref"], idx, pattern="CGN", jobs=1)
+    rr, ir = Reader(dataset["ref"]), Reader(idx)
+    rdt = [("pos", "<u8"), ("strand", "S1"), ("context", "S3")]
+    for dim in rr.chunk_key2offset:
+        ra = np.frombuffer(rr.fetch_chunk_bytes(dim), dtype=rdt)
+        rows = ir.get_index_rows(dim, n_rows=ra.size)
+        assert rows.min() >= 0 and rows.max() < ra.size
+        assert all(c.startswith(b"CG") for c in ra["context"][rows].tolist())
+        # 1-based raw IDs vs 0-based rows
+        assert np.array_equal(ir.get_ids_from_index(dim).astype(np.int64) - 1,
+                              rows)
+    cdt = [("mc", "u1"), ("cov", "u1")]
+    rc = Reader(dataset["cells"][0])
+    out = str(tmp_path / "pr")
+    os.makedirs(out)
+    chrom, bed, n, _, _ = _pseudo_reads_chrom_worker(
+        ("chr1",), dataset["cells"][0], dataset["ref"], idx, "mc", "cov",
+        1, 150, None, out, "x")
+    ra = np.frombuffer(rr.fetch_chunk_bytes(("chr1",)), dtype=rdt)
+    ca = np.frombuffer(rc.fetch_chunk_bytes(("chr1",)), dtype=cdt)
+    rows = ir.get_index_rows(("chr1",))
+    exp = int((ca["cov"][rows] - ca["mc"][rows])[ca["cov"][rows] >= 1].sum())
+    assert n == exp
+    rr.close(); ir.close(); rc.close()
+
+
+def test_array2cz_missing_probes_become_nan(tmp_path):
+    from cytozip.array import array2cz, dequantize_cz
+    man = pd.DataFrame({"probe_id": [f"cg{i}" for i in range(6)],
+                        "chrom": ["c1"] * 6, "pos": np.arange(1, 7) * 10})
+    df = pd.DataFrame({"sample_id": ["s1"] * 4, "probe_id": ["cg0", "cg2", "cg3", "cg5"],
+                       "beta": [0.1, 0.2, 0.3, 0.4], "n": [1, 2, 3, 4]})
+    paths = array2cz(df, man, str(tmp_path / "o"), output_reference=str(tmp_path / "r.cz"),
+                     value_cols=("beta", "n"), overwrite=True)
+    r = Reader(paths[0])
+    got = np.frombuffer(r.fetch_chunk_bytes(("c1",)), dtype=[("beta", "<f4"), ("n", "u1")])
+    r.close()
+    assert got.size == 6
+    assert np.isnan(got["beta"][[1, 4]]).all() and np.allclose(got["beta"][[0, 2, 3, 5]], [0.1, 0.2, 0.3, 0.4])
+    assert got["n"].tolist() == [1, 0, 2, 3, 0, 4]
+    with pytest.raises(ValueError, match="not in manifest"):
+        array2cz(df.assign(probe_id=["cg0", "zz", "cg3", "cg5"]), man,
+                 str(tmp_path / "o2"), value_cols=("beta",), overwrite=True)
+
+
+def test_index_regions_drops_inverted(dataset, tmp_path):
+    from cytozip.index import index_regions
+    bed = tmp_path / "r.bed"
+    bed.write_text("chr1\t100\t900\tA\nchr1\t500\t500\tB\nchr1\t800\t200\tC\nchr2\t10\t50\tD\n")
+    out = str(tmp_path / "ridx.cz")
+    index_regions(dataset["ref"], out, bed=str(bed), jobs=1)
+    r = Reader(out)
+    ids = r.get_ids_from_index(("chr1",))
+    assert ids.shape == (1, 2) and ids[0, 1] > ids[0, 0]
+    r.close()
+
+
+def test_catcz_skips_empty_source(dataset, tmp_path):
+    from cytozip.cz import check_cz
+    empty = str(tmp_path / "empty.cz")
+    Writer(empty, formats=["B", "B"], columns=["mc", "cov"], chunk_dims=["chrom"]).close()
+    assert os.path.getsize(empty) > 0
+    ok, reason = check_cz(empty)
+    assert not ok and "no chunks" in reason
+    assert check_cz(dataset["cells"][0]) == (True, "ok")
+    trunc = str(tmp_path / "trunc.cz")
+    with open(dataset["cells"][0], "rb") as fh, open(trunc, "wb") as out:
+        out.write(fh.read()[:-40])
+    assert check_cz(trunc)[0] is False
+    out = str(tmp_path / "cat.cz")
+    w = Writer(out, formats=["B", "B"], columns=["mc", "cov"], chunk_dims=["chrom"])
+    w.catcz(input=[dataset["cells"][0], empty, dataset["cells"][1]], key_added="cell_id")
+    r = Reader(out)
+    assert len(r.chunk_key2offset) == 2 * len(CHROM_SIZES)
+    r.close()
+
+
+def test_merge_dms_to_dmr_carries_rates():
+    from cytozip.dmr import _merge_dms_to_dmr
+    df = pd.DataFrame({"chrom": ["c"] * 3, "pos": [1, 10, 500], "p": [.1, .2, .3],
+                       "delta": [.5, .4, .3], "rate_a": [1., 2., 3.], "rate_b": [.5, .5, .5]})
+    out = _merge_dms_to_dmr(df, max_dist=100, min_dms=1)
+    assert out.shape[0] == 2 and out["rate_a"].tolist() == [1.5, 3.0]
+    out2 = _merge_dms_to_dmr(df[["chrom", "pos", "p", "delta"]], max_dist=100, min_dms=1)
+    assert "rate_a" not in out2.columns
+
+
+def test_dataloader_index_windows_match_bruteforce(dataset, tmp_path):
+    """Context-filtered windows (sparse per-block gather) == numpy gather,
+    for both non-delta and delta-encoded (record-aligned) cells."""
+    from cytozip.index import index_context
+    from cytozip.dataloader import CzWindowLoader
+    idx = str(tmp_path / "cgn.cz")
+    index_context(dataset["ref"], idx, pattern="CGN", jobs=1)
+    # delta-encoded copy of cell1 (same rows, different block geometry)
+    r1 = Reader(dataset["cells"][1])
+    dcell = str(tmp_path / "cell1_delta.cz")
+    w = Writer(dcell, formats=r1.header["formats"], columns=r1.header["columns"],
+               chunk_dims=["chrom"], delta_cols=["mc"])
+    for dim in r1.chunk_key2offset:
+        w.write_chunk(r1.fetch_chunk_bytes(dim), list(dim))
+    w.close()
+    r1.close()
+    cells = [dataset["cells"][0], dcell]
+    ld = CzWindowLoader(dataset["ref"], cells, index=idx, threads=2)
+    ir = Reader(idx)
+    cdt = [("mc", "u1"), ("cov", "u1")]
+    rdt = [("pos", "<u8"), ("strand", "S1"), ("context", "S3")]
+    rr = Reader(dataset["ref"])
+    for chrom in CHROM_SIZES:
+        rows = ir.get_index_rows((chrom,))
+        pos = np.frombuffer(rr.fetch_chunk_bytes((chrom,)), dtype=rdt)["pos"][rows].astype(np.int64)
+        exp = []
+        for c in cells:
+            rc = Reader(c)
+            a = np.frombuffer(rc.fetch_chunk_bytes((chrom,)), dtype=cdt)[rows]
+            rc.close()
+            exp.append((a["mc"].astype(np.int64), a["cov"].astype(np.int64)))
+        got_mc = np.zeros((2, rows.size), np.int64)
+        got_cov = np.zeros((2, rows.size), np.int64)
+        seen = np.zeros(rows.size, bool)
+        for wdw in ld.iter_windows(chrom, binsize=700, max_sites=50):
+            p = np.asarray(wdw.pos)
+            j = np.searchsorted(pos, p)
+            assert np.array_equal(pos[j], p)
+            got_mc[:, j] = np.asarray(wdw.mc)
+            got_cov[:, j] = np.asarray(wdw.cov)
+            seen[j] = True
+        assert seen.all()
+        for i in range(2):
+            assert np.array_equal(got_mc[i], exp[i][0])
+            assert np.array_equal(got_cov[i], exp[i][1])
+        # single-region path
+        lo, hi = int(pos[10]), int(pos[60])
+        rpos, rmc, rcov = ld.load_region(chrom, lo, hi + 1)
+        m = (pos >= lo) & (pos <= hi)
+        assert np.array_equal(np.asarray(rpos), pos[m])
+        assert np.array_equal(np.asarray(rmc)[1], exp[1][0][m])
+        assert np.array_equal(np.asarray(rcov)[0], exp[0][1][m])
+    ld.close(); ir.close(); rr.close()
+
+
+def test_cz_to_anndata_sites(dataset, tmp_path):
+    pytest.importorskip("anndata")
+    from cytozip.index import index_context
+    from cytozip.features import cz_to_anndata_sites, _compute_beta_params_sparse
+    idx = str(tmp_path / "cgn.cz")
+    index_context(dataset["ref"], idx, pattern="CGN", jobs=1)
+    cells = dataset["cells"]
+    rdt = [("pos", "<u8"), ("strand", "S1"), ("context", "S3")]
+    cdt = [("mc", "u1"), ("cov", "u1")]
+    rr, ir = Reader(dataset["ref"]), Reader(idx)
+    # dense truth over CG sites of chr1+chr2 (in that order)
+    pos_all, mc_all, cov_all, ctx_all = [], [], [], []
+    for chrom in ("chr1", "chr2"):
+        rows = ir.get_index_rows((chrom,))
+        ra = np.frombuffer(rr.fetch_chunk_bytes((chrom,)), dtype=rdt)[rows]
+        pos_all.append(np.array([f"{chrom}:{p}" for p in ra["pos"]]))
+        ctx_all.append(ra["context"].astype(str))
+        m, c = [], []
+        for cell in cells:
+            rc = Reader(cell)
+            a = np.frombuffer(rc.fetch_chunk_bytes((chrom,)), dtype=cdt)[rows]
+            rc.close()
+            m.append(a["mc"].astype(np.int64)); c.append(a["cov"].astype(np.int64))
+        mc_all.append(np.stack(m)); cov_all.append(np.stack(c))
+    rr.close(); ir.close()
+    names = np.concatenate(pos_all); MC = np.concatenate(mc_all, 1); COV = np.concatenate(cov_all, 1)
+    labels = [os.path.basename(c)[:-3] for c in cells]
+
+    ad = cz_to_anndata_sites(cells, dataset["ref"], index=idx, chroms=["chr1", "chr2"],
+                             score="frac", jobs=1)
+    assert list(ad.obs_names) == labels and list(ad.var_names) == list(names)
+    assert ad.var["context"].str.startswith("CG").all()
+    assert np.array_equal(ad.layers["mc"].toarray(), MC)
+    assert np.array_equal(ad.layers["cov"].toarray(), COV)
+    exp_frac = np.where(COV > 0, MC / np.maximum(COV, 1), 0.0)
+    assert np.allclose(ad.X.toarray(), exp_frac, atol=1e-6)
+
+    # posterior, parallel, catcz'd input, min_cov
+    cat = str(tmp_path / "cat.cz")
+    w = Writer(cat, formats=["B", "B"], columns=["mc", "cov"], chunk_dims=["chrom"])
+    w.catcz(input=cells, key_added="cell_id")
+    ad2 = cz_to_anndata_sites(cat, dataset["ref"], index=idx, chroms=["chr1", "chr2"],
+                              score="posterior_frac", min_cov=2, jobs=2,
+                              output=str(tmp_path / "sites.h5ad"))
+    assert sorted(ad2.obs_names) == sorted(labels)
+    order = [list(ad2.obs_names).index(l) for l in labels]
+    COV2 = np.where(COV >= 2, COV, 0); MC2 = np.where(COV >= 2, MC, 0)
+    assert np.array_equal(ad2.layers["cov"].toarray()[order], COV2)
+    a, b, _ = _compute_beta_params_sparse(ad2.layers["mc"], ad2.layers["cov"])
+    X = ad2.X.toarray()[order]
+    a = a[order]; b = b[order]
+    exp = np.where(COV2 > 0, (MC2 + a[:, None]) / (COV2 + a[:, None] + b[:, None]), 0.0)
+    assert np.allclose(X, exp, atol=1e-5)
+    assert os.path.exists(str(tmp_path / "sites.h5ad"))
+    # no index -> all cytosines, single chrom, pos var_names
+    ad3 = cz_to_anndata_sites(cells[:2], dataset["ref"], chroms=["chrM"], score="cov",
+                              var_names="pos")
+    rc = Reader(cells[0]); n = len(rc.fetch_chunk_bytes(("chrM",))) // 2; rc.close()
+    assert ad3.shape == (2, n) and ad3.var_names[0].isdigit()
 
 
 def test_fisher_1v1_matches_scipy():

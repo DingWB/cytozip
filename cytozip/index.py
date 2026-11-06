@@ -258,7 +258,14 @@ def _build_region_index_worker(input, output, dim, df1, formats, columns,
 
 		id_start = np.searchsorted(pos, starts, side='left')
 		id_end = np.searchsorted(pos, ends, side='left')
-		valid = id_start < pos.size
+		# Drop regions starting past the last site and malformed
+		# (end <= start) regions, which would otherwise be written with
+		# ID_end <= ID_start and yield empty / inverted downstream slices.
+		bad = ends <= starts
+		if bad.any():
+			logger.warning(f"{dim}: dropping {int(bad.sum())} region(s) with "
+			               f"end <= start")
+		valid = (id_start < pos.size) & ~bad
 		id_start = id_start[valid]
 		id_end = id_end[valid]
 		names = names[valid]

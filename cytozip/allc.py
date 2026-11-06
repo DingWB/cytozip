@@ -287,7 +287,8 @@ class AllC:
         self.writePattern()
         self.merge()
         if not self.keep_temp:
-            os.system(f"rm -rf {self.outdir}")
+            import shutil
+            shutil.rmtree(self.outdir, ignore_errors=True)
 
 
 def _scale_mc_on_cov_clip(mc_raw, cov_raw, mc_dtype, cov_dtype):
@@ -928,14 +929,13 @@ def _extractcg_chunk_worker(args):
             return dim, b''
         # Gather the indexed rows once, then sum each forward/reverse pair
         # column-wise with a single vectorized clip.
-        full = reader.chunk2numpy(dim)
-        arr = full[IDs - 1]
-        m = arr.shape[0] // 2  # number of (forward, reverse) pairs
-        if m == 0:
-            return dim, b''
         _rec_dtype = np.dtype([
             (f'f{i}', _fmt_to_np_dtype(f[-1]))
             for i, f in enumerate(formats)])
+        arr = reader.gather_rows(dim, IDs - 1, dtype=_rec_dtype)
+        m = arr.shape[0] // 2  # number of (forward, reverse) pairs
+        if m == 0:
+            return dim, b''
         fwd = arr[:2 * m:2]
         rev = arr[1:2 * m:2]
         out = np.empty(m, dtype=_rec_dtype)
@@ -950,6 +950,8 @@ def _extractcg_chunk_worker(args):
             info = np.iinfo(dt)
             out[fn] = np.clip(summed_cols[i], info.min, info.max).astype(dt)
         return dim, out.tobytes()
+    if not merge_cg:
+        return dim, reader.get_records_by_ids_bytes(dim, IDs)
     records = reader._getRecordsByIds(dim, IDs)
     data_parts = []
     if merge_cg:

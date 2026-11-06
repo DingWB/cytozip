@@ -293,12 +293,18 @@ def array2cz(
         # Scatter sub into manifest order. Probes missing for this sample
         # become NaN (float) / 0 (int) — surfaced via ``fillna``.
         sub = sub.set_index(probe_col)
-        try:
-            sub = sub.loc[manifest[probe_col].values, list(value_cols)]
-        except KeyError as e:
+        if sub.index.has_duplicates:
+            dups = sub.index[sub.index.duplicated()].unique()[:5].tolist()
             raise ValueError(
-                f"sample {sample_id!r} references probe(s) not in manifest: {e}"
-            )
+                f"sample {sample_id!r} has duplicated probe ids, e.g. {dups}")
+        unknown = sub.index.difference(manifest[probe_col])
+        if len(unknown):
+            raise ValueError(
+                f"sample {sample_id!r} references {len(unknown)} probe(s) not "
+                f"in manifest, e.g. {unknown[:5].tolist()}")
+        # reindex (not .loc) so probes absent from this sample become NaN
+        # instead of raising KeyError.
+        sub = sub.reindex(manifest[probe_col].values)[list(value_cols)]
 
         # Apply quantization where configured. Always produce the storage
         # numpy dtype so later struct packing matches ``formats`` exactly.
@@ -310,6 +316,10 @@ def array2cz(
                 out_df[col] = quantize_uniform(np.nan_to_num(vals, nan=lo),
                                                lo, hi, bits=quantize_bits)
             else:
+                if fmt[-1] in 'BHILQbhilq':
+                    # Missing probes of an integer column are stored as 0.
+                    vals = np.nan_to_num(np.asarray(vals, dtype=np.float64),
+                                         nan=0.0).astype(np.int64)
                 out_df[col] = vals
 
         writer = Writer(out_path, formats=formats, columns=list(value_cols),

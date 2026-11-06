@@ -36,7 +36,7 @@ from loguru import logger
 import numpy as np
 import pandas as pd
 
-from .cz import Reader, _fmt_to_np_dtype
+from .cz import Reader, _fmt_to_np_dtype, _make_np_dtype, _find_pos_col
 
 
 _VALID_SCORES = ("frac", "posterior_frac", "hypo-score", "hyper-score", "umc")
@@ -469,6 +469,17 @@ class _StreamingSparseBuilder:
             self._indices.append(nz)
         self._n_rows += 1
         self._indptr.append(self._indptr[-1] + int(nz.size))
+
+    def append_sparse(self, indices, mc, cov) -> None:
+        """Append one cell given only its covered entries: sorted column
+        ``indices`` (int) with their ``mc`` / ``cov`` counts (``cov > 0``)."""
+        n = int(len(indices))
+        if n:
+            self._indices.append(np.asarray(indices, dtype=np.int32))
+            self._mc_data.append(np.asarray(mc, dtype=np.uint32))
+            self._cov_data.append(np.asarray(cov, dtype=np.uint32))
+        self._n_rows += 1
+        self._indptr.append(self._indptr[-1] + n)
 
     def finalize(self):
         """Materialise ``(mc_csr, cov_csr)`` shape ``(n_rows, n_feat)``.
@@ -1735,6 +1746,302 @@ def cz_to_anndata(
                                     os.path.expanduser(reference))
                                     if reference else None),
                                 nan_policy=nan_policy)
+
+
+# ---------------------------------------------------------------------------
+# Single-cytosine resolution matrix (cells x sites)
+# ---------------------------------------------------------------------------
+_SITES_STATE: dict = {}
+
+
+def _sites_pool_init(state):
+    _SITES_STATE.clear()
+    _SITES_STATE.update(state)
+
+
+def _sites_read_cell(reader, prefix, st):
+    """Covered entries ``(global_site_idx int32, mc uint32, cov uint32)`` of
+    one cell over the site axis described by ``st``."""
+    mc_col, cov_col, min_cov = st['mc_col'], st['cov_col'], st['min_cov']
+    chrom_axis = st['chrom_axis']
+    idx_parts, mc_parts, cov_parts = [], [], []
+    dt = None
+    for chrom, offset, rows, n_ref in st['axis']:
+        if prefix is None:
+            dim = (chrom,)
+        else:
+            d = list(prefix)
+            d.insert(chrom_axis, chrom)
+            dim = tuple(d)
+        if dim not in reader.chunk_key2offset:
+            continue
+        if dt is None:
+            cols = reader.header['columns']
+            if mc_col not in cols or cov_col not in cols:
+                raise ValueError(
+                    f"{reader.input}: columns {cols} lack {mc_col!r}/{cov_col!r}"
+                    " -- not a per-cell mc/cov .cz (is a reference / index "
+                    "file mixed into the input directory?)")
+            dt = _make_np_dtype(reader.header['formats'], cols)
+        if rows is not None and rows.size * 64 < n_ref:
+            # very sparse selection (<~1.5% of rows): block-wise gather
+            # beats inflating the whole chunk; denser selections (e.g. a
+            # CGN index, ~8-10%) are faster via the parallel chunk inflate.
+            arr = reader.gather_rows(dim, rows, dtype=dt)
+        else:
+            raw = reader.fetch_chunk_bytes(dim)
+            arr = np.frombuffer(raw, dtype=dt) if raw else np.empty(0, dtype=dt)
+            if arr.shape[0] != n_ref:
+                logger.warning(f"{reader.input} {dim}: {arr.shape[0]} rows but "
+                               f"reference has {n_ref}; chrom skipped")
+                reader.release_chunk(dim)
+                continue
+            if rows is not None:
+                arr = arr[rows]
+            reader.release_chunk(dim)
+        cov = arr[cov_col]
+        nz = np.flatnonzero(cov >= min_cov) if min_cov > 1 else np.flatnonzero(cov)
+        if nz.size:
+            idx_parts.append((nz + offset).astype(np.int32, copy=False))
+            mc_parts.append(arr[mc_col][nz].astype(np.uint32, copy=False))
+            cov_parts.append(cov[nz].astype(np.uint32, copy=False))
+    if not idx_parts:
+        e = np.empty(0, dtype=np.int32)
+        return e, e.astype(np.uint32), e.astype(np.uint32)
+    return (np.concatenate(idx_parts), np.concatenate(mc_parts),
+            np.concatenate(cov_parts))
+
+
+def _sites_pool_file(path):
+    r = Reader(path, mmap_advise="sequential")
+    try:
+        return _sites_read_cell(r, None, _SITES_STATE)
+    finally:
+        r.close()
+
+
+def _sites_pool_prefix(args):
+    path, prefix = args
+    r = _SITES_STATE.get('_reader')
+    if r is None or r.input != path:
+        if r is not None:
+            r.close()
+        r = Reader(path, mmap_advise="random")
+        _SITES_STATE['_reader'] = r
+    return _sites_read_cell(r, prefix, _SITES_STATE)
+
+
+def cz_to_anndata_sites(
+    cz_inputs: Union[str, Sequence[str]],
+    reference: str,
+    output: Optional[str] = None,
+    index: Optional[Union[str, "Reader", dict]] = None,
+    chroms: Optional[Sequence[str]] = None,
+    use_samples: Optional[Sequence[str]] = None,
+    ext: str = ".cz",
+    mc_col: str = "mc",
+    cov_col: str = "cov",
+    min_cov: int = 1,
+    score: str = "posterior_frac",
+    nan_policy: str = "zero",
+    obs: Optional[pd.DataFrame] = None,
+    var_names: str = "coord",
+    jobs: int = 1,
+):
+    """Single-cytosine resolution ``(n_cells, n_sites)`` AnnData.
+
+    The fastest way to get per-site methylation levels for many cells: each
+    cell's chunk is bulk-decompressed once (or block-gathered when the
+    context index is sparse), only **covered** sites are kept, and the
+    result is assembled as sparse CSR layers — no dense ``n_cells x n_sites``
+    intermediate. Single-cell data is typically <5-10% covered, so memory is
+    ``~ nnz * 12 B`` (int32 index + uint32 mc + uint32 cov).
+
+    Parameters
+    ----------
+    cz_inputs : str or list
+        Directory of per-cell ``.cz``, list of paths, or one ``catcz``'d
+        multi-cell ``.cz`` (chunk_dims ``['chrom', 'cell_id']``). All cells
+        must be row-aligned to ``reference``.
+    reference : str
+        Reference ``.cz`` (``pos`` + optional ``strand`` / ``context``).
+    index : str / Reader / dict, optional
+        1-D context index (e.g. ``*.CGN.cz``) restricting the site axis to
+        those cytosines. Strongly recommended (CG only is ~10x fewer sites).
+    chroms : list of str, optional
+        Restrict to these chromosomes (in this order). Default: all
+        reference chunks. Use this to build the matrix per chromosome when
+        the whole genome does not fit in memory.
+    min_cov : int, default 1
+        Sites with ``cov < min_cov`` are treated as uncovered (not stored).
+    score : {'frac', 'posterior_frac', 'mc', 'cov', 'umc'}
+        ``.X`` content on covered sites: raw ``mc/cov`` or the per-cell
+        empirical-Bayes posterior mean ``(mc + a_c) / (cov + a_c + b_c)``
+        (``a_c, b_c`` from a Beta-Binomial fit over that cell's covered
+        sites, stored in ``obs['alpha'/'beta'/'prior_mean'/'rho']``).
+    nan_policy : {'zero', 'nan', 'prior_mean'}, default 'zero'
+        ``'zero'`` keeps ``.X`` sparse (uncovered = implicit 0; the covered
+        mask is ``layers['cov'] != 0``, see :func:`to_dense`). The other two
+        densify ``.X`` -- only sensible for small matrices.
+    var_names : {'coord', 'pos'}
+        ``'coord'`` -> ``"chr1:10469"``; ``'pos'`` -> position only (unique
+        only within one chromosome; use with ``chroms=[one]``).
+    jobs : int
+        Worker processes (one cell per task).
+
+    Returns
+    -------
+    anndata.AnnData
+        ``obs`` = cells, ``var`` = sites (``chrom``, ``start``, ``end``,
+        ``pos`` + ``strand``/``context`` when present in the reference),
+        ``layers['mc']`` / ``layers['cov']`` sparse counts, ``.X`` = score.
+    """
+    if score not in ("frac", "posterior_frac", "mc", "cov", "umc"):
+        raise ValueError("score must be one of frac, posterior_frac, mc, cov, umc")
+    reference = os.path.abspath(os.path.expanduser(reference))
+    paths = _resolve_inputs(cz_inputs)
+    n_workers = int(jobs) if jobs and int(jobs) > 1 else 1
+
+    # ---- site axis from the reference -----------------------------------
+    rr = Reader(reference, mmap_advise="sequential")
+    try:
+        ref_cols = rr.header['columns']
+        ref_dt = _make_np_dtype(rr.header['formats'], ref_cols)
+        pos_name = ref_cols[_find_pos_col(rr)]
+        ref_chroms = [d[0] for d in rr.chunk_key2offset]
+        if chroms is not None:
+            want = [str(c) for c in chroms]
+            missing = [c for c in want if c not in set(ref_chroms)]
+            if missing:
+                raise ValueError(f"chroms not in reference: {missing}")
+            ref_chroms = want
+        rows_by_chrom = (_resolve_index_to_dict(index, chroms=set(ref_chroms))
+                         if index is not None else None)
+        axis = []          # (chrom, offset, rows_or_None, n_ref_rows)
+        var_parts = []
+        offset = 0
+        for chrom in ref_chroms:
+            raw = rr.fetch_chunk_bytes((chrom,))
+            ref_arr = np.frombuffer(raw, dtype=ref_dt) if raw else np.empty(0, ref_dt)
+            n_ref = ref_arr.shape[0]
+            rows = None
+            if rows_by_chrom is not None:
+                ids = rows_by_chrom.get(chrom)
+                if ids is None:
+                    rr.release_chunk((chrom,))
+                    continue
+                rows = ids.astype(np.int64, copy=False) - 1
+                rows = rows[(rows >= 0) & (rows < n_ref)]
+                sel = ref_arr[rows]
+            else:
+                sel = ref_arr
+            part = {'chrom': chrom,
+                    'pos': sel[pos_name].astype(np.int64)}
+            for c in ref_cols:
+                if c == pos_name:
+                    continue
+                v = sel[c]
+                part[c] = (pd.Series(v).str.decode('utf-8').to_numpy()
+                           if v.dtype.kind == 'S' else np.asarray(v))
+            var_parts.append(pd.DataFrame(part))
+            axis.append((chrom, offset, rows, n_ref))
+            offset += int(sel.shape[0])
+            rr.release_chunk((chrom,))
+    finally:
+        rr.close()
+    n_sites = offset
+    if n_sites == 0:
+        raise ValueError("no sites selected (empty reference / index)")
+    feat_df = pd.concat(var_parts, ignore_index=True) if var_parts else pd.DataFrame()
+    feat_df.insert(1, 'start', feat_df['pos'] - 1)
+    feat_df.insert(2, 'end', feat_df['pos'])
+    if var_names == 'pos':
+        feat_df['name'] = feat_df['pos'].astype(str)
+    else:
+        feat_df['name'] = (feat_df['chrom'].astype(str) + ':'
+                           + feat_df['pos'].astype(str))
+    logger.info(f"cz_to_anndata_sites: {n_sites:,} sites over "
+                f"{len(axis)} chrom(s)")
+
+    # ---- cells ------------------------------------------------------------
+    sample_set = set(use_samples) if use_samples is not None else None
+
+    def _basename_sample(p):
+        b = os.path.basename(p)
+        return b[:-len(ext)] if ext and b.endswith(ext) else b
+
+    builder = _StreamingSparseBuilder(n_sites)
+    obs_names: List[str] = []
+    _POOL_CHUNK_CAP = 32
+
+    r0 = Reader(paths[0], mmap_advise="random")
+    try:
+        cols0 = r0.header['columns']
+        if mc_col not in cols0 or cov_col not in cols0:
+            raise ValueError(f"columns {cols0} lack {mc_col!r}/{cov_col!r}")
+        n_keys = len(r0.header['chunk_dims'])
+        chrom_axis = _detect_chrom_axis(r0, set(ref_chroms)) if n_keys >= 2 else 0
+        cell_prefixes = None
+        if len(paths) == 1 and n_keys >= 2:
+            cell_prefixes = [(pref, lab) for pref, lab in
+                             _enumerate_cell_prefixes(r0, chrom_axis)
+                             if sample_set is None or lab in sample_set]
+    finally:
+        r0.close()
+    state = dict(axis=axis, mc_col=mc_col, cov_col=cov_col,
+                 min_cov=int(min_cov), chrom_axis=chrom_axis)
+
+    def _consume(results, labels):
+        for (idx, mc, cov), label in zip(results, labels):
+            builder.append_sparse(idx, mc, cov)
+            obs_names.append(label)
+
+    if cell_prefixes is not None:
+        prefixes = [p for p, _ in cell_prefixes]
+        labels = [lab for _, lab in cell_prefixes]
+        if n_workers > 1 and len(prefixes) > 1:
+            from concurrent.futures import ProcessPoolExecutor
+            with ProcessPoolExecutor(max_workers=n_workers,
+                                     initializer=_sites_pool_init,
+                                     initargs=(state,)) as ex:
+                args = [(paths[0], pref) for pref in prefixes]
+                chunk = max(1, min(_POOL_CHUNK_CAP, len(args) // (n_workers * 4) or 1))
+                _consume(ex.map(_sites_pool_prefix, args, chunksize=chunk), labels)
+        else:
+            r = Reader(paths[0], mmap_advise="random")
+            try:
+                _consume((_sites_read_cell(r, pref, state) for pref in prefixes),
+                         labels)
+            finally:
+                r.close()
+    else:
+        keep, labels = [], []
+        for p in paths:
+            lab = _basename_sample(p)
+            if sample_set is not None and lab not in sample_set:
+                continue
+            keep.append(p)
+            labels.append(lab)
+        if n_workers > 1 and len(keep) > 1:
+            from concurrent.futures import ProcessPoolExecutor
+            with ProcessPoolExecutor(max_workers=n_workers,
+                                     initializer=_sites_pool_init,
+                                     initargs=(state,)) as ex:
+                chunk = max(1, min(_POOL_CHUNK_CAP, len(keep) // (n_workers * 4) or 1))
+                _consume(ex.map(_sites_pool_file, keep, chunksize=chunk), labels)
+        else:
+            def _gen():
+                for p in keep:
+                    r = Reader(p, mmap_advise="sequential")
+                    try:
+                        yield _sites_read_cell(r, None, state)
+                    finally:
+                        r.close()
+            _consume(_gen(), labels)
+
+    return _finalize_cz_anndata(builder, obs_names, feat_df, None,
+                                score, 0.9, "posterior", obs, output,
+                                reference=reference, nan_policy=nan_policy)
 
 
 def cz_to_anndata_multiref(

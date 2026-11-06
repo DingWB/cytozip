@@ -307,7 +307,7 @@ When all sites have high and roughly equal coverage ($n_i \gg 1$, $\bar n$ close
 The same Beta-Binomial MoM is used in two places, with different pooling axes:
 
 - **`cytozip/model.py` → `estimate_beta_prior(mc, cov, ...)`**: per-context prior, pooled over sites (and over all cell types), estimated on the **deep pseudobulk reference** at `fit` time (CpG / CpH each get their own prior). Feeds `estimate_theta`.
-- **`cytozip/features.py` → `_compute_beta_params_sparse`**: **per-cell** prior, pooled over that cell's features (sparse-streamed over the CSR mc/cov layers), written to `adata.obs` as `alpha`, `beta`, `prior_mean`, `rho` (only when `score='posterior_frac'`).
+- **`cytozip/features.py` → `_compute_beta_params_sparse`**: **per-cell** prior, pooled over that cell's features (sparse-streamed over the CSR mc/cov layers), written to `adata.obs` as `alpha`, `beta`, `prior_mean`, `rho` (only when `score='posterior_frac'`). Used by both `cz_to_anndata` (features = regions / genes / bins) and `cz_to_anndata_sites` (features = single cytosines; the prior is then pooled over all covered sites of the cell).
   - The exported `rho = 1/(alpha+beta+1)` is coverage-independent, so it doubles as a **per-cell QC handle** (flag degenerate / low-complexity cells), and lets downstream code recover the shrinkage strength $\kappa=(1-\rho)/\rho$.
 
 ## 8. 后验甲基化分数（Posterior methylation fraction）
@@ -345,6 +345,7 @@ $$
 - `score='posterior_frac'` 时 `.X` 存**未归一化**的后验均值 $\dfrac{mc+\alpha}{cov+\alpha+\beta}$ （尺度仍在 $[0,1]$ ，与 `frac` 可比）。
 - 仅在**覆盖到的条目**（ $cov>0$ ）上计算；未覆盖条目保持隐式 0（与 `frac` 相同的稀疏结构）。
 - $\alpha,\beta$ 为**每个细胞一套**（对该细胞的所有特征池化），写入 `adata.obs['alpha','beta','prior_mean','rho']`；退化细胞（ $\alpha/\beta$ 为 NaN）回退到原始分数 $mc/cov$ 。
+- 同一公式也用于**单碱基分辨率矩阵** `cz_to_anndata_sites`（特征 = 单个胞嘧啶）：先验对该细胞**所有覆盖位点**池化（通常数十万到数百万个位点，估计非常稳定），`.X` 只在覆盖位点上存后验均值，稀疏结构与 `layers['cov']` 相同。
 
 ## 9. 高变特征累加量与离散度（HVF：`hvf_n_cov` / `hvf_sum` / `hvf_sum_sq`、var、dispersion、normalized dispersion）
 
@@ -503,7 +504,7 @@ $$
 $$
 
 - $\lambda_\text{cg},\lambda_\text{ch}$ 为通道权重（默认各 1）。CpH 位点远多于 CpG，容易隐性主导；可调低 $\lambda_\text{ch}$ 再平衡。
-- **丰度 / 温度先验**： $\pi_t \propto N_t^{\,\text{prior\_alpha}}$ ，其中 $N_t$ 为该类型的参考细胞数。`prior_alpha=0` → 均匀先验；`prior_alpha=1` → 纯丰度先验；未提供 `cell_counts` 时恒为均匀先验 $\pi_t = 1/T$ 。
+- **丰度 / 温度先验**： $\pi_t \propto (N_t+1)^{\,\text{prior\_alpha}}$ ，其中 $N_t$ 为该类型的参考细胞数，$+1$ 为伪计数（使 $N_t=0$ 的类型得到一个很小但有限的先验，而不是 $\log 0=-\infty$ ；对 $N_t\gg1$ 几乎无影响）。`prior_alpha=0` → 均匀先验；`prior_alpha=1` → 纯丰度先验；未提供 `cell_counts` 时恒为均匀先验 $\pi_t = 1/T$ 。
 
 对类型做**数值稳定的 softmax** 得到标定后的后验概率：
 
@@ -513,7 +514,20 @@ $$
 
 **预测与弃权**：取 $\hat t = \arg\max_t P(t\mid\text{cell})$ ，置信度为 $\max_t P$ 。若给定 `abstain_threshold` 且最高概率低于它，则标签置为 `'unassigned'`（弃权）。
 
-**接口**：`CellTypeClassifier.fit()` 在 pseudobulk 上估计并选点，`predict` / `predict_proba` / `predict_batch` 打分；`save` / `load` 用单个 `.npz`（不 pickle，仅存 $\log\theta$ 、 $\log(1-\theta)$ 、掩码、判别位点索引与元数据 JSON）。`predict_cell_type(...)` 是"拟合 + 预测一个细胞"的一步式便捷封装。
+**全局水平校正（`level_adjust=True`）**：浅测序 query（如 MiSeq）与深测序参考之间常有全局甲基化水平 / 转化率 / 平台的系统差异（SALK045 MiSeq 细胞的全局 mCH 比 pseudobulk 预期低约 18%）。朴素贝叶斯会把这种细胞整体推向全局水平最接近的类型（例如中间型的 Hybrid MSN），而不是位点模式匹配的类型。开启后，对每个细胞、每个通道、每个候选类型 $t$ 引入一个标量 logit 偏移 $\delta_t$ ：
+
+$$
+P(\text{甲基化}\mid c,t) = \sigma\big(\operatorname{logit}\theta_{c,t} + \delta_t\big),\qquad
+\hat\delta_t = \arg\max_{\delta}\ \sum_{c}\big[m_c\log\sigma(\cdot) + (n_c-m_c)\log(1-\sigma(\cdot))\big]
+$$
+
+（凹的 profile likelihood，Newton 4 步，在 ≤2 万个均匀抽样位点上估计；最终对数似然在全部覆盖位点上计算）。$\ell_t$ 取 $\hat\delta_t$ 处的值再进入上式的 softmax。无需标签；在 1003 个有注释的 SALK045 MiSeq 细胞上，准确率 0.61 → 0.79，macro-F1 0.69 → 0.72，D1 MSN 召回 0.36 → 0.73。
+
+**接口**：`CellTypeClassifier.fit()` 在 pseudobulk 上估计并选点，`predict` / `predict_proba` / `predict_batch` / `predict_multicell` 打分；`save` / `load` 使用一个**可内存映射的模型目录**（`meta.json` + 每通道的 `log_theta` / `log1m_theta` / `sites` `.npy`，不 pickle）。`predict_cell_type(...)` 是"拟合 + 预测"的一步式便捷封装。
+
+**打分的计算量只与 query 的覆盖度有关，而与模型大小无关（稀疏优先）**：每个 query 的 `.cz` 逐 chunk 解压一次（零拷贝视图，不整块复制），先用一次向量化扫描找出 $\text{cov}>0$ 的行（单细胞几乎全是 0），再把这些行与各通道**按行排序的 `sites`** 做二分查找取交集，只有 query 真正覆盖且模型保留的位点才进入后续计算（下采样 `max_query_*` 与 `cov_cap` 也在此阶段施加）。因此全基因组模型（如 32 类 × 12 亿位点、312 GB）也可以直接使用，而无需先把每个 chunk 的模型位点全部收集到内存。
+
+**批量打分的两种读表方式**：每个位点的 $\log\theta$ 行在磁盘上是随机访问；网络 / 机械存储每秒只能读几千个随机页，而顺序读取可达数 GB/s。`predict_batch` / `predict_multicell` 把每个细胞的覆盖位点先压缩成打分项 `(gidx, m, 1-m)` 后，若整批的随机读页数超过 `表页数 / 256`，就改为**顺序扫描一遍 $\log\theta$ 表**（按 $2^{20}$ 行分块，`os.pread` 大块顺序读 + 预取），每块用稀疏矩阵乘 `(cells × rows) @ (rows × types)` 一次性累加所有细胞；否则按细胞随机 gather。`stream=True/False` 可强制指定。对 312 GB 的模型，2000 个细胞的扫描成本固定在 ~1–2 分钟，而随机读需要数小时。内存上，打分项按预算（默认 4 GB）分组，每组扫一遍表。
 
 ## 15. Bulk 去卷积（`deconvolve` / `deconvolve_bulk`，参考型细胞比例估计）
 
@@ -534,6 +548,7 @@ $$
 $$
 
 - **非负性**由 NNLS 保证；**和为 1**（`sum_to_one=True`，默认）由 SLSQP 施加等式约束，得到一个完整单纯形上的解。深覆盖位点权重更大（ $w_c = cov_c$ ），因此比未加权更稳健。
+- **实现**：加权设计矩阵 $A$（$n_\text{sites}\times T$，可达数百万行）从不整体物化；按行块累加法方程 $A^\top A$（$T\times T$）与 $A^\top b$，NNLS 在 Cholesky 因子上求解 $\min\lVert Rf-d\rVert$（$A^\top A=R^\top R$ ，$R^\top d=A^\top b$ ，与原问题同解），SLSQP 的目标与梯度也只用这两个小矩阵。 $\theta$ 保持 `float32`，累加在 `float64` 中进行。
 - **未知成分**（`allow_unknown=True`）：把等式放宽为 $\sum_t f_t \le 1$ ，余量 $1 - \sum_t f_t$ 作为参考里没有的"unknown"细胞类型单独报告——适用于参考不完整的样本。
 - `sum_to_one=False` 则退化为纯 NNLS（比例不必和为 1），仅作诊断用。
 
@@ -542,10 +557,10 @@ $$
 **拟合优度**：报告（加权）判定系数
 
 $$
-R^2 = 1 - \frac{\sum_c w_c\,(\hat\beta_c - \beta_c)^2}{\sum_c w_c\,(\beta_c - \bar\beta)^2},\qquad \hat\beta_c = \sum_t \hat f_t\,\theta_{c,t}
+R^2 = 1 - \frac{\sum_c w_c\,(\hat\beta_c - \beta_c)^2}{\sum_c w_c\,(\beta_c - \bar\beta_w)^2},\qquad \hat\beta_c = \sum_t \hat f_t\,\theta_{c,t},\qquad \bar\beta_w = \frac{\sum_c w_c\,\beta_c}{\sum_c w_c}
 $$
 
-用于判断混合模型对该 bulk 的解释力。
+其中 $\bar\beta_w$ 为**加权**均值（ $w\equiv1$ 时即普通 $R^2$ ）。用于判断混合模型对该 bulk 的解释力；由于单纯形约束， $R^2$ 可以为负（约束模型不如常数拟合）。
 
 **接口**：`CellTypeClassifier.deconvolve()`（单个 bulk → 比例 `Series`）、`deconvolve_batch()`（多个 bulk → 比例 DataFrame）、`deconvolve_multicell()`（一个 cat `.cz` 内打包的多个 bulk）；`deconvolve_bulk(...)` 是"拟合参考 + 去卷积"的一步式便捷封装，与 `predict_cell_type(...)` 用法对齐。
 
@@ -578,6 +593,36 @@ $$
 **接口**：`call_peaks(..., control='cov')`（伪 read + 覆盖对照）与 `call_peaks_bdg(..., control='cov')`（bedGraph + `bdgcmp`/`bdgpeakcall`），均支持 `signal='unmeth'|'meth'`、`index=`（context 过滤）、`min_cov`。
 
 ---
+
+## 17. 差异甲基化区域（`call_dmr` / `call_dmr_ch` / `call_dmr_one_vs_rest`，置换 RMS 检验）
+
+**输入**：两组样本（每个为一个 pseudobulk 或单细胞 `.cz`，均与同一 reference 行对齐），可选上下文索引（如 CGN）。对每个位点 $c$ 构造一张 $n\times2$ 列联表——每行一个有覆盖的样本，两列为 $(mc_i,\ cov_i-mc_i)$（输入先夹紧到 $0\le mc_i\le cov_i$ ）。
+
+**位点过滤**：两组各至少有 `min_samples_per_group` 个样本满足 $cov\ge$ `min_cov`。可选的 **delta 预过滤**（`delta_prefilter=True`）在检验前丢弃 $|\overline{f}_A-\overline{f}_B|<$ `frac_delta_cutoff` 的位点（ $f_i=mc_i/cov_i$ 在 $cov_i>0$ 的样本上平均）——这些位点即使显著也过不了后面的 delta 阈值，因此是**无损**的加速。
+
+**RMS 统计量**（沿用 ALLCools）：设 $E_{ij}=\dfrac{r_i\,k_j}{m}$ 为独立性零假设下的期望（ $r_i$ 行和， $k_j$ 列和， $m$ 总和），
+
+$$
+\text{RMS} = \sqrt{\frac{1}{2n}\sum_{i=1}^{n}\sum_{j\in\{mc,\,u\}}\bigl(O_{ij}-E_{ij}\bigr)^2}
+$$
+
+**置换 p 值**：在零假设下按 $p_{ij}=E_{ij}/m$ 抽取总数为 $m$ 的多项表（ $m$ 次 $[0,1)$ 均匀数对累积概率做二分），计算 RMS；
+
+$$
+p = \frac{1+\#\{\text{RMS}^{(b)}\ge\text{RMS}_\text{obs}\}}{n_\text{permute}}\ \ (\le 1)
+$$
+
+分子的 $+1$ 伪计数与 ALLCools 一致（我们额外封顶在 1）。**提前终止**：当计数已超过 `min_pvalue`$\times n_\text{permute}$ 时停止，返回 $\dfrac{\#}{b+2}$（该位点不可能显著，节省大量时间）。检验前的**下采样**：每行计数总和超过 `max_row_count`、或全表总和超过 `max_total_count` 时按比例缩放（四舍五入），与 ALLCools 默认 50 / 3000 相同——保证置换成本与深度无关。
+
+**可复现性**：Cython + OpenMP 对位点并行（`prange`，动态调度）。每个位点的随机数状态由 `splitmix64(seed + (site_index+1)·φ)` 独立派生（ $\varphi=$ 0x9E3779B97F4A7C15），再用 xorshift64 生成；因此结果只取决于 `seed` 与位点，与线程数、调度顺序无关。
+
+**1 vs 1 的特例**（`use_fisher_1v1=True`，两组各只有一个 pseudobulk）：置换检验几乎没有可区分的置换，改用**双侧 Fisher 精确检验**。实现为 scipy 算法的向量化版本（同一超几何核、同一并列容差，结果与 `scipy.stats.fisher_exact` 逐位一致），并对相同的 $(mc_A,u_A,mc_B,u_B)$ 四元组去重后只算一次——单细胞计数很小，重复度极高，20 万位点从 82 s 降到 0.3 s。
+
+**DMS → DMR**：DMS 为 $p<$ `p_value_cutoff` 且 $|\overline{f}_A-\overline{f}_B|>$ `frac_delta_cutoff` 的位点；同一染色体上、delta 同号、相邻间距 $\le$ `max_dist` 的 DMS 合并为一个 DMR（BED 半开区间 $[\min pos-1,\ \max pos)$ ），至少含 `min_dms` 个 DMS。输出 `n_dms`、`p_min`、`frac_delta_mean`、`state`（±1）。
+
+**CpH 变体**（`call_dmr_ch`）：mCH 水平低（0.5–5%）且稀疏，单位点无功效，故先在固定 `bin_size`（默认 500 bp）内合并计数再做同样的检验。细胞间全局 mCH 可差 2–3 倍，否则几乎所有 bin 都会"显著"；因此先按每个细胞的全局率 $g_i=\sum mc_i/\sum cov_i$ 做**归一化**：以 $t=\operatorname{median}\{g_i\}$（或 mean / trimmed_mean / gmean / 经验贝叶斯收缩的 `'posterior'`）为目标，令 $mc_i\leftarrow\min(\operatorname{round}(mc_i\cdot t/g_i),\ cov_i)$ 。DMS 判据另加 $|\log_2(\text{rate}_A/\text{rate}_B)|\ge$ `log2fc_cutoff` 与 $|\text{rate}_A-\text{rate}_B|\ge$ `abs_delta_cutoff`；合并后的 DMR 携带每组 bin 平均率 `rate_a` / `rate_b`，`annot_dmr` 据此给出 `log2fc`。
+
+**One-vs-rest**（`call_dmr_one_vs_rest`）：对一个类别内的每个样本做"该样本 vs 其余成员"。CG 路径为**融合实现**：每个 reference chunk 只读一次并构建全类成员的 $(n_\text{members},\ n_\text{sites})$ 计数矩阵，各成员依次以矩阵的其余行为对照做上述检验；结果与逐个调用 `call_dmr` 逐字节一致，而 I/O 从 $N$ 遍降为 1 遍。CH 路径的全局率在封装层只预扫一次并通过 `global_a/global_b` 传入。
 
 # Cell-type classifier (`CellTypeClassifier` / `predict_cell_type`, site-likelihood / naive Bayes) — English
 
@@ -626,7 +671,7 @@ $$
 $$
 
 - $\lambda_\text{cg},\lambda_\text{ch}$ are channel weights (default 1 each). CpH sites vastly outnumber CpG and can implicitly dominate; lower $\lambda_\text{ch}$ to rebalance.
-- **Abundance / temperature prior**: $\pi_t \propto N_t^{\,\text{prior\_alpha}}$, with $N_t$ the reference cell count of type $t$. `prior_alpha=0` → uniform prior; `prior_alpha=1` → pure abundance; without `cell_counts` the prior is always uniform $\pi_t = 1/T$.
+- **Abundance / temperature prior**: $\pi_t \propto (N_t+1)^{\,\text{prior\_alpha}}$, with $N_t$ the reference cell count of type $t$ and $+1$ a pseudocount (a type with $N_t=0$ gets a small but finite prior instead of $\log 0=-\infty$; negligible for $N_t\gg1$). `prior_alpha=0` → uniform prior; `prior_alpha=1` → pure abundance; without `cell_counts` the prior is always uniform $\pi_t = 1/T$.
 
 A **numerically stable softmax** over types yields calibrated posterior probabilities:
 
@@ -636,7 +681,20 @@ $$
 
 **Prediction and abstention**: take $\hat t = \arg\max_t P(t\mid\text{cell})$ with confidence $\max_t P$. If `abstain_threshold` is given and the top probability is below it, the label becomes `'unassigned'` (abstention).
 
-**API**: `CellTypeClassifier.fit()` estimates and selects sites on the pseudobulks; `predict` / `predict_proba` / `predict_batch` score cells; `save` / `load` use a single `.npz` (no pickling — only $\log\theta$, $\log(1-\theta)$, masks, discriminative-site indices, and a JSON metadata string). `predict_cell_type(...)` is a one-shot "fit + predict one cell" convenience wrapper.
+**Global-level adjustment (`level_adjust=True`)**: shallow queries (e.g. MiSeq) and a deep reference often differ systematically in global methylation level / conversion / platform (SALK045 MiSeq cells have ~18% lower global mCH than the pseudobulks predict). Plain naive Bayes then pulls such a cell toward whichever type has the closest *global* level (e.g. the intermediate Hybrid MSN) rather than the type with the matching *site pattern*. When enabled, every cell gets, per channel and per candidate type $t$, one scalar logit offset $\delta_t$:
+
+$$
+P(\text{methylated}\mid c,t) = \sigma\big(\operatorname{logit}\theta_{c,t} + \delta_t\big),\qquad
+\hat\delta_t = \arg\max_{\delta}\ \sum_{c}\big[m_c\log\sigma(\cdot) + (n_c-m_c)\log(1-\sigma(\cdot))\big]
+$$
+
+(a concave profile likelihood; 4 Newton steps on ≤20 k evenly spaced covered sites, the final log-likelihood evaluated on all covered sites). $\ell_t$ at $\hat\delta_t$ then enters the softmax above. No labels are needed; on 1003 annotated SALK045 MiSeq cells accuracy went 0.61 → 0.79, macro-F1 0.69 → 0.72, D1-MSN recall 0.36 → 0.73.
+
+**API**: `CellTypeClassifier.fit()` estimates and selects sites on the pseudobulks; `predict` / `predict_proba` / `predict_batch` / `predict_multicell` score cells; `save` / `load` use a **memory-mappable model directory** (`meta.json` plus per-channel `log_theta` / `log1m_theta` / `sites` `.npy`; no pickling). `predict_cell_type(...)` is a one-shot "fit + predict" convenience wrapper.
+
+**Scoring cost scales with the query's coverage, not with the model size (sparse-first)**: each query `.cz` chunk is decompressed once (zero-copy view, no whole-chunk copy), its $\text{cov}>0$ rows are located in one vectorised scan (a single cell is almost all zeros), and those rows are intersected by binary search with each channel's **row-sorted `sites`**, so only sites the query actually covers *and* the model keeps enter the computation (downsampling `max_query_*` and `cov_cap` are applied at this stage too). A whole-genome model (e.g. 32 types × 1.2 G sites, 312 GB) can therefore be used directly, without first materialising every model site of every chunk.
+
+**Two ways to read the tables in batch mode**: each site's $\log\theta$ row is a random access on disk; network / spinning storage serves only a few thousand random pages per second whereas sequential reads run at GB/s. `predict_batch` / `predict_multicell` first reduce every cell to compact scoring terms `(gidx, m, 1-m)`; if the batch's random page reads would exceed `table pages / 256`, the $\log\theta$ tables are **scanned sequentially once** (blocks of $2^{20}$ rows, large `os.pread` reads with prefetch) and each block is applied to all cells at once as a sparse product `(cells × rows) @ (rows × types)`; otherwise rows are gathered per cell. `stream=True/False` forces either mode. For the 312 GB model the scan costs a fixed ~1–2 min for 2000 cells, where random reads take hours. Memory is bounded by grouping the terms (default 4 GB per group, one scan per group).
 
 ## 15. Bulk deconvolution (`deconvolve` / `deconvolve_bulk`, reference-based fraction estimation)
 
@@ -657,6 +715,7 @@ $$
 $$
 
 - **Non-negativity** is enforced by NNLS; **sum-to-one** (`sum_to_one=True`, default) is imposed by SLSQP as an equality constraint, giving a solution on the full simplex. Deeply covered sites carry more weight ($w_c = cov_c$), so the fit is more robust than unweighted.
+- **Implementation**: the weighted design $A$ ($n_\text{sites}\times T$, up to millions of rows) is never materialised; the normal equations $A^\top A$ ($T\times T$) and $A^\top b$ are accumulated over row blocks, NNLS is solved on the Cholesky factor ($\min\lVert Rf-d\rVert$ with $A^\top A=R^\top R$, $R^\top d=A^\top b$ — same minimiser as the tall problem) and SLSQP's objective / gradient use only these small matrices. $\theta$ stays `float32`; accumulation is in `float64`.
 - **Unknown compartment** (`allow_unknown=True`): relax the equality to $\sum_t f_t \le 1$ and report the remainder $1 - \sum_t f_t$ as an ``unknown`` cell type absent from the reference — useful when the reference is incomplete.
 - `sum_to_one=False` reduces to plain NNLS (fractions need not sum to 1), for diagnostics only.
 
@@ -665,10 +724,10 @@ $$
 **Goodness of fit**: the (weighted) coefficient of determination
 
 $$
-R^2 = 1 - \frac{\sum_c w_c\,(\hat\beta_c - \beta_c)^2}{\sum_c w_c\,(\beta_c - \bar\beta)^2},\qquad \hat\beta_c = \sum_t \hat f_t\,\theta_{c,t}
+R^2 = 1 - \frac{\sum_c w_c\,(\hat\beta_c - \beta_c)^2}{\sum_c w_c\,(\beta_c - \bar\beta_w)^2},\qquad \hat\beta_c = \sum_t \hat f_t\,\theta_{c,t},\qquad \bar\beta_w = \frac{\sum_c w_c\,\beta_c}{\sum_c w_c}
 $$
 
-reports how well the mixture explains the bulk.
+with $\bar\beta_w$ the **weighted** mean (plain $R^2$ when $w\equiv1$), reports how well the mixture explains the bulk. Because of the simplex constraint $R^2$ can be negative (the constrained mixture fits worse than a constant).
 
 **API**: `CellTypeClassifier.deconvolve()` (one bulk → a fraction `Series`), `deconvolve_batch()` (many bulks → a fraction DataFrame), `deconvolve_multicell()` (many bulks packed in one cat `.cz`); `deconvolve_bulk(...)` is a one-shot "fit reference + deconvolve" convenience wrapper mirroring `predict_cell_type(...)`.
 
@@ -700,4 +759,32 @@ where `ppois` scores each position by the **Poisson p-value** ($-\log_{10} p$) o
 
 **API**: `call_peaks(..., control='cov')` (pseudo-reads + coverage control) and `call_peaks_bdg(..., control='cov')` (bedGraph + `bdgcmp`/`bdgpeakcall`); both take `signal='unmeth'|'meth'`, `index=` (context filter), and `min_cov`.
 
+## 17. Differentially methylated regions (`call_dmr` / `call_dmr_ch` / `call_dmr_one_vs_rest`, permutation RMS test)
 
+**Input**: two groups of samples (pseudobulk or single-cell `.cz`, all row-aligned to one reference) and an optional context index (e.g. CGN). At every site $c$ an $n\times2$ contingency table is formed — one row per covered sample, columns $(mc_i,\ cov_i-mc_i)$ (inputs are clamped to $0\le mc_i\le cov_i$ first).
+
+**Site filter**: both groups need at least `min_samples_per_group` samples with $cov\ge$ `min_cov`. The optional **delta pre-filter** (`delta_prefilter=True`) drops, before testing, sites with $|\overline{f}_A-\overline{f}_B|<$ `frac_delta_cutoff` ($f_i=mc_i/cov_i$ averaged over samples with $cov_i>0$) — they could never pass the post-test delta cutoff, so the speed-up is **lossless**.
+
+**RMS statistic** (as in ALLCools): with $E_{ij}=\dfrac{r_i\,k_j}{m}$ the expectation under row/column independence ($r_i$ row sums, $k_j$ column sums, $m$ grand total),
+
+$$
+\text{RMS} = \sqrt{\frac{1}{2n}\sum_{i=1}^{n}\sum_{j\in\{mc,\,u\}}\bigl(O_{ij}-E_{ij}\bigr)^2}
+$$
+
+**Permutation p-value**: tables with total $m$ are drawn from the null multinomial $p_{ij}=E_{ij}/m$ ($m$ uniforms, binary search on the cumulative probabilities), their RMS is computed and
+
+$$
+p = \frac{1+\#\{\text{RMS}^{(b)}\ge\text{RMS}_\text{obs}\}}{n_\text{permute}}\ \ (\le 1)
+$$
+
+The $+1$ pseudocount in the numerator follows ALLCools (we additionally cap at 1). **Early stopping**: once the count exceeds `min_pvalue`$\times n_\text{permute}$ the loop stops and returns $\#/(b+2)$ — the site cannot become significant. **Down-sampling** before the test: a row whose total exceeds `max_row_count`, or a table whose total exceeds `max_total_count`, is rescaled proportionally (rounded), as in the ALLCools defaults 50 / 3000, so the permutation cost is depth-independent.
+
+**Reproducibility**: Cython + OpenMP parallelise over sites (`prange`, dynamic schedule). Each site's RNG state is derived independently as `splitmix64(seed + (site_index+1)·φ)` ($\varphi=$ 0x9E3779B97F4A7C15) and advanced with xorshift64, so results depend only on `seed` and the site — not on the thread count or scheduling order.
+
+**The 1-vs-1 special case** (`use_fisher_1v1=True`, one pseudobulk per group): the permutation test has almost no distinguishable permutations, so a **two-sided Fisher exact test** is used instead. It is a vectorised re-implementation of SciPy's algorithm (same hypergeometric kernel, same tie tolerance; p-values identical to `scipy.stats.fisher_exact`), and identical $(mc_A,u_A,mc_B,u_B)$ tables are tested once — single-cell counts are tiny and highly repetitive, so 200k sites take 0.3 s instead of 82 s.
+
+**DMS → DMR**: a DMS has $p<$ `p_value_cutoff` and $|\overline{f}_A-\overline{f}_B|>$ `frac_delta_cutoff`; DMS on the same chromosome with the same sign of delta and gap $\le$ `max_dist` are merged into one DMR (half-open BED $[\min pos-1,\ \max pos)$) with at least `min_dms` members. Output: `n_dms`, `p_min`, `frac_delta_mean`, `state` (±1).
+
+**CpH variant** (`call_dmr_ch`): mCH is low (0.5–5%) and sparse, so single sites have no power; counts are pooled in fixed `bin_size` bins (default 500 bp) before the same test. Global mCH varies 2–3x between cells, which would make nearly every bin "significant", so cells are first **normalised** by their global rate $g_i=\sum mc_i/\sum cov_i$: with target $t=\operatorname{median}\{g_i\}$ (or mean / trimmed_mean / gmean / the empirical-Bayes-shrunk `'posterior'`), $mc_i\leftarrow\min(\operatorname{round}(mc_i\cdot t/g_i),\ cov_i)$. DMS additionally require $|\log_2(\text{rate}_A/\text{rate}_B)|\ge$ `log2fc_cutoff` and $|\text{rate}_A-\text{rate}_B|\ge$ `abs_delta_cutoff`; merged DMRs carry the per-group mean bin rates `rate_a` / `rate_b`, from which `annot_dmr` derives `log2fc`.
+
+**One-vs-rest** (`call_dmr_one_vs_rest`): every sample of a class is tested against the other members. The CG path is **fused**: each reference chunk is read once into an $(n_\text{members},\ n_\text{sites})$ count matrix for the whole class, and each member is tested against the remaining rows; the output is byte-identical to calling `call_dmr` per sample while I/O drops from $N$ passes to 1. For CH, the global rates are pre-scanned once in the wrapper and passed down via `global_a/global_b`.

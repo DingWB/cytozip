@@ -64,8 +64,10 @@ import glob
 import threading
 import collections
 
+import numpy as np
+
 from .cz import (Reader, _make_np_dtype, _find_pos_col,
-                 _BLOCK_MAX_LEN, _VO_OFFSET_BITS, np)
+                 _BLOCK_MAX_LEN, _VO_OFFSET_BITS)
 
 
 Window = collections.namedtuple("Window", ["chrom", "start", "end",
@@ -75,6 +77,45 @@ Window = collections.namedtuple("Window", ["chrom", "start", "end",
 # ---------------------------------------------------------------------------
 # Input resolution
 # ---------------------------------------------------------------------------
+def _auto_max_open_readers(floor=256, reserve_frac=0.25, reserve_min=512):
+    """Open-reader budget for this process.
+
+    ``RLIMIT_NOFILE`` is a *per-process* limit (other programs on the host
+    do not consume it), so the budget is derived from this process' soft
+    limit minus
+
+    * the file descriptors the process already holds (torch, sockets,
+      multiprocessing pipes, logging, other readers, ...), counted from
+      ``/proc/self/fd`` when available, and
+    * a reserve of ``max(reserve_min, reserve_frac * soft)`` for descriptors
+      the caller will open later (e.g. 25% / >= 512).
+
+    The system-wide table (``/proc/sys/fs/file-nr``) is also consulted and
+    the budget is capped to half of what is still free there. The result is
+    at least ``floor``; ``0`` means "unlimited" (no eviction).
+    """
+    try:
+        import resource
+        soft, _hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    except Exception:
+        return 1000
+    if soft == getattr(resource, 'RLIM_INFINITY', -1) or soft <= 0:
+        return 0  # unlimited
+    try:
+        in_use = len(os.listdir('/proc/self/fd'))
+    except Exception:
+        in_use = 64
+    reserve = max(int(reserve_min), int(soft * reserve_frac))
+    budget = int(soft) - in_use - reserve
+    try:  # system-wide: allocated, (unused), max
+        with open('/proc/sys/fs/file-nr') as fh:
+            alloc, _unused, sys_max = (int(x) for x in fh.read().split()[:3])
+        budget = min(budget, (sys_max - alloc) // 2)
+    except Exception:
+        pass
+    return max(int(floor), budget)
+
+
 def _resolve_cell_paths(cells, ext=".cz"):
     """Resolve the ``cells`` argument into a list of ``.cz`` paths.
 
@@ -318,7 +359,8 @@ class CzWindowLoader:
     """
 
     def __init__(self, reference, cells, index=None, mc_col=None, cov_col=None,
-                 dtype=np.int32, threads=1, max_open_readers=1000):
+                 dtype=np.int32, threads=1, max_open_readers='auto',
+                 segment_bytes=32 * 1024 * 1024):
         """Open the reference / index / cells and resolve cell order (see the
         class docstring for the parameters).
 
@@ -329,9 +371,31 @@ class CzWindowLoader:
         open files``) yet re-opening stays cheap (just re-mmap, no re-parse).
         The reference / index files and any ``catcz``'d multi-cell file are not
         counted. Set to ``None`` / ``0`` to disable eviction (keep all open).
+        The default ``'auto'`` derives the budget from this process' open-file
+        soft limit (``RLIMIT_NOFILE`` is per process; other programs on the
+        host do not consume it): the limit minus the descriptors the process
+        already holds minus a reserve of 25% (>= 512) for files opened later,
+        at least 256 (see :func:`_auto_max_open_readers`). With the common
+        1024 limit that is ~500; with ``ulimit -n 20480`` every cell of a
+        large cohort stays open. Keep it above ``n_cells`` whenever the limit
+        allows -- when cells outnumber the budget, every read segment
+        detaches / re-attaches the surplus readers, which roughly doubles
+        streaming time.
+
+        ``segment_bytes`` bounds the transient ``(n_cells, segment_sites)``
+        mc + cov matrices built per read segment by :meth:`iter_windows`
+        when ``max_sites`` is not given: the auto segment length is the
+        largest whole number of ``.cz`` blocks whose selected sites fit the
+        budget (at least one block). Per-cell Python/GIL overhead is paid
+        once per (cell, segment), so larger segments stream faster, but a
+        segment is read in full before its first window is yielded; the
+        default 32 MB gives ~4 blocks for 300 cells (int32, CGN index).
         """
         self.dtype = dtype
+        self.segment_bytes = int(segment_bytes) if segment_bytes else 0
         self.threads = int(threads)
+        if isinstance(max_open_readers, str) and max_open_readers == 'auto':
+            max_open_readers = _auto_max_open_readers()
         self._max_open = int(max_open_readers) if max_open_readers else 0
         # Per-cell readers live in a bounded LRU cache (``_readers``); an entry
         # is *pinned* while a read is using it and is never evicted then.
@@ -407,6 +471,14 @@ class CzWindowLoader:
         self.cov_col = _resolve_col(cols, cov_col, -1)
         self._sel_cache = {}   # chrom dim -> 0-based sel_ids (or None)
         self._ref_cache = {}   # chrom dim -> (pos, n_sites): reference axis reuse
+
+    def __getstate__(self):
+        raise TypeError(
+            "CzWindowLoader holds open file handles, locks and a thread pool "
+            "and cannot be pickled. With torch use "
+            "DataLoader(dataset, num_workers=0) (the loader already reads "
+            "cells in parallel threads and can prefetch), or construct the "
+            "loader inside each worker process.")
 
     def _get_executor(self):
         """Return the loader's persistent worker pool (created on first use).
@@ -600,36 +672,50 @@ class CzWindowLoader:
         r, kind = self._acquire_reader(path)
         try:
             key = (dim[0],) + suffix if suffix else dim
-            zero = (np.zeros(width, self.dtype), np.zeros(width, self.dtype))
+
+            def zero():
+                return (np.zeros(width, self.dtype), np.zeros(width, self.dtype))
             if key not in r.chunk_key2offset:
-                return zero
+                return zero()
             np_dt = _reader_np_dtype(r)
             unit = np_dt.itemsize
             if not r._load_chunk(r.chunk_key2offset[key], jump=False):
-                return zero
+                return zero()
             if r._chunk_data_len // unit != n_sites:
-                return zero  # not row-aligned to the reference -> contribute zeros
+                return zero()  # not row-aligned to the reference -> zeros
             if getattr(r, "_delta_cols", ()):
-                # Delta blocks are record-aligned (different geometry); the
-                # byte-range slice below assumes contiguous packing, so fall back
-                # to a whole-chunk decode for the rare delta-encoded cell.
-                arr = np.frombuffer(r.fetch_chunk_bytes(key), dtype=np_dt)[abs0:abs1]
+                # Delta blocks are record-aligned (different geometry):
+                # gather exactly the requested rows block-by-block instead
+                # of decoding the whole chromosome.
+                if sel_local is None:
+                    rows = np.arange(abs0, abs1, dtype=np.int64)
+                else:
+                    rows = sel_local + abs0  # int64, see _abs_range_for
+                arr = r._gather_loaded_rows(rows, np_dt)
+                sel_local = None
             else:
-                # Non-delta blocks hold exactly _BLOCK_MAX_LEN decompressed bytes
-                # each (except the last), so record r starts at byte r*unit and
-                # block b starts at byte b*_BLOCK_MAX_LEN in the decompressed stream.
+                # Non-delta blocks hold exactly _BLOCK_MAX_LEN decompressed
+                # bytes each (except the last), so record r starts at byte
+                # r*unit and block b at byte b*_BLOCK_MAX_LEN. Slicing the
+                # covering block range + one gather is cheaper than any
+                # per-block bookkeeping for realistic (context-index)
+                # densities, where every block holds selected rows.
                 byte0 = abs0 * unit
                 byte1 = abs1 * unit
                 blk0 = byte0 // _BLOCK_MAX_LEN
                 blk1 = (byte1 - 1) // _BLOCK_MAX_LEN
                 vos = r._chunk_block_1st_record_virtual_offsets
+                # cache=False: a streaming sweep never revisits a block, so
+                # the Reader's decoded-block LRU would only add churn.
                 if blk1 == blk0:
-                    r._load_block(start_offset=vos[blk0] >> _VO_OFFSET_BITS)
+                    r._load_block(start_offset=vos[blk0] >> _VO_OFFSET_BITS,
+                                  cache=False)
                     buf = r._buffer
                 else:
                     parts = []
                     for b in range(blk0, blk1 + 1):
-                        r._load_block(start_offset=vos[b] >> _VO_OFFSET_BITS)
+                        r._load_block(start_offset=vos[b] >> _VO_OFFSET_BITS,
+                                      cache=False)
                         parts.append(r._buffer)
                     buf = b"".join(parts)
                 local0 = byte0 - blk0 * _BLOCK_MAX_LEN
@@ -732,7 +818,14 @@ class CzWindowLoader:
                 unit = _reader_np_dtype(r0).itemsize
             finally:
                 self._release_reader(self._specs[0][0], r0, kind0)
-            cap = max(1, _BLOCK_MAX_LEN // unit)
+            rows_per_block = max(1, _BLOCK_MAX_LEN // unit)
+            # Grow the segment to several blocks while the per-segment
+            # (n_cells, sites) mc+cov matrices stay within ``segment_bytes``.
+            density = pos.shape[0] / max(1, n_sites)  # selected / all rows
+            per_block = (len(self._specs) * 2 * np.dtype(self.dtype).itemsize
+                         * rows_per_block * density)
+            k = int(self.segment_bytes // max(per_block, 1.0)) if self.segment_bytes else 1
+            cap = rows_per_block * int(min(max(k, 1), 64))
         else:
             cap = int(max_sites) if int(max_sites) > 0 else pos.shape[0]
         # Absolute reference-row start/end of each bin (filtered indices map
@@ -826,7 +919,7 @@ class CzWindowLoader:
                     pass
 
         ex = ThreadPoolExecutor(max_workers=1)
-        ex.submit(_produce)
+        fut = ex.submit(_produce)
         try:
             while True:
                 item = q.get()
@@ -837,14 +930,22 @@ class CzWindowLoader:
             if err:
                 raise err[0]
         finally:
-            # Unblock a producer parked on a full queue, then tear it down.
+            # Unblock a producer parked on a full queue, then wait for it:
+            # the producer touches shared Readers, so it must be finished
+            # before the loader is reused / closed. A ``put`` racing the
+            # drain is bounded by ``stop`` + the put timeout.
             stop.set()
-            try:
-                while True:
-                    q.get_nowait()
-            except _queue.Empty:
-                pass
-            ex.shutdown(wait=False)
+            while not fut.done():
+                try:
+                    while True:
+                        q.get_nowait()
+                except _queue.Empty:
+                    pass
+                try:
+                    fut.result(timeout=0.05)
+                except Exception:
+                    pass
+            ex.shutdown(wait=True)
 
     def load_chrom(self, chrom):
         """Load one chromosome across all cells → ``(pos, mc, cov)``.
@@ -897,9 +998,10 @@ class CzWindowLoader:
             the per-window site count; window size is set by ``binsize``).
             Larger segments read more bins per decompress (less overhead, more
             transient memory ``~n_cells * max_sites``). ``None`` (default)
-            auto-sizes it to about one ``.cz`` block; pass an int only to tune
+            auto-sizes it (see below); pass an int only to tune
             memory / overhead. A single bin larger than this is read whole
-            (never split).
+            (never split). ``None`` (default) auto-sizes it to as many ``.cz``
+            blocks as fit the loader's ``segment_bytes`` budget (>= 1 block).
         prefetch : bool or int, default False
             Read the next segment(s) on a background thread while the current
             segment's windows are consumed, overlapping decompression with the
@@ -1002,7 +1104,7 @@ class CzWindowDataset:
     def __init__(self, reference, cells, chrom, binsize, index=None,
                  mc_col=None, cov_col=None, dtype=np.int32,
                  threads=1, min_sites=1, to_torch=False, max_sites=None,
-                 prefetch=False):
+                 prefetch=False, **loader_kwargs):
         """Build the underlying :class:`CzWindowLoader` and store the windowing
         options (see :class:`CzWindowLoader` and
         :meth:`CzWindowLoader.iter_windows` for the parameters).
@@ -1010,11 +1112,12 @@ class CzWindowDataset:
         Set ``prefetch=True`` for a real training loop (overlaps the next
         segment's decompression with the model step); leave it off for a plain
         data scan — see :meth:`CzWindowLoader.iter_windows` for the full
-        guidance.
+        guidance. Extra keyword arguments (``max_open_readers``,
+        ``segment_bytes``) are forwarded to :class:`CzWindowLoader`.
         """
         self.loader = CzWindowLoader(
             reference, cells, index=index, mc_col=mc_col, cov_col=cov_col,
-            dtype=dtype, threads=threads)
+            dtype=dtype, threads=threads, **loader_kwargs)
         self.chrom = chrom
         self.binsize = binsize
         self.min_sites = min_sites

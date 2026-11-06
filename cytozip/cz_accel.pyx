@@ -168,26 +168,36 @@ cdef bytes _parse_blocks_from_buffer(bytes raw_all):
     cdef size_t actual_local
     cdef int rc
 
+    # Decompressors are private to this call (libdeflate decompressors are
+    # not thread-safe), so the GIL can be released for the whole inflate:
+    # Python-level thread pools reading different chunks/files concurrently
+    # then scale across cores instead of serialising on the GIL, and two
+    # Python threads can never race on a shared decompressor.
+    cdef libdeflate_decompressor **decoms = _alloc_decoms(n_threads)
+    if decoms == NULL:
+        free(def_off); free(def_sz); free(out_off); free(dlen); free(ret_codes)
+        raise MemoryError("libdeflate_alloc_decompressor failed")
     if n_threads > 1:
-        _ensure_thread_decoms(n_threads)
         with nogil:
             for i in prange(n, num_threads=n_threads, schedule='static'):
                 tid = openmp.omp_get_thread_num()
                 actual_local = 0
                 rc = libdeflate_deflate_decompress(
-                    _ld_thread_decoms[tid],
+                    decoms[tid],
                     base + def_off[i], <size_t> def_sz[i],
                     dst + out_off[i], <size_t> dlen[i], &actual_local)
                 ret_codes[i] = rc
     else:
-        single_d = _get_decompressor()
-        for i in range(n):
-            actual_local = 0
-            rc = libdeflate_deflate_decompress(
-                single_d,
-                base + def_off[i], <size_t> def_sz[i],
-                dst + out_off[i], <size_t> dlen[i], &actual_local)
-            ret_codes[i] = rc
+        single_d = decoms[0]
+        with nogil:
+            for i in range(n):
+                actual_local = 0
+                rc = libdeflate_deflate_decompress(
+                    single_d,
+                    base + def_off[i], <size_t> def_sz[i],
+                    dst + out_off[i], <size_t> dlen[i], &actual_local)
+                ret_codes[i] = rc
+    _free_decoms(decoms, n_threads)
 
     # ---- Phase 3: validate --------------------------------------------
     cdef int err_rc = 0
@@ -622,26 +632,36 @@ cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, ob
     cdef size_t actual_local
     cdef int rc
 
+    # Decompressors are private to this call (libdeflate decompressors are
+    # not thread-safe), so the GIL can be released for the whole inflate:
+    # Python-level thread pools reading different chunks/files concurrently
+    # then scale across cores instead of serialising on the GIL, and two
+    # Python threads can never race on a shared decompressor.
+    cdef libdeflate_decompressor **decoms = _alloc_decoms(n_threads)
+    if decoms == NULL:
+        free(def_off); free(def_sz); free(out_off); free(dlen); free(ret_codes)
+        raise MemoryError("libdeflate_alloc_decompressor failed")
     if n_threads > 1:
-        _ensure_thread_decoms(n_threads)
         with nogil:
             for i in prange(n, num_threads=n_threads, schedule='static'):
                 tid = openmp.omp_get_thread_num()
                 actual_local = 0
                 rc = libdeflate_deflate_decompress(
-                    _ld_thread_decoms[tid],
+                    decoms[tid],
                     base + def_off[i], <size_t> def_sz[i],
                     dst + out_off[i], <size_t> dlen[i], &actual_local)
                 ret_codes[i] = rc
     else:
-        single_d = _get_decompressor()
-        for i in range(n):
-            actual_local = 0
-            rc = libdeflate_deflate_decompress(
-                single_d,
-                base + def_off[i], <size_t> def_sz[i],
-                dst + out_off[i], <size_t> dlen[i], &actual_local)
-            ret_codes[i] = rc
+        single_d = decoms[0]
+        with nogil:
+            for i in range(n):
+                actual_local = 0
+                rc = libdeflate_deflate_decompress(
+                    single_d,
+                    base + def_off[i], <size_t> def_sz[i],
+                    dst + out_off[i], <size_t> dlen[i], &actual_local)
+                ret_codes[i] = rc
+    _free_decoms(decoms, n_threads)
 
     cdef int err_rc = 0
     cdef Py_ssize_t err_idx = -1
@@ -707,7 +727,7 @@ cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, ob
 #
 # Unlike zlib which has a streaming state-machine API (z_stream +
 # inflate/deflate), libdeflate uses a simpler one-shot API that matches
-# the .cz block model (each block is <=65535 bytes, known up-front).
+# the .cz block model (each block is <=_BLOCK_MAX_LEN bytes, known up-front).
 #
 # A single module-level decompressor / compressor-per-level is cached.
 # libdeflate objects are NOT thread-safe; the GIL protects us during
@@ -828,6 +848,33 @@ cdef int _ensure_thread_decoms(int n_threads) except -1:
     _ld_thread_decoms = new_arr
     _ld_thread_decoms_n = n_threads
     return 0
+
+
+cdef libdeflate_decompressor **_alloc_decoms(int n) noexcept:
+    """Allocate *n* private decompressors for one inflate call (NULL on OOM).
+
+    Per-call (not pooled) so concurrent Python threads — each possibly
+    running its own OpenMP team — never share a decompressor.
+    """
+    cdef libdeflate_decompressor **arr = <libdeflate_decompressor **> malloc(n * sizeof(void*))
+    cdef int i, j
+    if arr == NULL:
+        return NULL
+    for i in range(n):
+        arr[i] = libdeflate_alloc_decompressor()
+        if arr[i] == NULL:
+            for j in range(i):
+                libdeflate_free_decompressor(arr[j])
+            free(arr)
+            return NULL
+    return arr
+
+
+cdef void _free_decoms(libdeflate_decompressor **arr, int n) noexcept:
+    cdef int i
+    for i in range(n):
+        libdeflate_free_decompressor(arr[i])
+    free(arr)
 
 
 
@@ -1143,7 +1190,7 @@ def c_deflate_raw(block, level=6):
 # ---------------------------------------------------------------------------
 # Internal helper: fast block decompression.
 # Used by load_bcz_block and other functions that need to decompress
-# individual blocks.  Allocates a fixed 64 KB output buffer since
+# individual blocks.  Allocates a fixed _BLOCK_MAX_LEN+1 output buffer since
 # blocks are guaranteed to decompress to at most _BLOCK_MAX_LEN bytes.
 # ---------------------------------------------------------------------------
 

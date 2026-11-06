@@ -40,6 +40,16 @@ cnp.import_array()
 # Per-thread RNG: xorshift64*  (avoids contention on libc rand state and
 # gives roughly U(0,1) values without locking).
 # --------------------------------------------------------------------------
+cdef inline unsigned long long _splitmix64(unsigned long long z) nogil:
+    """One splitmix64 output step: a well-mixed, never-zero xorshift seed."""
+    z = (z ^ (z >> 30)) * <unsigned long long> 0xBF58476D1CE4E5B9ULL
+    z = (z ^ (z >> 27)) * <unsigned long long> 0x94D049BB133111EBULL
+    z = z ^ (z >> 31)
+    if z == 0:
+        z = <unsigned long long> 0x9E3779B97F4A7C15ULL
+    return z
+
+
 cdef inline unsigned long long _xorshift64(unsigned long long *state) nogil:
     cdef unsigned long long x = state[0]
     x ^= x >> 12
@@ -142,6 +152,9 @@ cdef inline double _rms_pvalue_flat(int64_t *table, int n, int64_t m,
             greater += 1
             if <double> greater > max_greater:
                 return <double> greater / <double> (it + 2)
+    # (k+1)/n pseudocount convention (ALLCools parity); cap at 1.
+    if greater >= n_permute:
+        return 1.0
     return <double> greater / <double> n_permute
 
 
@@ -180,11 +193,13 @@ cdef inline void _process_one_site(
         if c <= 0:
             continue
         mm = mc_ptr[i * mc_stride1 + s]
-        uu = c - mm
+        # Clamp malformed input to 0 <= mc <= cov so the fraction and the
+        # tested 2-column table agree.
         if mm < 0:
             mm = 0
-        if uu < 0:
-            uu = 0
+        elif mm > c:
+            mm = c
+        uu = c - mm
         t_tab[rows * 2] = mm
         t_tab[rows * 2 + 1] = uu
         _downsample_row(t_tab + rows * 2, max_row_count)
@@ -316,8 +331,14 @@ def rms_run_sites(cnp.ndarray[cnp.int64_t, ndim=2, mode='c'] mc not None,
             t_cum = cum_buf + tid * buf_n
             t_perm = perm_buf + tid * buf_n
             t_rng = rng_state + tid
-
             s = idx_ptr[k]
+            # Per-site RNG state derived from (seed, site index) via a
+            # splitmix64 step: results no longer depend on which thread
+            # the dynamic schedule hands the site to -> reproducible for a
+            # fixed ``seed`` regardless of thread count / timing.
+            t_rng[0] = _splitmix64(base_seed + (<unsigned long long> s + 1)
+                                   * <unsigned long long> 0x9E3779B97F4A7C15ULL)
+
             _process_one_site(
                 mc_ptr, cov_ptr, mc_stride1, cov_stride1,
                 s, n_cells, group_a_n,

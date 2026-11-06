@@ -167,15 +167,30 @@ def _bgzip_tabix(path, seq_col=0, start_col=1, end_col=2, line_skip=1,
 def _bg_rmtree(path):
     """Recursively delete ``path`` in a detached background process.
 
-    Removing hundreds of small per-shard files via ``shutil.rmtree`` /
-    ``rm -rf`` synchronously costs ~10-20 s on networked filesystems
-    and adds nothing to the produced output. The double-fork pattern
-    detaches the deleter so the calling Python process returns
-    immediately; the intermediate child is reaped here so no zombie
-    is left behind.
+    Removing hundreds of small per-shard files synchronously costs
+    ~10-20 s on networked filesystems and adds nothing to the produced
+    output. The directory is first *renamed* (atomic, instant) to a unique
+    ``<path>.deleting.<pid>`` so an immediately following run that re-creates
+    ``path`` can never race with the detached deleter; the double-fork then
+    detaches the deleter, and the intermediate child is reaped by pid so no
+    zombie is left and no other child process of the caller is reaped.
+    Deletion uses :func:`shutil.rmtree` (no shell, no quoting issues).
     """
+    import shutil
+    if not os.path.isdir(path):
+        return
+    doomed = f"{path}.deleting.{os.getpid()}"
+    try:
+        os.rename(path, doomed)
+    except OSError:
+        doomed = path
     logger.info(f"Removing temp dir {path} (in background)")
-    if os.fork() == 0:
+    try:
+        pid = os.fork()
+    except OSError:
+        shutil.rmtree(doomed, ignore_errors=True)
+        return
+    if pid == 0:
         # Child: become a session leader so our death does not signal
         # the grandchild.
         try:
@@ -185,14 +200,18 @@ def _bg_rmtree(path):
         if os.fork() == 0:
             # Grandchild: do the actual delete and exit.
             try:
-                os.system(f"rm -rf {path}")
+                shutil.rmtree(doomed, ignore_errors=True)
             finally:
                 os._exit(0)
         os._exit(0)
     else:
-        # Parent: reap the (immediately exiting) child so it does not
-        # become a zombie. The grandchild keeps running detached.
-        os.wait()
+        # Parent: reap *this* child (not any child, which could steal a
+        # multiprocessing worker's exit status) so it does not become a
+        # zombie. The grandchild keeps running detached.
+        try:
+            os.waitpid(pid, 0)
+        except ChildProcessError:
+            pass
 
 
 # ==========================================================
@@ -263,7 +282,10 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         # hundred): max sum = 65535 * 65535 = ~4.3e9, exactly fitting
         # uint32. Halves the bandwidth of the inner ``+=`` step versus
         # int64.
-        if fast_dtype.itemsize <= 2:
+        # ... but only while n_cells * max(input) provably fits; beyond
+        # that fall back to int64 instead of wrapping silently.
+        if fast_dtype.itemsize <= 2 and \
+                len(dims) * int(np.iinfo(fast_dtype).max) < 2 ** 32:
             accum_dtype = np.uint32
     in_dt_struct = None if fast_dtype is not None else _structured_dtype_for(in_fmts)
 

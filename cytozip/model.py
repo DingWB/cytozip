@@ -49,13 +49,14 @@ column, ``reference`` can be omitted.
 import os
 import json
 import glob
+import mmap
 import shutil
 import struct
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from loguru import logger
-from .cz import Reader, np, pd
+from .cz import Reader, np, pd, _build_record_dtype
 
 
 # Map a struct format char -> numpy dtype so mc/cov are kept in their native
@@ -365,112 +366,172 @@ def _read_context(path, context_col='context', chunk_keys=None):
     return chunk_keys, ctx, chunk_lens
 
 
-def _read_mc_cov_by_chunk(path, mc_col='mc', cov_col='cov', needed_keys=None,
-                          chunk_lens=None):
-    """Return ``{chunk_key: (mc, cov)}`` for the needed chunks present in a file.
+# Sparse-vs-dense switch for intersecting a query's covered rows with a
+# channel's sorted site list in one chunk: a binary search costs ~log2(n_sel)
+# memory touches per covered row, a dense gather one per selected site, so
+# search only while n_cov * factor < n_sel.
+_SPARSE_FACTOR = 16
+# Rows per block when gathering log-theta from the memmapped tables, so a deep
+# query (10^7-10^8 covered sites) never materialises a huge (n, n_types) slab.
+_SCORE_BLOCK = 1 << 20
+# Within a streamed block, one cell's terms are split into sparse rows of at
+# most this many entries so each float32 partial product stays accurate.
+_STREAM_SUB = 512
+# level_adjust: the per-type global logit offset is estimated on at most this
+# many (evenly spaced) covered sites; a scalar needs no more, and the final
+# log-likelihood is still evaluated on every site.
+_ADJUST_MAX_SITES = 20000
+_ADJUST_ITERS = 4
+# Scoring streams the tables sequentially instead of gathering rows at random
+# once the random page reads exceed table_pages / _STREAM_RATIO, i.e. assuming
+# one random 4 KB read costs about this many sequential ones. Measured ~350 on
+# a Lustre scratch (3.9k random rows/s vs 5.5 GB/s sequential); SSD/page cache
+# are far lower, but there a needless scan is cheap while a needless random
+# gather of a huge model can cost hours, so the default leans to streaming.
+_STREAM_RATIO = 256
+# Batch prediction keeps at most about this many bytes of per-cell scoring
+# terms (16 B per covered site) in memory before scoring the group.
+_TERMS_BUDGET = 4 << 30
 
-    Unlike :func:`_read_mc_cov` (which concatenates the whole reference axis
-    and zero-fills gaps), this reads only the requested chunks and simply
-    **skips** any that are absent from the file — the per-chunk scorer treats
-    a missing chunk as a zero contribution, so no alignment/zero-fill is
-    needed.
+
+class _RowReader:
+    """Sequential block reader for a (memmapped) 2-D model table.
+
+    ``read(a, b)`` returns rows ``[a, b)`` as an owned ndarray. For a
+    memory-mapped ``.npy`` the rows are fetched with one large ``os.pread``
+    straight from the file rather than by faulting the mapping in page by
+    page: on network / parallel filesystems a 128 MB read runs at several
+    GB/s while sequential page faults through the mmap crawl at well under
+    1 GB/s. Any other array is simply sliced and copied.
+    """
+
+    def __init__(self, arr):
+        self.arr = arr
+        self.rowbytes = int(arr.shape[1]) * arr.dtype.itemsize
+        self._fd = None
+        fn = getattr(arr, 'filename', None)
+        mm = getattr(arr, '_mmap', None)
+        if (isinstance(arr, np.memmap) and fn and mm is not None
+                and arr.flags['C_CONTIGUOUS']):
+            # File offset of this array's first byte: the mapping starts at
+            # ``offset`` rounded down to the allocation granularity, plus
+            # where this (possibly sliced/reshaped) view sits inside it.
+            map_start = int(arr.offset) - int(arr.offset) % mmap.ALLOCATIONGRANULARITY
+            map_ptr = np.frombuffer(mm, dtype=np.uint8, count=1).ctypes.data
+            self._base = map_start + (arr.ctypes.data - map_ptr)
+            self._fd = os.open(fn, os.O_RDONLY)
+
+    def read(self, a, b):
+        if self._fd is None:
+            return np.array(self.arr[a:b])
+        n = (b - a) * self.rowbytes
+        buf = os.pread(self._fd, n, self._base + a * self.rowbytes)
+        if len(buf) != n:
+            raise IOError(
+                f"short read on {self.arr.filename}: wanted {n} bytes at row "
+                f"{a}, got {len(buf)}")
+        return np.frombuffer(buf, dtype=self.arr.dtype).reshape(
+            b - a, self.arr.shape[1])
+
+    def touch(self, step_bytes=1 << 26):
+        """Read the whole table sequentially, discarding it (page-cache warm)."""
+        if self._fd is None:
+            return
+        total = int(self.arr.shape[0]) * self.rowbytes
+        for off in range(0, total, step_bytes):
+            os.pread(self._fd, min(step_bytes, total - off), self._base + off)
+
+    def close(self):
+        if self._fd is not None:
+            os.close(self._fd)
+            self._fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+
+def _nonzero_rows(raw, dtype, cov_i):
+    """Covered rows of one decompressed chunk, without a full-chunk copy.
 
     Parameters
     ----------
-    path : str
-        Path to a ``.cz`` file with ``mc_col`` / ``cov_col`` columns.
-    mc_col, cov_col : str
-        Methylated-count and coverage column names (in the .cz
-        ``header['columns']``).
-    needed_keys : iterable of tuple or None
-        Chunk keys the model actually needs (those carrying selected sites).
-        ``None`` reads every chunk in the file.
-    chunk_lens : dict {chunk_key: int} or None
-        Reference row count per chunk; when given, a present chunk whose row
-        count disagrees raises (guards against within-chrom misalignment).
+    raw : bytes
+        Decompressed chunk (``Reader.fetch_chunk_bytes``).
+    dtype : np.dtype
+        Record dtype from :func:`cz._build_record_dtype`.
+    cov_i : int
+        Column index of ``cov`` in the record.
 
     Returns
     -------
-    dict {chunk_key: (np.ndarray float64, np.ndarray float64)}
+    (view, nz) : (np.ndarray structured, np.ndarray int64)
+        A zero-copy structured view of the chunk and the sorted 0-based rows
+        with ``cov > 0``. Single-cell files are almost all zeros, so when the
+        record width divides 8 bytes the chunk is first scanned as a flat
+        ``uint64`` array (a contiguous, vectorised pass over the raw bytes;
+        ~4x faster than scanning the strided ``cov`` field), each non-zero
+        word is expanded to its records, and only those few candidates are
+        then checked on the ``cov`` field.
     """
-    path = _abspath(path)
-    # Reads whole chunks for the needed chroms front-to-back -> sequential.
-    r = Reader(path, mmap_advise="sequential")
-    out = {}
-    try:
-        cols = list(r.header['columns'])
-        if mc_col not in cols or cov_col not in cols:
-            raise ValueError(
-                f"{path}: expected columns {mc_col!r} and {cov_col!r}, "
-                f"got {cols!r}")
-        mi, ci = cols.index(mc_col), cols.index(cov_col)
-        dims = r.header.get('chunk_dims', []) or []
-        if len(dims) > 1:
-            raise ValueError(
-                f"{path}: multi-cell (cat) .cz with chunk_dims={list(dims)}; "
-                f"predict()/predict_batch() handle single-cell files only. Pass "
-                f"it to predict_cell_type(query=...) (auto-detected) or "
-                f"CellTypeClassifier.predict_multicell().")
-        keys = (list(r.chunk_key2offset.keys()) if needed_keys is None
-                else list(needed_keys))
-        for k in keys:
-            if k not in r.chunk_key2offset:
-                continue  # absent chunk -> skip (zero contribution)
-            arr = r.chunk2numpy(k)
-            mc = np.asarray(arr[f'f{mi}'])
-            cov = np.asarray(arr[f'f{ci}'])
-            if (chunk_lens is not None and k in chunk_lens
-                    and mc.size != int(chunk_lens[k])):
-                raise ValueError(
-                    f"{path}: chunk {k!r} has {mc.size} rows but the "
-                    f"reference axis has {int(chunk_lens[k])}; the query must "
-                    f"be aligned to the same reference axis within each chrom.")
-            out[k] = (mc, cov)
-    finally:
-        r.close()
-    return out
+    view = np.frombuffer(raw, dtype=dtype)
+    cov = view[f'f{cov_i}']
+    unit = dtype.itemsize
+    if unit not in (1, 2, 4, 8):
+        return view, np.flatnonzero(cov)
+    per = 8 // unit  # records per 64-bit word
+    n_rec = view.size
+    n_words = n_rec // per
+    words = np.frombuffer(raw, dtype='<u8', count=n_words)
+    # ``!= 0`` first: the bool compare + bool nonzero is ~2-3x faster than
+    # nonzero on the uint64 array itself.
+    w = np.flatnonzero(words != 0)
+    if per > 1:
+        cand = (w[:, None] * per + np.arange(per)[None, :]).ravel()
+    else:
+        cand = w
+    tail = n_words * per
+    if tail < n_rec:
+        cand = np.concatenate([cand, np.arange(tail, n_rec)])
+    if cand.size:
+        cand = cand[cov[cand] != 0]
+    return view, cand
 
 
-def _read_mc_cov_gather(path, mc_col='mc', cov_col='cov', gather_ids=None):
-    """Return ``{chunk_key: (mc, cov)}`` gathered at the model's selected rows.
+def _chunk_hits(chan, lo, hi, nz, mc_full, cov_full):
+    """Query sites covered in one chunk that the channel keeps -> (gidx, mc, cov).
 
-    Like :func:`_read_mc_cov_by_chunk` but, instead of materialising each whole
-    chunk and indexing afterwards, it passes the per-chunk 1-based row IDs to
-    :meth:`cz.Reader.chunk2numpy` (``index=``) so only the selected rows are
-    gathered from the decompressed block — the O(chunk) full-chunk copy is
-    skipped. ``gather_ids`` is ``{chunk_key: 0-based row ndarray}`` (the union
-    of the CpG/CpH sites the model keeps in that chunk); a chunk absent from
-    the file is skipped (zero contribution).
+    ``nz`` are the chunk's covered rows (sorted); ``mc_full``/``cov_full`` are
+    the chunk's full columns (any strided view). ``gidx`` are global row
+    indices into the channel's concatenated ``log_theta`` tables, sorted.
+    Returns ``None`` when nothing overlaps. The channel's per-chunk ``sites``
+    are sorted (``fit`` writes them in row order), so a sparse query (the
+    usual single cell) is intersected by binary search over the memmapped
+    site list — touching only O(n_cov log n_sel) pages — while a dense query
+    (bulk / high coverage) falls back to one gather per selected site.
     """
-    path = _abspath(path)
-    # ID-gathers only selected rows per chunk -> random.
-    r = Reader(path, mmap_advise="random")
-    out = {}
-    try:
-        cols = list(r.header['columns'])
-        if mc_col not in cols or cov_col not in cols:
-            raise ValueError(
-                f"{path}: expected columns {mc_col!r} and {cov_col!r}, "
-                f"got {cols!r}")
-        mi, ci = cols.index(mc_col), cols.index(cov_col)
-        dims = r.header.get('chunk_dims', []) or []
-        if len(dims) > 1:
-            raise ValueError(
-                f"{path}: multi-cell (cat) .cz with chunk_dims={list(dims)}; "
-                f"predict()/predict_batch() handle single-cell files only. Pass "
-                f"it to predict_cell_type(query=...) (auto-detected) or "
-                f"CellTypeClassifier.predict_multicell().")
-        for k, ids in (gather_ids or {}).items():
-            if k not in r.chunk_key2offset:
-                continue  # absent chunk -> skip (zero contribution)
-            ids = np.asarray(ids)
-            if ids.size == 0:
-                continue
-            arr = r.chunk2numpy(k, index={k: ids + 1})
-            out[k] = (np.asarray(arr[f'f{mi}']), np.asarray(arr[f'f{ci}']))
-    finally:
-        r.close()
-    return out
+    n_sel = hi - lo
+    if n_sel <= 0 or nz.size == 0:
+        return None
+    sites_k = chan['sites'][lo:hi]
+    if nz.size * _SPARSE_FACTOR < n_sel:
+        needles = nz.astype(sites_k.dtype, copy=False)
+        pos = np.searchsorted(sites_k, needles)
+        pos_c = np.minimum(pos, n_sel - 1)
+        hit = np.asarray(sites_k[pos_c]) == needles
+        if not hit.any():
+            return None
+        rows = nz[hit]
+        return (lo + pos[hit].astype(np.int64),
+                np.asarray(mc_full[rows]), np.asarray(cov_full[rows]))
+    s = np.asarray(sites_k)
+    cov = np.asarray(cov_full[s])
+    hit = np.flatnonzero(cov)
+    if hit.size == 0:
+        return None
+    return lo + hit, np.asarray(mc_full[s[hit]]), cov[hit]
 
 
 def _context_masks(ctx):
@@ -605,7 +666,9 @@ def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
     -------
     (fractions, r2) : (np.ndarray, float)
         ``fractions`` is the (n_types,) non-negative fraction vector; ``r2`` is
-        the (weighted) coefficient of determination of the fit.
+        the coefficient of determination of the fit, ``1 - SS_res / SS_tot``
+        with both sums weighted by ``weight`` and ``SS_tot`` taken around the
+        weight-weighted mean of ``beta`` (plain R^2 when ``weight`` is None).
     """
     from scipy.optimize import nnls, minimize
 
@@ -686,9 +749,67 @@ def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
     if sw is not None:
         resid *= sw
     ss_res = float(resid @ resid)
-    ss_tot = float(((b - b.mean()) ** 2).sum())
+    # Weighted R^2: total variance around the *weighted* mean of beta,
+    # sum_c w_c (beta_c - mean_w)^2 (= plain R^2 when weight is None).
+    if sw is None:
+        ss_tot = float(((beta - beta.mean()) ** 2).sum())
+    else:
+        w = sw * sw
+        wsum = float(w.sum())
+        mean_w = float((w @ beta) / wsum) if wsum > 0 else 0.0
+        ss_tot = float((w @ ((beta - mean_w) ** 2)))
     r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float('nan')
     return frac.astype(np.float64), r2
+
+
+def _level_adjusted_ll(L, m, umc, max_sites=_ADJUST_MAX_SITES,
+                       iters=_ADJUST_ITERS, block=1 << 18):
+    """Per-type Bernoulli log-likelihood after fitting a global logit offset.
+
+    For each type ``t`` the query's methylation at a covered site is modelled
+    as ``sigmoid(logit(theta[c, t]) + delta_t)``: one scalar ``delta_t`` per
+    type (and channel) absorbs a cell-wide shift of the methylation level
+    relative to the reference — different global mC level, bisulfite
+    conversion or platform (e.g. shallow MiSeq vs deep snm3C). ``delta_t`` is
+    the maximum-likelihood value (Newton on the concave profile likelihood,
+    estimated on an evenly spaced subsample of ``max_sites`` sites), and the
+    returned ``(n_types,)`` log-likelihood is evaluated at it on all sites.
+
+    Without this, a cell whose global level is off is pulled toward whichever
+    type happens to have the closest global level (e.g. an intermediate /
+    hybrid type) instead of the type with the matching site pattern.
+
+    Parameters
+    ----------
+    L : (n_sites, n_types) float array
+        ``log_theta - log1m_theta`` = ``logit(theta)`` at the covered sites.
+    m, umc : (n_sites,) arrays
+        Methylated / unmethylated weights per site (see ``_prepare_terms``).
+    """
+    n = L.shape[0]
+    m = np.asarray(m, dtype=np.float64)
+    w = m + np.asarray(umc, dtype=np.float64)
+    if n > max_sites:
+        sub = np.linspace(0, n - 1, max_sites).astype(np.int64)
+        Ls, ms, ws = L[sub].astype(np.float64), m[sub], w[sub]
+    else:
+        Ls, ms, ws = L.astype(np.float64), m, w
+    delta = np.zeros(L.shape[1], dtype=np.float64)
+    msum = ms.sum()
+    for _ in range(iters):
+        x = np.clip(Ls + delta, -30.0, 30.0)
+        sg = 1.0 / (1.0 + np.exp(-x))
+        g = msum - ws @ sg
+        h = -(ws @ (sg * (1.0 - sg)))
+        delta -= g / np.minimum(h, -1e-12)
+        np.clip(delta, -8.0, 8.0, out=delta)
+    acc = np.zeros(L.shape[1], dtype=np.float64)
+    for b in range(0, n, block):
+        x = L[b:b + block].astype(np.float64) + delta
+        # log sigmoid(x) = -softplus(-x); log(1 - sigmoid(x)) = -softplus(x)
+        acc -= m[b:b + block] @ np.logaddexp(0.0, -x)
+        acc -= (w[b:b + block] - m[b:b + block]) @ np.logaddexp(0.0, x)
+    return acc
 
 
 # ==========================================================
@@ -718,6 +839,21 @@ class CellTypeClassifier:
     ``build_ref`` ``reference`` ``.cz`` (the cell-type files usually store
     only ``mc``/``cov``), so no pre-splitting into separate CG / CH files is
     needed.
+
+    Performance notes
+    -----------------
+    Scoring is **sparse-first**: a query chunk is decompressed once, its
+    covered (``cov > 0``) rows are found in one vectorised scan and matched
+    against the channel's sorted site list by binary search, so the work per
+    cell scales with the cell's coverage (10^5-10^7 sites), not with the
+    model's size (up to 10^9 sites). The model tables stay memory-mapped on
+    disk; for batches (:meth:`predict_batch` / :meth:`predict_multicell`)
+    they are read by **one sequential scan** shared by all cells whenever
+    per-cell random row reads would be slower (``stream=None`` auto-selects),
+    which makes whole-genome models (hundreds of GB) practical on network
+    storage. Site selection at ``fit`` time (``top_per_class`` /
+    ``top_cg`` / ``top_ch``) shrinks the tables, but shallow cells need many
+    kept sites to still overlap enough of them — see ``fit``.
 
     Parameters
     ----------
@@ -770,10 +906,6 @@ class CellTypeClassifier:
         self._chunk_lens = None
         self._chunk_span = None
         self._n_full = None
-        # {chunk_key: 0-based row ndarray} — union of the CpG/CpH site rows the
-        # model keeps per chunk, so predict reads only those rows (skipping the
-        # full-chunk copy). Built by _build_gather() after fit()/load().
-        self._gather_ids = None
         # On-disk memory-mapped model store. ``fit`` spills the per-channel
         # log-theta / log1m-theta / sites arrays to ``.npy`` files under
         # ``_store_dir`` (a temp dir it owns), so neither fit nor predict has
@@ -787,7 +919,10 @@ class CellTypeClassifier:
         #   n_sites      : total selected discriminative sites in the channel
         #   chunks       : {chunk_key: (lo, hi)} row range into the channel's
         #                  concatenated (memory-mapped) arrays
-        #   sites        : (n_sel,) int64 local row indices (mmap)
+        #   sites        : (n_sel,) int32 local row indices (mmap), sorted
+        #                  ascending within every chunk's [lo, hi) range —
+        #                  scoring relies on this to binary-search a query's
+        #                  covered rows against them
         #   log_theta / log1m_theta : (n_sel, n_types) float32 (mmap)
         # Scoring sums each present chunk's contribution, so a chunk missing
         # from a query is simply skipped (zero contribution).
@@ -797,6 +932,7 @@ class CellTypeClassifier:
     # ----------------------------------------------------------------------
     def _cleanup_store(self):
         """Release memmaps and delete the temp store if this object owns it."""
+        self.__dict__.pop('_theta_cache', None)
         for chan in (self._cg, self._ch):
             if not chan:
                 continue
@@ -831,38 +967,6 @@ class CellTypeClassifier:
             pass
 
     # ----------------------------------------------------------------------
-    def _build_gather(self):
-        """Precompute per-chunk read rows and each channel's position map.
-
-        For every chunk the model needs, ``self._gather_ids[k]`` is the sorted
-        union of the CpG/CpH site rows kept there; each channel also gets a
-        ``gpos`` array (parallel to its ``sites``) giving the position of each
-        of its sites inside that gathered order. This lets :meth:`_score` /
-        deconvolution read only the selected rows via ``chunk2numpy(index=)``
-        (skipping the full-chunk copy) while decompressing each chunk once.
-        """
-        rows_by_chunk = {}
-        for chan in (self._cg, self._ch):
-            if chan is None:
-                continue
-            sarr = chan['sites']
-            for k, (lo, hi) in chan['chunks'].items():
-                rows_by_chunk.setdefault(k, []).append(
-                    np.asarray(sarr[lo:hi], dtype=np.int64))
-        gather = {k: (np.unique(np.concatenate(lst)) if len(lst) > 1
-                      else np.unique(lst[0]))
-                  for k, lst in rows_by_chunk.items()}
-        for chan in (self._cg, self._ch):
-            if chan is None:
-                continue
-            sarr = chan['sites']
-            gpos = np.empty(int(chan['n_sites']), dtype=np.int64)
-            for k, (lo, hi) in chan['chunks'].items():
-                rows = np.asarray(sarr[lo:hi], dtype=np.int64)
-                gpos[lo:hi] = np.searchsorted(gather[k], rows)
-            chan['gpos'] = gpos
-        self._gather_ids = gather
-
     def fit(self, pseudobulks, reference=None, cell_counts=None,
             top_cg=None, top_ch=None, min_range_cg=0.0, min_range_ch=0.0,
             top_per_class=None,
@@ -896,7 +1000,14 @@ class CellTypeClassifier:
         top_cg, top_ch : None, int, or float, optional
             Discriminative-site selection for each channel. ``None`` keeps
             all sites with range > ``min_range_*``; an int keeps the top-N
-            sites; a float in (0, 1] keeps the top fraction.
+            sites; a float in (0, 1] keeps the top fraction. Pruning shrinks
+            the on-disk tables but a **shallow** query (e.g. a ~10 k-site
+            MiSeq cell) only overlaps the sites the model kept, so heavy
+            pruning starves it (simulated 10-30 k-site cells: 0.1-0.2
+            accuracy with 256 k kept sites vs 1.0 with all sites). Since
+            batch scoring streams the tables sequentially, an all-sites model
+            is fast enough — keep ``None`` for shallow queries and prune only
+            for deep ones.
         min_range_cg, min_range_ch : float, optional
             Keep a site only when its across-type frequency range is strictly
             greater than this (default 0.0, which already drops the
@@ -1467,7 +1578,6 @@ class CellTypeClassifier:
         self._chunk_lens = chunk_lens
         self._chunk_span = chunk_span
         self._n_full = n_full
-        self._build_gather()
         return self
 
     # ----------------------------------------------------------------------
@@ -1482,23 +1592,28 @@ class CellTypeClassifier:
         if self.cell_counts is None or prior_alpha == 0:
             return np.full(T, -np.log(T), dtype=np.float64)
         N = np.array([float(self.cell_counts[t]) for t in self.cell_types])
-        w = np.power(N, float(prior_alpha))
+        if not np.all(np.isfinite(N)) or N.min() < 0:
+            raise ValueError("cell_counts must be finite and non-negative")
+        # +1 pseudocount: a zero-count type gets a small, finite prior
+        # instead of log(0) = -inf (which would also make an all-zero
+        # table produce NaN posteriors).
+        w = np.power(N + 1.0, float(prior_alpha))
         pi = w / w.sum()
         return np.log(pi)
 
     @staticmethod
-    def _score(chan, query_chunks, downsample=None, rng=None, cov_cap=None):
-        """Aggregated Bernoulli log-likelihood for one channel: (n_types,).
+    def _prepare_terms(hits, downsample=None, rng=None, cov_cap=None):
+        """Turn one channel's hits into scoring terms ``(gidx, m, umc)``.
 
-        Sums each chunk's contribution; a chunk that is absent from
-        ``query_chunks`` (missing in the query ``.cz``) is simply skipped,
-        which is exactly a zero contribution — so no flat-axis alignment or
-        zero-fill is needed.
+        ``hits`` is the channel's list of per-chunk ``(key, gidx, mc, cov)``
+        tuples from :meth:`_collect_hits` — only the query's *covered*
+        (``cov > 0``) sites that the channel keeps, in chunk order. A chunk
+        absent from the query simply has no entry, which is exactly a zero
+        contribution, so no flat-axis alignment or zero-fill is needed.
 
-        When ``downsample`` is an int, only that many of the query's covered
-        (``cov > 0``) sites (drawn uniformly at random across all chunks via
-        ``rng``) are kept; the rest are zeroed so they add nothing. If the
-        query has at most ``downsample`` covered sites, all are used.
+        When ``downsample`` is an int, only that many of the covered sites
+        (drawn uniformly at random across all chunks via ``rng``) are kept. If
+        the query has at most ``downsample`` covered sites, all are used.
 
         When ``cov_cap`` is given, each site's effective coverage is capped at
         ``cov_cap`` (keeping the observed fraction ``beta = mc / cov``) before
@@ -1509,100 +1624,339 @@ class CellTypeClassifier:
         amplifying any query-vs-reference mismatch. ``cov_cap=1`` collapses
         every covered site to a single fractional observation, making deep and
         shallow (MiSeq) queries score on the same scale.
+
+        Returns ``None`` when the channel has no covered site, else sorted
+        ``gidx`` (int64 rows into the channel's tables), ``m`` (methylated
+        weight) and ``umc`` (unmethylated weight), both float32 — counts and
+        capped fractions are exact enough in float32, and the scorers
+        accumulate the per-cell sums in float64.
         """
+        if not hits:
+            return None
+        if len(hits) == 1:
+            _, gidx, mc, cov = hits[0]
+        else:
+            gidx = np.concatenate([h[1] for h in hits])
+            mc = np.concatenate([h[2] for h in hits])
+            cov = np.concatenate([h[3] for h in hits])
+        n = gidx.size
+        if downsample is not None and 0 < int(downsample) < n:
+            keep = np.sort(rng.choice(n, size=int(downsample), replace=False))
+            gidx, mc, cov = gidx[keep], mc[keep], cov[keep]
+        m = mc.astype(np.float32)
+        c = cov.astype(np.float32)
+        if cov_cap is not None:
+            # Cap each site's effective coverage, preserving beta = mc/cov,
+            # so correlated within-site reads (same molecule) count as at
+            # most ``cov_cap`` independent observations instead of ``cov``.
+            scale = np.minimum(np.float32(1.0), np.float32(cov_cap) / c)
+            m *= scale
+            c *= scale
+        return np.asarray(gidx, dtype=np.int64), m, c - m
+
+    @staticmethod
+    def _score(chan, terms, level_adjust=False):
+        """Aggregated Bernoulli log-likelihood for one channel: (n_types,).
+
+        ``terms`` is :meth:`_prepare_terms` output. Only the covered rows are
+        read from the memmapped log-theta tables (in sorted order, in blocks
+        of ``_SCORE_BLOCK`` rows), so the cost scales with the query's
+        coverage, not with the model's size. Each row read is a random page
+        access, so for many cells against a large on-disk model
+        :meth:`_stream_scores` (one sequential pass) is far cheaper.
+
+        With ``level_adjust`` the logits of the covered rows are kept
+        (``n_sites x n_types`` float32) and scored through
+        :func:`_level_adjusted_ll`.
+        """
+        if terms is None:
+            return None
+        gidx, m, umc = terms
         lt = chan['log_theta']
         l1 = chan['log1m_theta']
-        gpos = chan['gpos']
-        # query_chunks hold only the model's gathered rows per chunk (union of
-        # the CpG/CpH sites); gpos maps this channel's sites into that order.
-        parts = []  # (lo, hi, mc, cov)
-        for k, (lo, hi) in chan['chunks'].items():
-            arrs = query_chunks.get(k)
-            if arrs is None:
-                continue  # chunk missing from this query -> zero contribution
-            mc_g, cov_g = arrs
-            g = np.asarray(gpos[lo:hi])
-            parts.append((lo, hi, mc_g[g], cov_g[g]))
-        if not parts:
-            return None
-        if downsample is not None:
-            # Randomly keep only ``downsample`` of the query's covered sites in
-            # this channel; zero out the rest (zero mc & cov -> no likelihood
-            # contribution). The random indices span all chunks jointly.
-            cov_masks = [cov > 0 for (_, _, _, cov) in parts]
-            n_cov = int(sum(int(m.sum()) for m in cov_masks))
-            if 0 < int(downsample) < n_cov:
-                sel = np.zeros(n_cov, dtype=bool)
-                sel[rng.choice(n_cov, size=int(downsample), replace=False)] = True
-                off = 0
-                new_parts = []
-                for (lo, hi, mc, cov), m in zip(parts, cov_masks):
-                    c = int(m.sum())
-                    keep = np.zeros(mc.shape[0], dtype=bool)
-                    if c:
-                        keep[np.flatnonzero(m)[sel[off:off + c]]] = True
-                    off += c
-                    mc = np.where(keep, mc, 0)
-                    cov = np.where(keep, cov, 0)
-                    new_parts.append((lo, hi, mc, cov))
-                parts = new_parts
-        # Only covered sites (cov > 0) contribute: an uncovered site has
-        # mc == 0 and cov == 0, so mc*log_theta + (cov-mc)*log1m_theta == 0.
-        # Gathering just those rows turns the dense GEMV over *every* selected
-        # site into a tiny one over the (usually <1%) covered sites, reading
-        # only those rows from the memmapped log-theta tables.
-        acc = None
-        for lo, hi, mc, cov in parts:
-            nz = np.flatnonzero(cov)
-            if nz.size == 0:
-                continue  # nothing covered in this chunk -> zero contribution
-            gidx = lo + nz
-            m = mc[nz]
-            c = cov[nz]
-            if cov_cap is not None:
-                # Cap each site's effective coverage, preserving beta = mc/cov,
-                # so correlated within-site reads (same molecule) count as at
-                # most ``cov_cap`` independent observations instead of ``cov``.
-                m = m.astype(np.float64)
-                c = c.astype(np.float64)
-                scale = np.minimum(1.0, float(cov_cap) / c)
-                m = m * scale
-                c = c * scale
-            umc = c - m
-            part = m @ lt[gidx] + umc @ l1[gidx]
-            acc = part if acc is None else acc + part
+        acc = np.zeros(lt.shape[1], dtype=np.float64)
+        logits = []
+        for b in range(0, gidx.size, _SCORE_BLOCK):
+            g = gidx[b:b + _SCORE_BLOCK]
+            LT = lt[g]
+            L1 = l1[g]
+            if level_adjust:
+                logits.append(LT - L1)
+                continue
+            # Accumulate in float64: a float32 dot over 10^5-10^6 terms
+            # drifts by ~1e-3 of the total, enough to blur close types.
+            acc += m[b:b + _SCORE_BLOCK].astype(np.float64) @ LT.astype(np.float64)
+            acc += umc[b:b + _SCORE_BLOCK].astype(np.float64) @ L1.astype(np.float64)
+        if level_adjust:
+            L = logits[0] if len(logits) == 1 else np.concatenate(logits)
+            return _level_adjusted_ll(L, m, umc)
         return acc
 
-    def _query_chunks(self, query):
-        """Return ``{chunk_key: (mc, cov)}`` gathered at the model's rows.
+    @staticmethod
+    def _stream_scores(chan, terms_list, block=_SCORE_BLOCK, level_adjust=False):
+        """Score many cells in one sequential pass over a channel's tables.
 
-        Reads only the chunks carrying selected sites and, within each, only
-        the union of the CpG/CpH rows the model keeps (via
-        ``chunk2numpy(index=...)`` for a ``.cz`` path, or a fancy-index on a
-        preloaded pair), so the full-chunk copy is skipped. The arrays follow
-        the per-chunk gather order; :meth:`_score` maps each channel's sites
-        into it through ``gpos``.
+        ``terms_list`` holds one :meth:`_prepare_terms` output (or ``None``)
+        per cell. Instead of gathering each cell's rows at random from the
+        memmapped ``log_theta`` / ``log1m_theta`` (one page fault per row —
+        on network / spinning storage a few thousand rows per second), the
+        tables are read **sequentially** in blocks of ``block`` rows and every
+        cell's terms falling in the block are applied at once as a sparse
+        (cells x rows) @ dense (rows x types) product. Sequential reads run
+        orders of magnitude faster than random ones, so this turns a batch
+        whose random reads would take hours into a single table scan (and
+        the next block is prefetched while the current one is scored).
+
+        With ``level_adjust`` the scan instead collects each cell's logit rows
+        (``log_theta - log1m_theta`` at its covered sites, float32) and every
+        cell is then scored by :func:`_level_adjusted_ll`; memory is
+        ``4 * n_types`` bytes per covered site (callers group cells
+        accordingly).
+
+        Returns an ``(n_cells, n_types)`` float64 matrix (zeros for cells
+        without terms).
         """
-        gather_ids = self._gather_ids or {}
+        import scipy.sparse as ss
+        lt = chan['log_theta']
+        l1 = chan['log1m_theta']
+        n_types = lt.shape[1]
+        out = np.zeros((len(terms_list), n_types), dtype=np.float64)
+        live = [(i, t) for i, t in enumerate(terms_list) if t is not None]
+        if not live:
+            return out
+        lo = min(int(t[0][0]) for _, t in live)
+        hi = max(int(t[0][-1]) for _, t in live) + 1
+        edges = np.arange(lo, hi, block, dtype=np.int64)
+        edges = np.append(edges, hi)
+        # Per cell, where each block starts in its sorted gidx (one call);
+        # blocks no cell touches are never read.
+        bounds = [np.searchsorted(t[0], edges) for _, t in live]
+        blk_n = np.zeros(edges.size - 1, dtype=np.int64)
+        for bd in bounds:
+            blk_n += np.diff(bd)
+        active = np.flatnonzero(blk_n).tolist()
+        n_blocks = len(active)
+
+        logit_rows = [[] for _ in live] if level_adjust else None
+        rd_lt, rd_l1 = _RowReader(lt), _RowReader(l1)
+
+        def _read(j):
+            # Blocks stay float32: each cell has only a few thousand terms
+            # per block, so the float32 product is accurate there, and the
+            # per-block results are summed into ``out`` in float64.
+            a, b = int(edges[j]), int(edges[j + 1])
+            return rd_lt.read(a, b), rd_l1.read(a, b)
+
+        depth = 2  # blocks in flight ahead of the one being scored
+        with rd_lt, rd_l1, ThreadPoolExecutor(max_workers=depth) as prefetch:
+            pending = [prefetch.submit(_read, active[q])
+                       for q in range(min(depth, n_blocks))]
+            for q in range(n_blocks):
+                j = active[q]
+                LT, L1 = pending.pop(0).result()
+                if q + depth < n_blocks:
+                    pending.append(prefetch.submit(_read, active[q + depth]))
+                a = int(edges[j])
+                if level_adjust:
+                    D = LT - L1
+                    for q_, ((i, (g, m, u)), bd) in enumerate(zip(live, bounds)):
+                        s_, e_ = int(bd[j]), int(bd[j + 1])
+                        if e_ > s_:
+                            logit_rows[q_].append(D[g[s_:e_] - a])
+                    continue
+                rows, dm, du, cells, indptr, first_row = [], [], [], [], [0], []
+                for (i, (g, m, u)), bd in zip(live, bounds):
+                    s_, e_ = int(bd[j]), int(bd[j + 1])
+                    if e_ <= s_:
+                        continue
+                    rows.append(g[s_:e_])
+                    dm.append(m[s_:e_])
+                    du.append(u[s_:e_])
+                    cells.append(i)
+                    first_row.append(len(indptr) - 1)
+                    # A cell's terms in this block are split into sparse rows
+                    # of <= _STREAM_SUB terms: the float32 product is exact
+                    # enough per short row, and rows are re-summed in float64.
+                    base = indptr[-1]
+                    n_ = e_ - s_
+                    for off in range(_STREAM_SUB, n_, _STREAM_SUB):
+                        indptr.append(base + off)
+                    indptr.append(base + n_)
+                if not cells:
+                    continue
+                idx = np.concatenate(rows) - a
+                indptr = np.asarray(indptr, dtype=np.int64)
+                shape = (indptr.size - 1, LT.shape[0])
+                M = ss.csr_matrix((np.concatenate(dm), idx, indptr), shape=shape)
+                U = ss.csr_matrix((np.concatenate(du), idx, indptr), shape=shape)
+                part = np.asarray((M @ LT) + (U @ L1), dtype=np.float64)
+                if part.shape[0] > len(cells):
+                    part = np.add.reduceat(part, first_row, axis=0)
+                out[cells] += part
+        if level_adjust:
+            for q_, (i, (g, m, u)) in enumerate(live):
+                parts = logit_rows[q_]
+                if not parts:
+                    continue
+                L = parts[0] if len(parts) == 1 else np.concatenate(parts)
+                logit_rows[q_] = None  # free as we go
+                out[i] = _level_adjusted_ll(L, m, u)
+        return out
+
+    def _warm_sites(self):
+        """Page the channels' ``sites`` memmaps in sequentially, once.
+
+        Scoring binary-searches a query's covered rows against each chunk's
+        sorted site list. On a cold memmap every probe is a random page fault,
+        which on network / spinning storage is ~100x slower than streaming
+        the same pages; a single sequential pass (a few GB at most, ~1 s/GB)
+        leaves them in the page cache for every subsequent query.
+        """
+        if getattr(self, '_sites_warm', False):
+            return
+        lock = self.__dict__.setdefault('_warm_lock', threading.Lock())
+        with lock:
+            if getattr(self, '_sites_warm', False):
+                return
+            for chan in (self._cg, self._ch):
+                if chan is None:
+                    continue
+                sarr = chan['sites']
+                if not isinstance(sarr, np.memmap):
+                    continue
+                with _RowReader(sarr.reshape(-1, 1)) as rd:
+                    rd.touch()
+            self._sites_warm = True
+
+    def _channels(self, use):
+        """``[(name, chan)]`` for the requested contexts that the model has."""
+        return [(n, c) for n, c in (('cg', self._cg), ('ch', self._ch))
+                if n in use and c is not None]
+
+    @staticmethod
+    def _hits_for_chunk(chans, hits, key, nz, mc_full, cov_full):
+        """Append each channel's covered-site hits for one chunk to ``hits``."""
+        for name, chan in chans:
+            rng_ = chan['chunks'].get(key)
+            if rng_ is None:
+                continue
+            h = _chunk_hits(chan, rng_[0], rng_[1], nz, mc_full, cov_full)
+            if h is not None:
+                hits[name].append((key, h[0], h[1], h[2]))
+
+    def _collect_hits(self, query, use):
+        """Gather a query's covered model sites per channel.
+
+        Returns ``{channel: [(chunk_key, gidx, mc, cov), ...]}`` (chunks in
+        reference order; absent / all-zero chunks omitted) for the channels in
+        ``use`` (``['cg']``, ``['ch']`` or both). ``gidx`` indexes the
+        channel's concatenated ``log_theta`` tables; ``mc``/``cov`` are the
+        query counts at those rows in their native dtype.
+
+        The query is streamed one chunk at a time: a ``.cz`` chunk is
+        decompressed once (zero-copy structured view, no full-chunk copy), its
+        covered rows located in a single vectorised pass, and those rows are
+        intersected with each channel's sorted site list
+        (:func:`_chunk_hits`), so peak memory is one chunk plus the hits.
+        Preloaded full-axis ``(mc, cov)`` arrays are sliced per chunk the same
+        way.
+        """
+        self._warm_sites()
+        chans = self._channels(use)
+        hits = {name: [] for name, _ in chans}
+        needed = [k for k in self._chunk_keys
+                  if any(k in chan['chunks'] for _, chan in chans)]
         if isinstance(query, (tuple, list)):
-            mc = np.asarray(query[0], np.float64)
-            cov = np.asarray(query[1], np.float64)
-            if mc.size != self._n_full:
+            mc = np.asarray(query[0])
+            cov = np.asarray(query[1])
+            if mc.size != self._n_full or cov.size != self._n_full:
                 raise ValueError(
                     f"query has {mc.size} sites but the model was fit on "
                     f"{self._n_full}; preloaded (mc, cov) arrays must span the "
                     f"full reference axis.")
-            out = {}
-            for k, ids in gather_ids.items():
+            for k in needed:
                 s, e = self._chunk_span[k]
-                out[k] = (mc[s:e][ids], cov[s:e][ids])
-            return out
-        return _read_mc_cov_gather(
-            query, self.mc_col, self.cov_col, gather_ids)
+                cov_k = cov[s:e]
+                nz = np.flatnonzero(cov_k)
+                self._hits_for_chunk(chans, hits, k, nz, mc[s:e], cov_k)
+            return hits
+        path = _abspath(query)
+        # Whole chunks are decompressed front-to-back -> sequential.
+        r = Reader(path, mmap_advise="sequential")
+        try:
+            cols = list(r.header['columns'])
+            if self.mc_col not in cols or self.cov_col not in cols:
+                raise ValueError(
+                    f"{path}: expected columns {self.mc_col!r} and "
+                    f"{self.cov_col!r}, got {cols!r}")
+            mi, ci = cols.index(self.mc_col), cols.index(self.cov_col)
+            dims = r.header.get('chunk_dims', []) or []
+            if len(dims) > 1:
+                raise ValueError(
+                    f"{path}: multi-cell (cat) .cz with chunk_dims={list(dims)}; "
+                    f"predict()/predict_batch() handle single-cell files only. "
+                    f"Pass it to predict_cell_type(query=...) (auto-detected) "
+                    f"or CellTypeClassifier.predict_multicell().")
+            dtype = _build_record_dtype(r.header['formats'])
+            for k in needed:
+                if k not in r.chunk_key2offset:
+                    continue  # absent chunk -> zero contribution
+                view, nz = _nonzero_rows(r.fetch_chunk_bytes(k), dtype, ci)
+                n_k = self._chunk_lens[k]
+                if view.size != n_k:
+                    raise ValueError(
+                        f"{path}: chunk {k!r} has {view.size} rows but the "
+                        f"reference axis has {n_k}; the query must be aligned "
+                        f"to the same reference axis within each chrom.")
+                self._hits_for_chunk(chans, hits, k, nz,
+                                     view[f'f{mi}'], view[f'f{ci}'])
+        finally:
+            r.close()
+        return hits
+
+    def _collect_hits_multicell(self, reader, keymap, mi, ci, use):
+        """:meth:`_collect_hits` for one cell of a concatenated (cat) ``.cz``.
+
+        ``keymap`` maps the model's chrom key -> the cell's full chunk key in
+        ``reader`` (whose ``mc``/``cov`` columns are ``mi``/``ci``).
+        """
+        self._warm_sites()
+        chans = self._channels(use)
+        hits = {name: [] for name, _ in chans}
+        dtype = _build_record_dtype(reader.header['formats'])
+        for chrom in self._chunk_keys:
+            full_key = keymap.get(chrom)
+            if full_key is None or not any(
+                    chrom in chan['chunks'] for _, chan in chans):
+                continue
+            view, nz = _nonzero_rows(
+                reader.fetch_chunk_bytes(full_key), dtype, ci)
+            n_k = self._chunk_lens[chrom]
+            if view.size != n_k:
+                raise ValueError(
+                    f"{reader.input}: chunk {full_key!r} has {view.size} rows "
+                    f"but the reference axis has {n_k}; the file must be "
+                    f"aligned to the same reference axis within each chrom.")
+            self._hits_for_chunk(chans, hits, chrom, nz,
+                                 view[f'f{mi}'], view[f'f{ci}'])
+        return hits
+
+    def _check_contexts(self, contexts):
+        """Resolve ``contexts`` and verify the model has those channels."""
+        use = self._resolve_contexts(contexts)
+        if 'cg' in use and self._cg is None:
+            raise ValueError(
+                "contexts requested 'cg' but the model has no CpG channel "
+                "(none fitted); pass contexts='ch'.")
+        if 'ch' in use and self._ch is None:
+            raise ValueError(
+                "contexts requested 'ch' but the model has no CpH channel "
+                "(none fitted); pass contexts='cg'.")
+        return use
 
     def log_posterior(self, query, prior_alpha=0.0,
                       max_query_cg=None, max_query_ch=None, contexts='cg+ch',
-                      cov_cap=None):
+                      cov_cap=None, stream=None, level_adjust=False):
         """Unnormalized log-posterior per cell type: pandas Series.
 
         Parameters
@@ -1623,46 +1977,179 @@ class CellTypeClassifier:
             Which cytosine context(s) to score on: ``'cg'``, ``'ch'``, or
             ``'both'`` / ``'cg+ch'`` (default, use both channels). Selecting a
             single context ignores the other channel entirely.
+        cov_cap : int or None, optional
+            Cap each site's effective coverage (keeping ``mc/cov``) before
+            scoring; see :meth:`_prepare_terms`.
+        stream : bool or None, optional
+            Read the model tables by one sequential scan (``True``) or by
+            random row gathers (``False``); ``None`` (default) decides from
+            the number of covered sites vs the table size (see
+            :meth:`predict_batch`).
+        level_adjust : bool, optional
+            Fit, per channel and candidate type, a cell-wide logit offset of
+            the methylation level before scoring (see :meth:`predict`).
         """
         if self.cell_types is None:
             raise RuntimeError("call fit() before predicting.")
-        query_chunks = self._query_chunks(query)
-        return self._log_posterior_from_chunks(
-            query_chunks, prior_alpha, max_query_cg, max_query_ch, contexts,
-            cov_cap=cov_cap)
+        use = self._check_contexts(contexts)
+        hits = self._collect_hits(query, use)
+        return self._log_posterior_from_hits(
+            hits, use, prior_alpha, max_query_cg, max_query_ch,
+            cov_cap=cov_cap, stream=stream, level_adjust=level_adjust)
 
-    def _log_posterior_from_chunks(self, query_chunks, prior_alpha=0.0,
-                                   max_query_cg=None, max_query_ch=None,
-                                   contexts='cg+ch', cov_cap=None):
-        """Log-posterior from a pre-built ``{chunk_key: (mc, cov)}`` map."""
-        use = self._resolve_contexts(contexts)
-        if 'cg' in use and self._cg is None:
-            raise ValueError(
-                "contexts requested 'cg' but the model has no CpG channel "
-                "(none fitted); pass contexts='ch'.")
-        if 'ch' in use and self._ch is None:
-            raise ValueError(
-                "contexts requested 'ch' but the model has no CpH channel "
-                "(none fitted); pass contexts='cg'.")
+    def _terms_from_hits(self, hits, use, max_query_cg=None,
+                         max_query_ch=None, cov_cap=None):
+        """Per-channel :meth:`_prepare_terms` for one cell: ``{name: terms}``.
+
+        A fresh random draw is made per call when downsampling.
+        """
         max_query_cg = None if max_query_cg is None else int(max_query_cg)
         max_query_ch = None if max_query_ch is None else int(max_query_ch)
         rng = (np.random.default_rng()
                if (max_query_cg is not None
                    or max_query_ch is not None) else None)
+        caps = {'cg': max_query_cg, 'ch': max_query_ch}
+        return {name: self._prepare_terms(hits.get(name), downsample=caps[name],
+                                          rng=rng, cov_cap=cov_cap)
+                for name, _ in self._channels(use)}
+
+    def _log_posterior_from_terms(self, terms, prior_alpha=0.0, stream=None,
+                                  level_adjust=False):
+        """Log-posterior (n_types,) from :meth:`_terms_from_hits` output.
+
+        ``stream=None`` lets :meth:`_should_stream` decide whether even this
+        single cell is better scored by a sequential table scan (a deeply
+        covered cell against a huge on-disk model) than by random row reads.
+        """
+        if stream is None:
+            stream = self._should_stream([terms], list(terms))
         logpost = self._log_prior(prior_alpha)
-        if 'cg' in use and self._cg is not None:
-            part = self._score(self._cg, query_chunks,
-                               downsample=max_query_cg, rng=rng,
-                               cov_cap=cov_cap)
-            if part is not None:
-                logpost = logpost + self.lambda_cg * part
-        if 'ch' in use and self._ch is not None:
-            part = self._score(self._ch, query_chunks,
-                               downsample=max_query_ch, rng=rng,
-                               cov_cap=cov_cap)
-            if part is not None:
-                logpost = logpost + self.lambda_ch * part
-        return pd.Series(logpost, index=self.cell_types)
+        lambdas = {'cg': self.lambda_cg, 'ch': self.lambda_ch}
+        for name, chan in self._channels(list(terms)):
+            if terms[name] is None:
+                continue
+            if stream:
+                part = self._stream_scores(chan, [terms[name]],
+                                           level_adjust=level_adjust)[0]
+            else:
+                part = self._score(chan, terms[name], level_adjust=level_adjust)
+            logpost = logpost + lambdas[name] * part
+        return logpost
+
+    def _log_posterior_from_hits(self, hits, use, prior_alpha=0.0,
+                                 max_query_cg=None, max_query_ch=None,
+                                 cov_cap=None, stream=None, level_adjust=False):
+        """Log-posterior from :meth:`_collect_hits` output: pandas Series."""
+        terms = self._terms_from_hits(hits, use, max_query_cg, max_query_ch,
+                                      cov_cap)
+        return pd.Series(
+            self._log_posterior_from_terms(terms, prior_alpha, stream=stream,
+                                           level_adjust=level_adjust),
+            index=self.cell_types)
+
+    def _should_stream(self, terms_list, use):
+        """Decide between random row gathers and a sequential table scan.
+
+        Streams when the batch's random page reads (two tables per covered
+        site) would outnumber the table's pages / ``_STREAM_RATIO`` — i.e.
+        when a sequential scan is cheaper even if one random read cost
+        ``_STREAM_RATIO`` sequential ones (a conservative figure for SSD /
+        page cache; network or spinning storage is far worse).
+        """
+        n_rand = 0
+        table_pages = 0
+        for name, chan in self._channels(use):
+            n_rand += 2 * sum(t[name][0].size for t in terms_list
+                              if t.get(name) is not None)
+            table_pages += 2 * chan['log_theta'].nbytes // 4096
+        return n_rand > table_pages // _STREAM_RATIO
+
+    def _predict_many(self, ids, hits_fn, items, prior_alpha=0.0,
+                      abstain_threshold=None, max_query_cg=None,
+                      max_query_ch=None, n_jobs=None, contexts='cg+ch',
+                      cov_cap=None, stream=None, level_adjust=False):
+        """Shared batch engine behind :meth:`predict_batch` / :meth:`predict_multicell`.
+
+        Phase 1 (threads): ``hits_fn(item)`` collects each cell's covered
+        model sites, which are reduced right away to compact scoring terms
+        (downsampled / coverage-capped), so memory holds only the covered
+        sites, never a chunk per cell. Phase 2: cells are scored either by
+        per-cell random row gathers or — when that would be slower, see
+        :meth:`_should_stream` — by one sequential pass over each channel's
+        tables (:meth:`_stream_scores`). Returns ``(labels, proba)``.
+        """
+        use = self._check_contexts(contexts)
+        n_workers = _resolve_n_jobs(n_jobs)
+        n_cells = len(ids)
+        logpost = np.tile(self._log_prior(prior_alpha), (n_cells, 1))
+        lambdas = {'cg': self.lambda_cg, 'ch': self.lambda_ch}
+
+        def _terms_one(item):
+            return self._terms_from_hits(
+                hits_fn(item), use, max_query_cg, max_query_ch, cov_cap)
+
+        def _score_group(first, terms_list):
+            # Score cells [first, first + len(terms_list)) into ``logpost``.
+            do_stream = (self._should_stream(terms_list, use)
+                         if stream is None else stream)
+            sl = slice(first, first + len(terms_list))
+            if do_stream:
+                (logger.info if n_cells > 1 else logger.debug)(
+                    f"scoring cells {first + 1}-{first + len(terms_list)} of "
+                    f"{n_cells} by streaming the model tables")
+                for name, chan in self._channels(use):
+                    logpost[sl] += lambdas[name] * self._stream_scores(
+                        chan, [t.get(name) for t in terms_list],
+                        level_adjust=level_adjust)
+                return
+
+            def _one(t):
+                return self._log_posterior_from_terms(
+                    t, prior_alpha, stream=False, level_adjust=level_adjust)
+            if n_workers > 1 and len(terms_list) > 1:
+                with ThreadPoolExecutor(max_workers=n_workers) as ex:
+                    rows = list(ex.map(_one, terms_list))
+            else:
+                rows = [_one(t) for t in terms_list]
+            logpost[sl] = np.vstack(rows)
+
+        # Cells are read in windows (bounded number of in-flight results) and
+        # accumulated into a group until its terms reach the memory budget;
+        # each group is then scored (one table scan per group when
+        # streaming). With per-cell downsampling a whole batch is one group.
+        window = max(16, 4 * n_workers)
+        # Bytes held per covered site: the (gidx, m, umc) terms, plus the
+        # float32 logit row the level adjustment keeps during a scan.
+        per_site = 16 + (4 * len(self.cell_types) if level_adjust else 0)
+        group, group_first, group_bytes = [], 0, 0
+        with ThreadPoolExecutor(max_workers=n_workers) as ex:
+            for start in range(0, n_cells, window):
+                batch = items[start:start + window]
+                if n_workers > 1 and len(batch) > 1:
+                    got = list(ex.map(_terms_one, batch))
+                else:
+                    got = [_terms_one(it) for it in batch]
+                for t in got:
+                    group.append(t)
+                    group_bytes += per_site * sum(
+                        v[0].size for v in t.values() if v is not None)
+                if group_bytes >= _TERMS_BUDGET:
+                    _score_group(group_first, group)
+                    group_first += len(group)
+                    group, group_bytes = [], 0
+        if group:
+            _score_group(group_first, group)
+        proba = np.exp(logpost - logpost.max(axis=1, keepdims=True))
+        proba /= proba.sum(axis=1, keepdims=True)
+        top = proba.argmax(axis=1)
+        conf = proba[np.arange(n_cells), top]
+        types = np.asarray(self.cell_types, dtype=object)
+        lab = types[top]
+        if abstain_threshold is not None:
+            lab = np.where(conf < abstain_threshold, 'unassigned', lab)
+        labels = pd.DataFrame({'label': lab, 'confidence': conf}, index=ids)
+        proba_df = pd.DataFrame(proba, index=ids, columns=self.cell_types)
+        return labels, proba_df
 
     @staticmethod
     def _softmax(logpost):
@@ -1754,7 +2241,8 @@ class CellTypeClassifier:
 
     def predict(self, query, prior_alpha=0.0, abstain_threshold=None,
                 max_query_cg=None, max_query_ch=None, n_jobs=None,
-                contexts='cg+ch', cov_cap=None):
+                contexts='cg+ch', cov_cap=None, stream=None,
+                level_adjust=False):
         """Predict cell type(s) for any query, dispatching on its form.
 
         Mirrors :func:`predict_cell_type`'s ``query`` handling: the shape of
@@ -1794,6 +2282,26 @@ class CellTypeClassifier:
             before scoring. ``None`` (default) uses raw counts; ``cov_cap=1``
             makes deep-sequencing cells score on the same per-site scale as
             shallow / MiSeq cells (see :meth:`log_posterior`).
+        stream : bool or None, optional
+            For batch / multi-cell queries: score by one sequential scan of
+            the model tables (``True``), by per-cell random row gathers
+            (``False``), or choose automatically (``None``, default). See
+            :meth:`predict_batch`. For a single cell the same choice is made
+            per cell (streaming pays off for a deeply covered cell against a
+            huge on-disk model).
+        level_adjust : bool, optional
+            Fit, per channel and candidate type, one cell-wide **logit offset**
+            of the methylation level (``sigmoid(logit(theta) + delta)``, the
+            maximum-likelihood ``delta``) before scoring. This removes a
+            global mC-level / conversion / platform shift between the query
+            and the reference: a shallow MiSeq cell whose global mCH is, say,
+            20% below the deep atlas is otherwise pulled toward whichever
+            type has the lowest global level (e.g. an intermediate / hybrid
+            type) rather than the type with the matching site pattern. On
+            real SALK045 MiSeq cells (~9 k covered sites) this raised
+            accuracy from 0.61 to 0.79 with no labels needed. Default
+            ``False`` (plain naive Bayes). Memory: ``4 * n_types`` bytes per
+            covered site while a cell is scored.
 
         Returns
         -------
@@ -1807,20 +2315,24 @@ class CellTypeClassifier:
             return self._predict_single(
                 q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
                 max_query_cg=max_query_cg, max_query_ch=max_query_ch,
-                contexts=contexts, cov_cap=cov_cap)
+                contexts=contexts, cov_cap=cov_cap, stream=stream,
+                level_adjust=level_adjust)
         if kind == 'multicell':
             return self.predict_multicell(
                 q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
                 max_query_cg=max_query_cg, max_query_ch=max_query_ch,
-                n_jobs=n_jobs, contexts=contexts, cov_cap=cov_cap)
+                n_jobs=n_jobs, contexts=contexts, cov_cap=cov_cap,
+                stream=stream, level_adjust=level_adjust)
         return self.predict_batch(
             q, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
             max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs,
-            contexts=contexts, cov_cap=cov_cap)
+            contexts=contexts, cov_cap=cov_cap, stream=stream,
+            level_adjust=level_adjust)
 
     def _predict_single(self, query, prior_alpha=0.0, abstain_threshold=None,
                         max_query_cg=None, max_query_ch=None,
-                        contexts='cg+ch', cov_cap=None):
+                        contexts='cg+ch', cov_cap=None, stream=None,
+                        level_adjust=False):
         """Predict the most likely cell type for one query cell.
 
         Parameters
@@ -1846,7 +2358,8 @@ class CellTypeClassifier:
         logpost = self.log_posterior(
             query, prior_alpha,
             max_query_cg=max_query_cg, max_query_ch=max_query_ch,
-            contexts=contexts, cov_cap=cov_cap)
+            contexts=contexts, cov_cap=cov_cap, stream=stream,
+            level_adjust=level_adjust)
         proba = pd.Series(self._softmax(logpost.values), index=self.cell_types)
         top = proba.idxmax()
         conf = float(proba.max())
@@ -1858,20 +2371,34 @@ class CellTypeClassifier:
 
     def predict_batch(self, queries, prior_alpha=0.0, abstain_threshold=None,
                       max_query_cg=None, max_query_ch=None, n_jobs=None,
-                      contexts='cg+ch', cov_cap=None):
+                      contexts='cg+ch', cov_cap=None, stream=None,
+                      level_adjust=False):
         """Predict many cells at once.
 
         Parameters
         ----------
         queries : dict {cell_id: path} or list of paths
             One all-cytosine ``.cz`` per query cell.
-        prior_alpha, abstain_threshold, max_query_cg, max_query_ch, contexts :
+        prior_alpha, abstain_threshold, max_query_cg, max_query_ch, contexts,
+        cov_cap, level_adjust :
             see :meth:`predict`.
         n_jobs : int or None, optional
-            Threads used to score cells in parallel. ``None``/``1`` -> serial;
-            ``-1`` -> all CPUs (see :func:`_resolve_n_jobs`). Each cell is
-            independent and its ``.cz`` read/decompression releases the GIL,
-            so this scales across cores. Output order matches ``queries``.
+            Threads used to read the cells in parallel. ``None``/``1`` ->
+            serial; ``-1`` -> all CPUs (see :func:`_resolve_n_jobs`). Each
+            cell is independent and its ``.cz`` read/decompression releases
+            the GIL, so this scales across cores. Output order matches
+            ``queries``.
+        stream : bool or None, optional
+            How to read the model's log-theta tables. ``True`` scores the
+            whole batch in **one sequential pass** over the tables (each
+            cell's covered sites are applied block by block as a sparse
+            product); ``False`` gathers every cell's rows at random. ``None``
+            (default) picks automatically: streaming wins as soon as the
+            batch's random row reads would outnumber the table's pages / 32
+            — for a large on-disk model and more than a handful of cells that
+            is orders of magnitude faster, because random 4 KB reads from
+            network / spinning storage run at a few thousand per second
+            while a sequential scan runs at GB/s.
 
         Returns
         -------
@@ -1879,62 +2406,28 @@ class CellTypeClassifier:
             ``labels`` has columns ``['label', 'confidence']`` indexed by
             cell id; ``proba`` is a cell x cell_type probability matrix.
         """
-        qmap = _as_id_map(queries)
-        items = list(qmap.items())
-
-        def _predict_one(item):
-            cid, path = item
-            res = self._predict_single(path, prior_alpha=prior_alpha,
-                                       abstain_threshold=abstain_threshold,
-                                       max_query_cg=max_query_cg,
-                                       max_query_ch=max_query_ch,
-                                       contexts=contexts, cov_cap=cov_cap)
-            return cid, res['label'], res['confidence'], res['proba'].rename(cid)
-
-        n_workers = _resolve_n_jobs(n_jobs)
-        if n_workers > 1 and len(items) > 1:
-            with ThreadPoolExecutor(max_workers=n_workers) as ex:
-                results = list(ex.map(_predict_one, items))
-        else:
-            results = [_predict_one(it) for it in items]
-
-        rows = [(cid, label, conf) for cid, label, conf, _ in results]
-        proba_rows = [pr for _, _, _, pr in results]
-        labels = pd.DataFrame(
-            [(l, c) for _, l, c in rows],
-            index=[i for i, _, _ in rows], columns=['label', 'confidence'])
-        proba = pd.DataFrame(proba_rows)
-        return labels, proba
-
-    def predict_multicell(self, path, prior_alpha=0.0, abstain_threshold=None,
-                          max_query_cg=None, max_query_ch=None, n_jobs=None,
-                          contexts='cg+ch', cov_cap=None):
-        """Predict every cell packed in one concatenated (cat) ``.cz`` file.
-
-        A ``catcz`` output stacks many single-cell ``.cz`` into one file,
-        appending a cell dimension so chunk keys become e.g.
-        ``('chr1', 'cell1')`` instead of ``('chr1',)``. This reads each
-        cell's ``mc``/``cov`` at the model's selected sites and scores it
-        independently, returning ``(labels, proba)`` like
-        :meth:`predict_batch` (indexed by the per-cell key).
-
-        Parameters
-        ----------
-        path : str
-            A multi-cell (cat) ``.cz`` aligned to the same reference axis the
-            model was fit on.
-        prior_alpha, abstain_threshold, max_query_cg, max_query_ch, contexts :
-            see :meth:`predict`.
-        n_jobs : int or None, optional
-            Threads used to score cells in parallel (each worker opens its own
-            reader; ``.cz`` decode releases the GIL). ``None``/``1`` -> serial.
-
-        Returns
-        -------
-        (labels, proba) : (pandas.DataFrame, pandas.DataFrame)
-        """
         if self.cell_types is None:
             raise RuntimeError("call fit() before predicting.")
+        use = self._check_contexts(contexts)
+        qmap = _as_id_map(queries)
+        ids = list(qmap)
+        return self._predict_many(
+            ids, lambda path: self._collect_hits(path, use),
+            [qmap[i] for i in ids], prior_alpha=prior_alpha,
+            abstain_threshold=abstain_threshold, max_query_cg=max_query_cg,
+            max_query_ch=max_query_ch, n_jobs=n_jobs, contexts=contexts,
+            cov_cap=cov_cap, stream=stream, level_adjust=level_adjust)
+
+    def _multicell_layout(self, path, what):
+        """Map a concatenated (cat) ``.cz`` to per-sample chunk keys.
+
+        Returns ``(path, mc_i, cov_i, items)`` where ``items`` is a list of
+        ``(sample_id, {chrom_key: full_chunk_key})`` restricted to the
+        chromosomes the model keeps. The chromosome dim is the one whose
+        values best match the model's chromosomes; the remaining dim(s)
+        identify the sample. ``what`` names the sample kind in error
+        messages (``'cell'`` / ``'sample'``).
+        """
         path = _abspath(path)
         needed = set()
         for chan in (self._cg, self._ch):
@@ -1955,10 +2448,8 @@ class CellTypeClassifier:
             r.close()
         if len(dims) <= 1:
             raise ValueError(
-                f"{path}: not a multi-cell (cat) .cz (chunk_dims={dims}); use "
-                f"predict()/predict_batch() for single-cell files.")
-        # The chromosome dim is the one whose values best match the model's
-        # chromosomes; the remaining dim(s) identify the cell.
+                f"{path}: not a multi-{what} (cat) .cz (chunk_dims={dims}); "
+                f"use the single-file / batch methods for single-{what} files.")
         model_chroms = {k[0] for k in needed}
         chrom_idx, best_ov = 0, -1
         for i in range(len(dims)):
@@ -1966,7 +2457,7 @@ class CellTypeClassifier:
             if ov > best_ov:
                 chrom_idx, best_ov = i, ov
         cell_idxs = [j for j in range(len(dims)) if j != chrom_idx]
-        cells = {}  # cell_id -> {chrom_1tuple: full_chunk_key}
+        cells = {}  # sample_id -> {chrom_1tuple: full_chunk_key}
         for key in keys:
             chrom = (key[chrom_idx],)
             if chrom not in needed:
@@ -1978,54 +2469,61 @@ class CellTypeClassifier:
             raise ValueError(
                 f"{path}: no chunks match the model's chromosomes; is it "
                 f"aligned to the same reference axis as training?")
-        items = list(cells.items())
+        return path, mc_i, cov_i, list(cells.items())
 
-        def _predict_one(item):
-            cell, keymap = item
-            # ID-gathers selected rows per chrom -> random.
-            rr = Reader(path, mmap_advise="random")
+    def predict_multicell(self, path, prior_alpha=0.0, abstain_threshold=None,
+                          max_query_cg=None, max_query_ch=None, n_jobs=None,
+                          contexts='cg+ch', cov_cap=None, stream=None,
+                          level_adjust=False):
+        """Predict every cell packed in one concatenated (cat) ``.cz`` file.
+
+        A ``catcz`` output stacks many single-cell ``.cz`` into one file,
+        appending a cell dimension so chunk keys become e.g.
+        ``('chr1', 'cell1')`` instead of ``('chr1',)``. This reads each
+        cell's ``mc``/``cov`` at the model's selected sites and scores it
+        independently, returning ``(labels, proba)`` like
+        :meth:`predict_batch` (indexed by the per-cell key).
+
+        Parameters
+        ----------
+        path : str
+            A multi-cell (cat) ``.cz`` aligned to the same reference axis the
+            model was fit on.
+        prior_alpha, abstain_threshold, max_query_cg, max_query_ch, contexts,
+        cov_cap, level_adjust :
+            see :meth:`predict`.
+        n_jobs : int or None, optional
+            Threads used to read cells in parallel (each worker opens its own
+            reader; ``.cz`` decode releases the GIL). ``None``/``1`` -> serial.
+        stream : bool or None, optional
+            Sequential table scan vs random row gathers; see
+            :meth:`predict_batch`.
+
+        Returns
+        -------
+        (labels, proba) : (pandas.DataFrame, pandas.DataFrame)
+        """
+        if self.cell_types is None:
+            raise RuntimeError("call fit() before predicting.")
+        use = self._check_contexts(contexts)
+        path, mc_i, cov_i, items = self._multicell_layout(path, 'cell')
+        ids = ['_'.join(str(v) for v in cell) if isinstance(cell, tuple)
+               else str(cell) for cell, _ in items]
+
+        def _hits(item):
+            # Whole per-cell chunks are decompressed -> sequential.
+            rr = Reader(path, mmap_advise="sequential")
             try:
-                query_chunks = {}
-                for chrom, full_key in keymap.items():
-                    ids = self._gather_ids.get(chrom)
-                    if ids is None or np.asarray(ids).size == 0:
-                        continue
-                    arr = rr.chunk2numpy(
-                        full_key,
-                        index={tuple(full_key): np.asarray(ids) + 1})
-                    query_chunks[chrom] = (
-                        np.asarray(arr[f'f{mc_i}']),
-                        np.asarray(arr[f'f{cov_i}']))
+                return self._collect_hits_multicell(
+                    rr, item[1], mc_i, cov_i, use)
             finally:
                 rr.close()
-            logpost = self._log_posterior_from_chunks(
-                query_chunks, prior_alpha, max_query_cg, max_query_ch,
-                contexts, cov_cap=cov_cap)
-            proba = self._softmax(logpost.values)
-            top = int(np.argmax(proba))
-            conf = float(proba[top])
-            label = self.cell_types[top]
-            if abstain_threshold is not None and conf < abstain_threshold:
-                label = 'unassigned'
-            cid = ('_'.join(str(v) for v in cell)
-                   if isinstance(cell, tuple) else str(cell))
-            return cid, label, conf, pd.Series(
-                proba, index=self.cell_types).rename(cid)
 
-        n_workers = _resolve_n_jobs(n_jobs)
-        if n_workers > 1 and len(items) > 1:
-            with ThreadPoolExecutor(max_workers=n_workers) as ex:
-                results = list(ex.map(_predict_one, items))
-        else:
-            results = [_predict_one(it) for it in items]
-
-        rows = [(cid, label, conf) for cid, label, conf, _ in results]
-        proba_rows = [pr for _, _, _, pr in results]
-        labels = pd.DataFrame(
-            [(l, c) for _, l, c in rows],
-            index=[i for i, _, _ in rows], columns=['label', 'confidence'])
-        proba = pd.DataFrame(proba_rows)
-        return labels, proba
+        return self._predict_many(
+            ids, _hits, items, prior_alpha=prior_alpha,
+            abstain_threshold=abstain_threshold, max_query_cg=max_query_cg,
+            max_query_ch=max_query_ch, n_jobs=n_jobs, contexts=contexts,
+            cov_cap=cov_cap, stream=stream, level_adjust=level_adjust)
 
     # ----------------------------------------------------------------------
     def site_importance(self, reference=None, top=None, include_theta=True):
@@ -2142,14 +2640,40 @@ class CellTypeClassifier:
             raise ValueError("contexts is empty; pass 'cg', 'ch', or 'cg+ch'.")
         return ordered
 
-    def _deconv_design(self, query_chunks, contexts, weight_by_cov, min_cov):
+    # Cache exp(log_theta) for a whole chunk only up to this many float32
+    # elements (256 MB); larger chunks exp just the covered rows per query.
+    _THETA_CACHE_MAX = 1 << 26
+
+    def _chunk_theta(self, chan_name, key, chan, gidx):
+        """``theta = exp(log_theta)`` at the rows ``gidx`` of one chunk.
+
+        For small / marker-sized chunks the whole chunk's theta is exp'd once
+        and memoised (float32, the tables' precision): deconvolve_batch /
+        _multicell call this for thousands of queries over the same reference
+        rows. Huge chunks (whole-genome models) are not cached; only the
+        requested rows are read and exp'd.
+        """
+        lo, hi = chan['chunks'][key]
+        lt = chan['log_theta']
+        if (hi - lo) * lt.shape[1] > self._THETA_CACHE_MAX:
+            return np.exp(np.asarray(lt[gidx], dtype=np.float32))
+        cache = self.__dict__.setdefault('_theta_cache', {})
+        ck = (chan_name, key)
+        th = cache.get(ck)
+        if th is None:
+            th = np.exp(np.asarray(lt[lo:hi], dtype=np.float32))
+            cache[ck] = th
+        return th[gidx - lo]
+
+    def _deconv_design(self, hits, contexts, weight_by_cov, min_cov):
         """Assemble the deconvolution design ``(theta, beta, weight)``.
 
         Gathers, over the requested ``contexts`` (``'cg'``/``'ch'``), the
         reference frequencies ``theta`` at the model's selected sites together
         with the bulk query's per-site methylation level ``beta = mc / cov``
-        and weight (``cov`` when ``weight_by_cov`` else 1). Only sites the bulk
-        actually covers (``cov >= min_cov``) are kept; a chunk absent from the
+        and weight (``cov`` when ``weight_by_cov`` else 1). ``hits`` is the
+        :meth:`_collect_hits` output (covered model sites per channel); only
+        sites with ``cov >= min_cov`` are kept, and a chunk absent from the
         query is skipped.
         """
         chan_map = {'cg': self._cg, 'ch': self._ch}
@@ -2158,25 +2682,17 @@ class CellTypeClassifier:
             chan = chan_map[name]
             if chan is None:
                 continue
-            lt = chan['log_theta']
-            gpos = chan['gpos']
-            for k, (lo, hi) in chan['chunks'].items():
-                arrs = query_chunks.get(k)
-                if arrs is None:
-                    continue
-                mc_k, cov_k = arrs
-                s = np.asarray(gpos[lo:hi])
-                cov = np.asarray(cov_k[s], dtype=np.float64)
+            for k, gidx, mc_k, cov_k in hits.get(name, []):
+                cov = np.asarray(cov_k, dtype=np.float64)
                 obs = cov >= float(min_cov)
                 if not obs.any():
                     continue
-                mc = np.asarray(mc_k[s], dtype=np.float64)[obs]
-                cov = cov[obs]
-                # Stay in the tables' float32: _solve_fractions accumulates
-                # the normal equations in float64 blocks, so a float64 copy
-                # of the whole design matrix is unnecessary.
-                theta = np.exp(np.asarray(lt[lo:hi])[obs])
-                thetas.append(theta)
+                if not obs.all():
+                    gidx = gidx[obs]
+                    mc_k = mc_k[obs]
+                    cov = cov[obs]
+                mc = np.asarray(mc_k, dtype=np.float64)
+                thetas.append(self._chunk_theta(name, k, chan, gidx))
                 betas.append(np.clip(mc / cov, 0.0, 1.0))
                 weights.append(cov if weight_by_cov
                                else np.ones(cov.shape[0], dtype=np.float64))
@@ -2188,23 +2704,27 @@ class CellTypeClassifier:
         return (np.concatenate(thetas, axis=0), np.concatenate(betas),
                 np.concatenate(weights))
 
-    def _deconv_query_chunks(self, query):
-        """``{chunk_key: (mc, cov)}`` for a bulk query, incl. array beta input.
+    @staticmethod
+    def _is_beta_query(query):
+        """True for a full-axis beta array (``np.ndarray`` or ``(beta,)``)."""
+        return isinstance(query, np.ndarray) or (
+            isinstance(query, (tuple, list)) and len(query) == 1
+            and isinstance(query[0], np.ndarray))
+
+    def _deconv_hits(self, query, use):
+        """:meth:`_collect_hits` for a bulk query, incl. array beta input.
 
         A methylation array carries only a per-site beta value (no coverage);
         pass it as a full-axis 1-D ``np.ndarray`` (or a length-1 ``(beta,)``
         tuple) and it is treated as unit coverage so ``beta = mc / cov`` equals
         the array value. Otherwise ``query`` is a ``.cz`` path or an
-        ``(mc, cov)`` array pair, handled by :meth:`_query_chunks`.
+        ``(mc, cov)`` array pair.
         """
-        is_beta = isinstance(query, np.ndarray) or (
-            isinstance(query, (tuple, list)) and len(query) == 1
-            and isinstance(query[0], np.ndarray))
-        if is_beta:
+        if self._is_beta_query(query):
             beta = np.asarray(query[0] if isinstance(query, (tuple, list))
                               else query, dtype=np.float64)
-            return self._query_chunks((beta, np.ones_like(beta)))
-        return self._query_chunks(query)
+            return self._collect_hits((beta, np.ones_like(beta)), use)
+        return self._collect_hits(query, use)
 
     def deconvolve(self, query, contexts='cg', weight_by_cov=True,
                    sum_to_one=True, allow_unknown=False, min_cov=1):
@@ -2247,13 +2767,11 @@ class CellTypeClassifier:
         """
         if self.cell_types is None:
             raise RuntimeError("call fit()/load() before deconvolve().")
-        contexts = self._resolve_contexts(contexts)
-        is_beta = isinstance(query, np.ndarray) or (
-            isinstance(query, (tuple, list)) and len(query) == 1
-            and isinstance(query[0], np.ndarray))
-        query_chunks = self._deconv_query_chunks(query)
+        contexts = self._check_contexts(contexts)
+        is_beta = self._is_beta_query(query)
+        hits = self._deconv_hits(query, contexts)
         theta, beta, weight = self._deconv_design(
-            query_chunks, contexts,
+            hits, contexts,
             weight_by_cov=weight_by_cov and not is_beta, min_cov=min_cov)
         frac, r2 = _solve_fractions(
             theta, beta, weight if not is_beta else None,
@@ -2327,69 +2845,18 @@ class CellTypeClassifier:
         if self.cell_types is None:
             raise RuntimeError(
                 "call fit()/load() before deconvolve_multicell().")
-        path = _abspath(path)
-        needed = set()
-        for chan in (self._cg, self._ch):
-            if chan is not None:
-                needed.update(chan['chunks'].keys())
-        r = Reader(path, mmap_advise="random")
-        try:
-            cols = list(r.header['columns'])
-            if self.mc_col not in cols or self.cov_col not in cols:
-                raise ValueError(
-                    f"{path}: expected columns {self.mc_col!r} and "
-                    f"{self.cov_col!r}, got {cols!r}")
-            mc_i, cov_i = cols.index(self.mc_col), cols.index(self.cov_col)
-            dims = list(r.header.get('chunk_dims', []) or [])
-            keys = list(r.chunk_key2offset.keys())
-        finally:
-            r.close()
-        if len(dims) <= 1:
-            raise ValueError(
-                f"{path}: not a multi-sample (cat) .cz (chunk_dims={dims}); "
-                f"use deconvolve()/deconvolve_batch() for single files.")
-        model_chroms = {k[0] for k in needed}
-        chrom_idx, best_ov = 0, -1
-        for i in range(len(dims)):
-            ov = len({key[i] for key in keys} & model_chroms)
-            if ov > best_ov:
-                chrom_idx, best_ov = i, ov
-        cell_idxs = [j for j in range(len(dims)) if j != chrom_idx]
-        cells = {}
-        for key in keys:
-            chrom = (key[chrom_idx],)
-            if chrom not in needed:
-                continue
-            cell = (key[cell_idxs[0]] if len(cell_idxs) == 1
-                    else tuple(key[j] for j in cell_idxs))
-            cells.setdefault(cell, {})[chrom] = key
-        if not cells:
-            raise ValueError(
-                f"{path}: no chunks match the model's chromosomes; is it "
-                f"aligned to the same reference axis as training?")
-        items = list(cells.items())
+        use = self._check_contexts(contexts)
+        path, mc_i, cov_i, items = self._multicell_layout(path, 'sample')
 
         def _one(item):
             cell, keymap = item
-            # ID-gathers selected rows per chrom -> random.
-            rr = Reader(path, mmap_advise="random")
+            rr = Reader(path, mmap_advise="sequential")
             try:
-                query_chunks = {}
-                for chrom, full_key in keymap.items():
-                    ids = self._gather_ids.get(chrom)
-                    if ids is None or np.asarray(ids).size == 0:
-                        continue
-                    arr = rr.chunk2numpy(
-                        full_key,
-                        index={tuple(full_key): np.asarray(ids) + 1})
-                    query_chunks[chrom] = (
-                        np.asarray(arr[f'f{mc_i}']),
-                        np.asarray(arr[f'f{cov_i}']))
+                hits = self._collect_hits_multicell(rr, keymap, mc_i, cov_i, use)
             finally:
                 rr.close()
             theta, beta, weight = self._deconv_design(
-                query_chunks, self._resolve_contexts(contexts),
-                weight_by_cov=weight_by_cov, min_cov=min_cov)
+                hits, use, weight_by_cov=weight_by_cov, min_cov=min_cov)
             frac, r2 = _solve_fractions(
                 theta, beta, weight, sum_to_one=sum_to_one,
                 allow_unknown=allow_unknown)
@@ -2549,7 +3016,6 @@ class CellTypeClassifier:
 
         obj._cg = _load_channel('cg')
         obj._ch = _load_channel('ch')
-        obj._build_gather()
         return obj
 
 
@@ -2649,7 +3115,8 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
                       min_range_cg=0.0, min_range_ch=0.0, top_per_class=None,
                       mc_col='mc', cov_col='cov', context_col='context',
                       abstain_threshold=None, contexts='cg+ch',
-                      n_jobs=None, outdir=None, prefix=''):
+                      n_jobs=None, outdir=None, prefix='', stream=None,
+                      level_adjust=False):
     """One-shot convenience wrapper: fit cell-type files and predict cell(s).
 
     Fit per-type methylation frequencies from ``pseudobulks`` and predict the
@@ -2734,8 +3201,22 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
         query batch with the same model so its predictions do not overwrite an
         earlier batch's. Ignored when ``outdir`` is ``None``.
     n_jobs : int or None, optional
-        Threads used to read pseudobulks and (for batch queries) score cells
+        Threads used to read pseudobulks and (for batch queries) read cells
         in parallel. ``None``/``1`` -> serial; ``-1`` -> all CPUs.
+    stream : bool or None, optional
+        For batch queries, score all cells in **one sequential pass** over
+        the model tables (``True``) instead of per-cell random row gathers
+        (``False``); ``None`` (default) chooses automatically. Streaming
+        makes a large (whole-genome, hundreds of GB) model practical: a
+        batch that took hours of random disk reads finishes in a few minutes.
+        See :meth:`CellTypeClassifier.predict_batch`.
+    level_adjust : bool, optional
+        Fit a per-cell, per-type global methylation-level (logit) offset per
+        channel before scoring, removing a global mC-level / conversion /
+        platform shift between query and reference. Recommended when the
+        queries come from a different platform or depth than the pseudobulks
+        (e.g. shallow MiSeq cells vs a deep snm3C atlas: 0.61 -> 0.79
+        accuracy on SALK045). See :meth:`CellTypeClassifier.predict`.
     (remaining) :
         Forwarded to :class:`CellTypeClassifier` / :meth:`fit` /
         :meth:`predict`.
@@ -2781,7 +3262,8 @@ def predict_cell_type(query=None, pseudobulks=None, reference=None,
     result = clf.predict(
         query, prior_alpha=prior_alpha, abstain_threshold=abstain_threshold,
         max_query_cg=max_query_cg, max_query_ch=max_query_ch, n_jobs=n_jobs,
-        contexts=contexts, cov_cap=cov_cap)
+        contexts=contexts, cov_cap=cov_cap, stream=stream,
+        level_adjust=level_adjust)
     if outdir is not None:
         if isinstance(result, dict):
             cid = _cz_stem(query) if isinstance(query, str) else 'query'

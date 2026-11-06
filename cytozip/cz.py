@@ -14,7 +14,7 @@ but uses a two-level hierarchy:
              chunk_key names.
   - Chunk:   A sequence of independently compressed *blocks* that share
              the same chunk_key values (e.g., one chromosome).
-             Each block is at most 65535 bytes of raw data, compressed
+             Each block is at most 256 KiB - 1 bytes of raw data, compressed
              with raw DEFLATE.
   - Chunk tail:  Appended after the last block of a chunk; stores
              total uncompressed length, number of blocks, per-block
@@ -723,8 +723,13 @@ class RemoteFile:
 		else:
 			self._size = int(cl)
 
+	def _check_open(self):
+		if self._closed:
+			raise ValueError("I/O operation on closed RemoteFile")
+
 	def read(self, size=-1):
 		"""Read *size* bytes at the current position via a cached HTTP Range request."""
+		self._check_open()
 		if size == 0:
 			return b""
 		if size < 0:
@@ -770,6 +775,7 @@ class RemoteFile:
 
 	def seek(self, offset, whence=0):
 		"""Move the read position (``whence`` 0/1/2 like a file object) and return it."""
+		self._check_open()
 		if whence == 0:
 			self._pos = offset
 		elif whence == 1:
@@ -869,7 +875,9 @@ def check_cz(path):
 	    28-byte EOF marker, equals the actual on-disk file size (catches
 	    truncation / mid-write crashes).  ``total_size`` stores the offset
 	    of the EOF marker (data end), so ``total_size + 28 == file size``,
-	  * the final 28 bytes match the ``_cz_eof`` sentinel.
+	  * the final 28 bytes match the ``_cz_eof`` sentinel,
+	  * the file contains at least one chunk (an empty-but-finalized file
+	    is reported as ``"no chunks ..."``).
 
 	Parameters
 	----------
@@ -907,6 +915,31 @@ def check_cz(path):
 		f.seek(-len(_cz_eof), os.SEEK_END)
 		if f.read(len(_cz_eof)) != _cz_eof:
 			return False, "missing EOF marker (file not finalized / truncated)"
+		# A structurally complete file may still hold *no chunks* (e.g. a
+		# Writer closed without any write_chunk, or an input with no
+		# records). Such files are useless as inputs (``catcz`` used to
+		# crash on them) so report them. The CZIX index offset sits 8 bytes
+		# before the EOF marker; its payload is magic + n_chunks (uint64).
+		n_chunks = None
+		if size >= len(_cz_eof) + 8 + 12:
+			f.seek(size - len(_cz_eof) - 8)
+			index_offset = _struct_Q.unpack(f.read(8))[0]
+			if 0 < index_offset <= size - len(_cz_eof) - 8 - 12:
+				f.seek(index_offset)
+				if f.read(4) == _chunk_index_magic:
+					n_chunks = _struct_Q.unpack(f.read(8))[0]
+	if n_chunks is None:
+		# Legacy file without a CZIX index: fall back to a full open.
+		try:
+			r = Reader(path)
+			try:
+				n_chunks = len(r.chunk_key2offset)
+			finally:
+				r.close()
+		except Exception as e:
+			return False, f"unreadable: {e}"
+	if n_chunks == 0:
+		return False, "no chunks (structurally complete but empty)"
 	return True, "ok"
 
 
@@ -920,7 +953,7 @@ class Reader:
 
 	Key concepts:
 	  - *Chunk*: a group of blocks sharing the same chunk_key values.
-	  - *Block*: a single DEFLATE-compressed payload (max 64 KB uncompressed).
+	  - *Block*: a single DEFLATE-compressed payload (max 256 KiB uncompressed).
 	  - *Virtual offset*: a 64-bit value encoding both the block's file
 	    position (upper 48 bits) and the byte offset within the
 	    decompressed block (lower 16 bits).
@@ -1068,6 +1101,7 @@ class Reader:
 		self._mmap_advise = mmap_advise
 		self._detached = False
 		self.max_cache = max_cache
+		self._block_cache = collections.OrderedDict()
 		self._block_start_offset = None
 		self._block_raw_length = None
 		# Cache chunk tail metadata keyed by chunk start_offset.
@@ -2324,13 +2358,15 @@ class Reader:
 				index_obj.close()
 
 
-	def _load_block(self, start_offset=None):
+	def _load_block(self, start_offset=None, cache=True):
 		"""Load and decompress a single block into ``self._buffer``.
 
 		If *start_offset* is None, the next sequential block is loaded.
 		Otherwise, seek to the given physical file position first.
 		After loading, ``self._buffer`` holds the decompressed data and
-		``self._within_block_offset`` is reset to 0.
+		``self._within_block_offset`` is reset to 0. ``cache=False`` skips
+		the decoded-block LRU (for bulk sweeps that never revisit a block;
+		the cache is still consulted for hits).
 		"""
 		if start_offset is None:
 			# If the file is being read sequentially, then _handle.tell()
@@ -2339,6 +2375,24 @@ class Reader:
 			start_offset = self._block_start_offset + self._block_raw_length
 		elif start_offset == self._block_start_offset:
 			self._within_block_offset = 0
+			return
+		# Bounded LRU of decoded blocks (``max_cache`` entries, i.e. up to
+		# ``max_cache * 256KB``): random-access patterns (id lookups, region
+		# queries, window loaders hopping between neighbouring blocks)
+		# re-touch the same blocks; serving them from memory skips the
+		# seek + inflate + delta-decode. Decoded buffers are immutable
+		# bytes, so sharing them is safe.
+		lru = self._block_cache
+		hit = lru.get(start_offset)
+		if hit is not None:
+			lru.move_to_end(start_offset)
+			block_size, self._buffer = hit
+			self._block_start_offset = start_offset
+			self._block_raw_length = block_size
+			self._within_block_offset = 0
+			# Keep the handle positioned as after a real read so a following
+			# sequential ``_load_block()`` continues at the next block.
+			self._handle.seek(start_offset + block_size)
 			return
 		# Now load the block
 		self._handle.seek(start_offset)
@@ -2350,6 +2404,15 @@ class Reader:
 			self._buffer = b""
 		self._within_block_offset = 0
 		self._block_raw_length = block_size
+		self._delta_decode_buffer()
+		if cache is not False and block_size:
+			cache = self._block_cache
+			cache[start_offset] = (block_size, self._buffer)
+			if len(cache) > self.max_cache:
+				cache.popitem(last=False)
+
+	def _delta_decode_buffer(self):
+		"""Undo per-column delta encoding of ``self._buffer`` in place."""
 		# Undo per-column delta encoding (in-block cumsum on the designated
 		# integer columns). Delta files are always written record-aligned, so
 		# the buffer contains an integral number of records starting at byte 0
@@ -2818,13 +2881,44 @@ class Reader:
 							  end_col=1, zerobased=False)
 
 	def get_ids_from_index(self, dim):
-		"""Return the row IDs stored in a context/region index chunk ``dim`` (1-D or 2-D)."""
+		"""Return the **1-based** row IDs stored in a context/region index
+		chunk ``dim``: 1-D ``(n,)`` for a context index, 2-D ``(n, 2)``
+		``[ID_start, ID_end)`` for a region index. Use
+		:meth:`get_index_rows` when you need 0-based row numbers for
+		fancy-indexing a chunk array."""
+		if _all_numeric_formats(self.header['formats']):
+			raw = self.fetch_chunk_bytes(dim)
+			dt = _make_np_dtype(self.header['formats'], self.header['columns'])
+			arr = np.frombuffer(raw, dtype=dt) if raw else np.empty(0, dtype=dt)
+			if len(dt.names) == 1:
+				return arr[dt.names[0]].copy()
+			return np.stack([arr[n] for n in dt.names[:2]], axis=1)
 		if len(self.header['columns']) == 1:
 			s, e = 0, 1  # only one columns, ID
 			return np.array([record[0] for record in self.__fetch__(dim, s=s, e=e)])
 		else:  # two columns: ID_start, ID_end
 			s, e = 0, 2
 			return np.array([record for record in self.__fetch__(dim, s=s, e=e)])
+
+	def get_index_rows(self, dim, n_rows=None):
+		"""0-based row numbers selected by a 1-D context index chunk ``dim``
+		(``get_ids_from_index(dim) - 1``), as ``int64``.
+
+		Index files store 1-based IDs (``np.flatnonzero(mask) + 1``); every
+		consumer that fancy-indexes a chunk array must subtract 1. When
+		``n_rows`` (the data chunk's row count) is given, IDs outside
+		``[1, n_rows]`` are dropped so a cell with fewer rows than its
+		reference does not raise.
+		"""
+		ids = self.get_ids_from_index(dim)
+		if ids.ndim != 1:
+			raise ValueError(
+				f"chunk {dim} of {self.input} is a 2-D region index; "
+				"a 1-D context index is required here")
+		rows = ids.astype(np.int64, copy=False) - 1
+		if n_rows is not None:
+			rows = rows[(rows >= 0) & (rows < int(n_rows))]
+		return rows
 
 	@staticmethod
 	def _index_token(index):
@@ -2926,6 +3020,117 @@ class Reader:
 			self._index_ids_cache.clear()
 		self._index_ids_cache[ck] = ids
 		return ids
+
+	def _gather_loaded_rows(self, rows, np_dt):
+		"""Gather records ``rows`` (a **sorted** ``int64`` ndarray of 0-based
+		row numbers of the chunk currently loaded by :meth:`_load_chunk`)
+		inflating **only the blocks holding at least one requested row**.
+
+		Delta chunks are record-aligned (``_BLOCK_MAX_LEN // unit`` records per
+		block); non-delta chunks pack records contiguously, so a record may
+		straddle two blocks (both are inflated and joined). Returns a
+		structured ``np_dt`` array of ``len(rows)`` records.
+		"""
+		n = int(rows.shape[0])
+		out = np.empty(n, dtype=np_dt)
+		if n == 0:
+			return out
+		unit = np_dt.itemsize
+		vos = self._chunk_block_1st_record_virtual_offsets
+		delta = bool(self._delta_cols)
+		if delta:
+			# Record-aligned blocks: every requested row lives entirely in
+			# block ``row // rpb``, so blocks are gathered independently (no
+			# cross-block join / copy).
+			rpb = _BLOCK_MAX_LEN // unit
+			blk = rows // rpb
+			if int(blk[-1]) >= len(vos):
+				raise IndexError(
+					f"row {int(rows[-1])} is beyond the chunk's {len(vos)} blocks")
+			cuts = np.flatnonzero(blk[1:] != blk[:-1]) + 1 if n > 1 else np.empty(0, np.int64)
+			bounds = np.concatenate(([0], cuts, [n]))
+			for k in range(bounds.size - 1):
+				s0, s1 = int(bounds[k]), int(bounds[k + 1])
+				b = int(blk[s0])
+				self._load_block(start_offset=vos[b] >> _VO_OFFSET_BITS,
+				                 cache=False)
+				buf = self._buffer
+				seg = np.frombuffer(buf, dtype=np_dt, count=len(buf) // unit)
+				local = rows[s0:s1] - b * rpb
+				dst = out[s0:s1]
+				for name in np_dt.names:
+					dst[name] = seg[name][local]
+			return out
+		# Non-delta: records are packed contiguously across blocks, so a
+		# record may straddle two blocks. Gather block by block without
+		# joining buffers: the rows fully inside block ``b`` come from a
+		# frombuffer view starting at the block's first whole record; the (at
+		# most one) record straddling into block ``b+1`` is stitched from the
+		# two blocks' edge bytes.
+		B = _BLOCK_MAX_LEN
+		byte0 = rows * unit
+		blk_first = byte0 // B
+		if int((byte0[-1] + unit - 1) // B) >= len(vos):
+			raise IndexError(
+				f"row {int(rows[-1])} is beyond the chunk's {len(vos)} blocks")
+		cuts = (np.flatnonzero(blk_first[1:] != blk_first[:-1]) + 1
+		        if n > 1 else np.empty(0, np.int64))
+		bounds = np.concatenate(([0], cuts, [n]))
+		names = np_dt.names
+		for k in range(bounds.size - 1):
+			s0, s1 = int(bounds[k]), int(bounds[k + 1])
+			b = int(blk_first[s0])
+			# (a no-op when the previous group already left block b loaded)
+			self._load_block(start_offset=vos[b] >> _VO_OFFSET_BITS, cache=False)
+			buf = self._buffer
+			base = b * B
+			lead = (-base) % unit                      # bytes of a record
+			r_first = (base + lead) // unit            # spilt from block b-1
+			rr = rows[s0:s1]
+			# rows whose record ends inside this block
+			n_in = int(np.searchsorted(rr, (base + len(buf)) // unit, side='left'))
+			if n_in:
+				seg = np.frombuffer(buf, dtype=np_dt, offset=lead,
+				                    count=(len(buf) - lead) // unit)
+				dst = out[s0:s0 + n_in]
+				local = rr[:n_in] - r_first
+				for name in names:
+					dst[name] = seg[name][local]
+			if n_in < rr.size:
+				# the group's last row starts in block b and ends in b+1
+				r = int(rr[n_in])
+				head = buf[r * unit - base:]
+				self._load_block(start_offset=vos[b + 1] >> _VO_OFFSET_BITS,
+				                 cache=False)
+				rec = head + self._buffer[:unit - len(head)]
+				out[s0 + n_in:s0 + n_in + 1] = np.frombuffer(rec, dtype=np_dt,
+				                                             count=1)
+		return out
+
+	def gather_rows(self, dim, rows, dtype=None):
+		"""Return the records at 0-based ``rows`` of chunk ``dim`` as a
+		structured array (fields = ``header['columns']``), decompressing only
+		the blocks that contain requested rows. Much cheaper than
+		:meth:`chunk2numpy` + fancy-indexing for sparse selections (e.g. a
+		CHN/CGN context index over a huge chromosome).
+		"""
+		if dtype is None:
+			dtype = _make_np_dtype(self.header['formats'], self.header['columns'])
+		rows = np.asarray(rows, dtype=np.int64)
+		if not self._load_chunk(self.chunk_key2offset[dim], jump=False):
+			return np.empty(0, dtype=dtype)
+		if rows.size > 1 and np.any(rows[1:] < rows[:-1]):
+			order = np.argsort(rows, kind='stable')
+			out = np.empty(rows.size, dtype=dtype)
+			out[order] = self._gather_loaded_rows(rows[order], dtype)
+			return out
+		return self._gather_loaded_rows(rows, dtype)
+
+	def get_records_by_ids_bytes(self, dim, IDs):
+		"""Packed bytes of the records with **1-based** ``IDs`` in chunk
+		``dim`` (vectorised replacement for ``b''.join(_getRecordsByIds())``)."""
+		IDs = np.asarray(IDs, dtype=np.int64)
+		return self.gather_rows(dim, IDs - 1).tobytes()
 
 	def _getRecordsByIds(self, dim=None, IDs=None):
 		"""
@@ -3562,7 +3767,17 @@ class Reader:
 		return virtual_offset
 
 	def read(self, size=1):
-		"""Read method for the BGZF module."""
+		"""Read up to *size* bytes of decompressed record data from the
+		current position (crossing block boundaries as needed). A negative
+		*size* reads to the end of the current chunk, like file objects."""
+		if size is None or size < 0:
+			out = []
+			while self._block_raw_length:
+				chunk = self.read(_BLOCK_MAX_LEN)
+				if not chunk:
+					break
+				out.append(chunk)
+			return b"".join(out)
 		# accelerated path
 		if _c_read is not None:
 			data, self._block_raw_length, self._buffer, self._within_block_offset = _c_read(
@@ -3737,6 +3952,9 @@ class Reader:
 		self._mm = None
 		self._buffer = None
 		self._block_start_offset = None
+		cache = getattr(self, '_block_cache', None)
+		if cache:
+			cache.clear()
 
 	# ------------------------------------------------------------------
 	# Pickle / fork support: file handles, mmap objects and HTTP sessions
@@ -3994,7 +4212,7 @@ def _extract_chunk_worker(args):
 	IDs = index_reader.get_ids_from_index(idx_key)
 	if len(IDs.shape) != 1:
 		raise ValueError("Only support 1D index now!")
-	data = b''.join(reader._getRecordsByIds(dim, IDs))
+	data = reader.get_records_by_ids_bytes(dim, IDs)
 	return dim, data
 
 
@@ -5436,121 +5654,137 @@ class Writer:
 				_prefetch_future_by_path[_p] = _prefetch_executor.submit(_prefetch, _p)
 
 
-		for file_path in input:
-			reader = Reader(file_path, mmap_advise="sequential")
-			# Enforce matching sort_col between destination and source so the
-			# per-block first_coords arrays can be copied verbatim.
-			if reader.sort_col != self.sort_col:
+		reader = None
+		try:
+			for file_path in input:
+				reader = Reader(file_path, mmap_advise="sequential")
+				# Enforce matching sort_col between destination and source so the
+				# per-block first_coords arrays can be copied verbatim.
+				if reader.sort_col != self.sort_col:
+					reader.close()
+					raise ValueError(
+						f"sort_col mismatch: writer={self.sort_col}, "
+						f"{file_path}={reader.sort_col}. Cannot cat files with "
+						f"different sort_col settings.")
+				# Enforce matching delta_cols so that delta-encoded block bytes
+				# carry the same decode semantics in the merged output. We copy
+				# chunks verbatim (no re-encode), so the encoding table must match.
+				if tuple(reader._delta_cols) != tuple(self._delta_cols):
+					reader.close()
+					raise ValueError(
+						f"delta_cols mismatch: writer={list(self._delta_cols)}, "
+						f"{file_path}={list(reader._delta_cols)}. Cannot cat files "
+						f"with different DELTA encoding.")
+				# Pre-load every chunk's raw bytes + tail metadata for this
+				# file into a single in-memory list.  This lets a background
+				# thread prefetch the *next* file's bytes while the main
+				# thread writes the *current* file (~1.5-2× catcz speedup
+				# on large fan-ins).  Disable via CYTOZIP_CATCZ_PREFETCH=0.
+				fut = _prefetch_future_by_path.pop(file_path, None)
+				if fut is not None:
+					prefetched = fut.result()
+					# Slide the window: submit the next unsubmitted file so at
+					# most ``prefetch_workers + 1`` files are held in memory.
+					if _prefetch_executor is not None and _prefetch_next_idx < len(input):
+						_next_path = input[_prefetch_next_idx]
+						_prefetch_future_by_path[_next_path] = _prefetch_executor.submit(
+							_prefetch, _next_path)
+						_prefetch_next_idx += 1
+				else:
+					prefetched = self._catcz_load_file_chunks(reader)
+				# data_size = reader.header['total_size'] - reader.header['header_size']
+				if not prefetched:
+					logger.warning(f"catcz: {file_path} contains no chunks; skipped")
+					reader.close()
+					reader = None
+					continue
+				chunks_iter = iter(prefetched)
+				(start_offset, chunk_size, dims, data_len,
+				 end_offset, nblocks, b1str_virtual_offsets,
+				 first_coords, raw_chunk_bytes) = next(chunks_iter)
+				# check whether new dim has already been added to header
+				if not self.new_dim_creator is None:
+					new_dim = [self.new_dim_creator(os.path.basename(file_path))]
+				else:
+					new_dim = []
+				if len(dims + tuple(new_dim)) > len(self.chunk_dims):
+					# new_dim title should be also added to header chunk_dims
+					self.chunk_dims = self.chunk_dims + [title]
+					self._handle.seek(self._n_chunk_keys_offset)
+					# when a new dim is added, go back here and rewrite the n_chunk_dims (1byte)
+					self._handle.write(struct.pack("<B", len(self.chunk_dims)))  # 1byte
+					self._handle.seek(self._header_size)
+					# write new dim to the end of header
+					dname_len = len(title)
+					self._handle.write(struct.pack("<B", dname_len))  # length of each name, 1 byte
+					self._handle.write(struct.pack(f"<{dname_len}s", bytes(title, 'utf-8')))
+					self._header_size = self._handle.tell()
+				while True:  # process each file (chunk)
+					reader._handle.seek(start_offset)  # chunk start offset
+					# write the enrire chunk
+					new_chunk_start_offset = self._handle.tell()
+					delta_offset = new_chunk_start_offset - start_offset
+					# self._handle.write(reader._handle.read(end_offset - start_offset))
+					self._handle.write(raw_chunk_bytes)
+					# modify the chunk_black_1st_record_virtual_offsets
+					# Vectorized: shift all block physical offsets by delta_offset.
+					# ``delta_offset`` may be negative; mask to its 64-bit two's
+					# complement so ``np.uint64`` accepts it (numpy 2.x raises
+					# OverflowError on negative Python ints, unlike numpy 1.x which
+					# wrapped silently). The subsequent uint64 add wraps mod 2**64,
+					# giving the same block_starts + delta result on both versions.
+					delta_u64 = np.uint64(delta_offset & 0xFFFFFFFFFFFFFFFF)
+					offsets = np.array(b1str_virtual_offsets, dtype=np.uint64)
+					block_starts = offsets >> np.uint64(_VO_OFFSET_BITS)
+					within_offsets = offsets & np.uint64(_VO_OFFSET_MASK)
+					new_offsets = (((block_starts + delta_u64).astype(np.uint64) << np.uint64(_VO_OFFSET_BITS))
+								   | within_offsets.astype(np.uint64))
+					self._handle.write(new_offsets.tobytes())
+					# Copy first_coords array (if sort_col is enabled) between
+					# virtual_offsets and chunk_key_values to preserve the regional
+					# query index in the merged output.
+					if self.sort_col is not None and first_coords:
+						self._handle.write(struct.pack(
+							f"<{len(first_coords)}{self._sort_col_fmt}",
+							*first_coords))
+					# rewrite the new dim onto the tail of chunk
+					merged_dims = list(dims) + list(new_dim)
+					for dim in merged_dims:
+						dim_bytes = dim.encode('utf-8')
+						self._handle.write(_struct_B.pack(len(dim_bytes)))
+						self._handle.write(dim_bytes)
+					# Record chunk info so the CZIX chunk index can be written
+					# at EOF, giving O(1) open/query for the merged output.
+					self._chunk_index_entries.append({
+						'dims': merged_dims,
+						'start': new_chunk_start_offset,
+						'size': chunk_size,
+						'data_len': data_len,
+						'nblocks': nblocks,
+					})
+					# print(dim_len,dim)
+					# read next chunk
+					try:
+						(start_offset, chunk_size, dims, data_len,
+						 end_offset, nblocks, b1str_virtual_offsets,
+						 first_coords, raw_chunk_bytes) = next(chunks_iter)
+					except StopIteration:
+						break
 				reader.close()
-				raise ValueError(
-					f"sort_col mismatch: writer={self.sort_col}, "
-					f"{file_path}={reader.sort_col}. Cannot cat files with "
-					f"different sort_col settings.")
-			# Enforce matching delta_cols so that delta-encoded block bytes
-			# carry the same decode semantics in the merged output. We copy
-			# chunks verbatim (no re-encode), so the encoding table must match.
-			if tuple(reader._delta_cols) != tuple(self._delta_cols):
-				reader.close()
-				raise ValueError(
-					f"delta_cols mismatch: writer={list(self._delta_cols)}, "
-					f"{file_path}={list(reader._delta_cols)}. Cannot cat files "
-					f"with different DELTA encoding.")
-			# Pre-load every chunk's raw bytes + tail metadata for this
-			# file into a single in-memory list.  This lets a background
-			# thread prefetch the *next* file's bytes while the main
-			# thread writes the *current* file (~1.5-2× catcz speedup
-			# on large fan-ins).  Disable via CYTOZIP_CATCZ_PREFETCH=0.
-			fut = _prefetch_future_by_path.pop(file_path, None)
-			if fut is not None:
-				prefetched = fut.result()
-				# Slide the window: submit the next unsubmitted file so at
-				# most ``prefetch_workers + 1`` files are held in memory.
-				if _prefetch_executor is not None and _prefetch_next_idx < len(input):
-					_next_path = input[_prefetch_next_idx]
-					_prefetch_future_by_path[_next_path] = _prefetch_executor.submit(
-						_prefetch, _next_path)
-					_prefetch_next_idx += 1
-			else:
-				prefetched = self._catcz_load_file_chunks(reader)
-			# data_size = reader.header['total_size'] - reader.header['header_size']
-			chunks_iter = iter(prefetched)
-			(start_offset, chunk_size, dims, data_len,
-			 end_offset, nblocks, b1str_virtual_offsets,
-			 first_coords, raw_chunk_bytes) = next(chunks_iter)
-			# check whether new dim has already been added to header
-			if not self.new_dim_creator is None:
-				new_dim = [self.new_dim_creator(os.path.basename(file_path))]
-			else:
-				new_dim = []
-			if len(dims + tuple(new_dim)) > len(self.chunk_dims):
-				# new_dim title should be also added to header chunk_dims
-				self.chunk_dims = self.chunk_dims + [title]
-				self._handle.seek(self._n_chunk_keys_offset)
-				# when a new dim is added, go back here and rewrite the n_chunk_dims (1byte)
-				self._handle.write(struct.pack("<B", len(self.chunk_dims)))  # 1byte
-				self._handle.seek(self._header_size)
-				# write new dim to the end of header
-				dname_len = len(title)
-				self._handle.write(struct.pack("<B", dname_len))  # length of each name, 1 byte
-				self._handle.write(struct.pack(f"<{dname_len}s", bytes(title, 'utf-8')))
-				self._header_size = self._handle.tell()
-			while True:  # process each file (chunk)
-				reader._handle.seek(start_offset)  # chunk start offset
-				# write the enrire chunk
-				new_chunk_start_offset = self._handle.tell()
-				delta_offset = new_chunk_start_offset - start_offset
-				# self._handle.write(reader._handle.read(end_offset - start_offset))
-				self._handle.write(raw_chunk_bytes)
-				# modify the chunk_black_1st_record_virtual_offsets
-				# Vectorized: shift all block physical offsets by delta_offset.
-				# ``delta_offset`` may be negative; mask to its 64-bit two's
-				# complement so ``np.uint64`` accepts it (numpy 2.x raises
-				# OverflowError on negative Python ints, unlike numpy 1.x which
-				# wrapped silently). The subsequent uint64 add wraps mod 2**64,
-				# giving the same block_starts + delta result on both versions.
-				delta_u64 = np.uint64(delta_offset & 0xFFFFFFFFFFFFFFFF)
-				offsets = np.array(b1str_virtual_offsets, dtype=np.uint64)
-				block_starts = offsets >> np.uint64(_VO_OFFSET_BITS)
-				within_offsets = offsets & np.uint64(_VO_OFFSET_MASK)
-				new_offsets = (((block_starts + delta_u64).astype(np.uint64) << np.uint64(_VO_OFFSET_BITS))
-							   | within_offsets.astype(np.uint64))
-				self._handle.write(new_offsets.tobytes())
-				# Copy first_coords array (if sort_col is enabled) between
-				# virtual_offsets and chunk_key_values to preserve the regional
-				# query index in the merged output.
-				if self.sort_col is not None and first_coords:
-					self._handle.write(struct.pack(
-						f"<{len(first_coords)}{self._sort_col_fmt}",
-						*first_coords))
-				# rewrite the new dim onto the tail of chunk
-				merged_dims = list(dims) + list(new_dim)
-				for dim in merged_dims:
-					dim_bytes = dim.encode('utf-8')
-					self._handle.write(_struct_B.pack(len(dim_bytes)))
-					self._handle.write(dim_bytes)
-				# Record chunk info so the CZIX chunk index can be written
-				# at EOF, giving O(1) open/query for the merged output.
-				self._chunk_index_entries.append({
-					'dims': merged_dims,
-					'start': new_chunk_start_offset,
-					'size': chunk_size,
-					'data_len': data_len,
-					'nblocks': nblocks,
-				})
-				# print(dim_len,dim)
-				# read next chunk
+				reader = None
+		finally:
+			# Always release the current source reader and the prefetch pool,
+			# also when validation / a write fails part-way.
+			if reader is not None:
 				try:
-					(start_offset, chunk_size, dims, data_len,
-					 end_offset, nblocks, b1str_virtual_offsets,
-					 first_coords, raw_chunk_bytes) = next(chunks_iter)
-				except StopIteration:
-					break
-			reader.close()
-		# Drain any remaining prefetch futures and shut down the pool.
-		if _prefetch_executor is not None:
-			for fut in _prefetch_future_by_path.values():
-				fut.cancel()
-			_prefetch_executor.shutdown(wait=False, cancel_futures=True)
+					reader.close()
+				except Exception:
+					pass
+			if _prefetch_executor is not None:
+				for fut in _prefetch_future_by_path.values():
+					fut.cancel()
+				_prefetch_executor.shutdown(wait=False, cancel_futures=True)
+				_prefetch_executor = None
 		# Write the CZIX chunk index so the merged output is also openable
 		# in O(1) (mirrors what Writer.close() does for normal writes).
 		self._write_chunk_index()
@@ -5635,19 +5869,36 @@ class Writer:
 		"""
 		if getattr(self, '_closed', False):
 			return
-		if self._buffer:
-			self.flush()
-		elif self._chunk_start_offset is not None:
-			# Only finalize a chunk if one was actually started.
-			# An empty input (no write_chunk calls) leaves
-			# _chunk_start_offset = None and there is nothing to finalize.
-			self._chunk_finished()
-		# Tear down bg emit pipeline (final barrier already done in
-		# _chunk_finished, but also call here to handle the no-chunk case).
-		self._pipeline_shutdown()
-		self._write_chunk_index()
-		self._write_total_size_eof_close()
 		self._closed = True
+		try:
+			if self._buffer:
+				self.flush()
+			elif self._chunk_start_offset is not None:
+				# Only finalize a chunk if one was actually started.
+				# An empty input (no write_chunk calls) leaves
+				# _chunk_start_offset = None and there is nothing to finalize.
+				self._chunk_finished()
+			# Tear down bg emit pipeline (final barrier already done in
+			# _chunk_finished, but also call here to handle the no-chunk case).
+			self._pipeline_shutdown()
+			self._write_chunk_index()
+			self._write_total_size_eof_close()
+		except BaseException:
+			# A failed finalisation (e.g. a compression error surfaced from
+			# the bg pipeline) must not leak the fd / a live worker thread;
+			# the partial file is left for the caller to inspect or remove.
+			t = getattr(self, '_pipeline_thread', None)
+			if t is not None:
+				try:
+					self._pipeline_q.put(None)
+				except Exception:
+					pass
+				self._pipeline_thread = None
+			try:
+				self._handle.close()
+			except Exception:
+				pass
+			raise
 
 	def tell(self):
 		"""Return a BGZF 64-bit virtual offset."""

@@ -102,10 +102,9 @@ def _pseudo_reads_chrom_worker(dim, cz_path, ref_path, index_path,
             return chrom, None, 0, None, 0
         ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
         if index_reader is not None and dim in index_reader.chunk_key2offset:
-            ids = index_reader.get_ids_from_index(dim)
-            if len(ids.shape) == 1:
-                data_arr = data_arr[ids]
-                ref_arr = ref_arr[ids]
+            rows = index_reader.get_index_rows(dim, n_rows=data_arr.shape[0])
+            data_arr = data_arr[rows]
+            ref_arr = ref_arr[rows]
         pos = ref_arr['pos'].astype(np.int64)
         mc = data_arr[mc_col].astype(np.int32)
         cov = data_arr[cov_col].astype(np.int32)
@@ -200,10 +199,10 @@ def _gen_pseudo_reads(reader, ref_reader, index_reader, cz_path, ref_path,
                         continue
                     ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
                     if index_reader is not None and dim in index_reader.chunk_key2offset:
-                        ids = index_reader.get_ids_from_index(dim)
-                        if len(ids.shape) == 1:
-                            data_arr = data_arr[ids]
-                            ref_arr = ref_arr[ids]
+                        rows = index_reader.get_index_rows(
+                            dim, n_rows=data_arr.shape[0])
+                        data_arr = data_arr[rows]
+                        ref_arr = ref_arr[rows]
                     pos = ref_arr['pos'].astype(np.int64)
                     mc = data_arr[mc_col].astype(np.int32)
                     cov = data_arr[cov_col].astype(np.int32)
@@ -579,10 +578,9 @@ def to_bedgraph(input=None, reference=None, output=None,
             ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
 
             if index_reader is not None and dim in index_reader.chunk_key2offset:
-                ids = index_reader.get_ids_from_index(dim)
-                if len(ids.shape) == 1:
-                    data_arr = data_arr[ids]
-                    ref_arr = ref_arr[ids]
+                rows = index_reader.get_index_rows(dim, n_rows=data_arr.shape[0])
+                data_arr = data_arr[rows]
+                ref_arr = ref_arr[rows]
 
             pos = ref_arr['pos'].astype(np.int64)
             mc = data_arr[mc_col].astype(np.float64)
@@ -904,10 +902,9 @@ def _bdg_chrom_worker(dim, cz_path, ref_path, index_path, mc_col, cov_col,
             return chrom, None, None, None
         ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
         if index_reader is not None and dim in index_reader.chunk_key2offset:
-            ids = index_reader.get_ids_from_index(dim)
-            if len(ids.shape) == 1:
-                data_arr = data_arr[ids]
-                ref_arr = ref_arr[ids]
+            rows = index_reader.get_index_rows(dim, n_rows=data_arr.shape[0])
+            data_arr = data_arr[rows]
+            ref_arr = ref_arr[rows]
         pos = ref_arr['pos'].astype(np.int64)
         mc = data_arr[mc_col].astype(np.int64)
         cov = data_arr[cov_col].astype(np.int64)
@@ -1099,6 +1096,9 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
     elif isinstance(cov_col, int):
         cov_col = _cols[cov_col]
 
+    if int(ext) < 2:
+        raise ValueError(f"ext must be >= 2 (got {ext}); ext=1 yields "
+                         "zero-width pileup intervals")
     half = ext // 2
     if min_len is None:
         min_len = ext
@@ -1118,9 +1118,8 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
             continue
         data_arr = np.frombuffer(raw, dtype=data_dtype)
         if index_reader is not None and dim in index_reader.chunk_key2offset:
-            ids = index_reader.get_ids_from_index(dim)
-            if len(ids.shape) == 1:
-                data_arr = data_arr[ids]
+            rows = index_reader.get_index_rows(dim, n_rows=data_arr.shape[0])
+            data_arr = data_arr[rows]
         mc = data_arr[mc_col].astype(np.int64)
         cov = data_arr[cov_col].astype(np.int64)
         mask = cov >= min_cov

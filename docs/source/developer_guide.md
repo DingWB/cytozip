@@ -39,14 +39,23 @@ delta column per block.
 
 | Module | Lines | Purpose |
 | --- | --- | --- |
-| `cytozip/cz.py` | ~3800 | Core `Reader` / `Writer` and the on-disk format |
-| `cytozip/cz_accel.pyx` | — | Cython accelerators (libdeflate-backed block (de)compression, record packing, chunk index parser) |
-| `cytozip/bam.py` | ~720 | Pileup-based BAM → `.cz` methylation extraction |
-| `cytozip/allc.py` | ~520 | `allc.tsv(.gz)` ↔ `.cz` conversion |
-| `cytozip/dmr.py` | ~600 | DMR utilities: pseudo-reads BED, bedGraph export |
-| `cytozip/features.py` | ~1100 | Aggregation over genomic features → AnnData (gene/bin/peak by cell matrices) |
-| `cytozip/merge.py` | ~430 | Merge multiple `.cz` files into one |
-| `cytozip/__init__.py` | ~590 | CLI entry point (`czip ...`) |
+| `cytozip/cz.py` | ~6000 | Core `Reader` / `Writer`, the on-disk format, `catcz` / `extract` / `aggregate` / `align_cz`, remote (HTTP range) reading |
+| `cytozip/cz_accel.pyx` | ~2650 | Cython accelerators (libdeflate block (de)compression with OpenMP, delta encode/decode, record packing, region queries, chunk index parser, integer text ingestion) |
+| `cytozip/bam.py` | ~1370 | Pileup-based BAM → `.cz` methylation extraction (htslib Cython backend in `_bam_pileup.pyx`, `samtools mpileup` fallback) |
+| `cytozip/allc.py` | ~1320 | `allc.tsv(.gz)` → `.cz`, reference building (`AllC` / `build_ref`), `extractCG`, `compare_allc` |
+| `cytozip/index.py` | ~570 | Context (CGN / CHN) and region indexes over a reference; IDs are **1-based** (`Reader.get_index_rows` → 0-based) |
+| `cytozip/merge.py` | ~1500 | Sum many `.cz` into pseudobulks (`merge_cz`, multi-reference variant, per-cell-type merging) |
+| `cytozip/pivot.py` | ~480 | Wide per-cell fraction / one-vs-rest Fisher TSV matrices |
+| `cytozip/features.py` | ~2280 | Aggregation over features → AnnData (`cz_to_anndata`, `_multiref`) and the single-cytosine sparse matrix (`cz_to_anndata_sites`); Beta-Binomial prior / posterior fraction |
+| `cytozip/dmr.py` + `dmr_accel.pyx` | ~2900 | DMR calling: permutation RMS test (OpenMP), 1-vs-1 Fisher, CH binned variant, one-vs-rest, DMS→DMR merging, annotation, array DMRs |
+| `cytozip/peaks.py` | ~1220 | Peak calling from unmethylated counts (MACS3 pseudo-reads route and native Poisson/bedGraph route) |
+| `cytozip/dataloader.py` | ~1150 | `CzWindowLoader` / `CzWindowDataset`: streaming `(n_cells, sites)` windows for deep learning |
+| `cytozip/model.py` | ~3500 | Cell-type classifier (site-likelihood naive Bayes) and reference-based bulk deconvolution |
+| `cytozip/array.py` | ~360 | Methylation-array (beta) matrices → `.cz` with optional quantisation |
+| `cytozip/__init__.py` | ~1720 | CLI entry point (`czip ...`) with lazy imports |
+
+See `dev.md` (repo root) for the format specification, tutorials and
+behavioural notes, and `docs/Methods.md` for the statistical methods.
 
 ### `cz.py` — core format
 
@@ -125,15 +134,22 @@ each chrom to keep RSS flat.
   `release_chunk` discipline as `bam.py`.
 * `cz2allc(cz_path, output, ...)` — inverse direction.
 
-### `dmr.py` — pseudo-reads + bedGraph
+### `dmr.py` / `dmr_accel.pyx` — DMR calling
 
-* `make_pseudo_reads_bed` — turns a `.cz` into the per-cell pseudo-reads
-  BED format consumed by methylpy.
-* `to_bedgraph` — collapses a `.cz` into a bedGraph track for genome
-  browsers.
+* `call_dmr` (CG) builds, per reference chunk, `(n_cells, n_sites)` count
+  matrices for both groups (workers cache their `Reader`s; chunks are
+  submitted largest-first to a spawn pool) and runs the permutation RMS
+  test in `dmr_accel.rms_run_sites` (Cython, OpenMP `prange`, per-site
+  RNG seeded from `(seed, site)` so results are thread-count independent).
+  1-vs-1 pseudobulk comparisons use a vectorised, SciPy-identical Fisher
+  exact test with table de-duplication.
+* `call_dmr_ch` pools counts into bins and normalises each cell's global
+  mCH rate first; `call_dmr_one_vs_rest` runs a whole class in one pass
+  (`_process_chunk_ovr`).
+* `_merge_dms_to_dmr`, `annot_dmr`, `merge_dmr_results`, `call_dmr_array`.
 
-Both walk per-chromosome blocks against a reference `.cz`; both call
-`advise_sequential()` + `release_chunk(dim)` after each chrom.
+Pseudo-reads / bedGraph export now live in `peaks.py`
+(`call_peaks`, `call_peaks_bdg`, `to_bedgraph`).
 
 ### `features.py` — AnnData aggregation
 
@@ -147,6 +163,13 @@ a multiprocessing pool whose workers share the feature index via
 `make_genome_bins` produces a fixed-width bin BED-like dataframe
 (used as the feature input for whole-genome 5kb / 100kb runs).
 
+`cz_to_anndata_sites(...)` builds the **single-cytosine** `(n_cells,
+n_sites)` matrix: each cell's chunk is inflated once (or block-gathered
+via `Reader.gather_rows` for very sparse indexes), restricted to the
+context index, and only covered sites are appended to the streaming CSR
+builder (`_StreamingSparseBuilder.append_sparse`). `.X` is the raw or
+per-cell posterior fraction (see `docs/Methods.md` §8).
+
 ### `merge.py` — merge `.cz` files
 
 Streams multiple `.cz` files into a single output, preserving chunk
@@ -156,8 +179,10 @@ keys and column layout. Used to combine per-cell or per-chunk outputs.
 
 `czip <subcommand>` is implemented here. Each subcommand is a thin
 argparse wrapper around one of the modules above
-(`bam_to_cz`, `allc2cz`, `cz2allc`, `header`, `summary`, `merge`,
-`features`, `bedgraph`, …).
+(`bam_to_cz`, `allc2cz`, `build_ref`, `index`, `merge_cz`, `pivot_*`,
+`cz_to_anndata`, `cz_to_anndata_sites`, `call_dmr*`, `call_peaks*`,
+`predict_cell_type`, `deconvolve_bulk`, …); heavy modules are imported
+inside the branch that needs them so `czip --help` stays fast.
 
 ## Performance / memory patterns
 

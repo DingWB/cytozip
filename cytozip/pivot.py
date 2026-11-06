@@ -108,6 +108,9 @@ def _fisher_worker_fast(df):
     # (n_sites, n_cells) int64 matrices, in cell order
     mc_arr = df.loc[:, [s + '.mc' for s in snames]].to_numpy(dtype=np.int64)
     cov_arr = df.loc[:, [s + '.cov' for s in snames]].to_numpy(dtype=np.int64)
+    # Guard against malformed input (mc > cov) which would put negative
+    # cells into the 2x2 tables.
+    np.minimum(mc_arr, cov_arr, out=mc_arr)
     uc_arr = cov_arr - mc_arr
     mc_sum = mc_arr.sum(axis=1)
     uc_sum = uc_arr.sum(axis=1)
@@ -174,7 +177,7 @@ def _pivot_worker(outfile_cat, outdir, chrom, dims, mode,
         vos = reader1._chunk_block_1st_record_virtual_offsets
         # See merge_cz_worker for the alignment invariant: batch
         # boundaries must land on a record boundary because records
-        # straddle internal block boundaries (block size 65535 is
+        # straddle internal block boundaries (block size 2**18-1 is
         # coprime with most unit_sizes). Validate defensively.
         leading_skip = vos[block_idx_start] & _VO_OFFSET_MASK
         if leading_skip != 0:

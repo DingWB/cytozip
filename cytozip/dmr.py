@@ -23,6 +23,7 @@ the generic :mod:`cytozip.cz` format layer.
 @author: DingWB
 """
 import os
+import shutil
 import multiprocessing
 from loguru import logger
 from .cz import (Reader, _STRUCT_TO_NP_DTYPE, _make_np_dtype,
@@ -337,59 +338,63 @@ def _fisher_1v1_sites(mc_all, cov_all, keep):
     return p, da
 
 
-def _process_chunk_for_dmr(args):
-    """Process one reference chunk: returns DMS records (per-site).
+def _load_dmr_chunk(ref_path, index_path, dim, spec_groups, mc_col, cov_col):
+    """Load one reference chunk for several cell-spec groups.
 
-    Uses a per-process reader cache so repeated submissions to the same
-    worker reuse already-opened mmaps + headers instead of paying the
-    open/close cost on every chunk.
+    Returns ``(pos, [(mc, cov), ...])`` with ``pos`` already restricted to
+    the context index (if any) and one ``(n_cells, n_sel)`` matrix pair per
+    group, or ``None`` when the chunk is absent / empty.
     """
-    (group_a_specs, group_b_specs, ref_path, index_path,
-     dim, mc_col, cov_col,
-     min_cov, min_samples_per_group,
-     n_permute, min_pvalue, max_row_count, max_total_count,
-     n_threads, delta_prefilter, prefilter_cutoff,
-     use_fisher_1v1) = args
     ref = _get_cached_reader(ref_path)
     if dim not in ref.chunk_key2offset:
-        return dim, np.empty(0, dtype=np.int64), np.empty(0), np.empty(0)
+        return None
     ref_raw = ref.fetch_chunk_bytes(dim)
     if not ref_raw:
-        return dim, np.empty(0, dtype=np.int64), np.empty(0), np.empty(0)
+        return None
     ref_dt = _reader_np_dtype(ref)
     ref_arr = np.frombuffer(ref_raw, dtype=ref_dt)
     pos = ref_arr['pos'].astype(np.int64)
+    n_sites = ref_arr.shape[0]
+    ref.release_chunk(dim)
 
-    # optional context index restriction (e.g., CGN sites)
+    # optional context index restriction (e.g., CGN sites); index IDs are
+    # 1-based -> ``get_index_rows`` converts to 0-based rows.
     sel_ids = None
     if index_path is not None:
         ix = _get_cached_reader(index_path)
         if dim in ix.chunk_key2offset:
-            ids = ix.get_ids_from_index(dim)
-            if ids.ndim == 1:
-                # IDs in the index file are 1-based (built as
-                # ``np.flatnonzero(mask) + 1``); convert to 0-based
-                # row indices for fancy-indexing the per-chunk arrays.
-                sel_ids = ids.astype(np.int64, copy=False) - 1
+            sel_ids = ix.get_index_rows(dim, n_rows=n_sites)
 
-    n_sites = ref_arr.shape[0]
-    mc_a, cov_a = _load_chunk_matrix(group_a_specs, dim, mc_col, cov_col, n_sites)
-    mc_b, cov_b = _load_chunk_matrix(group_b_specs, dim, mc_col, cov_col, n_sites)
-    ref.release_chunk(dim)
-
+    mats = []
+    for specs in spec_groups:
+        mc, cov = _load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites)
+        if sel_ids is not None:
+            mc = mc[:, sel_ids]
+            cov = cov[:, sel_ids]
+        mats.append((mc, cov))
     if sel_ids is not None:
-        mc_a = mc_a[:, sel_ids]
-        cov_a = cov_a[:, sel_ids]
-        mc_b = mc_b[:, sel_ids]
-        cov_b = cov_b[:, sel_ids]
         pos = pos[sel_ids]
+    return pos, mats
 
+
+def _test_dmr_matrices(mc_a, cov_a, mc_b, cov_b, pos,
+                       min_cov, min_samples_per_group,
+                       n_permute, min_pvalue, max_row_count, max_total_count,
+                       n_threads, delta_prefilter, prefilter_cutoff,
+                       use_fisher_1v1):
+    """Site filtering + permutation (or 1-vs-1 Fisher) test for one chunk.
+
+    ``mc_a/cov_a`` are ``(n_a, n_sites)``, ``mc_b/cov_b`` ``(n_b, n_sites)``
+    count matrices over the same site axis ``pos``. Returns
+    ``(pos_tested, p, delta)``.
+    """
+    empty = (np.empty(0, dtype=np.int64), np.empty(0), np.empty(0))
     # filter sites: enough samples per group with min_cov
     pass_a = (cov_a >= min_cov).sum(axis=0) >= min_samples_per_group
     pass_b = (cov_b >= min_cov).sum(axis=0) >= min_samples_per_group
     keep = np.where(pass_a & pass_b)[0]
     if keep.size == 0:
-        return dim, np.empty(0, dtype=np.int64), np.empty(0), np.empty(0)
+        return empty
 
     # Optional delta pre-filter: skip sites whose unpermuted
     # |mean(frac_a) - mean(frac_b)| is already below the post-test
@@ -409,13 +414,10 @@ def _process_chunk_for_dmr(args):
             delta = np.abs(mean_a - mean_b)
         keep = keep[np.nan_to_num(delta, nan=0.0) >= float(prefilter_cutoff)]
         if keep.size == 0:
-            return dim, np.empty(0, dtype=np.int64), np.empty(0), np.empty(0)
+            return empty
 
     # Build the final ``(n_total, n_keep)`` int64 C-contiguous matrices
-    # in a single pre-allocated allocation, casting on assignment.  This
-    # avoids the previous concat-then-ascontiguousarray two-copy pattern
-    # (advanced indexing earlier left ``mc_a`` / ``mc_b`` F-contiguous,
-    # which then propagated through ``np.concatenate``).
+    # in a single pre-allocated allocation, casting on assignment.
     n_a = mc_a.shape[0]
     n_total = n_a + mc_b.shape[0]
     mc_all = np.empty((n_total, keep.size), dtype=np.int64)
@@ -424,68 +426,176 @@ def _process_chunk_for_dmr(args):
     mc_all[n_a:] = mc_b[:, keep]
     cov_all[:n_a] = cov_a[:, keep]
     cov_all[n_a:] = cov_b[:, keep]
-    # ``keep`` indices are already the columns of ``mc_all`` we want to
-    # test, so the kernel scans rows ``[0, n_keep)`` of ``mc_all``.
     kernel_idx = np.arange(keep.size, dtype=np.int64)
-    if (use_fisher_1v1
-            and mc_a.shape[0] == 1 and mc_b.shape[0] == 1):
+    if use_fisher_1v1 and n_a == 1 and mc_b.shape[0] == 1:
         p_arr, da_arr = _fisher_1v1_sites(mc_all, cov_all, kernel_idx)
     else:
         p_arr, da_arr = _rms_run_sites(
             mc_all, cov_all, kernel_idx,
-            group_a_n=mc_a.shape[0],
+            group_a_n=n_a,
             n_permute=int(n_permute), min_pvalue=float(min_pvalue),
             max_row_count=int(max_row_count),
             max_total_count=int(max_total_count),
             n_threads=int(n_threads),
         )
-    return dim, pos[keep], p_arr, da_arr
+    return pos[keep], p_arr, da_arr
+
+
+def _process_chunk_for_dmr(args):
+    """Process one reference chunk: returns DMS records (per-site).
+
+    Uses a per-process reader cache so repeated submissions to the same
+    worker reuse already-opened mmaps + headers instead of paying the
+    open/close cost on every chunk.
+    """
+    (group_a_specs, group_b_specs, ref_path, index_path,
+     dim, mc_col, cov_col,
+     min_cov, min_samples_per_group,
+     n_permute, min_pvalue, max_row_count, max_total_count,
+     n_threads, delta_prefilter, prefilter_cutoff,
+     use_fisher_1v1) = args
+    loaded = _load_dmr_chunk(ref_path, index_path, dim,
+                             [group_a_specs, group_b_specs], mc_col, cov_col)
+    if loaded is None:
+        return dim, np.empty(0, dtype=np.int64), np.empty(0), np.empty(0)
+    pos, ((mc_a, cov_a), (mc_b, cov_b)) = loaded
+    pos_k, p_arr, da_arr = _test_dmr_matrices(
+        mc_a, cov_a, mc_b, cov_b, pos,
+        min_cov, min_samples_per_group,
+        n_permute, min_pvalue, max_row_count, max_total_count,
+        n_threads, delta_prefilter, prefilter_cutoff, use_fisher_1v1)
+    return dim, pos_k, p_arr, da_arr
+
+
+def _process_chunk_ovr(args):
+    """One-vs-rest over all members of a class for ONE reference chunk.
+
+    Loads the chunk once for every member (instead of once per
+    comparison as the per-sample ``call_dmr`` loop did, i.e. ``N`` full
+    scans for ``N`` members) and tests each member against the remaining
+    rows of the same matrix. Returns ``(dim, [(pos, p, delta), ...])`` in
+    member order; members whose output already exists (``skip_mask``) get
+    an empty result.
+    """
+    (member_specs, skip_mask, ref_path, index_path, dim, mc_col, cov_col,
+     min_cov, min_samples_per_group,
+     n_permute, min_pvalue, max_row_count, max_total_count,
+     n_threads, delta_prefilter, prefilter_cutoff, use_fisher_1v1) = args
+    empty = (np.empty(0, dtype=np.int64), np.empty(0), np.empty(0))
+    n = len(member_specs)
+    loaded = _load_dmr_chunk(ref_path, index_path, dim, [
+        sum(member_specs, [])], mc_col, cov_col)
+    if loaded is None:
+        return dim, [empty] * n
+    pos, ((mc, cov),) = loaded
+    # Row ranges of each member inside the stacked matrix (a member may
+    # itself be a multi-cell ``catcz`` file -> several rows).
+    bounds = np.cumsum([0] + [len(sp) for sp in member_specs])
+    out = []
+    for i in range(n):
+        if skip_mask[i]:
+            out.append(empty)
+            continue
+        lo, hi = bounds[i], bounds[i + 1]
+        rest = np.r_[0:lo, hi:bounds[-1]]
+        out.append(_test_dmr_matrices(
+            mc[lo:hi], cov[lo:hi], mc[rest], cov[rest], pos,
+            min_cov, min_samples_per_group,
+            n_permute, min_pvalue, max_row_count, max_total_count,
+            n_threads, delta_prefilter, prefilter_cutoff, use_fisher_1v1))
+    return dim, out
+
+
+def _finalize_cg_dmr(dms_chrom, dms_pos, dms_p, dms_delta, output,
+                     dms_output, max_dist, min_dms, tag='call_dmr'):
+    """Shared CG tail: DMS table -> (optional) dms_output, merged DMR TSV."""
+    if dms_pos:
+        dms_df = pd.DataFrame({
+            'chrom': np.concatenate(dms_chrom),
+            'pos': np.concatenate(dms_pos),
+            'p': np.concatenate(dms_p),
+            'delta': np.concatenate(dms_delta),
+        })
+    else:
+        dms_df = pd.DataFrame(columns=['chrom', 'pos', 'p', 'delta'])
+
+    if dms_output is not None:
+        dms_df.sort_values(['chrom', 'pos']).to_csv(
+            os.path.abspath(os.path.expanduser(dms_output)),
+            sep='\t', index=False)
+        logger.info(f"DMS table ({dms_df.shape[0]} sites) written to "
+                    f"{dms_output}")
+
+    dmr_df = _merge_dms_to_dmr(dms_df, max_dist=int(max_dist),
+                               min_dms=int(min_dms))
+    output = os.path.abspath(os.path.expanduser(output))
+    dmr_df.to_csv(output, sep='\t', index=False)
+    logger.info(f"{tag}: {dms_df.shape[0]} DMS -> "
+                f"{dmr_df.shape[0]} DMRs written to {output}")
+    return output
 
 
 def _merge_dms_to_dmr(dms_df, max_dist, min_dms):
-    """Group adjacent DMS within ``max_dist`` and same sign of delta."""
+    """Group adjacent DMS within ``max_dist`` and same sign of delta.
+
+    When ``dms_df`` carries ``rate_a`` / ``rate_b`` columns (CH bins), their
+    per-DMR means are appended as extra columns so ``annot_dmr`` can derive
+    ``log2fc`` instead of emitting NaN.
+    """
+    base_cols = ['chrom', 'start', 'end', 'n_dms', 'p_min',
+                 'frac_delta_mean', 'state']
+    has_rates = {'rate_a', 'rate_b'}.issubset(dms_df.columns)
+    cols = base_cols + (['rate_a', 'rate_b'] if has_rates else [])
     if dms_df.shape[0] == 0:
-        return pd.DataFrame(columns=['chrom', 'start', 'end', 'n_dms',
-                                     'p_min', 'frac_delta_mean', 'state'])
+        return pd.DataFrame(columns=cols)
     dms_df = dms_df.sort_values(['chrom', 'pos']).reset_index(drop=True)
     rows = []
     cur_chr = None
     cur_pos = []
     cur_p = []
     cur_d = []
+    cur_ra = []
+    cur_rb = []
 
     def _flush():
         if len(cur_pos) >= min_dms:
             n = len(cur_pos)
             mean_d = float(np.mean(cur_d))
             state = 1 if mean_d > 0 else (-1 if mean_d < 0 else 0)
-            rows.append((cur_chr,
-                         int(min(cur_pos)) - 1,           # 0-based BED start
-                         int(max(cur_pos)),               # half-open end
-                         n,
-                         float(min(cur_p)),
-                         mean_d,
-                         state))
+            row = (cur_chr,
+                   int(min(cur_pos)) - 1,           # 0-based BED start
+                   int(max(cur_pos)),               # half-open end
+                   n,
+                   float(min(cur_p)),
+                   mean_d,
+                   state)
+            if has_rates:
+                row = row + (float(np.mean(cur_ra)), float(np.mean(cur_rb)))
+            rows.append(row)
 
+    ra_it = dms_df['rate_a'] if has_rates else np.zeros(dms_df.shape[0])
+    rb_it = dms_df['rate_b'] if has_rates else np.zeros(dms_df.shape[0])
     sign = 0
-    for chrom, pos, p, d in zip(dms_df['chrom'], dms_df['pos'],
-                                dms_df['p'], dms_df['delta']):
+    for chrom, pos, p, d, ra, rb in zip(dms_df['chrom'], dms_df['pos'],
+                                        dms_df['p'], dms_df['delta'],
+                                        ra_it, rb_it):
         s = 1 if d > 0 else (-1 if d < 0 else 0)
         if (cur_chr != chrom
                 or (cur_pos and pos - cur_pos[-1] > max_dist)
                 or (sign != 0 and s != 0 and s != sign)):
             _flush()
-            cur_pos, cur_p, cur_d = [], [], []
+            cur_pos, cur_p, cur_d, cur_ra, cur_rb = [], [], [], [], []
             sign = 0
         cur_chr = chrom
         cur_pos.append(pos)
         cur_p.append(p)
         cur_d.append(d)
+        cur_ra.append(ra)
+        cur_rb.append(rb)
         if sign == 0:
             sign = s
     _flush()
-    return pd.DataFrame(rows, columns=['chrom', 'start', 'end', 'n_dms',
-                                       'p_min', 'frac_delta_mean', 'state'])
+    return pd.DataFrame(rows, columns=cols)
 
 
 def call_dmr(group_a, group_b, reference, output,
@@ -770,30 +880,8 @@ def call_dmr(group_a, group_b, reference, output,
             # doesn't leak open mmaps across calls.
             _close_cached_readers()
 
-    if dms_pos:
-        dms_df = pd.DataFrame({
-            'chrom': np.concatenate(dms_chrom),
-            'pos': np.concatenate(dms_pos),
-            'p': np.concatenate(dms_p),
-            'delta': np.concatenate(dms_delta),
-        })
-    else:
-        dms_df = pd.DataFrame(columns=['chrom', 'pos', 'p', 'delta'])
-
-    if dms_output is not None:
-        dms_df.sort_values(['chrom', 'pos']).to_csv(
-            os.path.abspath(os.path.expanduser(dms_output)),
-            sep='\t', index=False)
-        logger.info(f"DMS table ({dms_df.shape[0]} sites) written to "
-                    f"{dms_output}")
-
-    dmr_df = _merge_dms_to_dmr(dms_df, max_dist=int(max_dist),
-                               min_dms=int(min_dms))
-    output = os.path.abspath(os.path.expanduser(output))
-    dmr_df.to_csv(output, sep='\t', index=False)
-    logger.info(f"call_dmr: {dms_df.shape[0]} DMS -> "
-                f"{dmr_df.shape[0]} DMRs written to {output}")
-    return output
+    return _finalize_cg_dmr(dms_chrom, dms_pos, dms_p, dms_delta, output,
+                            dms_output, max_dist, min_dms)
 
 
 # ==========================================================================
@@ -1631,9 +1719,9 @@ def call_dmr_ch(group_a, group_b, reference, output,
             f"adjacent significant bins (gap == bin_size) would never "
             f"be merged. Bumping max_dist -> {int(bin_size)}.")
         eff_max_dist = int(bin_size)
-    dmr_df = _merge_dms_to_dmr(dms_df[['chrom', 'pos', 'p', 'delta']],
-                               max_dist=eff_max_dist,
-                               min_dms=int(min_dms))
+    dmr_df = _merge_dms_to_dmr(
+        dms_df[['chrom', 'pos', 'p', 'delta', 'rate_a', 'rate_b']],
+        max_dist=eff_max_dist, min_dms=int(min_dms))
     # Bin-end is bin_start + bin_size - 1 (inclusive); _merge_dms_to_dmr
     # uses ``max(pos)`` as half-open end, which under-counts the last
     # bin's width by ``bin_size - 1`` -- adjust here so the BED end
@@ -1688,6 +1776,122 @@ def _load_class_table(class_table, snames):
         raise TypeError(f"class_table must be None / str / DataFrame / dict, "
                         f"got {type(class_table)}")
     return {s: mapping[s] for s in snames if s in mapping}
+
+
+def _one_vs_rest_cg_fused(members, reference, index, jobs, sub_outdir,
+                          sub_dms_dir, overwrite, dmr_kwargs, cls_label,
+                          n_done, n_total):
+    """CG one-vs-rest for one class with a single pass over the reference.
+
+    Equivalent to calling :func:`call_dmr` with ``group_a=[member]`` and
+    ``group_b=<other members>`` for every member (same filters, same
+    kernel, same outputs), but each chunk's count matrices are loaded once
+    per chunk for all members. Returns ``{sname: output_tsv}``.
+    """
+    import inspect
+    sig = inspect.signature(call_dmr)
+    unknown = set(dmr_kwargs) - set(sig.parameters)
+    if unknown:
+        raise TypeError(f"call_dmr() got unexpected keyword argument(s): "
+                        f"{sorted(unknown)}")
+    kw = {k: v.default for k, v in sig.parameters.items()
+          if v.default is not inspect.Parameter.empty}
+    kw.update(dmr_kwargs)
+
+    ref_path = os.path.abspath(os.path.expanduser(reference))
+    index_path = (os.path.abspath(os.path.expanduser(index))
+                  if index else None)
+    if index_path is None:
+        logger.warning(
+            "call_dmr_one_vs_rest: no `index` provided -- pooling ALL "
+            "cytosines; pass index=<reference>.CGN.index for CpG DMRs.")
+    snames = [s_ for s_, _ in members]
+    paths = [_resolve_paths(p_)[0] for _, p_ in members]
+    outs = [os.path.join(sub_outdir, f"{s_}.dmr.tsv") for s_ in snames]
+    skip = [(not overwrite) and os.path.exists(o) for o in outs]
+    results = {}
+    for s_, o, sk in zip(snames, outs, skip):
+        if sk:
+            logger.info(f"skip existing {o}")
+            results[s_] = o
+    if all(skip):
+        return results
+
+    probe = Reader(paths[0], mmap_advise="random")
+    cols = probe.header['columns']
+    probe.close()
+    mc_col, cov_col = kw['mc_col'], kw['cov_col']
+    mc_col = cols[0] if mc_col is None else (cols[mc_col] if isinstance(mc_col, int) else mc_col)
+    cov_col = cols[-1] if cov_col is None else (cols[cov_col] if isinstance(cov_col, int) else cov_col)
+
+    ref = Reader(ref_path, mmap_advise="random")
+    chunk_keys = list(ref.chunk_key2offset)
+    ref.close()
+    if kw['chroms'] is not None:
+        wl = _parse_chrom_whitelist(kw['chroms'])
+        chunk_keys = [k for k in chunk_keys if k[0] in wl]
+    if not chunk_keys:
+        raise ValueError("No matching chunks in reference.")
+    total = max(1, int(jobs))
+    n_proc = min(total, len(chunk_keys))
+    n_thr = max(1, total // max(1, n_proc))
+    member_specs = [_expand_cell_specs([p_]) for p_ in paths]
+    logger.info(f"[{n_done + 1}-{n_done + len(members)}/{n_total}] "
+                f"{cls_label or 'global'}: fused one-vs-rest over "
+                f"{len(members)} members, {len(chunk_keys)} chunks "
+                f"(jobs={total} = {n_proc} proc x {n_thr} threads)")
+
+    tasks = [(member_specs, skip, ref_path, index_path, dim, mc_col, cov_col,
+              int(kw['min_cov']), int(kw['min_samples_per_group']),
+              int(kw['n_permute']), float(kw['min_pvalue']),
+              int(kw['max_row_count']), int(kw['max_total_count']),
+              int(n_thr), bool(kw['delta_prefilter']),
+              float(kw['frac_delta_cutoff']), bool(kw['use_fisher_1v1']))
+             for dim in chunk_keys]
+    p_cut, d_cut = float(kw['p_value_cutoff']), float(kw['frac_delta_cutoff'])
+    acc = [([], [], [], []) for _ in members]  # chrom, pos, p, delta
+
+    def _collect(result):
+        dim, per_member = result
+        chrom = dim[0]
+        for i, (pos, p_arr, da_arr) in enumerate(per_member):
+            if pos.size == 0:
+                continue
+            sig_ = (p_arr < p_cut) & (np.abs(da_arr) > d_cut)
+            if not sig_.any():
+                continue
+            c_, ps_, pp_, dd_ = acc[i]
+            c_.append(np.full(int(sig_.sum()), chrom, dtype=object))
+            ps_.append(pos[sig_]); pp_.append(p_arr[sig_]); dd_.append(da_arr[sig_])
+
+    done = 0
+    if n_proc > 1 and len(tasks) > 1:
+        from concurrent.futures import as_completed
+        with _spawn_pool(n_proc) as ex:
+            futs = [ex.submit(_process_chunk_ovr, t)
+                    for t in _largest_first(tasks, ref_path, 4)]
+            for fut in as_completed(futs):
+                _collect(fut.result())
+                done += 1
+                if done % 50 == 0:
+                    logger.info(f"  processed {done}/{len(tasks)} chunks")
+    else:
+        try:
+            for t in tasks:
+                _collect(_process_chunk_ovr(t))
+        finally:
+            _close_cached_readers()
+
+    for i, (s_, o) in enumerate(zip(snames, outs)):
+        if skip[i]:
+            continue
+        dms_out = (os.path.join(sub_dms_dir, f"{s_}.dms.tsv")
+                   if sub_dms_dir is not None else None)
+        c_, ps_, pp_, dd_ = acc[i]
+        results[s_] = _finalize_cg_dmr(c_, ps_, pp_, dd_, o, dms_out,
+                                       kw['max_dist'], kw['min_dms'],
+                                       tag=f"call_dmr[{s_} vs rest]")
+    return results
 
 
 def call_dmr_one_vs_rest(indir, reference, outdir,
@@ -1924,6 +2128,18 @@ def call_dmr_one_vs_rest(indir, reference, outdir,
                            if dms_output_dir else None)
             if sub_dms_dir:
                 os.makedirs(sub_dms_dir, exist_ok=True)
+
+        if method == 'cg' and len(members) >= 2:
+            # Fused path: every reference chunk is read ONCE for the whole
+            # class and each member is tested against the rest in-memory
+            # (the per-sample ``call_dmr`` loop re-read all N files N times).
+            res = _one_vs_rest_cg_fused(
+                members, reference, index, jobs, sub_outdir, sub_dms_dir,
+                overwrite, dmr_kwargs, cls_label, n_done, n_total)
+            for sname, out_tsv in res.items():
+                results[(cls_label, sname)] = out_tsv
+            n_done += len(members)
+            continue
 
         for sname, spath in members:
             n_done += 1
@@ -2569,7 +2785,7 @@ def call_dmr_array(group_a, group_b, reference, output,
                               'direction']).to_csv(output, sep='\t',
                                                    index=False)
         if not keep_temp:
-            os.system(f"rm -rf {tmpdir}")
+            shutil.rmtree(tmpdir, ignore_errors=True)
         return output
 
     pp = pd.DataFrame({
@@ -2667,7 +2883,7 @@ def call_dmr_array(group_a, group_b, reference, output,
         f"|\u0394\u03b2|\u2265{delta_beta_cutoff}) written to {output}"
     )
     if not keep_temp:
-        os.system(f"rm -rf {tmpdir}")
+        shutil.rmtree(tmpdir, ignore_errors=True)
     return output
 
 
