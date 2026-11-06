@@ -78,8 +78,33 @@ def _read_faidx(faidx_path):
     )
 
 
+_FASTA_CACHE = {}
+
+
 def _get_chromosome_sequence_upper(fasta_path, fai_df, query_chrom):
     """Load one chromosome's sequence from a fasta file using its .fai index."""
+    # faidx random access via pysam (C, no per-line Python loop). Handles are
+    # cached per process: a handle inherited across fork would share the file
+    # offset with the parent.
+    key = (os.getpid(), fasta_path)
+    fa = _FASTA_CACHE.get(key)
+    if fa is None:
+        try:
+            import pysam
+            fa = pysam.FastaFile(fasta_path)
+        except Exception:
+            fa = False
+        _FASTA_CACHE[key] = fa
+    if fa:
+        try:
+            return fa.fetch(query_chrom).upper()
+        except Exception:
+            pass
+    return _get_chromosome_sequence_upper_py(fasta_path, fai_df, query_chrom)
+
+
+def _get_chromosome_sequence_upper_py(fasta_path, fai_df, query_chrom):
+    """Pure-Python fallback of :func:`_get_chromosome_sequence_upper`."""
     chrom_pointer = fai_df.loc[query_chrom, "OFFSET"]
     tail = fai_df.loc[query_chrom, "LINEBASES"] - fai_df.loc[query_chrom, "LINEWIDTH"]
     seq_parts = []

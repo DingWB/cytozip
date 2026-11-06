@@ -1,6 +1,7 @@
 # cython: language_level=3
 # cython: boundscheck=False
 # cython: wraparound=False
+# cython: initializedcheck=False
 """
 cz_accel.pyx — Cython-accelerated hot-path functions for the cytozip format.
 
@@ -456,12 +457,14 @@ cdef bytes _try_inline_cumsum(bytes data, object delta_dtype, object delta_col_n
                                                 &offs, &widths)
     if ncol < 0:
         return None  # unsupported dtype → caller uses numpy fallback
-    cdef bytearray out = bytearray(data[:used])
-    cdef unsigned char *base = <unsigned char *> PyByteArray_AsString(out)
+    # Single allocation: copy into a fresh (not yet shared) bytes object
+    # and patch it in place.
+    cdef bytes out = PyBytes_FromStringAndSize(<const char *> data, used)
+    cdef unsigned char *base = <unsigned char *> PyBytes_AsString(out)
     with nogil:
         _cumsum_region(base, nrec, itemsize, offs, widths, ncol)
     free(offs); free(widths)
-    return bytes(out)
+    return out
 
 
 cdef bytes _try_inline_diff(bytes data, object delta_dtype, object delta_col_names):
@@ -483,12 +486,21 @@ cdef bytes _try_inline_diff(bytes data, object delta_dtype, object delta_col_nam
                                                 &offs, &widths)
     if ncol < 0:
         return None  # unsupported dtype → caller uses numpy fallback
-    cdef bytearray out = bytearray(data[:used])
-    cdef unsigned char *base = <unsigned char *> PyByteArray_AsString(out)
+    cdef bytes out = PyBytes_FromStringAndSize(<const char *> data, used)
+    cdef unsigned char *base = <unsigned char *> PyBytes_AsString(out)
     with nogil:
         _diff_region(base, nrec, itemsize, offs, widths, ncol)
     free(offs); free(widths)
-    return bytes(out)
+    return out
+
+
+def c_delta_decode_block(bytes data, object delta_dtype, object delta_col_names):
+    """Public entry: undo delta encoding (per-column cumsum) of one
+    decompressed block. Returns bytes; trailing bytes beyond the last
+    full record are preserved. Uses the inline nogil cumsum for uint
+    columns and falls back to numpy otherwise.
+    """
+    return _apply_delta_bytes(data, delta_dtype, delta_col_names)
 
 
 def c_delta_encode_block(bytes data, object delta_dtype, object delta_col_names):

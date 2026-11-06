@@ -131,6 +131,39 @@ def _iter_shard_paths(outdir, chrom, batch_nblock):
         block_idx_start += batch_nblock
 
 
+def _bgzip_tabix(path, seq_col=0, start_col=1, end_col=2, line_skip=1,
+                 index=True):
+    """bgzip *path* (``path`` -> ``path.gz``, original removed) and build a
+    tabix index, via pysam's bundled htslib.
+
+    Replaces the old ``os.system("bgzip ... && tabix -S 1 -s 1 -b 2 -e 3")``
+    call: no dependency on the ``bgzip`` / ``tabix`` executables being on
+    ``PATH``, no shell (paths with spaces/metacharacters are safe), and
+    failures are logged instead of silently ignored. Column indices are
+    0-based (``seq_col=0, start_col=1, end_col=2`` == ``-s 1 -b 2 -e 3``).
+    Errors are logged, not raised, to keep the previous non-fatal
+    behaviour of this post-processing step. Returns the ``.gz`` path (or
+    None if compression failed).
+    """
+    import pysam
+    gz = path + '.gz'
+    logger.info(f"bgzip{' + tabix' if index else ''} {path}")
+    try:
+        pysam.tabix_compress(path, gz, force=True)
+        os.remove(path)
+    except Exception as e:
+        logger.error(f"bgzip failed for {path}: {e}")
+        return None
+    if index:
+        try:
+            pysam.tabix_index(gz, force=True, seq_col=seq_col,
+                              start_col=start_col, end_col=end_col,
+                              line_skip=line_skip)
+        except Exception as e:
+            logger.error(f"tabix failed for {gz}: {e}")
+    return gz
+
+
 def _bg_rmtree(path):
     """Recursively delete ``path`` in a detached background process.
 
@@ -582,6 +615,7 @@ def merge_cz(input=None, class_table=None,
     batch_nblock = nunit_perbatch * unit_nblock  # how many block for each batch
     pool = multiprocessing.Pool(jobs)
     tasks = []
+    jobs_args = []
     outdir = output + '.tmp'
     if not os.path.exists(outdir):
         os.mkdir(outdir)
@@ -591,12 +625,17 @@ def merge_cz(input=None, class_table=None,
             continue
         block_idx_start = 0
         while block_idx_start < chrom_nblocks[chrom]:
-            task = pool.apply_async(merge_cz_worker,
-                                   (outfile_cat, outdir, chrom, dims, formats,
-                                    block_idx_start, batch_nblock, 5000, level,
-                                    agg, cov_overflow))
-            tasks.append(task)
+            n_blk = min(batch_nblock, chrom_nblocks[chrom] - block_idx_start)
+            jobs_args.append((n_blk, (outfile_cat, outdir, chrom, dims,
+                                      formats, block_idx_start, batch_nblock,
+                                      5000, level, agg, cov_overflow)))
             block_idx_start += batch_nblock
+    # Largest batches first (LPT) so a big tail batch does not run alone at
+    # the end; shard files are named by (chrom, block_idx_start), so the
+    # result does not depend on completion order.
+    jobs_args.sort(key=lambda x: -x[0])
+    for _, args in jobs_args:
+        tasks.append(pool.apply_async(merge_cz_worker, args))
     for task in tasks:
         task.get()
     pool.close()
@@ -682,9 +721,7 @@ def merge_cz(input=None, class_table=None,
         # nothing to the output, so we fork-and-forget it.
         _bg_rmtree(outdir)
     if bgzip and not output.endswith(ext):
-        cmd = f"bgzip {output} && tabix -S 1 -s 1 -b 2 -e 3 -f {output}.gz"
-        logger.info(f"Run bgzip, CMD: {cmd}")
-        os.system(cmd)
+        _bgzip_tabix(output)
 
 
 # ==========================================================

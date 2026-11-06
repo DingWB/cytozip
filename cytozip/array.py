@@ -48,7 +48,6 @@ from __future__ import annotations
 
 import json
 import os
-import struct
 
 import numpy as np
 import pandas as pd
@@ -343,20 +342,22 @@ def _write_reference_cz(output, manifest, chrom_col, extra_cols, chrom_groups):
 
     writer = Writer(output, formats=formats, columns=list(extra_cols),
                     chunk_dims=[chrom_col], message='array2cz_ref')
+    from .cz import _NP_FMT_MAP
+    # Packed (unaligned) structured dtype == struct '<' + formats layout;
+    # 'Ns' fields are NUL-padded fixed-width bytes, like struct.pack.
+    np_dt = np.dtype([
+        (col, f'S{int(fmt[:-1])}' if fmt.endswith('s') else _NP_FMT_MAP[fmt])
+        for col, fmt in zip(extra_cols, formats)])
     for chrom, mf_chrom in chrom_groups:
-        # Pack one chrom's manifest rows into struct bytes.
-        rows = []
-        struct_obj = struct.Struct('<' + ''.join(formats))
-        for _, row in mf_chrom.iterrows():
-            packed_row = []
-            for col, fmt in zip(extra_cols, formats):
-                v = row[col]
-                if fmt.endswith('s'):
-                    packed_row.append(
-                        str(v).encode('utf-8')[:int(fmt[:-1])])
-                else:
-                    packed_row.append(v)
-            rows.append(struct_obj.pack(*packed_row))
-        if rows:
-            writer.write_chunk(b''.join(rows), [chrom])
+        if len(mf_chrom) == 0:
+            continue
+        arr = np.empty(len(mf_chrom), dtype=np_dt)
+        for col, fmt in zip(extra_cols, formats):
+            if fmt.endswith('s'):
+                n = int(fmt[:-1])
+                arr[col] = [str(v).encode('utf-8')[:n]
+                            for v in mf_chrom[col].tolist()]
+            else:
+                arr[col] = mf_chrom[col].to_numpy()
+        writer.write_chunk(arr.tobytes(), [chrom])
     writer.close()

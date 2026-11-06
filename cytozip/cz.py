@@ -180,6 +180,7 @@ _c_extract_c_positions = None
 _c_write_c_records = None
 _c_parse_czix = None
 _c_delta_encode_block = None
+_c_delta_decode_block = None
 _c_parse_tab_lines_int = None
 _c_parse_tocz_int_slab = None
 
@@ -218,7 +219,7 @@ def _ensure_cz_accel():
 		'c_write_chunk_tail', 'c_pack_records', 'c_pack_records_fast',
 		'c_fetch_chunk', 'c_get_records_by_ids', 'c_block_first_values',
 		'c_extract_c_positions', 'c_write_c_records', 'c_parse_czix',
-		'c_delta_encode_block', 'c_parse_tab_lines_int',
+		'c_delta_encode_block', 'c_delta_decode_block', 'c_parse_tab_lines_int',
 		'c_parse_tocz_int_slab',
 	):
 		g['_' + _n] = getattr(_a, _n, None)
@@ -472,13 +473,18 @@ def _int_slab_parser(f, formats, sep, usecols, key_cols, batch_size,
 			arrays = _scale_mc_cov_arrays(
 				list(arrays), scale_pair[0], scale_pair[1],
 				bounds[scale_pair[1]][1])
+		# One structured array per slab (each column clipped once over the
+		# whole slab) and zero-copy byte views per key run; write_chunk
+		# copies the view straight into its block buffer.
+		n_rows = len(arrays[0]) if n_use else 0
+		out = np.empty(n_rows, dtype=rec_dtype)
+		for j in range(n_use):
+			lo, hi = bounds[j]
+			out[f'f{j}'] = np.clip(arrays[j][:n_rows], lo, hi)
+		raw = out.view(np.uint8)
+		isz = rec_dtype.itemsize
 		for dims, s, e in runs:
-			out = np.empty(e - s, dtype=rec_dtype)
-			for j in range(n_use):
-				lo, hi = bounds[j]
-				out[f'f{j}'] = np.clip(arrays[j][s:e], lo, hi).astype(
-					dts[j], copy=False)
-			yield out.tobytes(), list(dims)
+			yield memoryview(raw[s * isz:e * isz]), list(dims)
 
 	leftover = b""
 	while True:
@@ -784,6 +790,56 @@ class RemoteFile:
 	@property
 	def size(self):
 		return self._size
+
+
+def _dims_prefix_cache():
+	"""Return ``f(dims) -> 'd0\\td1\\t'`` memoised per chunk key (records
+	of one region share the same ``dims`` tuple)."""
+	cache = {}
+
+	def prefix(dims):
+		p = cache.get(dims)
+		if p is None:
+			p = cache[dims] = ''.join([str(d) + '\t' for d in dims])
+		return p
+	return prefix
+
+
+_TO_BGZIP_BATCH = 1_000_000
+
+
+def _has_float(np_dtype):
+	"""True if a structured dtype has any floating-point field."""
+	return any(np_dtype[n].kind == 'f' for n in np_dtype.names)
+
+
+def _text_col_list(v):
+	"""numpy column -> list of values whose ``%s`` text matches pandas'
+	``to_csv`` output (bytes fields decoded as UTF-8)."""
+	if v.dtype.kind == 'S':
+		return [x.decode('utf-8') for x in v.tolist()]
+	return v.tolist()
+
+
+def _write_stdout_lines(lines, batch=8192):
+	"""Write an iterable of text lines to ``sys.stdout`` in batches of
+	*batch* lines (one ``write`` per batch instead of per line), then
+	flush. Returns False if the downstream pipe was closed."""
+	write = sys.stdout.write
+	buf = []
+	append = buf.append
+	try:
+		for line in lines:
+			append(line)
+			if len(buf) >= batch:
+				write(''.join(buf))
+				buf.clear()
+		if buf:
+			write(''.join(buf))
+		sys.stdout.flush()
+	except BrokenPipeError:
+		return False
+	return True
 
 
 def _resolve_ref_path(reference):
@@ -1470,12 +1526,13 @@ class Reader:
 			while r:
 				self._handle.seek(self._chunk_start_offset + 10)
 				chunk_info = [self._chunk_dims]
-				for block in SummaryBczBlocks(self._handle):
-					block = chunk_info + list(block)
-					if printout:
-						sys.stdout.write('\t'.join([str(v) for v in block]) + '\n')
-					else:
-						rows.append(block)
+				if printout:
+					sys.stdout.write(''.join(
+						'\t'.join([str(v) for v in chunk_info + list(block)]) + '\n'
+						for block in SummaryBczBlocks(self._handle)))
+				else:
+					for block in SummaryBczBlocks(self._handle):
+						rows.append(chunk_info + list(block))
 				r = self._load_chunk(jump=True)
 			if printout:
 				sys.stdout.flush()
@@ -2298,6 +2355,13 @@ class Reader:
 		# the buffer contains an integral number of records starting at byte 0
 		# and there is no partial leading/trailing record to preserve.
 		if self._delta_cols and len(self._buffer) >= self._unit_size:
+			if _c_delta_decode_block is not None:
+				buf = self._buffer
+				if not isinstance(buf, bytes):
+					buf = bytes(buf)
+				self._buffer = _c_delta_decode_block(
+					buf, self._delta_np_dtype, self._delta_col_names)
+				return
 			n_rec = len(self._buffer) // self._unit_size
 			body_len = n_rec * self._unit_size
 			arr = np.frombuffer(self._buffer, dtype=self._delta_np_dtype,
@@ -2320,6 +2384,17 @@ class Reader:
 		if stringify_numeric:
 			return [str(v, 'utf-8') if mask[i] else str(v) for i, v in enumerate(values)]
 		return [str(v, 'utf-8') if mask[i] else v for i, v in enumerate(values)]
+
+	def _row_tsv_formatter(self):
+		"""Return a callable mapping a record tuple to its tab-joined text
+		(identical to ``'\\t'.join(self._byte2str(row))``). For all-numeric
+		formats this is a precomputed ``'%s\\t%s...'`` template, several
+		times faster than per-field ``str`` + list + join."""
+		mask = self._str_col_mask
+		if not any(mask):
+			return '\t'.join(['%s'] * len(mask)).__mod__
+		b2s = self._byte2str
+		return lambda row: '\t'.join(b2s(row))
 
 	def _byte2str(self, values):
 		"""Record tuple → list of printable strings (all fields stringified)."""
@@ -2683,34 +2758,56 @@ class Reader:
 				else:
 					mask = None
 
-				# Build column dict in final output order to avoid
-				# pd.concat and df.insert overhead.
-				cols = {'_chrom': chrom}
+				ref_arr = None
 				if ref_reader is not None:
 					ref_raw = ref_reader.fetch_chunk_bytes(d)
 					if ref_raw:
 						ref_arr = np.frombuffer(ref_raw, dtype=ref_np_dtype)
 						if mask is not None:
 							ref_arr = ref_arr[mask]
-						for col in _ref_cols:
-							cols[col] = ref_arr[col]
-				for col in _self_cols:
-					cols[col] = arr[col]
-				if allc_format:
-					cols["mc_flag"] = 1
-				df = pd.DataFrame(cols)
-
-				# Decode string columns (precomputed lists)
-				for col in _self_str_cols:
-					df[col] = df[col].str.decode('utf-8')
-				if ref_reader is not None:
-					for col in _ref_str_cols:
-						if col in df.columns:
+						if len(ref_arr) != len(arr):
+							raise ValueError(
+								f"to_bgzip: chunk {d} has {len(arr)} rows but "
+								f"the reference has {len(ref_arr)}.")
+				# Serialise in bounded row batches (caps peak memory for
+				# huge chunks). All-int/str columns use a precomputed '%s'
+				# line template (~2x faster than DataFrame.to_csv, same
+				# text); float columns go through pandas so float32 values
+				# keep pandas' shortest-repr formatting.
+				use_tpl = not (_has_float(self_np_dtype) or (
+					ref_arr is not None and _has_float(ref_np_dtype)))
+				for b0 in range(0, len(arr), _TO_BGZIP_BATCH):
+					a = arr[b0:b0 + _TO_BGZIP_BATCH]
+					ra = None if ref_arr is None else \
+						ref_arr[b0:b0 + _TO_BGZIP_BATCH]
+					if use_tpl:
+						lists = []
+						if ra is not None:
+							lists += [_text_col_list(ra[c]) for c in _ref_cols]
+						lists += [_text_col_list(a[c]) for c in _self_cols]
+						tpl = (chrom.replace('%', '%%') + '\t'
+							   + '\t'.join(['%s'] * len(lists))
+							   + ('\t1' if allc_format else '') + '\n')
+						buf = ''.join([tpl % r for r in zip(*lists)])
+					else:
+						cols = {'_chrom': chrom}
+						if ra is not None:
+							for col in _ref_cols:
+								cols[col] = ra[col]
+						for col in _self_cols:
+							cols[col] = a[col]
+						if allc_format:
+							cols["mc_flag"] = 1
+						df = pd.DataFrame(cols)
+						for col in _self_str_cols:
 							df[col] = df[col].str.decode('utf-8')
-
-				# Vectorised CSV serialisation → bulk write to bgzip stream
-				buf = df.to_csv(None, sep='\t', header=False, index=False)
-				fh.write(buf.encode())
+						if ra is not None:
+							for col in _ref_str_cols:
+								if col in df.columns:
+									df[col] = df[col].str.decode('utf-8')
+						buf = df.to_csv(None, sep='\t', header=False,
+										index=False)
+					fh.write(buf.encode())
 
 		if ref_reader is not None:
 			ref_reader.close()
@@ -3286,11 +3383,15 @@ class Reader:
 					usecols = list(range(n_chunk_dims + 2))
 					df = pd.read_csv(region_path, sep='\t', header=None,
 									 usecols=usecols)
-					regions = df.apply(lambda x: [
-						tuple(x[:n_chunk_dims]),
-						x[n_chunk_dims],
-						x[n_chunk_dims + 1]
-					], axis=1).tolist()
+					# Column-wise tolist() + zip yields native Python
+					# str/int (same as the old per-row DataFrame.apply)
+					# at ~20x the speed for large region files.
+					cols = [df[c].tolist() for c in df.columns]
+					regions = [
+						[tuple(r[:n_chunk_dims]), r[n_chunk_dims],
+						 r[n_chunk_dims + 1]]
+						for r in zip(*cols)
+					]
 				else:
 					raise ValueError(f"path {region_path} not existed.")
 			else:  # check format of regions
@@ -3315,25 +3416,13 @@ class Reader:
 			if printout:
 				sys.stdout.write('\t'.join(header) + '\n')
 				records = self._query_regions(regions, s, e)
-				try:
-					record = next(records)
-				except StopIteration:
-					return
-				while True:
-					try:
-						record = next(records)
-					except StopIteration:
-						break
-					try:
-						dims, row = record
-						try:
-							sys.stdout.write('\t'.join([str(d) for d in dims] +
-													   self._byte2str(row)) + '\n')
-						except BrokenPipeError:
-							return
-					except ValueError:  # len(record) ==3: #"primary_id_&_dim:", primary_id, dim
-						flag, primary_id, dim = record
-				sys.stdout.flush()
+				row_fmt = self._row_tsv_formatter()
+				pre_of = _dims_prefix_cache()
+				# Region markers ("primary_id_&_dim:", id, dim) are 3-tuples;
+				# data records are (dims, row) 2-tuples.
+				_write_stdout_lines(
+					pre_of(rec[0]) + row_fmt(rec[1]) + '\n'
+					for rec in records if len(rec) == 2)
 			else:
 				return self._query_iter(regions, s, e)
 		else:
@@ -3343,34 +3432,17 @@ class Reader:
 					  + self.header['columns'])
 			if printout:
 				sys.stdout.write('\t'.join(header) + '\n')
-				# query reference first
-				ref_records = ref_reader._query_regions(regions, s, e)
+				ref_fmt = ref_reader._row_tsv_formatter()
+				row_fmt = self._row_tsv_formatter()
+				pre_of = _dims_prefix_cache()
 				try:
-					flag, primary_id, dim = next(ref_records)
-				except StopIteration:
-					sys.stdout.flush()
+					_write_stdout_lines(
+						pre_of(dims) + ref_fmt(ref_row) + '\t'
+						+ row_fmt(row) + '\n'
+						for dims, ref_row, row in self._query_ref_rows(
+							regions, s, e, ref_reader))
+				finally:
 					ref_reader.close()
-					return
-				records = self._fetchByStartID(dim, n=primary_id)
-				while True:
-					try:
-						ref_record = next(ref_records)
-						record = self._byte2str(next(records))
-					except StopIteration:
-						break
-					try:
-						dims, row = ref_record
-						rows = ref_reader._byte2str(row) + record
-						try:
-							sys.stdout.write('\t'.join([str(d) for d in dims] + rows) + '\n')
-						except BrokenPipeError:
-							ref_reader.close()
-							return
-					except ValueError:  # len(record) ==3: #"primary_id_&_dim:", primary_id, dim
-						flag, primary_id, dim = ref_record  # next block or next dim
-						records = self._fetchByStartID(dim, n=primary_id)
-				sys.stdout.flush()
-				ref_reader.close()
 			else:
 				return self._query_iter_ref(regions, s, e, ref_reader)
 			ref_reader.close()
@@ -3425,28 +3497,28 @@ class Reader:
 
 	def _query_iter_ref(self, regions, s, e, ref_reader):
 		"""Yield region-query records joined onto ``ref_reader`` rows by primary id."""
-		ref_records = ref_reader._query_regions(regions, s, e)
-		try:
-			ref_record = next(ref_records)
-		except StopIteration:
-			ref_reader.close()
-			return
-		flag, primary_id, dim = ref_record
-		records = self._fetchByStartID(dim, n=primary_id)
-		while True:
-			try:
-				ref_record = next(ref_records)
-				record = self._byte2str(next(records))
-			except StopIteration:
-				break
-			try:
-				dims, row = ref_record
-				rows = ref_reader._byte2str(row) + record
-				yield list(dims) + rows
-			except ValueError:  # len(record) ==3: #"primary_id_&_dim:", primary_id, dim
-				flag, primary_id, dim = ref_record  # next block or next dim
-				records = self._fetchByStartID(dim, n=primary_id)
+		ref_b2s = ref_reader._byte2str
+		b2s = self._byte2str
+		for dims, ref_row, row in self._query_ref_rows(regions, s, e,
+		                                               ref_reader):
+			yield list(dims) + ref_b2s(ref_row) + b2s(row)
 		ref_reader.close()
+
+	def _query_ref_rows(self, regions, s, e, ref_reader):
+		"""Yield raw ``(dims, ref_row, row)`` tuples for a reference-joined
+		region query (this file is row-aligned to *ref_reader*)."""
+		records = None
+		for ref_record in ref_reader._query_regions(regions, s, e):
+			if len(ref_record) == 3:
+				# ("primary_id_&_dim:", primary_id, dim): a new region starts;
+				# re-position the row-aligned cursor. Only advance the cursor
+				# for real data rows (advancing it on markers read one row
+				# too many per region and overran the chunk end).
+				flag, primary_id, dim = ref_record
+				records = self._fetchByStartID(dim, n=primary_id)
+				continue
+			dims, ref_row = ref_record
+			yield dims, ref_row, next(records)
 
 	def _seek_and_read_1record(self, virtual_offset):
 		"""Seek to ``virtual_offset`` and return the single record there as a tuple."""
@@ -3751,6 +3823,37 @@ def _make_np_dtype(formats, columns):
 def _all_numeric_formats(formats):
 	"""Check if all formats are numeric (can use numpy fast path)."""
 	return all(_fmt_to_np_dtype(f[-1]) is not None for f in formats)
+
+
+def _unique_int_rows(rows):
+	"""``np.unique(rows, axis=0, return_inverse=True)`` for a 2-D array of
+	non-negative integers, much faster (one 1-D sort on a packed int64 key
+	instead of a structured-view sort). Falls back to ``axis=0`` when the
+	packed key could overflow or values are negative.
+
+	Returns ``(uniq_rows, inverse)`` with ``inverse`` 1-D; ``uniq_rows`` is
+	in the same (lexicographic) order as ``np.unique(axis=0)``.
+	"""
+	rows = np.asarray(rows)
+	if rows.ndim != 2 or rows.shape[0] == 0:
+		u, inv = np.unique(rows, axis=0, return_inverse=True)
+		return u, inv.reshape(-1)
+	rows = rows.astype(np.int64, copy=False)
+	if rows.min() >= 0:
+		spans = [int(v) + 1 for v in rows.max(axis=0)]
+		total = 1
+		for s_ in spans:
+			total *= s_
+		if total < (1 << 62):
+			key = rows[:, 0].copy()
+			for j in range(1, rows.shape[1]):
+				key *= spans[j]
+				key += rows[:, j]
+			_, first, inv = np.unique(key, return_index=True,
+			                          return_inverse=True)
+			return rows[first], inv.reshape(-1)
+	u, inv = np.unique(rows, axis=0, return_inverse=True)
+	return u, inv.reshape(-1)
 
 
 def _pack_chunk_data(rows_buf, writer):

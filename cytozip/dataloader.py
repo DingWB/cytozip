@@ -346,6 +346,11 @@ class CzWindowLoader:
         # can't be read concurrently through a single Reader. Threads borrow a
         # private Reader here and return it after each read.
         self._pool_lock = threading.Lock()
+        # Lazily-created thread pool reused by every multi-cell read (instead
+        # of spinning up a new ThreadPoolExecutor per window segment / chrom).
+        self._executor = None
+        self._executor_pid = None
+        self._exec_lock = threading.Lock()
         self._reader_pools = {}
         self._pooled_readers = []
         self._shared_paths = set()
@@ -375,10 +380,9 @@ class CzWindowLoader:
 
         path_specs = {}
         if self.threads > 1 and len(unique_paths) > 1:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=self.threads) as ex:
-                for p, specs in zip(unique_paths, ex.map(_enum, unique_paths)):
-                    path_specs[p] = specs
+            ex = self._get_executor()
+            for p, specs in zip(unique_paths, ex.map(_enum, unique_paths)):
+                path_specs[p] = specs
         else:
             for p in unique_paths:
                 path_specs[p] = _enum(p)
@@ -403,6 +407,25 @@ class CzWindowLoader:
         self.cov_col = _resolve_col(cols, cov_col, -1)
         self._sel_cache = {}   # chrom dim -> 0-based sel_ids (or None)
         self._ref_cache = {}   # chrom dim -> (pos, n_sites): reference axis reuse
+
+    def _get_executor(self):
+        """Return the loader's persistent worker pool (created on first use).
+
+        Re-created after a ``fork`` (e.g. torch DataLoader workers): a child
+        inherits the executor object but not its threads, so reusing it would
+        hang.
+        """
+        ex = self._executor
+        pid = os.getpid()
+        if ex is not None and self._executor_pid == pid:
+            return ex
+        with self._exec_lock:
+            if self._executor is None or self._executor_pid != pid:
+                from concurrent.futures import ThreadPoolExecutor
+                self._executor = ThreadPoolExecutor(
+                    max_workers=self.threads, thread_name_prefix="cz-loader")
+                self._executor_pid = pid
+            return self._executor
 
     @property
     def chroms(self):
@@ -634,9 +657,7 @@ class CzWindowLoader:
                 self._specs[i], dim, abs0, abs1, sel_local, width, n_sites)
 
         if self.threads > 1 and n_cells > 1:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=self.threads) as ex:
-                list(ex.map(_fill, range(n_cells)))
+            list(self._get_executor().map(_fill, range(n_cells)))
         else:
             for i in range(n_cells):
                 _fill(i)
@@ -847,9 +868,7 @@ class CzWindowLoader:
                 self._specs[i], dim, n_sites, sel_ids)
 
         if self.threads > 1 and n_cells > 1:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=self.threads) as ex:
-                list(ex.map(_fill, range(n_cells)))
+            list(self._get_executor().map(_fill, range(n_cells)))
         else:
             for i in range(n_cells):
                 _fill(i)
@@ -918,6 +937,11 @@ class CzWindowLoader:
 
     def close(self):
         """Close every reader opened by this loader."""
+        ex = getattr(self, "_executor", None)
+        if ex is not None:
+            if self._executor_pid == os.getpid():
+                ex.shutdown(wait=True)
+            self._executor = None
         readers = []
         if getattr(self, "_ref", None) is not None:
             readers.append(self._ref)

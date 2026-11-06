@@ -25,7 +25,8 @@ the generic :mod:`cytozip.cz` format layer.
 import os
 import multiprocessing
 from loguru import logger
-from .cz import (Reader, _STRUCT_TO_NP_DTYPE, _make_np_dtype, np, pd)
+from .cz import (Reader, _STRUCT_TO_NP_DTYPE, _make_np_dtype,
+                 _unique_int_rows, np, pd)
 
 
 def _parse_chrom_whitelist(chroms):
@@ -205,38 +206,134 @@ def _resolve_paths(arg):
     return [os.path.abspath(os.path.expanduser(p)) for p in items]
 
 
+def _binary_search_vec(f, d, lo, hi):
+    """Vectorised ``scipy.stats._binomtest._binary_search_for_binom_tst``.
+
+    For every element finds ``i`` in ``[lo, hi]`` with ``f(i) <= d < f(i+1)``
+    using exactly the same probe sequence as the scalar SciPy routine, so
+    the result is identical element-by-element.
+    """
+    lo = lo.copy()
+    hi = hi.copy()
+    out = np.empty_like(lo)
+    done = np.zeros(lo.shape, dtype=bool)
+    act = lo < hi
+    while act.any():
+        idx = np.flatnonzero(act)
+        l, h = lo[idx], hi[idx]
+        mid = l + (h - l) // 2
+        mv = f(mid, idx)
+        dd = d[idx]
+        eq = mv == d[idx]
+        out[idx[eq]] = mid[eq]
+        done[idx[eq]] = True
+        lt = mv < dd
+        gt = mv > dd
+        lo[idx[lt]] = mid[lt] + 1
+        hi[idx[gt]] = mid[gt] - 1
+        act = (lo < hi) & ~done
+    rest = np.flatnonzero(~done)
+    if rest.size:
+        ok = f(lo[rest], rest) <= d[rest]
+        out[rest] = np.where(ok, lo[rest], lo[rest] - 1)
+    return out
+
+
+def _fisher_two_sided_vec(a, b, c, d):
+    """Vectorised two-sided Fisher exact p-values for 2x2 tables
+    ``[[a, b], [c, d]]``.
+
+    Re-implements ``scipy.stats.fisher_exact(alternative='two-sided')``
+    on arrays: identical algorithm, the same ``hypergeom`` pmf/cdf/sf
+    kernels and the same tie tolerance, so p-values match SciPy exactly.
+    Tables with a negative entry (which SciPy rejects) get p = 1.
+    """
+    from scipy.stats import hypergeom
+    a = np.asarray(a, dtype=np.int64)
+    b = np.asarray(b, dtype=np.int64)
+    c = np.asarray(c, dtype=np.int64)
+    d = np.asarray(d, dtype=np.int64)
+    p = np.ones(a.shape, dtype=np.float64)
+    valid = ((a >= 0) & (b >= 0) & (c >= 0) & (d >= 0)
+             & (a + b > 0) & (c + d > 0) & (a + c > 0) & (b + d > 0))
+    vi = np.flatnonzero(valid)
+    if vi.size == 0:
+        return p
+    a, b, c, d = a[vi], b[vi], c[vi], d[vi]
+    n1 = a + b
+    M = n1 + c + d
+    n = a + c
+    mode = (((n + 1) * (n1 + 1)) / (M + 2)).astype(np.int64)
+    pexact = hypergeom.pmf(a, M, n1, n)
+    pmode = hypergeom.pmf(mode, M, n1, n)
+    eps = 1e-14
+    gamma = 1 + eps
+    res = np.ones(a.shape, dtype=np.float64)
+    tie = np.abs(pexact - pmode) / np.maximum(pexact, pmode) <= eps
+    target = pexact * gamma
+
+    low = ~tie & (a < mode)
+    li = np.flatnonzero(low)
+    if li.size:
+        plower = hypergeom.cdf(a[li], M[li], n1[li], n[li])
+        far = hypergeom.pmf(n[li], M[li], n1[li], n[li]) > target[li]
+        res[li[far]] = plower[far]
+        si = np.flatnonzero(~far)
+        if si.size:
+            g = li[si]
+            Mg, n1g, ng = M[g], n1[g], n[g]
+            guess = _binary_search_vec(
+                lambda x, k: -hypergeom.pmf(x, Mg[k], n1g[k], ng[k]),
+                -target[g], mode[g], ng)
+            res[g] = plower[si] + hypergeom.sf(guess, Mg, n1g, ng)
+
+    up = ~tie & (a >= mode)
+    ui = np.flatnonzero(up)
+    if ui.size:
+        pupper = hypergeom.sf(a[ui] - 1, M[ui], n1[ui], n[ui])
+        far = hypergeom.pmf(0, M[ui], n1[ui], n[ui]) > target[ui]
+        res[ui[far]] = pupper[far]
+        si = np.flatnonzero(~far)
+        if si.size:
+            g = ui[si]
+            Mg, n1g, ng = M[g], n1[g], n[g]
+            guess = _binary_search_vec(
+                lambda x, k: hypergeom.pmf(x, Mg[k], n1g[k], ng[k]),
+                target[g], np.zeros_like(g), mode[g])
+            res[g] = pupper[si] + hypergeom.cdf(guess, Mg, n1g, ng)
+
+    p[vi] = np.minimum(res, 1.0)
+    return p
+
+
 def _fisher_1v1_sites(mc_all, cov_all, keep):
     """Per-site Fisher's exact (two-sided) for the n_a=n_b=1 case.
 
     Returns ``(p_arr, delta_arr)`` matching ``rms_run_sites``' API.
-    Uses ``scipy.stats.fisher_exact`` and a small Python loop; intended
-    only for the degenerate 1-vs-1 layout where the permutation test
-    has very few distinct permutations.
+    Identical to calling ``scipy.stats.fisher_exact`` per site, but each
+    distinct ``(mc_a, uc_a, mc_b, uc_b)`` table is tested only once, and
+    all tests are evaluated in a single vectorised pass
+    (:func:`_fisher_two_sided_vec`).
     """
-    from scipy.stats import fisher_exact
     n = int(keep.size)
     p = np.ones(n, dtype=np.float64)
     da = np.zeros(n, dtype=np.float64)
     if n == 0:
         return p, da
-    m_a = mc_all[0, keep]; c_a = cov_all[0, keep]
-    m_b = mc_all[1, keep]; c_b = cov_all[1, keep]
-    u_a = c_a - m_a
-    u_b = c_b - m_b
-    for i in range(n):
-        ca = int(c_a[i]); cb = int(c_b[i])
-        if ca <= 0 or cb <= 0:
-            continue
-        try:
-            _, pv = fisher_exact(
-                [[int(m_a[i]), int(u_a[i])],
-                 [int(m_b[i]), int(u_b[i])]],
-                alternative='two-sided')
-        except Exception:
-            pv = 1.0
-        p[i] = float(pv)
-        da[i] = (float(m_a[i]) / float(ca)
-                 - float(m_b[i]) / float(cb))
+    m_a = np.asarray(mc_all[0, keep], dtype=np.int64)
+    c_a = np.asarray(cov_all[0, keep], dtype=np.int64)
+    m_b = np.asarray(mc_all[1, keep], dtype=np.int64)
+    c_b = np.asarray(cov_all[1, keep], dtype=np.int64)
+    ok = np.flatnonzero((c_a > 0) & (c_b > 0))
+    if ok.size == 0:
+        return p, da
+    tables = np.stack([m_a[ok], c_a[ok] - m_a[ok],
+                       m_b[ok], c_b[ok] - m_b[ok]], axis=1)
+    uniq, inv = _unique_int_rows(tables)
+    pu = _fisher_two_sided_vec(uniq[:, 0], uniq[:, 1], uniq[:, 2], uniq[:, 3])
+    p[ok] = pu[inv]
+    da[ok] = (m_a[ok].astype(np.float64) / c_a[ok]
+              - m_b[ok].astype(np.float64) / c_b[ok])
     return p, da
 
 
@@ -650,12 +747,10 @@ def call_dmr(group_a, group_b, reference, output,
         # Multi-process across chunks; each worker runs its own OpenMP
         # ``prange`` with ``n_thr`` threads.  Use 'spawn' to avoid
         # inheriting parent fds / loggers and to play nice with OpenMP.
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-        import multiprocessing as _mp
-        ctx = _mp.get_context('spawn')
-        with ProcessPoolExecutor(max_workers=n_proc,
-                                 mp_context=ctx) as ex:
-            futures = [ex.submit(_process_chunk_for_dmr, t) for t in tasks]
+        from concurrent.futures import as_completed
+        with _spawn_pool(n_proc) as ex:
+            futures = [ex.submit(_process_chunk_for_dmr, t)
+                       for t in _largest_first(tasks, ref_path, 4)]
             for fut in as_completed(futures):
                 _collect(fut.result())
                 n_done += 1
@@ -784,8 +879,35 @@ def _scan_global_ch(args):
     return mc.sum(axis=1, dtype=np.int64), cov.sum(axis=1, dtype=np.int64)
 
 
+def _largest_first(tasks, ref_path, dim_idx):
+    """Return *tasks* ordered by reference chunk size, largest first.
+
+    Longest-processing-time-first submission keeps big chromosomes (chr1,
+    chr2, ...) from landing at the tail of a process pool while the other
+    workers sit idle. Only used on the multi-process paths, whose results
+    are order-independent (summed or sorted afterwards).
+    """
+    try:
+        r = Reader(ref_path, mmap_advise="random")
+        try:
+            sizes = r.chunk_info['chunk_nrows'].to_dict()
+        finally:
+            r.close()
+    except Exception:
+        return list(tasks)
+    return sorted(tasks, key=lambda t: -int(sizes.get(t[dim_idx], 0)))
+
+
+def _spawn_pool(n_proc):
+    """Spawn-context process pool (avoids inheriting fds / OpenMP state)."""
+    from concurrent.futures import ProcessPoolExecutor
+    import multiprocessing as _mp
+    return ProcessPoolExecutor(max_workers=n_proc,
+                               mp_context=_mp.get_context('spawn'))
+
+
 def _compute_global_ch_rates(specs, ref_path, index_path, chunk_keys,
-                             mc_col, cov_col, n_proc):
+                             mc_col, cov_col, n_proc, executor=None):
     """Compute per-cell global mCH rate (mc_total / cov_total) over the
     selected chunks (and optional context index).
 
@@ -803,15 +925,18 @@ def _compute_global_ch_rates(specs, ref_path, index_path, chunk_keys,
     tasks = [(specs, ref_path, index_path, dim, mc_col, cov_col)
              for dim in chunk_keys]
     if n_proc > 1 and len(tasks) > 1:
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-        import multiprocessing as _mp
-        ctx = _mp.get_context('spawn')
-        with ProcessPoolExecutor(max_workers=n_proc, mp_context=ctx) as ex:
-            futures = [ex.submit(_scan_global_ch, t) for t in tasks]
+        from concurrent.futures import as_completed
+        ex = executor if executor is not None else _spawn_pool(n_proc)
+        try:
+            futures = [ex.submit(_scan_global_ch, t)
+                       for t in _largest_first(tasks, ref_path, 3)]
             for fut in as_completed(futures):
                 mc_part, cov_part = fut.result()
                 mc_tot += mc_part
                 cov_tot += cov_part
+        finally:
+            if executor is None:
+                ex.shutdown(wait=True)
     else:
         try:
             for t in tasks:
@@ -1368,106 +1493,112 @@ def call_dmr_ch(group_a, group_b, reference, output,
         f"(jobs={total} = {n_proc} proc x {n_thr} threads)")
 
     # ----- Optional global mCH rate pre-pass -------------------------
-    method = _resolve_normalize_method(normalize)
-    scale_a = scale_b = None
-    mc_a_tot = cov_a_tot = mc_b_tot = cov_b_tot = None
-    if method != 'none':
-        if global_a is None:
-            logger.info("call_dmr_ch: scanning group A for per-cell global rates")
-            ga, mc_a_tot, cov_a_tot = _compute_global_ch_rates(
-                a_specs, ref_path, index_path, chunk_keys,
-                mc_col, cov_col, n_proc)
-        else:
-            ga = np.asarray(global_a, dtype=np.float64)
-            if ga.shape[0] != len(a_specs):
-                raise ValueError("len(global_a) must match len(group_a)")
-        if global_b is None:
-            logger.info("call_dmr_ch: scanning group B for per-cell global rates")
-            gb, mc_b_tot, cov_b_tot = _compute_global_ch_rates(
-                b_specs, ref_path, index_path, chunk_keys,
-                mc_col, cov_col, n_proc)
-        else:
-            gb = np.asarray(global_b, dtype=np.float64)
-            if gb.shape[0] != len(b_specs):
-                raise ValueError("len(global_b) must match len(group_b)")
+    # One spawn pool shared by the global-rate pre-passes and the main scan
+    # (instead of up to three pools, each re-importing numpy/scipy/cytozip in
+    # every worker); workers also keep their cached Readers across phases.
+    pool = _spawn_pool(n_proc) if (n_proc > 1 and n_chunks > 1) else None
+    try:
+        method = _resolve_normalize_method(normalize)
+        scale_a = scale_b = None
+        mc_a_tot = cov_a_tot = mc_b_tot = cov_b_tot = None
+        if method != 'none':
+            if global_a is None:
+                logger.info("call_dmr_ch: scanning group A for per-cell global rates")
+                ga, mc_a_tot, cov_a_tot = _compute_global_ch_rates(
+                    a_specs, ref_path, index_path, chunk_keys,
+                    mc_col, cov_col, n_proc, executor=pool)
+            else:
+                ga = np.asarray(global_a, dtype=np.float64)
+                if ga.shape[0] != len(a_specs):
+                    raise ValueError("len(global_a) must match len(group_a)")
+            if global_b is None:
+                logger.info("call_dmr_ch: scanning group B for per-cell global rates")
+                gb, mc_b_tot, cov_b_tot = _compute_global_ch_rates(
+                    b_specs, ref_path, index_path, chunk_keys,
+                    mc_col, cov_col, n_proc, executor=pool)
+            else:
+                gb = np.asarray(global_b, dtype=np.float64)
+                if gb.shape[0] != len(b_specs):
+                    raise ValueError("len(global_b) must match len(group_b)")
 
-        scale_a, scale_b, target = _compute_normalization_scale(
-            ga, gb, mc_a_tot, cov_a_tot, mc_b_tot, cov_b_tot, method)
-        if scale_a is None:
-            logger.warning("call_dmr_ch: all per-cell global rates are zero; "
-                           "skipping normalization")
-        else:
-            logger.info(f"call_dmr_ch: normalized to global rate "
-                        f"target={target:.4f}; A scale range "
-                        f"[{scale_a.min():.2f},{scale_a.max():.2f}], "
-                        f"B scale range "
-                        f"[{scale_b.min():.2f},{scale_b.max():.2f}] "
-                        f"(method='{method}')")
+            scale_a, scale_b, target = _compute_normalization_scale(
+                ga, gb, mc_a_tot, cov_a_tot, mc_b_tot, cov_b_tot, method)
+            if scale_a is None:
+                logger.warning("call_dmr_ch: all per-cell global rates are zero; "
+                               "skipping normalization")
+            else:
+                logger.info(f"call_dmr_ch: normalized to global rate "
+                            f"target={target:.4f}; A scale range "
+                            f"[{scale_a.min():.2f},{scale_a.max():.2f}], "
+                            f"B scale range "
+                            f"[{scale_b.min():.2f},{scale_b.max():.2f}] "
+                            f"(method='{method}')")
 
-    tasks = [
-        (a_specs, b_specs, ref_path, index_path, dim, mc_col, cov_col,
-         int(bin_size),
-         scale_a, scale_b,
-         int(min_cov), int(min_samples_per_group),
-         int(n_permute), float(min_pvalue),
-         int(max_row_count), int(max_total_count),
-         int(n_thr),
-         bool(delta_prefilter),
-         float(log2fc_cutoff), float(abs_delta_cutoff))
-        for dim in chunk_keys
-    ]
+        tasks = [
+            (a_specs, b_specs, ref_path, index_path, dim, mc_col, cov_col,
+             int(bin_size),
+             scale_a, scale_b,
+             int(min_cov), int(min_samples_per_group),
+             int(n_permute), float(min_pvalue),
+             int(max_row_count), int(max_total_count),
+             int(n_thr),
+             bool(delta_prefilter),
+             float(log2fc_cutoff), float(abs_delta_cutoff))
+            for dim in chunk_keys
+        ]
 
-    dms_chrom = []
-    dms_pos = []
-    dms_p = []
-    dms_delta = []
-    dms_rate_a = []
-    dms_rate_b = []
+        dms_chrom = []
+        dms_pos = []
+        dms_p = []
+        dms_delta = []
+        dms_rate_a = []
+        dms_rate_b = []
 
-    def _collect(result):
-        dim, pos, p_arr, da_arr, ra, rb = result
-        if pos.size == 0:
-            return
-        chrom = dim[0]
-        # Normalized rate filter: log2fc + abs delta + p-value
-        with np.errstate(divide='ignore', invalid='ignore'):
-            log2fc = np.where((ra > 0) & (rb > 0),
-                              np.log2(np.maximum(ra, 1e-12)
-                                      / np.maximum(rb, 1e-12)),
-                              0.0)
-        sig = ((p_arr < p_value_cutoff)
-               & (np.abs(log2fc) >= log2fc_cutoff)
-               & (np.abs(ra - rb) >= abs_delta_cutoff))
-        if not sig.any():
-            return
-        dms_pos.append(pos[sig])
-        dms_p.append(p_arr[sig])
-        dms_delta.append((ra - rb)[sig])
-        dms_rate_a.append(ra[sig])
-        dms_rate_b.append(rb[sig])
-        dms_chrom.append(np.full(int(sig.sum()), chrom, dtype=object))
+        def _collect(result):
+            dim, pos, p_arr, da_arr, ra, rb = result
+            if pos.size == 0:
+                return
+            chrom = dim[0]
+            # Normalized rate filter: log2fc + abs delta + p-value
+            with np.errstate(divide='ignore', invalid='ignore'):
+                log2fc = np.where((ra > 0) & (rb > 0),
+                                  np.log2(np.maximum(ra, 1e-12)
+                                          / np.maximum(rb, 1e-12)),
+                                  0.0)
+            sig = ((p_arr < p_value_cutoff)
+                   & (np.abs(log2fc) >= log2fc_cutoff)
+                   & (np.abs(ra - rb) >= abs_delta_cutoff))
+            if not sig.any():
+                return
+            dms_pos.append(pos[sig])
+            dms_p.append(p_arr[sig])
+            dms_delta.append((ra - rb)[sig])
+            dms_rate_a.append(ra[sig])
+            dms_rate_b.append(rb[sig])
+            dms_chrom.append(np.full(int(sig.sum()), chrom, dtype=object))
 
-    n_done = 0
-    if n_proc > 1 and len(tasks) > 1:
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-        import multiprocessing as _mp
-        ctx = _mp.get_context('spawn')
-        with ProcessPoolExecutor(max_workers=n_proc, mp_context=ctx) as ex:
-            futures = [ex.submit(_process_chunk_for_dmr_ch, t) for t in tasks]
+        n_done = 0
+        if pool is not None and len(tasks) > 1:
+            from concurrent.futures import as_completed
+            futures = [pool.submit(_process_chunk_for_dmr_ch, t)
+                       for t in _largest_first(tasks, ref_path, 4)]
             for fut in as_completed(futures):
                 _collect(fut.result())
                 n_done += 1
                 if n_done % 50 == 0:
                     logger.info(f"  processed {n_done}/{len(tasks)} chunks")
-    else:
-        try:
-            for t in tasks:
-                _collect(_process_chunk_for_dmr_ch(t))
-                n_done += 1
-                if n_done % 50 == 0:
-                    logger.info(f"  processed {n_done}/{len(tasks)} chunks")
-        finally:
-            _close_cached_readers()
+        else:
+            try:
+                for t in tasks:
+                    _collect(_process_chunk_for_dmr_ch(t))
+                    n_done += 1
+                    if n_done % 50 == 0:
+                        logger.info(f"  processed {n_done}/{len(tasks)} chunks")
+            finally:
+                _close_cached_readers()
+    finally:
+        if pool is not None:
+            pool.shutdown(wait=True)
 
     if dms_pos:
         dms_df = pd.DataFrame({

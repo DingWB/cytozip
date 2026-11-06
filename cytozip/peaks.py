@@ -42,12 +42,20 @@ def _write_pseudo_reads(fh, chrom, pos, sig, half):
     sig = sig[keep]
     if pos.size == 0:
         return 0
-    expanded = np.repeat(pos, sig)
-    starts = np.maximum(0, expanded - half)
-    ends = expanded + half
-    pd.DataFrame({'chrom': chrom, 'start': starts, 'end': ends}).to_csv(
-        fh, sep='\t', header=False, index=False)
-    return int(starts.size)
+    # All ``sig`` copies of a site are the same line, so format each site
+    # once and repeat the string (no np.repeat expansion / DataFrame /
+    # to_csv). Written in bounded segments to cap peak memory. Output is
+    # byte-identical to the previous DataFrame.to_csv route.
+    starts = np.maximum(0, pos - half)
+    ends = pos + half
+    pre = f"{chrom}\t"
+    seg = 200_000
+    for i in range(0, pos.size, seg):
+        fh.write(''.join([
+            f"{pre}{s}\t{e}\n" * k for s, e, k in zip(
+                starts[i:i + seg].tolist(), ends[i:i + seg].tolist(),
+                sig[i:i + seg].tolist())]))
+    return int(sig.sum())
 
 
 def _concat_files(paths, dest):

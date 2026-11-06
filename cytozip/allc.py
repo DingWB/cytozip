@@ -129,6 +129,31 @@ def WriteC(record, outdir, batch_size=5000, delta_cols=None):
 
 
 # ==========================================================
+def _fasta_names_lengths(genome):
+    """``[(name, length), ...]`` of an indexable fasta in file order, or
+    None when pysam cannot open / index it (callers fall back to
+    Biopython parsing)."""
+    try:
+        import pysam
+        with pysam.FastaFile(genome) as fa:
+            return list(zip(fa.references, fa.lengths))
+    except Exception as e:
+        logger.debug(f"pysam cannot index {genome} ({e}); using Biopython")
+        return None
+
+
+def _write_c_from_fasta(genome, chrom, outdir, batch_size=5000,
+                        delta_cols=None):
+    """Worker: fetch one chromosome via faidx and run :func:`WriteC`."""
+    import pysam
+    from Bio.Seq import Seq
+    from Bio.SeqRecord import SeqRecord
+    with pysam.FastaFile(genome) as fa:
+        seq = fa.fetch(chrom)
+    return WriteC(SeqRecord(Seq(seq), id=chrom), outdir, batch_size,
+                  delta_cols)
+
+
 class AllC:
     def __init__(self, genome=None, output="hg38_allc.cz",
                  pattern="C", jobs=12, keep_temp=False, delta=True,
@@ -208,14 +233,30 @@ class AllC:
         ``self.outdir``. Records absent from ``self.chrom_set`` (when a
         ``chroms`` whitelist was given) are skipped.
         """
+        # Fast path: with an indexable fasta, workers fetch their own
+        # chromosome by name (pysam/faidx) instead of the parent parsing the
+        # whole genome with Biopython and pickling every multi-100MB
+        # SeqRecord through the pool. Largest chromosomes are submitted
+        # first so the longest jobs don't start last.
+        names_lens = _fasta_names_lengths(self.genome) \
+            if self.func is WriteC else None
         pool = multiprocessing.Pool(self.jobs)
         tasks = []
-        for record in self.records:
-            # Skip sequences not in the requested chromosome list (if any).
-            if self.chrom_set is not None and record.id not in self.chrom_set:
-                continue
-            task = pool.apply_async(self.func, (record, self.outdir, 5000, self.delta_cols))
-            tasks.append(task)
+        if names_lens is not None:
+            todo = [(n, ln) for n, ln in names_lens
+                    if self.chrom_set is None or n in self.chrom_set]
+            todo.sort(key=lambda x: -x[1])
+            for name, _ in todo:
+                tasks.append(pool.apply_async(
+                    _write_c_from_fasta,
+                    (self.genome, name, self.outdir, 5000, self.delta_cols)))
+        else:
+            for record in self.records:
+                # Skip sequences not in the requested chromosome list.
+                if self.chrom_set is not None and record.id not in self.chrom_set:
+                    continue
+                task = pool.apply_async(self.func, (record, self.outdir, 5000, self.delta_cols))
+                tasks.append(task)
         for task in tasks:
             task.get()
         pool.close()

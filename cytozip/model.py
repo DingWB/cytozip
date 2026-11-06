@@ -129,10 +129,13 @@ def estimate_theta(mc, cov, alpha0=1.0, beta0=1.0, dtype=np.float32):
     """
     if alpha0 <= 0 or beta0 <= 0:
         raise ValueError("alpha0 and beta0 must both be > 0 for shrinkage.")
-    mc = np.asarray(mc, dtype=np.float64)
-    cov = np.asarray(cov, dtype=np.float64)
-    theta = (mc + alpha0) / (cov + alpha0 + beta0)
-    return theta.astype(dtype)
+    # Compute directly in the output precision (float32 by default): no
+    # float64 copies of the (genome-scale) count arrays. Counts are exact in
+    # float32 up to 2**24, so only the final division rounds.
+    work = np.result_type(dtype, np.float32)
+    theta = np.asarray(mc, dtype=work) + work.type(alpha0)
+    theta /= np.asarray(cov, dtype=work) + work.type(alpha0 + beta0)
+    return theta.astype(dtype, copy=False)
 
 
 # ==========================================================
@@ -559,6 +562,9 @@ def _select_discriminative(theta, top=None, min_range=0.0):
 
 
 # ==========================================================
+_GRAM_BLOCK = 65536
+
+
 def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
                      allow_unknown=False):
     """Reference-based deconvolution: bulk ``beta`` -> cell-type fractions.
@@ -603,7 +609,9 @@ def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
     """
     from scipy.optimize import nnls, minimize
 
-    theta = np.asarray(theta, dtype=np.float64)
+    theta = np.asarray(theta)
+    if theta.dtype.kind != 'f':
+        theta = theta.astype(np.float64)
     beta = np.asarray(beta, dtype=np.float64)
     if theta.ndim != 2:
         raise ValueError("theta must be a 2-D (n_sites, n_types) matrix.")
@@ -612,24 +620,46 @@ def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
         raise ValueError("theta and beta must share the site axis length.")
     if n_sites == 0:
         raise ValueError("no sites to deconvolve.")
-    if weight is None:
-        A, b = theta, beta
-    else:
+    sw = None
+    if weight is not None:
         sw = np.sqrt(np.clip(np.asarray(weight, dtype=np.float64), 0.0, None))
-        A = theta * sw[:, None]
-        b = beta * sw
+    b = beta if sw is None else beta * sw
+
+    # Normal equations, accumulated in row blocks: the weighted design
+    # A = theta * sqrt(w) is never materialised as one (n_sites, n_types)
+    # float64 copy, and every solve below only touches k x k matrices.
+    AtA = np.zeros((n_types, n_types), dtype=np.float64)
+    Atb = np.zeros(n_types, dtype=np.float64)
+    for s0 in range(0, n_sites, _GRAM_BLOCK):
+        Ab = theta[s0:s0 + _GRAM_BLOCK].astype(np.float64)
+        if sw is not None:
+            Ab *= sw[s0:s0 + _GRAM_BLOCK, None]
+        AtA += Ab.T @ Ab
+        Atb += Ab.T @ b[s0:s0 + _GRAM_BLOCK]
+
+    def _nnls():
+        # min ||A f - b|| s.t. f >= 0  ==  min ||R f - d|| with AtA = R'R,
+        # R' d = Atb (same minimiser, k x k instead of n_sites x k). Falls
+        # back to the tall problem if AtA is not positive definite.
+        from scipy.linalg import cholesky, solve_triangular, LinAlgError
+        try:
+            R = cholesky(AtA, lower=False)
+            d = solve_triangular(R, Atb, trans='T', lower=False)
+            return nnls(R, d)[0]
+        except (LinAlgError, ValueError):
+            A = theta.astype(np.float64)
+            if sw is not None:
+                A = A * sw[:, None]
+            return nnls(A, b)[0]
 
     if n_types == 1:
         frac = np.array([1.0] if sum_to_one else
-                        [max(0.0, (A[:, 0] @ b) / (A[:, 0] @ A[:, 0]))])
+                        [max(0.0, Atb[0] / AtA[0, 0])])
     elif not sum_to_one:
-        frac, _ = nnls(A, b)
+        frac = _nnls()
     else:
         # Constrained QP: min ||A f - b||^2 s.t. f >= 0 and either
         # sum(f) == 1 (allow_unknown=False) or sum(f) <= 1 (allow_unknown=True).
-        AtA = A.T @ A
-        Atb = A.T @ b
-
         def _obj(f):
             return float(f @ (AtA @ f) - 2.0 * (Atb @ f))
 
@@ -642,7 +672,7 @@ def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
         else:
             cons = [{'type': 'eq', 'fun': lambda f: np.sum(f) - 1.0,
                      'jac': lambda f: np.ones(n_types)}]
-        f0, _ = nnls(A, b)
+        f0 = _nnls()
         s0 = f0.sum()
         f0 = f0 / s0 if s0 > 0 else np.full(n_types, 1.0 / n_types)
         res = minimize(_obj, f0, jac=_grad, method='SLSQP',
@@ -652,10 +682,11 @@ def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
         if not allow_unknown and frac.sum() > 0:
             frac = frac / frac.sum()
 
-    resid = A @ frac - b
+    resid = theta @ frac - beta
+    if sw is not None:
+        resid *= sw
     ss_res = float(resid @ resid)
-    bw = b
-    ss_tot = float(((bw - bw.mean()) ** 2).sum())
+    ss_tot = float(((b - b.mean()) ** 2).sum())
     r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float('nan')
     return frac.astype(np.float64), r2
 
@@ -2141,7 +2172,10 @@ class CellTypeClassifier:
                     continue
                 mc = np.asarray(mc_k[s], dtype=np.float64)[obs]
                 cov = cov[obs]
-                theta = np.exp(np.asarray(lt[lo:hi], dtype=np.float64)[obs])
+                # Stay in the tables' float32: _solve_fractions accumulates
+                # the normal equations in float64 blocks, so a float64 copy
+                # of the whole design matrix is unnecessary.
+                theta = np.exp(np.asarray(lt[lo:hi])[obs])
                 thetas.append(theta)
                 betas.append(np.clip(mc / cov, 0.0, 1.0))
                 weights.append(cov if weight_by_cov
