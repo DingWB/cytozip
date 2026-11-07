@@ -25,7 +25,12 @@ import zlib
 
 from bisect import bisect_right
 
-cimport openmp
+# OpenMP runtime calls via a shim header: real <omp.h> when the extension is
+# compiled with OpenMP, serial stand-ins otherwise (e.g. Apple clang), so the
+# module builds everywhere and ``prange`` degrades to a plain loop.
+cdef extern from "_omp_shim.h" nogil:
+    int omp_get_max_threads()
+    int omp_get_thread_num()
 from cython.parallel cimport prange
 
 # ---------------------------------------------------------------------------
@@ -180,7 +185,7 @@ cdef bytes _parse_blocks_from_buffer(bytes raw_all):
     if n_threads > 1:
         with nogil:
             for i in prange(n, num_threads=n_threads, schedule='static'):
-                tid = openmp.omp_get_thread_num()
+                tid = omp_get_thread_num()
                 actual_local = 0
                 rc = libdeflate_deflate_decompress(
                     decoms[tid],
@@ -644,7 +649,7 @@ cdef bytes _parse_blocks_from_buffer_delta(bytes raw_all, object delta_dtype, ob
     if n_threads > 1:
         with nogil:
             for i in prange(n, num_threads=n_threads, schedule='static'):
-                tid = openmp.omp_get_thread_num()
+                tid = omp_get_thread_num()
                 actual_local = 0
                 rc = libdeflate_deflate_decompress(
                     decoms[tid],
@@ -810,7 +815,7 @@ cdef int _get_inflate_threads_setting():
             n = 0
     if n <= 0:
         # Default: cap at 4 to avoid oversubscription on shared nodes.
-        omp_max = openmp.omp_get_max_threads()
+        omp_max = omp_get_max_threads()
         n = omp_max if omp_max < 4 else 4
     if n < 1:
         n = 1
@@ -890,7 +895,7 @@ cdef int _get_deflate_threads_setting():
             n = 0
     if n <= 0:
         # Default: cap at 4 to avoid oversubscription on shared nodes.
-        omp_max = openmp.omp_get_max_threads()
+        omp_max = omp_get_max_threads()
         n = omp_max if omp_max < 4 else 4
     if n < 1:
         n = 1
@@ -1022,7 +1027,7 @@ def c_compress_blocks_parallel(blocks, level=6):
             for i in prange(n, num_threads=n_threads, schedule='static'):
                 if err_codes[i] == 0:
                     actual_local = libdeflate_deflate_compress(
-                        comps_for_level[openmp.omp_get_thread_num()],
+                        comps_for_level[omp_get_thread_num()],
                         in_ptrs[i], <size_t> in_lens[i],
                         out_bufs[i], out_caps[i])
                     out_actual[i] = actual_local

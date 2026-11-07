@@ -165,6 +165,42 @@ python -c "import cytozip.cz_accel; print(cytozip.cz_accel.__file__)"
 python -c "from cytozip.cz import Reader"
 ```
 
+### Platforms & the native build
+
+`setup.py` builds three Cython extensions — `cz_accel` (libdeflate inflate/deflate,
+OpenMP), `dmr_accel` (OpenMP permutation test) and the optional `_bam_pileup`
+(htslib). It is platform-aware:
+
+| | Linux | macOS | Windows |
+|---|---|---|---|
+| compiler | gcc (forced unless `CC` set) | whatever `CC`/`sysconfig` says: conda-forge clang or Apple clang | not supported |
+| OpenMP | `-fopenmp` | probed at build time: `-fopenmp` (conda clang + `llvm-openmp`) → `-Xpreprocessor -fopenmp -lomp` (Homebrew `libomp`) → **none** | – |
+| search prefixes for libdeflate / htslib / omp.h | `$PREFIX`, `$CONDA_PREFIX`, `/usr/local` | `$PREFIX`, `$CONDA_PREFIX`, `brew --prefix {,libdeflate,htslib,libomp}`, `/opt/homebrew`, `/opt/local`, `/usr/local` | – |
+| rpath | `-Wl,-rpath,<prefix>/lib` for every prefix that exists (so conda/Homebrew dylibs resolve without `(DY)LD_LIBRARY_PATH`) | same | – |
+
+- **No OpenMP is not fatal.** The `.pyx` files get `omp_get_max_threads` /
+  `omp_get_thread_num` from `cytozip/_omp_shim.h`, which includes the real
+  `<omp.h>` when `_OPENMP` is defined and otherwise supplies serial stand-ins;
+  Cython lowers `prange` to a plain loop. The module then runs single-threaded
+  (block inflate, parallel deflate, DMR permutations) but produces identical
+  results. `CYTOZIP_OPENMP=0` forces this; `CYTOZIP_OPENMP=1` skips the probe
+  and uses the conventional flag.
+- **Pure-Python fallbacks must stay bit-identical** to the Cython ones: every
+  read path (`fetch_chunk_bytes`, `__fetch__`, `_load_block`) delta-decodes
+  through `Reader._delta_decode_block_bytes`, block by block. A regression test
+  (`tests/test_pure_python_fallback.py`) disables all `_c_*` accelerators and
+  compares against the accelerated output; run it after touching either side.
+- `_bam_pileup` is only built when `htslib/sam.h` is found in a search prefix
+  (or `CYTOZIP_FORCE_HTSLIB=1`). Build inside the activated conda env that has
+  htslib (`CONDA_PREFIX` must point at it), otherwise `bam_to_cz` silently
+  falls back to the `samtools mpileup` subprocess backend.
+- Windows: `Reader` uses `mmap(..., prot=PROT_READ)` / `madvise`, `merge` uses
+  `os.fork`, `model._RowReader` uses `os.pread`, and `pysam` / `htslib` /
+  `samtools` have no Windows builds — use WSL2.
+- CI (`.github/workflows/test.yml`) builds and runs the unit tests on
+  ubuntu, macos-13 (x86_64) and macos-latest (arm64) with the conda-forge
+  toolchain, plus a stock-Apple-clang + Homebrew job for the serial build.
+
 ## Reference file
 ```shell
 time czip build_ref -g ~/Ref/mm10/mm10_ucsc_with_chrL.fa -O ~/Ref/mm10/annotations/mm10_with_chrL.allc.cz -j 20
@@ -730,7 +766,7 @@ conda install -c bioconda cytozip
 conda create -y -p ~/Software/conda/czbuild -c conda-forge \
     conda-build conda-forge-pinning anaconda-client
 # update meta.yaml (version & sha256sum)
-curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.4.1.tar.gz | sha256sum
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.4.2.tar.gz | sha256sum
 
 conda activate ~/Software/conda/czbuild
 rm -rf conda-build
@@ -739,7 +775,8 @@ for PY in 3.10 3.11 3.12 3.13; do
 done
 # anaconda login # or use token: export ANACONDA_API_TOKEN=
 anaconda upload conda-build/*/cytozip-*.conda -u wubinding
-
+env m3c
+conda remove cytozip
 conda install -c wubinding -c bioconda cytozip
 ```
 

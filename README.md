@@ -17,14 +17,26 @@ conda install -c wubinding -c bioconda cytozip
 ### pip
 ```shell
 # Prerequisites (one of):
-conda install -c bioconda htslib libdeflate samtools         # recommended
+conda install -c bioconda htslib libdeflate samtools         # recommended (Linux & macOS)
 # apt-get install libhts-dev libdeflate-dev samtools          # Debian/Ubuntu
-# brew install htslib libdeflate samtools                     # macOS
+# brew install libdeflate htslib samtools libomp              # macOS (Homebrew)
 pip install cytozip
 # or reinstall
 pip uninstall -y cytozip && pip install git+http://github.com/DingWB/cytozip
 
 ```
+
+### Supported platforms
+| | Linux | macOS (Intel / Apple Silicon) | Windows |
+|---|---|---|---|
+| conda / pip install | yes | yes | not supported natively (use WSL) |
+| multi-threaded inflate / DMR (OpenMP) | gcc | conda-forge clang + `llvm-openmp`, or Homebrew `libomp`; plain Apple clang builds a single-threaded fallback | – |
+| `bam_to_cz` fast htslib backend | yes | yes (htslib from conda/Homebrew); otherwise falls back to `samtools mpileup` | – |
+
+On macOS `setup.py` probes the compiler: with conda-forge compilers (`conda install c-compiler llvm-openmp`)
+or Homebrew `libomp` the extensions are built with OpenMP; with stock Apple clang they build without it
+(`prange` loops run serially) — everything still works, only block inflate and DMR permutation run on one core.
+Windows is not supported because `pysam` / `htslib` / `samtools` have no Windows builds; use WSL2.
 
 ## Implementation
 |                                  | allcools | ballcools | cytozip |

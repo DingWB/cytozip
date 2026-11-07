@@ -20,6 +20,8 @@ include conda-recipe/meta.yaml
 # without Cython (bioconda declares cython in ``host:`` so it's fine,
 # but pip users get a fallback).
 include cytozip/*.pyx
+# OpenMP shim header included by the .pyx (serial fallback without OpenMP).
+include cytozip/*.h
 # NOTE: we deliberately do NOT ship the pre-generated ``cytozip/*.c``
 # files. Cython's ``cythonize()`` will use an existing ``.c`` verbatim
 # if it's shipped alongside the ``.pyx``, which locks the numpy C API

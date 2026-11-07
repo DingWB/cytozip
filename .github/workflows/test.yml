@@ -1,0 +1,92 @@
+# Build and test cytozip on Linux and macOS (x86_64 + Apple Silicon).
+#
+# Two macOS flavours are exercised:
+#   * conda-forge toolchain (clang + llvm-openmp, htslib from bioconda): the
+#     fully featured build, same as the bioconda package.
+#   * stock Apple clang + Homebrew libdeflate, no OpenMP and no htslib: the
+#     serial fallback build (`_omp_shim.h`) + `samtools mpileup` backend.
+name: Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  conda:
+    name: conda (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.11"
+          - os: macos-13        # Intel
+            python: "3.11"
+          - os: macos-latest    # Apple Silicon (arm64)
+            python: "3.12"
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          python-version: ${{ matrix.python }}
+          channels: conda-forge,bioconda
+          channel-priority: strict
+          activate-environment: cz
+      - name: Install build + runtime deps
+        run: |
+          mamba install -y c-compiler cython "numpy>=2" setuptools setuptools_scm \
+            libdeflate htslib samtools pysam pandas loguru fsspec requests \
+            anndata scipy biopython pytest
+          if [[ "$RUNNER_OS" == "macOS" ]]; then mamba install -y llvm-openmp; fi
+      - name: Build & install
+        run: |
+          export CYTOZIP_FORCE_HTSLIB=1
+          pip install . --no-deps --no-build-isolation -v 2>&1 | grep -E "OpenMP|NOTE|error" || true
+          pip install . --no-deps --no-build-isolation
+      - name: Smoke test
+        run: |
+          cd /tmp
+          python -c "import cytozip, cytozip.cz_accel, cytozip.dmr_accel, cytozip._bam_pileup; print(cytozip.__version__)"
+          czip --help > /dev/null
+      - name: Unit tests
+        run: |
+          cd $GITHUB_WORKSPACE
+          pytest -q tests/test_pure_python_fallback.py tests/test_delta_index.py \
+                    tests/test_uint.py tests/test_catcz.py
+
+  macos-apple-clang:
+    name: macOS stock clang + Homebrew (serial build)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Homebrew libdeflate (no libomp, no htslib on purpose)
+        run: brew install libdeflate
+      - name: Build & install
+        run: |
+          pip install --upgrade pip
+          pip install cython "numpy>=2" setuptools setuptools_scm pytest
+          pip install . --no-build-isolation -v 2>&1 | grep -E "OpenMP|NOTE|error" || true
+          pip install . --no-build-isolation
+      - name: Smoke test (serial extensions, pure-Python fallbacks)
+        run: |
+          cd /tmp
+          python -c "import cytozip, cytozip.cz_accel, cytozip.dmr_accel; print(cytozip.__version__)"
+          czip --help > /dev/null
+      - name: Unit tests
+        run: |
+          pytest -q tests/test_pure_python_fallback.py tests/test_delta_index.py \
+                    tests/test_uint.py tests/test_catcz.py

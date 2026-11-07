@@ -2420,31 +2420,41 @@ class Reader:
 			if len(cache) > self.max_cache:
 				cache.popitem(last=False)
 
+	def _delta_decode_block_bytes(self, buf):
+		"""Return one decompressed block with its delta columns decoded.
+
+		Delta encoding is per block (each block starts with an absolute
+		value, followed by differences), so this must be applied to every
+		block **individually**, before blocks are concatenated. Uses the
+		Cython kernel when available, otherwise a numpy ``cumsum``; both the
+		block path (:meth:`_load_block`) and the whole-chunk fallbacks
+		(:meth:`fetch_chunk_bytes`, :meth:`__fetch__`) go through here so a
+		build without the accelerator decodes exactly the same way.
+		"""
+		if not self._delta_cols or len(buf) < self._unit_size:
+			return buf
+		if not isinstance(buf, bytes):
+			buf = bytes(buf)
+		if _c_delta_decode_block is not None:
+			return _c_delta_decode_block(
+				buf, self._delta_np_dtype, self._delta_col_names)
+		n_rec = len(buf) // self._unit_size
+		body_len = n_rec * self._unit_size
+		arr = np.frombuffer(buf, dtype=self._delta_np_dtype, count=n_rec).copy()
+		if n_rec > 1:
+			for name in self._delta_col_names:
+				arr[name] = np.cumsum(arr[name])
+		if body_len == len(buf):
+			return arr.tobytes()
+		return arr.tobytes() + buf[body_len:]
+
 	def _delta_decode_buffer(self):
 		"""Undo per-column delta encoding of ``self._buffer`` in place."""
-		# Undo per-column delta encoding (in-block cumsum on the designated
-		# integer columns). Delta files are always written record-aligned, so
-		# the buffer contains an integral number of records starting at byte 0
-		# and there is no partial leading/trailing record to preserve.
+		# Delta files are always written record-aligned, so the buffer holds
+		# an integral number of records starting at byte 0 and there is no
+		# partial leading/trailing record to preserve.
 		if self._delta_cols and len(self._buffer) >= self._unit_size:
-			if _c_delta_decode_block is not None:
-				buf = self._buffer
-				if not isinstance(buf, bytes):
-					buf = bytes(buf)
-				self._buffer = _c_delta_decode_block(
-					buf, self._delta_np_dtype, self._delta_col_names)
-				return
-			n_rec = len(self._buffer) // self._unit_size
-			body_len = n_rec * self._unit_size
-			arr = np.frombuffer(self._buffer, dtype=self._delta_np_dtype,
-			                    count=n_rec).copy()
-			if n_rec > 1:
-				for name in self._delta_col_names:
-					arr[name] = np.cumsum(arr[name])
-			if body_len == len(self._buffer):
-				self._buffer = arr.tobytes()
-			else:
-				self._buffer = arr.tobytes() + bytes(self._buffer[body_len:])
+			self._buffer = self._delta_decode_block_bytes(self._buffer)
 
 	def _decode_record(self, values, stringify_numeric):
 		"""Decode bytes fields to UTF-8 strings; optionally stringify numeric fields.
@@ -3278,21 +3288,8 @@ class Reader:
 						yield result[s:e]
 			return
 		# Fallback: bulk-read all compressed blocks in one I/O, then
-		# decompress and unpack in memory (avoids N seek+read syscalls).
-		self._handle.seek(self._chunk_start_offset + 10)
-		_all_compressed = self._handle.read(self._chunk_size - 10)
-		_parts = []
-		_off = 0
-		while _off + 6 <= len(_all_compressed):
-			if _all_compressed[_off:_off + 2] != _block_magic:
-				break
-			_bsize = _struct_I.unpack_from(_all_compressed, _off + 2)[0]
-			if _off + _bsize > len(_all_compressed):
-				break
-			_parts.append(zlib.decompress(
-				_all_compressed[_off + 6:_off + _bsize - 4], -15))
-			_off += _bsize
-		_cached_data = b"".join(_parts)
+		# decompress (and delta-decode, per block) in memory.
+		_cached_data = self._inflate_chunk_blocks_py()
 		if _cached_data:
 			if _c_unpack_records is not None:
 				for result in _c_unpack_records(_cached_data, self.fmts):
@@ -3341,22 +3338,32 @@ class Reader:
 			)
 		else:
 			# Fallback: bulk-read all compressed data in one I/O, then
-			# decompress blocks from the in-memory buffer.
-			self._handle.seek(self._chunk_start_offset + 10)
-			_all_compressed = self._handle.read(self._chunk_size - 10)
-			chunks = []
-			_off = 0
-			while _off + 6 <= len(_all_compressed):
-				if _all_compressed[_off:_off + 2] != _block_magic:
-					break
-				_bsize = _struct_I.unpack_from(_all_compressed, _off + 2)[0]
-				if _off + _bsize > len(_all_compressed):
-					break
-				chunks.append(zlib.decompress(
-					_all_compressed[_off + 6:_off + _bsize - 4], -15))
-				_off += _bsize
-			raw = b"".join(chunks)
+			# decompress (and delta-decode) blocks from the in-memory buffer.
+			raw = self._inflate_chunk_blocks_py()
 		return raw
+
+	def _inflate_chunk_blocks_py(self):
+		"""Pure-Python whole-chunk inflate for the currently loaded chunk.
+
+		Reads the chunk's compressed region in one I/O, inflates every block
+		with ``zlib`` and applies the per-block delta decode
+		(:meth:`_delta_decode_block_bytes`), returning the concatenated
+		record bytes — the same output as the Cython ``c_fetch_chunk``.
+		"""
+		self._handle.seek(self._chunk_start_offset + 10)
+		_all_compressed = self._handle.read(self._chunk_size - 10)
+		parts = []
+		_off = 0
+		while _off + 6 <= len(_all_compressed):
+			if _all_compressed[_off:_off + 2] != _block_magic:
+				break
+			_bsize = _struct_I.unpack_from(_all_compressed, _off + 2)[0]
+			if _off + _bsize > len(_all_compressed):
+				break
+			blk = zlib.decompress(_all_compressed[_off + 6:_off + _bsize - 4], -15)
+			parts.append(self._delta_decode_block_bytes(blk))
+			_off += _bsize
+		return b"".join(parts)
 
 
 	@classmethod

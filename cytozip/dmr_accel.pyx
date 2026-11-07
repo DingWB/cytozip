@@ -31,7 +31,12 @@ from libc.stdlib cimport malloc, free, rand, srand, RAND_MAX
 from libc.math cimport sqrt
 from libc.stdint cimport int64_t
 from cython.parallel cimport prange
-cimport openmp
+# OpenMP runtime calls via a shim header: real <omp.h> when the extension is
+# compiled with OpenMP, serial stand-ins otherwise (e.g. Apple clang), so the
+# module builds everywhere and ``prange`` degrades to a plain loop.
+cdef extern from "_omp_shim.h" nogil:
+    int omp_get_max_threads()
+    int omp_get_thread_num()
 
 cnp.import_array()
 
@@ -277,7 +282,7 @@ def rms_run_sites(cnp.ndarray[cnp.int64_t, ndim=2, mode='c'] mc not None,
     # strides[1] == 1.  We index as [row * stride0 + col].
 
     if n_threads <= 0:
-        max_threads = openmp.omp_get_max_threads()
+        max_threads = omp_get_max_threads()
     else:
         max_threads = n_threads
     if max_threads < 1:
@@ -325,7 +330,7 @@ def rms_run_sites(cnp.ndarray[cnp.int64_t, ndim=2, mode='c'] mc not None,
         # them all busy with chunks of 16 sites.
         for k in prange(n_test, num_threads=max_threads,
                         schedule='dynamic', chunksize=16):
-            tid = openmp.omp_get_thread_num()
+            tid = omp_get_thread_num()
             t_tab = table_buf + tid * buf_n
             t_pbuf = p_buf + tid * buf_n
             t_cum = cum_buf + tid * buf_n
