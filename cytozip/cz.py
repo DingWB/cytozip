@@ -1097,6 +1097,16 @@ class Reader:
 		self._handle = handle
 		self._is_remote = isinstance(handle, RemoteFile) or hasattr(self, '_fsspec_handle')
 		self.input = input
+		self._init_state(max_cache, mmap_advise)
+		self.read_header()
+
+	def _init_state(self, max_cache=100, mmap_advise="normal"):
+		"""Initialise the per-reader caches / bookkeeping.
+
+		Shared by :meth:`__init__` and the alternative constructors
+		(:meth:`from_url`) so every code path that bypasses ``__init__``
+		still gets the block / chunk / index caches the read paths rely on.
+		"""
 		# Remember the madvise mode so detach()/reattach() can re-apply it.
 		self._mmap_advise = mmap_advise
 		self._detached = False
@@ -1132,7 +1142,6 @@ class Reader:
 		# This is the main optimisation for hot index-aware queries.
 		self._indexed_chunk_cache = collections.OrderedDict()
 		self._indexed_sortcol_cache = collections.OrderedDict()
-		self.read_header()
 
 	def read_header(self):
 		"""Parse the .cz file header and populate ``self.header``.
@@ -3390,11 +3399,10 @@ class Reader:
 		reader = cls.__new__(cls)
 		reader._handle = remote
 		reader._is_remote = True
+		reader._mm = None
+		reader._fd = None
 		reader.input = url
-		reader.max_cache = 100
-		reader._block_start_offset = None
-		reader._block_raw_length = None
-		reader._chunk_tail_cache = {}
+		reader._init_state(max_cache=100, mmap_advise=None)
 		reader.read_header()
 		return reader
 

@@ -789,15 +789,10 @@ cdef libdeflate_decompressor *_get_decompressor() except NULL:
 
 
 # ---------------------------------------------------------------------------
-# Per-thread decompressor pool for multi-threaded inflate.
-#
-# libdeflate decompressors are NOT thread-safe (each holds a working
-# state buffer that gets mutated during decompress). For OpenMP-parallel
-# block inflation we keep one decompressor per OpenMP thread slot.
-# Allocated lazily; never freed until process exit.
+# Multi-threaded inflate: decompressors are allocated per call (see
+# _alloc_decoms) because libdeflate decompressors are NOT thread-safe and
+# several Python threads may inflate concurrently with the GIL released.
 # ---------------------------------------------------------------------------
-cdef libdeflate_decompressor **_ld_thread_decoms = NULL
-cdef int _ld_thread_decoms_n = 0
 cdef int _inflate_threads_cached = 0  # 0 = uninitialized; 1 = serial; >1 = parallel
 
 
@@ -821,33 +816,6 @@ cdef int _get_inflate_threads_setting():
         n = 1
     _inflate_threads_cached = n
     return n
-
-
-cdef int _ensure_thread_decoms(int n_threads) except -1:
-    """Ensure the per-thread decompressor pool has at least *n_threads* slots."""
-    global _ld_thread_decoms, _ld_thread_decoms_n
-    cdef int i
-    cdef libdeflate_decompressor **new_arr
-    if n_threads <= _ld_thread_decoms_n:
-        return 0
-    new_arr = <libdeflate_decompressor **> malloc(n_threads * sizeof(void*))
-    if new_arr == NULL:
-        raise MemoryError("alloc thread decompressor array")
-    for i in range(_ld_thread_decoms_n):
-        new_arr[i] = _ld_thread_decoms[i]
-    for i in range(_ld_thread_decoms_n, n_threads):
-        new_arr[i] = libdeflate_alloc_decompressor()
-        if new_arr[i] == NULL:
-            # Free anything we just allocated, restore old state.
-            for j in range(_ld_thread_decoms_n, i):
-                libdeflate_free_decompressor(new_arr[j])
-            free(new_arr)
-            raise MemoryError("libdeflate_alloc_decompressor failed (per-thread)")
-    if _ld_thread_decoms != NULL:
-        free(_ld_thread_decoms)
-    _ld_thread_decoms = new_arr
-    _ld_thread_decoms_n = n_threads
-    return 0
 
 
 cdef libdeflate_decompressor **_alloc_decoms(int n) noexcept:
