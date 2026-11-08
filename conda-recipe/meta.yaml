@@ -1,5 +1,5 @@
 {% set name = "cytozip" %}
-{% set version = "0.4.2" %}
+{% set version = "0.4.3" %}
 
 package:
   name: {{ name|lower }}
@@ -7,17 +7,32 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: ac3f4966a0edc1c931163458c2af7857731dd38569a11b53b763a2b40c0b1e93 # filled in by bioconda autobump on each release
+  sha256: 8ac37589e18d00d3108896278b2c915cab4c5e64360301e41147070bddb77d8d # filled in by bioconda autobump on each release
 
 build:
-  number: 0
+  number: 1
   # Only py>=3.10 is actually installable: bioconda builds the recipe for
   # 3.10-3.13, and cytozip's deps (numpy/pandas/anndata) no longer ship for
-  # 3.8/3.9. htslib is NOT pinned here on purpose -- htslib's run_exports
-  # already constrains it at build time (e.g. >=1.24,<1.25).
+  # 3.8/3.9.
   # Linux + macOS (x86_64 and arm64). Windows is skipped: htslib / samtools /
   # pysam have no win-64 packages.
   skip: true  # [py<310 or win]
+  # htslib and libdeflate both carry ``run_exports`` with ``max_pin='x.x'``,
+  # so whatever minor happens to be current at build time (e.g. htslib 1.25)
+  # becomes a hard ``>=1.25,<1.26`` runtime pin. That forces users to
+  # upgrade htslib (and with it samtools / bcftools / every other htslib
+  # consumer) just to install cytozip, and the solve of a large environment
+  # can take tens of minutes or fail. cytozip only uses long-stable
+  # htslib/libdeflate APIs; the extensions were verified byte-identical when
+  # run against htslib 1.24 and libdeflate 1.26 after being built against
+  # htslib 1.25 / libdeflate 1.25 (same SONAMEs: libhts.so.3,
+  # libdeflate.so.0). If a future SONAME bump ever breaks loading,
+  # ``bam_to_cz`` falls back to ``samtools mpileup`` and the .cz reader to
+  # pure Python, so a loose pin is safe. The lower bounds are declared
+  # explicitly in ``run:`` below.
+  ignore_run_exports_from:
+    - htslib
+    - libdeflate
   script: |
     # htslib is guaranteed present in ``host:`` requirements below, so
     # force setup.py to build the ``cytozip._bam_pileup`` extension even
@@ -64,8 +79,12 @@ requirements:
     - anndata >=0.8
     - scipy
     - biopython
-    - htslib
-    - libdeflate
+    # libhts.so.3 ABI (htslib >=1.10); every symbol used by _bam_pileup
+    # exists since 1.10. Keep in sync with the ignore_run_exports_from note.
+    - htslib >=1.10
+    # libdeflate.so.0 ABI (unchanged across all 1.x); cz_accel only uses the
+    # core alloc/compress/decompress API.
+    - libdeflate >=1.18
     - llvm-openmp  # [osx]
     - zlib
 
@@ -76,6 +95,7 @@ test:
     - cytozip._bam_pileup
   commands:
     - czip --help
+    - czip bam_to_cz --help
 
 about:
   home: https://github.com/DingWB/cytozip

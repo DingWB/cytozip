@@ -755,7 +755,7 @@ mkdir -p recipes/cytozip
 cp /home/x-wding2/Projects/Github/cytozip/conda-recipe/meta.yaml recipes/cytozip/
 
 # Calculate real sha256（release the first version to PyPI）：
-curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.3.7.tar.gz | sha256sum
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.4.3.tar.gz | sha256sum
 # fill in sha256 to recipes/cytozip/meta.yaml
 
 # test before PR
@@ -779,7 +779,7 @@ conda install -c bioconda cytozip
 conda create -y -p ~/Software/conda/czbuild -c conda-forge \
     conda-build conda-forge-pinning anaconda-client
 # update meta.yaml (version & sha256sum)
-curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.4.2.tar.gz | sha256sum
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.4.3.tar.gz | sha256sum
 
 conda activate ~/Software/conda/czbuild
 rm -rf conda-build
@@ -791,7 +791,19 @@ anaconda upload conda-build/*/cytozip-*.conda -u wubinding
 env m3c
 conda remove cytozip
 conda install -c wubinding -c bioconda cytozip
+conda config --set solver libmamba
+conda install -c wubinding -c bioconda "cytozip=0.4.3"
+conda install --override-channels 
+  -c wubinding -c conda-forge -c bioconda "cytozip=0.4.3"
 ```
+
+Automated: `.github/workflows/conda.yml` runs on every GitHub release
+(linux-64 / osx-64 / osx-arm64 x py3.10-3.13) and uploads to the `wubinding`
+channel. It patches `conda-recipe/meta.yaml` on the fly (`path:` source +
+`SETUPTOOLS_SCM_PRETEND_VERSION`), so the bioconda recipe itself stays
+PyPI-based. One-time setup: anaconda.org -> Settings -> Access -> create an API
+token with `api:write`, then add it as the repo secret `ANACONDA_API_TOKEN` (Settings → Secrets and variables → Actions → new ANACONDA_API_TOKEN).
+`workflow_dispatch` builds only unless the `upload` input is checked.
 
 ## Cell-type prediction (`cytozip/model.py`)
 

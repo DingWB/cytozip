@@ -1,0 +1,92 @@
+# Build conda packages for Linux (x86_64) and macOS (x86_64 + arm64) on every
+# GitHub release and upload them to the personal anaconda.org channel.
+#
+# The bioconda recipe in conda-recipe/meta.yaml builds from the PyPI sdist
+# (fixed version + sha256). Here we reuse that recipe but patch it on the fly
+# to build from the checked-out git tree, so no PyPI round-trip / sha256
+# update is needed.
+#
+# Required repository secret:
+#   ANACONDA_API_TOKEN  -- anaconda.org token with "api:write" scope
+#                          (anaconda.org -> Settings -> Access -> API tokens)
+name: Conda package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to anaconda.org (otherwise build only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CONDA_USER: wubinding
+
+jobs:
+  build:
+    name: ${{ matrix.os }} py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15-intel, macos-latest]  # linux-64, osx-64, osx-arm64
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          channels: conda-forge,bioconda
+          channel-priority: strict
+          activate-environment: czbuild
+
+      - name: Install conda-build
+        run: mamba install -y conda-build conda-forge-pinning anaconda-client
+
+      - name: Patch recipe to build from the git checkout
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ ! "$VERSION" =~ ^[0-9] ]]; then
+            # workflow_dispatch on a branch: derive the version from the latest tag
+            VERSION="$(git describe --tags --abbrev=0 | sed 's/^v//')"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p /tmp/recipe
+          sed -e "s|^{% set version = .* %}|{% set version = \"${VERSION}\" %}|" \
+              -e "s|^  url: .*|  path: ${GITHUB_WORKSPACE}|" \
+              -e "/^  sha256:/d" \
+              -e "s|{{ PYTHON }} -m pip install|SETUPTOOLS_SCM_PRETEND_VERSION={{ version }} {{ PYTHON }} -m pip install|" \
+              conda-recipe/meta.yaml > /tmp/recipe/meta.yaml
+          cp conda-recipe/conda_build_config.yaml /tmp/recipe/
+          cat /tmp/recipe/meta.yaml
+
+      - name: conda build
+        run: |
+          conda build /tmp/recipe --python ${{ matrix.python }} \
+            -c conda-forge -c bioconda --output-folder "$GITHUB_WORKSPACE/conda-out"
+          ls -la conda-out/*/cytozip-*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conda-${{ matrix.os }}-py${{ matrix.python }}
+          path: conda-out/*/cytozip-*.conda
+          if-no-files-found: error
+
+      - name: Upload to anaconda.org
+        if: github.event_name == 'release' || inputs.upload
+        env:
+          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_TOKEN }}
+        run: |
+          anaconda -t "$ANACONDA_API_TOKEN" upload --user "$CONDA_USER" \
+            --label main --skip-existing conda-out/*/cytozip-*.conda
