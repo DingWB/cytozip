@@ -1,5 +1,5 @@
 {% set name = "cytozip" %}
-{% set version = "0.4.3" %}
+{% set version = "0.4.4" %}
 
 package:
   name: {{ name|lower }}
@@ -7,10 +7,10 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 8ac37589e18d00d3108896278b2c915cab4c5e64360301e41147070bddb77d8d # filled in by bioconda autobump on each release
+  sha256: abd613f88cfd20cf9ef588ea3e5d473067c52d398da2266f38780eed6dad6e69 # filled in by bioconda autobump on each release
 
 build:
-  number: 1
+  number: 0
   # Only py>=3.10 is actually installable: bioconda builds the recipe for
   # 3.10-3.13, and cytozip's deps (numpy/pandas/anndata) no longer ship for
   # 3.8/3.9.
