@@ -40,21 +40,22 @@ jobs:
       run:
         shell: bash -el {0}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: conda-incubator/setup-miniconda@v3
+      - uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
           channels: conda-forge,bioconda
           channel-priority: strict
+          conda-remove-defaults: "true"
           # Work in ``base``: ``conda build`` is a plugin of the ``conda``
           # executable on PATH (base's), so conda-build must live in base.
           # Installing it into a separate env gives
           # "argument COMMAND: invalid choice: 'build'".
           activate-environment: ""
-          auto-activate-base: true
+          auto-activate: true
 
       - name: Install conda-build
         run: conda install -y -n base conda-build conda-forge-pinning anaconda-client
@@ -82,7 +83,7 @@ jobs:
             -c conda-forge -c bioconda --output-folder "$GITHUB_WORKSPACE/conda-out"
           ls -la conda-out/*/cytozip-*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: conda-${{ matrix.os }}-py${{ matrix.python }}
           path: conda-out/*/cytozip-*.conda
