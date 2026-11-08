@@ -49,10 +49,15 @@ jobs:
           miniforge-version: latest
           channels: conda-forge,bioconda
           channel-priority: strict
-          activate-environment: czbuild
+          # Work in ``base``: ``conda build`` is a plugin of the ``conda``
+          # executable on PATH (base's), so conda-build must live in base.
+          # Installing it into a separate env gives
+          # "argument COMMAND: invalid choice: 'build'".
+          activate-environment: ""
+          auto-activate-base: true
 
       - name: Install conda-build
-        run: mamba install -y conda-build conda-forge-pinning anaconda-client
+        run: conda install -y -n base conda-build conda-forge-pinning anaconda-client
 
       - name: Patch recipe to build from the git checkout
         run: |
