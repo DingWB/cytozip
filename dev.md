@@ -211,7 +211,7 @@ OpenMP), `dmr_accel` (OpenMP permutation test) and the optional `_bam_pileup`
   `os.fork`, `model._RowReader` uses `os.pread`, and `pysam` / `htslib` /
   `samtools` have no Windows builds — use WSL2.
 - CI (`.github/workflows/test.yml`) builds and runs the unit tests on
-  ubuntu, macos-13 (x86_64) and macos-latest (arm64) with the conda-forge
+  ubuntu, macos-15-intel (x86_64) and macos-latest (arm64) with the conda-forge
   toolchain, plus a stock-Apple-clang + Homebrew job for the serial build.
 
 ## Reference file
