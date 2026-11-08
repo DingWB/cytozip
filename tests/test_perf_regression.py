@@ -771,6 +771,248 @@ def test_cz_to_anndata_sites(dataset, tmp_path):
     assert ad3.shape == (2, n) and ad3.var_names[0].isdigit()
 
 
+def test_cz_to_anndata_matches_bruteforce(dataset, tmp_path):
+    """Mapped (reference-aligned) and position-column aggregation paths,
+    serial / parallel, with context index and blacklist, versus a dense
+    brute-force bin sum."""
+    pytest.importorskip("anndata")
+    from cytozip.index import index_context
+    from cytozip.features import cz_to_anndata, make_genome_bins
+    idx = str(tmp_path / "cgn.cz")
+    index_context(dataset["ref"], idx, pattern="CGN", jobs=1)
+    sizes = str(tmp_path / "chrom.sizes")
+    with open(sizes, "w") as fh:
+        for c, n in CHROM_SIZES.items():
+            fh.write(f"{c}\t{n}\n")
+    bl = str(tmp_path / "bl.bed")
+    with open(bl, "w") as fh:
+        fh.write("chr1\t10000\t12000\nchr2\t5000\t5100\n")
+    cells = dataset["cells"]
+    rdt = [("pos", "<u8"), ("strand", "S1"), ("context", "S3")]
+    cdt = [("mc", "u1"), ("cov", "u1")]
+    bs = 5000
+    bins = make_genome_bins(sizes, bs, exclude_chroms=["chrM"])
+    rr, ir = Reader(dataset["ref"]), Reader(idx)
+
+    def truth(use_index):
+        MC = np.zeros((len(cells), len(bins)), np.int64)
+        COV = np.zeros_like(MC)
+        for chrom in ("chr1", "chr2"):
+            ra = np.frombuffer(rr.fetch_chunk_bytes((chrom,)), dtype=rdt)
+            rows = ir.get_index_rows((chrom,)) if use_index else slice(None)
+            pos = ra["pos"][rows].astype(np.int64)
+            first = int(np.flatnonzero(bins["chrom"].to_numpy() == chrom)[0])
+            b = (pos - 1) // bs + first
+            for i, cell in enumerate(cells):
+                rc = Reader(cell)
+                a = np.frombuffer(rc.fetch_chunk_bytes((chrom,)), dtype=cdt)[rows]
+                rc.close()
+                MC[i] += np.bincount(b, weights=a["mc"], minlength=len(bins)).astype(np.int64)
+                COV[i] += np.bincount(b, weights=a["cov"], minlength=len(bins)).astype(np.int64)
+        return MC, COV
+
+    labels = [os.path.basename(c)[:-3] for c in cells]
+    for use_index, jobs in ((True, 1), (True, 2), (False, 2)):
+        MC, COV = truth(use_index)
+        ad = cz_to_anndata(cells, bs, chrom_size=sizes, exclude_chroms=["chrM"],
+                           reference=dataset["ref"], index=idx if use_index else None,
+                           score="frac", nan_policy="zero", jobs=jobs)
+        assert list(ad.obs_names) == labels
+        assert np.array_equal(ad.layers["mc"].toarray(), MC)
+        assert np.array_equal(ad.layers["cov"].toarray(), COV)
+        exp = np.where(COV > 0, MC / np.maximum(COV, 1), 0.0)
+        assert np.allclose(ad.X.toarray(), exp, atol=1e-6)
+    # blacklist drops bins but must not change the remaining sums
+    MC, COV = truth(True)
+    ad = cz_to_anndata(cells, bs, chrom_size=sizes, exclude_chroms=["chrM"],
+                       reference=dataset["ref"], index=idx, blacklist=bl,
+                       score="posterior_frac", jobs=2)
+    name2i = {n: i for i, n in enumerate(bins["name"])}
+    keep = [name2i[n] for n in ad.var_names]
+    assert 0 < len(keep) < len(bins) and ad.shape == (len(cells), len(keep))
+    assert np.array_equal(ad.layers["cov"].toarray(), COV[:, keep])
+    assert {"alpha", "beta", "prior_mean", "rho"} <= set(ad.obs.columns)
+    assert isinstance(ad.X, np.ndarray)  # auto -> prior_mean (dense) fits
+    # position-column cells (no reference needed) agree with the mapped path
+    ad_pos = cz_to_anndata(dataset["noref_cells"], bs, chrom_size=sizes,
+                           exclude_chroms=["chrM"], score="frac",
+                           nan_policy="zero", jobs=2)
+    MC, COV = truth(False)
+    assert np.array_equal(ad_pos.layers["cov"].toarray(), COV)
+    assert np.array_equal(ad_pos.layers["mc"].toarray(), MC)
+    # catcz'd merged input
+    cat = str(tmp_path / "cat.cz")
+    w = Writer(cat, formats=["B", "B"], columns=["mc", "cov"], chunk_dims=["chrom"])
+    w.catcz(input=cells, key_added="cell_id")
+    ad_cat = cz_to_anndata(cat, bs, chrom_size=sizes, exclude_chroms=["chrM"],
+                           reference=dataset["ref"], score="frac",
+                           nan_policy="zero", jobs=2, verbose=True)
+    order = [list(ad_cat.obs_names).index(l) for l in labels]
+    assert np.array_equal(ad_cat.layers["cov"].toarray()[order], COV)
+    rr.close(); ir.close()
+
+
+def test_cz_to_anndata_workers_after_parent_openmp(tmp_path):
+    """Forked pool workers must not deadlock after the parent has run an
+    OpenMP (multi-threaded) chunk inflate: workers pin the inflate to one
+    thread so they never enter a libgomp parallel region (which hangs in a
+    child forked from a process whose gomp thread pool is already live).
+    Runs in a subprocess because a hung pool cannot be interrupted from
+    inside the process (``shutdown(wait=True)`` blocks on the workers)."""
+    pytest.importorskip("anndata")
+    pytest.importorskip("cytozip.cz_accel")
+    sizes = str(tmp_path / "chrom.sizes")
+    with open(sizes, "w") as fh:
+        fh.write("chr1\t1000000\n")
+    cells = _multiblock_cells(tmp_path)
+    code = f"""
+import sys
+from cytozip import cz_accel
+from cytozip.cz import Reader
+from cytozip.features import cz_to_anndata
+cz_accel.set_inflate_threads(4)          # parent: live gomp pool before fork
+r = Reader({cells[0]!r}); r.fetch_chunk_bytes(("chr1",)); r.close()
+ad = cz_to_anndata({cells!r}, 5000, chrom_size={sizes!r}, score="frac",
+                   nan_policy="zero", jobs=2)
+assert ad.shape == (3, 200) and int(ad.layers["cov"].sum()) > 0
+print("OK")
+"""
+    env = dict(os.environ)
+    env.pop("OMP_NUM_THREADS", None)
+    env.pop("CYTOZIP_INFLATE_THREADS", None)
+    _run_or_deadlock(code, env)
+
+
+def _multiblock_cells(tmp_path, n=3):
+    """Position-column cells spanning >= 2 blocks (256 KiB each) so a chunk
+    inflate takes the OpenMP (parallel) path."""
+    rng = np.random.default_rng(3)
+    cells = []
+    for i in range(n):
+        tsv = str(tmp_path / f"big{i}.tsv")
+        pos = np.sort(rng.choice(np.arange(1, 1_000_000), 60_000, replace=False))
+        cov = rng.integers(1, 5, pos.size)
+        with open(tsv, "w") as fh:
+            for p_, c_ in zip(pos, cov):
+                fh.write(f"chr1\t{p_}\t{rng.integers(0, c_ + 1)}\t{c_}\n")
+        cz = str(tmp_path / f"big{i}.cz")
+        w = Writer(cz, formats=["Q", "H", "H"], columns=["pos", "mc", "cov"],
+                   chunk_dims=["chrom"], sort_col="pos", delta_cols=["pos"])
+        w.tocz(input=tsv, usecols=[1, 2, 3], key_cols=[0])
+        w.close()
+        cells.append(cz)
+    rc = Reader(cells[0])
+    assert rc._load_chunk(rc.chunk_key2offset[("chr1",)], jump=False) and rc._chunk_nblocks >= 2
+    rc.close()
+    return cells
+
+
+def _run_or_deadlock(code, env, timeout=180):
+    """Run ``code`` in a fresh interpreter; a timeout means the forked
+    workers deadlocked. The whole process group is killed so hung workers
+    never outlive the test."""
+    import signal
+    import subprocess
+    proc = subprocess.Popen([sys.executable, "-c", code], env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, start_new_session=True)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.communicate()
+        pytest.fail("forked workers deadlocked (fork after OpenMP)")
+    assert proc.returncode == 0, err[-2000:]
+    assert "OK" in out
+    return out
+
+
+def test_fork_hook_pins_openmp_in_plain_pool(tmp_path):
+    """``cytozip.cz`` registers an ``os.register_at_fork`` hook that caps the
+    inflate / deflate / DMR OpenMP threads to 1 in *every* forked child, so a
+    plain ``multiprocessing.Pool`` (no initializer -- as used by allc2cz,
+    index, merge, pivot, peaks, dmr comb-p ...) cannot deadlock after the
+    parent ran multi-threaded inflate / deflate."""
+    pytest.importorskip("cytozip.cz_accel")
+    cells = _multiblock_cells(tmp_path)
+    code = f"""
+import os, multiprocessing as mp
+from cytozip import cz_accel
+from cytozip.cz import Reader
+cells = {cells!r}
+blocks = [os.urandom(200_000) + bytes(100_000) for _ in range(6)]
+def worker(path):
+    r = Reader(path); n = len(r.fetch_chunk_bytes(("chr1",))); r.close()
+    out = cz_accel.c_compress_blocks_parallel(blocks, 6)
+    return n, len(out), cz_accel.get_inflate_threads(), cz_accel.get_deflate_threads()
+if __name__ == "__main__":
+    cz_accel.set_inflate_threads(4); cz_accel.set_deflate_threads(4)
+    r = Reader(cells[0]); r.fetch_chunk_bytes(("chr1",)); r.close()     # parent: live gomp pool
+    cz_accel.c_compress_blocks_parallel(blocks, 6)
+    with mp.get_context("fork").Pool(2) as pool:
+        res = pool.map(worker, cells)
+    assert all(x[2] == 1 and x[3] == 1 for x in res), res   # children pinned to 1 thread
+    assert cz_accel.get_inflate_threads() == 4                # parent untouched
+    print("OK")
+"""
+    env = dict(os.environ)
+    env.pop("OMP_NUM_THREADS", None)
+    env.pop("CYTOZIP_INFLATE_THREADS", None)
+    env.pop("CYTOZIP_DEFLATE_THREADS", None)
+    env.pop("CYTOZIP_FORK_THREADS", None)
+    _run_or_deadlock(code, env)
+
+
+def test_features_slab_and_block_paths():
+    """Slab-wise run sums and row-blocked finalize helpers are exact for
+    any slab / block size."""
+    import scipy.sparse as ss
+    from cytozip import features as F
+    rng = np.random.default_rng(0)
+    n = 20_003
+    arr = np.zeros(n, dtype=[("c0", "u1"), ("c1", "u1")])
+    arr["c1"] = rng.integers(0, 5, n)
+    arr["c0"] = rng.integers(0, arr["c1"] + 1)
+    cuts = np.unique(np.concatenate(([0, n], rng.integers(0, n, 200))))
+    exp_mc = np.add.reduceat(arr["c0"].astype(np.int64), cuts[:-1])
+    exp_cov = np.add.reduceat(arr["c1"].astype(np.int64), cuts[:-1])
+    for slab in (1, 7, 1000, 4096, n, 10 ** 9):
+        mc, cov = F._run_sums(arr, "c0", "c1", cuts, slab=slab)
+        assert np.array_equal(mc, exp_mc) and np.array_equal(cov, exp_cov)
+
+    cov = ss.random(40, 300, density=0.3, random_state=1,
+                    data_rvs=lambda k: rng.integers(1, 30, k)).tocsr()
+    cov.sort_indices(); cov.eliminate_zeros()
+    cov = ss.vstack([cov, ss.csr_matrix((1, 300)), cov[:3]]).tocsr()
+    mc = cov.copy()
+    mc.data = rng.integers(0, cov.data.astype(np.int64) + 1).astype(np.uint32)
+    cov.data = cov.data.astype(np.uint32)
+    results = {}
+    orig = F._row_blocks.__defaults__
+    try:
+        for blk in (10 ** 9, 1, 37):
+            F._row_blocks.__defaults__ = (blk,)
+            a, b, pm = F._compute_beta_params_sparse(mc, cov)
+            out = [a, b, pm]
+            for sc in ("frac", "posterior_frac", "hypo-score", "hyper-score", "umc"):
+                out.append(F._compute_score_matrix_sparse(mc, cov, sc, 0.9,
+                                                          alpha=a, beta=b).toarray())
+            out += list(F._compute_hvf_var_stats_sparse(mc, cov, alpha=a, beta=b))
+            Xp = F._compute_score_matrix_sparse(mc, cov, "posterior_frac", 0.9, alpha=a, beta=b)
+            out.append(F._apply_nan_policy(Xp, cov, "nan"))
+            out.append(F._apply_nan_policy(Xp, cov, "prior_mean", prior_mean=pm))
+            results[blk] = out
+    finally:
+        F._row_blocks.__defaults__ = orig
+    for blk, out in results.items():
+        for x, y in zip(results[10 ** 9], out):
+            assert np.allclose(x, y, equal_nan=True, atol=1e-6), blk
+    # nan-policy semantics vs the dense definition
+    Xp = F._compute_score_matrix_sparse(mc, cov, "posterior_frac", 0.9)
+    dense = Xp.toarray(); dense[cov.toarray() == 0] = np.nan
+    assert np.allclose(dense, results[10 ** 9][-2], equal_nan=True)
+
+
 def test_fisher_1v1_matches_scipy():
     from scipy.stats import fisher_exact
     from cytozip.dmr import _fisher_1v1_sites

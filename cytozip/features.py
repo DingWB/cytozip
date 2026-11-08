@@ -18,10 +18,15 @@ Public entry points:
 
 Design notes
 ------------
-* Features are grouped by chrom for I/O locality; within each chrom we
-  issue a ``Reader.fetch_chunk_bytes`` decode and vectorize region sums
-  through numpy cumsum + ``searchsorted``.
-* mc/cov aggregation is vectorized in numpy.
+* Features are grouped by chrom for I/O locality. Reference-aligned cells
+  (no ``pos`` column) are aggregated through a site -> feature map that the
+  parent resolves once from the reference (:func:`_build_site_feature_map`);
+  workers then only sum mc/cov over precomputed row runs and never load
+  reference positions. Cells carrying their own ``pos`` column use a
+  ``Reader.fetch_chunk_bytes`` decode + numpy cumsum / ``searchsorted``.
+* Worker count is capped to the memory budget, tasks are submitted through
+  a bounded window, and the finalize stage is row-blocked, so peak memory
+  is ~ (sparse layers) + (one decompressed chunk per worker).
 * Scoring (``prior_mean`` posterior-fraction, hypo/hyper) follows the
   ALLCools conventions (see ``ALLCools/mcds/utilities.py`` and
   ``ALLCools/count_matrix/dataset.py``).
@@ -29,6 +34,7 @@ Design notes
 from __future__ import annotations
 
 import os
+import re
 import struct
 from typing import List, Optional, Sequence, Union
 
@@ -459,13 +465,10 @@ class _StreamingSparseBuilder:
         Only entries with ``cov > 0`` are stored. Since ``mc <= cov``,
         the same sparsity pattern works for both layers.
         """
-        cov = arr[:, 1]
-        # nonzero is a *fast* C-level select; no Python-loop overhead.
-        nz = np.flatnonzero(cov).astype(np.int32, copy=False)
+        nz, mc_nz, cov_nz = _to_sparse_triplet(np.asarray(arr))
         if nz.size:
-            # Cast counts to uint32 — methylation calls fit easily.
-            self._mc_data.append(arr[nz, 0].astype(np.uint32, copy=False))
-            self._cov_data.append(cov[nz].astype(np.uint32, copy=False))
+            self._mc_data.append(mc_nz)
+            self._cov_data.append(cov_nz)
             self._indices.append(nz)
         self._n_rows += 1
         self._indptr.append(self._indptr[-1] + int(nz.size))
@@ -484,8 +487,11 @@ class _StreamingSparseBuilder:
     def finalize(self):
         """Materialise ``(mc_csr, cov_csr)`` shape ``(n_rows, n_feat)``.
 
-        After this call the internal buffers are dropped so the builder
-        cannot be reused.
+        The three output arrays are allocated once at their final size and
+        the per-cell chunks are copied in and released one by one, so the
+        peak is ~1x the result (not the 2x of ``np.concatenate``). After
+        this call the internal buffers are dropped so the builder cannot be
+        reused.
         """
         import scipy.sparse as ss
         n_rows = self._n_rows
@@ -495,16 +501,19 @@ class _StreamingSparseBuilder:
         last = self._indptr[-1]
         indptr_dtype = np.int64 if last > np.iinfo(np.int32).max else np.int32
         indptr = np.asarray(self._indptr, dtype=indptr_dtype)
-        if self._indices:
-            indices = np.concatenate(self._indices)
-            mc_data = np.concatenate(self._mc_data)
-            cov_data = np.concatenate(self._cov_data)
-        else:
-            indices = np.empty(0, dtype=np.int32)
-            mc_data = np.empty(0, dtype=np.uint32)
-            cov_data = np.empty(0, dtype=np.uint32)
-        # Drop the chunk lists so concatenation buffers are reclaimed
-        # before two more arrays are allocated for the second layer.
+        indices = np.empty(last, dtype=np.int32)
+        mc_data = np.empty(last, dtype=np.uint32)
+        cov_data = np.empty(last, dtype=np.uint32)
+        off = 0
+        for k in range(len(self._indices)):
+            idx = self._indices[k]
+            n = idx.size
+            indices[off:off + n] = idx
+            mc_data[off:off + n] = self._mc_data[k]
+            cov_data[off:off + n] = self._cov_data[k]
+            off += n
+            # Release each chunk as soon as it has been copied.
+            self._indices[k] = self._mc_data[k] = self._cov_data[k] = None
         self._mc_data.clear()
         self._cov_data.clear()
         self._indices.clear()
@@ -520,56 +529,84 @@ class _StreamingSparseBuilder:
         return mc_csr, cov_csr
 
 
+# Target number of stored entries handled per row block in the finalize
+# stage; bounds every float64 temporary to ~8 * _BLOCK_NNZ bytes.
+_BLOCK_NNZ = 4_000_000
+
+
+def _row_blocks(indptr, target_nnz=_BLOCK_NNZ):
+    """Yield ``(r0, r1)`` row ranges whose stored entries total at most
+    ``target_nnz`` (always at least one row per block)."""
+    indptr = np.asarray(indptr)
+    n_rows = indptr.size - 1
+    r0 = 0
+    while r0 < n_rows:
+        r1 = int(np.searchsorted(indptr, indptr[r0] + target_nnz,
+                                 side="right")) - 1
+        r1 = min(n_rows, max(r1, r0 + 1))
+        yield r0, r1
+        r0 = r1
+
+
 def _compute_beta_params_sparse(mc_csr, cov_csr, min_cov=2, df_correction=True):
     """Per-cell Beta(alpha, beta) via the coverage-aware Beta-Binomial MoM.
 
     Operates only on the stored (non-zero-coverage) entries of each row via
     two ``reduceat`` passes (first the per-row mean, then the Pearson
-    over-dispersion statistic), never densifying. Assumes ``mc_csr`` and
-    ``cov_csr`` share the same sparsity structure (same ``indptr`` /
-    ``indices``), as produced upstream.
+    over-dispersion statistic), never densifying. Rows are processed in
+    blocks of ~``_BLOCK_NNZ`` stored entries so the float64 temporaries do
+    not scale with the whole matrix. Assumes ``mc_csr`` and ``cov_csr``
+    share the same sparsity structure (same ``indptr`` / ``indices``), as
+    produced upstream.
     """
     n_rows = cov_csr.shape[0]
     indptr = np.asarray(cov_csr.indptr)
     counts = np.diff(indptr).astype(np.int64)     # stored entries per row
-    nz_rows = counts > 0
-
-    covd = cov_csr.data.astype(np.float64)
-    mcd = mc_csr.data.astype(np.float64)
-    w = (covd >= min_cov).astype(np.float64)      # keep-mask as 0/1 weights
-
-    # ---- first pass: per-row sums over kept entries -> mu ----
     sum_cov = np.zeros(n_rows, dtype=np.float64)
     sum_mc = np.zeros(n_rows, dtype=np.float64)
     n_keep = np.zeros(n_rows, dtype=np.float64)
-    if nz_rows.any():
-        starts = indptr[:-1][nz_rows]
-        sum_cov[nz_rows] = np.add.reduceat(covd * w, starts)
-        sum_mc[nz_rows] = np.add.reduceat(mcd * w, starts)
-        n_keep[nz_rows] = np.add.reduceat(w, starts)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        mu = np.where(sum_cov > 0, sum_mc / sum_cov, np.nan)
-    mu_c = np.clip(mu, 1e-6, 1.0 - 1e-6)
-    denom = mu_c * (1.0 - mu_c)
-
-    # ---- second pass: Pearson over-dispersion statistic X ----
-    mu_entry = np.repeat(mu_c, counts)            # broadcast row mu to entries
-    den_entry = np.repeat(denom, counts)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        term = np.where(w > 0,
-                        (mcd - covd * mu_entry) ** 2 / (covd * den_entry),
-                        0.0)
     X = np.zeros(n_rows, dtype=np.float64)
-    if nz_rows.any():
-        starts = indptr[:-1][nz_rows]
-        X[nz_rows] = np.add.reduceat(term, starts)
-
+    mc_all, cov_all = mc_csr.data, cov_csr.data
+    for r0, r1 in _row_blocks(indptr):
+        s, e = int(indptr[r0]), int(indptr[r1])
+        if e == s:
+            continue
+        covd = cov_all[s:e].astype(np.float64)
+        mcd = mc_all[s:e].astype(np.float64)
+        w = (covd >= min_cov).astype(np.float64)  # keep-mask as 0/1 weights
+        cnt = counts[r0:r1]
+        nz = cnt > 0
+        starts = (indptr[r0:r1][nz] - s)
+        # ---- first pass: per-row sums over kept entries -> mu ----
+        sc = np.zeros(r1 - r0, dtype=np.float64)
+        sm = np.zeros(r1 - r0, dtype=np.float64)
+        nk = np.zeros(r1 - r0, dtype=np.float64)
+        sc[nz] = np.add.reduceat(covd * w, starts)
+        sm[nz] = np.add.reduceat(mcd * w, starts)
+        nk[nz] = np.add.reduceat(w, starts)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            mu = np.where(sc > 0, sm / sc, np.nan)
+        mu_c = np.clip(mu, 1e-6, 1.0 - 1e-6)
+        denom = mu_c * (1.0 - mu_c)
+        # ---- second pass: Pearson over-dispersion statistic X ----
+        mu_entry = np.repeat(mu_c, cnt)            # broadcast row mu to entries
+        den_entry = np.repeat(denom, cnt)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            term = np.where(w > 0,
+                            (mcd - covd * mu_entry) ** 2 / (covd * den_entry),
+                            0.0)
+        Xb = np.zeros(r1 - r0, dtype=np.float64)
+        Xb[nz] = np.add.reduceat(term, starts)
+        sum_cov[r0:r1] = sc
+        sum_mc[r0:r1] = sm
+        n_keep[r0:r1] = nk
+        X[r0:r1] = Xb
     return _beta_binomial_alpha_beta(sum_mc, sum_cov, n_keep, X, df_correction)
 
 
 def _compute_score_matrix_sparse(mc_csr, cov_csr, score, score_cutoff,
                                  alpha=None, beta=None):
-    """Compute the requested score matrix from the streamed CSR mc/cov layers.
+    """Compute the requested score matrix from the streamed sparse layers.
 
     Supported scores: ``'frac'``, ``'posterior_frac'``, ``'hypo-score'``,
     ``'hyper-score'``, ``'mc'``, ``'cov'``, ``'umc'`` (see :func:`cz_to_anndata`).
@@ -579,75 +616,88 @@ def _compute_score_matrix_sparse(mc_csr, cov_csr, score, score_cutoff,
     path. For ``'posterior_frac'`` the per-cell posterior mean is computed
     only on the stored (``cov > 0``) entries, so the sparsity pattern is
     identical to ``'frac'`` (uncovered entries stay implicit ``0``).
+
+    The float32 output is allocated once; all float64 temporaries live only
+    for one row block (~``_BLOCK_NNZ`` entries) at a time.
     """
     import scipy.sparse as ss
+    if score not in _VALID_SCORES and score not in ("mc", "cov"):
+        raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
     indptr = np.asarray(cov_csr.indptr)
     indices = np.asarray(cov_csr.indices)
     shape = cov_csr.shape
+    mc_all, cov_all = mc_csr.data, cov_csr.data
+    nnz = int(indptr[-1])
+    out = np.empty(nnz, dtype=np.float32)
 
-    if score == "mc":
-        return mc_csr.astype(np.float32)
-    if score == "cov":
-        return cov_csr.astype(np.float32)
-    if score == "umc":
-        umc = (cov_csr.data.astype(np.int64)
-               - mc_csr.data.astype(np.int64))
-        np.maximum(umc, 0, out=umc)
-        return ss.csr_matrix((umc.astype(np.float32), indices, indptr),
-                             shape=shape, dtype=np.float32)
-    if score == "frac":
-        data = (mc_csr.data.astype(np.float32)
-                / np.maximum(cov_csr.data, 1).astype(np.float32))
-        return ss.csr_matrix((data, indices, indptr),
-                             shape=shape, dtype=np.float32)
-
-    if score == "posterior_frac":
-        # per-cell empirical-Bayes posterior mean (mc + a)/(cov + a + b) on
-        # the stored (cov>0) entries; broadcast the per-row alpha/beta out to
-        # per-nonzero via repeat. Zero-cov entries remain implicit 0.
-        if alpha is None or beta is None:
-            alpha, beta, _ = _compute_beta_params_sparse(mc_csr, cov_csr)
-        counts = np.diff(indptr).astype(np.int64)
-        a_nz = np.repeat(alpha.astype(np.float64), counts)
-        b_nz = np.repeat(beta.astype(np.float64), counts)
-        mcd = mc_csr.data.astype(np.float64)
-        covd = cov_csr.data.astype(np.float64)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            post = (mcd + a_nz) / (covd + a_nz + b_nz)
-            raw = mcd / np.maximum(covd, 1.0)
-        # degenerate cells (NaN alpha/beta) fall back to the raw fraction
-        post = np.where(np.isfinite(post), post, raw).astype(np.float32)
-        return ss.csr_matrix((post, indices, indptr),
-                             shape=shape, dtype=np.float32)
-
+    if score == "posterior_frac" and (alpha is None or beta is None):
+        alpha, beta, _ = _compute_beta_params_sparse(mc_csr, cov_csr)
+    counts = None
+    p_cell = valid = None
     if score in ("hypo-score", "hyper-score"):
-        from scipy.stats import binom
-        n_rows = shape[0]
         counts = np.diff(indptr).astype(np.int64)
-        nz_rows = counts > 0
+        n_rows = shape[0]
         tot_mc = np.zeros(n_rows, dtype=np.float64)
         tot_cov = np.zeros(n_rows, dtype=np.float64)
-        if nz_rows.any():
-            starts = indptr[:-1][nz_rows]
-            tot_mc[nz_rows] = np.add.reduceat(
-                mc_csr.data.astype(np.float64), starts)
-            tot_cov[nz_rows] = np.add.reduceat(
-                cov_csr.data.astype(np.float64), starts)
+        for r0, r1 in _row_blocks(indptr):
+            s, e = int(indptr[r0]), int(indptr[r1])
+            cnt = counts[r0:r1]
+            nz = cnt > 0
+            if e == s:
+                continue
+            starts = indptr[r0:r1][nz] - s
+            tm = np.zeros(r1 - r0); tc = np.zeros(r1 - r0)
+            tm[nz] = np.add.reduceat(mc_all[s:e].astype(np.float64), starts)
+            tc[nz] = np.add.reduceat(cov_all[s:e].astype(np.float64), starts)
+            tot_mc[r0:r1] = tm
+            tot_cov[r0:r1] = tc
         with np.errstate(divide="ignore", invalid="ignore"):
             p_cell = tot_mc / (tot_cov + 1e-6)
         valid = (np.isfinite(p_cell) & (p_cell > 0) & (p_cell < 1)
                  & (tot_cov > 0))
-        # Broadcast per-row stats out to per-nz arrays via repeat.
-        p_per_nz = np.repeat(p_cell, counts)
-        valid_per_nz = np.repeat(valid, counts)
-        sf = binom.sf(mc_csr.data, cov_csr.data, p_per_nz)
-        pv = (1.0 - sf) if score == "hyper-score" else sf
-        pv = np.where(valid_per_nz & (pv >= float(score_cutoff)),
-                      pv, 0.0).astype(np.float32)
-        return ss.csr_matrix((pv, indices, indptr),
-                             shape=shape, dtype=np.float32)
+    elif score == "posterior_frac":
+        counts = np.diff(indptr).astype(np.int64)
 
-    raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
+    for r0, r1 in _row_blocks(indptr):
+        s, e = int(indptr[r0]), int(indptr[r1])
+        if e == s:
+            continue
+        mcb, covb = mc_all[s:e], cov_all[s:e]
+        if score == "mc":
+            out[s:e] = mcb
+        elif score == "cov":
+            out[s:e] = covb
+        elif score == "umc":
+            umc = covb.astype(np.int64) - mcb.astype(np.int64)
+            np.maximum(umc, 0, out=umc)
+            out[s:e] = umc
+        elif score == "frac":
+            out[s:e] = (mcb.astype(np.float32)
+                        / np.maximum(covb, 1).astype(np.float32))
+        elif score == "posterior_frac":
+            # per-cell empirical-Bayes posterior mean (mc + a)/(cov + a + b)
+            # on the stored (cov>0) entries; broadcast the per-row alpha/beta
+            # to per-nonzero via repeat. Zero-cov entries remain implicit 0.
+            cnt = counts[r0:r1]
+            a_nz = np.repeat(alpha[r0:r1].astype(np.float64), cnt)
+            b_nz = np.repeat(beta[r0:r1].astype(np.float64), cnt)
+            mcd = mcb.astype(np.float64)
+            covd = covb.astype(np.float64)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                post = (mcd + a_nz) / (covd + a_nz + b_nz)
+                raw = mcd / np.maximum(covd, 1.0)
+            # degenerate cells (NaN alpha/beta) fall back to the raw fraction
+            out[s:e] = np.where(np.isfinite(post), post, raw)
+        else:  # hypo / hyper
+            from scipy.stats import binom
+            cnt = counts[r0:r1]
+            p_per_nz = np.repeat(p_cell[r0:r1], cnt)
+            valid_per_nz = np.repeat(valid[r0:r1], cnt)
+            sf = binom.sf(mcb, covb, p_per_nz)
+            pv = (1.0 - sf) if score == "hyper-score" else sf
+            out[s:e] = np.where(valid_per_nz & (pv >= float(score_cutoff)),
+                                pv, 0.0)
+    return ss.csr_matrix((out, indices, indptr), shape=shape, dtype=np.float32)
 
 
 def _compute_hvf_var_stats_sparse(mc_csr, cov_csr, alpha=None, beta=None,
@@ -686,23 +736,34 @@ def _compute_hvf_var_stats_sparse(mc_csr, cov_csr, alpha=None, beta=None,
     n_feat = cov_csr.shape[1]
     indptr = np.asarray(cov_csr.indptr)
     indices = np.asarray(cov_csr.indices)
-    covd = cov_csr.data.astype(np.float64)
-    mcd = mc_csr.data.astype(np.float64)
-    # all stored entries are covered (cov > 0), so raw is always finite
-    with np.errstate(divide="ignore", invalid="ignore"):
-        raw = mcd / np.maximum(covd, 1.0)
-    if method == "posterior" and alpha is not None and beta is not None:
-        counts = np.diff(indptr).astype(np.int64)
-        a_nz = np.repeat(alpha.astype(np.float64), counts)
-        b_nz = np.repeat(beta.astype(np.float64), counts)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            frac = (mcd + a_nz) / (covd + a_nz + b_nz)
-        frac = np.where(np.isfinite(frac), frac, raw)
-    else:
-        frac = raw
+    counts = np.diff(indptr).astype(np.int64)
+    use_post = (method == "posterior" and alpha is not None
+                and beta is not None)
     hvf_n_cov = np.bincount(indices, minlength=n_feat).astype(np.float64)
-    hvf_sum = np.bincount(indices, weights=frac, minlength=n_feat)
-    hvf_sum_sq = np.bincount(indices, weights=frac * frac, minlength=n_feat)
+    hvf_sum = np.zeros(n_feat, dtype=np.float64)
+    hvf_sum_sq = np.zeros(n_feat, dtype=np.float64)
+    mc_all, cov_all = mc_csr.data, cov_csr.data
+    for r0, r1 in _row_blocks(indptr):
+        s, e = int(indptr[r0]), int(indptr[r1])
+        if e == s:
+            continue
+        covd = cov_all[s:e].astype(np.float64)
+        mcd = mc_all[s:e].astype(np.float64)
+        # all stored entries are covered (cov > 0), so raw is always finite
+        with np.errstate(divide="ignore", invalid="ignore"):
+            raw = mcd / np.maximum(covd, 1.0)
+        if use_post:
+            cnt = counts[r0:r1]
+            a_nz = np.repeat(alpha[r0:r1].astype(np.float64), cnt)
+            b_nz = np.repeat(beta[r0:r1].astype(np.float64), cnt)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                frac = (mcd + a_nz) / (covd + a_nz + b_nz)
+            frac = np.where(np.isfinite(frac), frac, raw)
+        else:
+            frac = raw
+        idx = indices[s:e]
+        hvf_sum += np.bincount(idx, weights=frac, minlength=n_feat)
+        hvf_sum_sq += np.bincount(idx, weights=frac * frac, minlength=n_feat)
     return hvf_n_cov, hvf_sum, hvf_sum_sq
 
 
@@ -805,17 +866,18 @@ def _aggregate_one_reader(
             continue
 
         raw = reader.fetch_chunk_bytes(dim)
+        # The decoded bytes are owned by ``raw``; the mmap pages behind the
+        # chunk can go back to the kernel right away.
+        reader.release_chunk(dim)
         if not raw:
             continue
         arr = np.frombuffer(raw, dtype=record_dtype)
         if arr.size == 0:
             continue
-
-        mc_vals = arr[f"c{mc_col}"].astype(np.int64, copy=False)
-        cov_vals = arr[f"c{cov_col}"].astype(np.int64, copy=False)
+        n_rows = arr.size
 
         if pos_col is not None:
-            positions = arr[f"c{pos_col}"].astype(np.int64, copy=False)
+            positions = None  # taken from the (possibly gathered) records
         elif ref_pos_map is not None and chrom in ref_pos_map:
             # ref_pos_map may be a plain dict (legacy) or a
             # _LazyRefPositions (current bam.py); both expose ``.get`` and
@@ -823,19 +885,18 @@ def _aggregate_one_reader(
             getter = getattr(ref_pos_map, "get", None)
             positions = (getter(chrom) if callable(getter)
                          else ref_pos_map[chrom])
-            if positions is None or positions.size != arr.size:
+            if positions is None or positions.size != n_rows:
                 continue
-            positions = np.asarray(positions, dtype=np.int64)
         else:
             continue
 
-        # Optional 1-D context-index filter (e.g. CG / CH only).
-        # Gather positions, mc and cov together so they stay aligned.
+        # Optional 1-D context-index filter (e.g. CG / CH only). The gather
+        # runs on the raw (narrow) records *before* the int64 up-cast so the
+        # transient footprint scales with the selected rows, not the chrom.
         if index_ids_by_chrom is not None:
             ids = index_ids_by_chrom.get(chrom)
             if ids is None or ids.size == 0:
                 continue
-            n_rows = positions.size
             if ids.min() < 1 or ids.max() > n_rows:
                 # Be lenient: clip OOB IDs (shorter cell than ref) instead
                 # of erroring, since per-cell .cz may have fewer rows.
@@ -843,9 +904,18 @@ def _aggregate_one_reader(
                 if ids.size == 0:
                     continue
             gather = ids - 1
-            positions = positions[gather]
-            mc_vals = mc_vals[gather]
-            cov_vals = cov_vals[gather]
+            arr = arr[gather]
+            if positions is not None:
+                positions = np.asarray(positions)[gather]
+        del raw
+
+        mc_vals = arr[f"c{mc_col}"].astype(np.int64, copy=False)
+        cov_vals = arr[f"c{cov_col}"].astype(np.int64, copy=False)
+        if positions is None:
+            positions = arr[f"c{pos_col}"].astype(np.int64, copy=False)
+        else:
+            positions = np.asarray(positions, dtype=np.int64)
+        del arr
 
         # Cumulative sums -> O(1) range sums via subtraction.
         # Fast path: if features for this chrom are equal-width
@@ -889,18 +959,836 @@ def _aggregate_one_reader(
 
 
 # ---------------------------------------------------------------------------
+# Memory / process-pool helpers
+# ---------------------------------------------------------------------------
+_MEM_UNITS = {"": 1, "b": 1, "k": 1 << 10, "kb": 1 << 10, "m": 1 << 20,
+              "mb": 1 << 20, "g": 1 << 30, "gb": 1 << 30, "t": 1 << 40,
+              "tb": 1 << 40}
+
+
+def _parse_mem(value) -> Optional[int]:
+    """``'200G'`` / ``'512MB'`` / ``int`` bytes -> bytes (``None`` passthrough)."""
+    if value is None:
+        return None
+    if isinstance(value, (int, np.integer, float)):
+        return int(value)
+    m = re.fullmatch(r"\s*([0-9.]+)\s*([a-zA-Z]*)\s*", str(value))
+    if not m or m.group(2).lower() not in _MEM_UNITS:
+        raise ValueError(f"cannot parse memory size {value!r} (e.g. '200G')")
+    return int(float(m.group(1)) * _MEM_UNITS[m.group(2).lower()])
+
+
+def _read_int_file(path) -> Optional[int]:
+    try:
+        with open(path) as fh:
+            txt = fh.read().strip()
+        return None if txt in ("max", "") else int(txt)
+    except (OSError, ValueError):
+        return None
+
+
+def _cgroup_memory_headroom() -> Optional[int]:
+    """``limit - usage`` of the tightest memory cgroup this process sits in
+    (v2 or v1, walking up the hierarchy -- e.g. SLURM sets the job limit on
+    a parent of the task cgroup). ``None`` when unlimited / unknown."""
+    try:
+        with open("/proc/self/cgroup") as fh:
+            lines = [ln.strip().split(":", 2) for ln in fh if ln.strip()]
+    except OSError:
+        return None
+    paths = []   # (mount_dir, rel_path, limit_file, usage_file)
+    for parts in lines:
+        if len(parts) != 3:
+            continue
+        hid, ctrls, rel = parts
+        if hid == "0" and ctrls == "":           # cgroup v2 unified
+            paths.append(("/sys/fs/cgroup", rel, "memory.max",
+                          "memory.current"))
+        elif "memory" in ctrls.split(","):       # cgroup v1
+            paths.append(("/sys/fs/cgroup/memory", rel,
+                          "memory.limit_in_bytes", "memory.usage_in_bytes"))
+    best = None
+    for mount, rel, lim_f, use_f in paths:
+        rel = rel.strip("/")
+        comps = rel.split("/") if rel else []
+        # Walk from the leaf up to the mount root.
+        for depth in range(len(comps), -1, -1):
+            d = os.path.join(mount, *comps[:depth]) if depth else mount
+            lim = _read_int_file(os.path.join(d, lim_f))
+            if lim is None or lim >= (1 << 60):
+                continue
+            use = _read_int_file(os.path.join(d, use_f)) or 0
+            head = max(0, lim - use)
+            best = head if best is None else min(best, head)
+    return best
+
+
+def _available_memory_bytes() -> Optional[int]:
+    """Best-effort free-memory estimate: min(free physical RAM, cgroup
+    headroom). Returns ``None`` when nothing can be determined."""
+    cands = []
+    try:
+        cands.append(os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE"))
+    except (ValueError, OSError, AttributeError):
+        pass
+    head = _cgroup_memory_headroom()
+    if head is not None:
+        cands.append(head)
+    return min(cands) if cands else None
+
+
+def _fmt_bytes(n) -> str:
+    n = float(n)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if n < 1024 or unit == "TB":
+            return f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} TB"
+
+
+# Rough fixed per-process cost of a worker (interpreter + numpy + cytozip).
+_WORKER_BASE_BYTES = 150 << 20
+
+
+def _cap_workers(jobs, est_worker_bytes, max_mem=None, parent_bytes=0,
+                 what="worker") -> int:
+    """Clamp ``jobs`` so ``jobs * est_worker_bytes + parent_bytes`` fits in
+    the memory budget (``max_mem`` or 80% of detected free memory)."""
+    n = int(jobs) if jobs and int(jobs) > 1 else 1
+    if n <= 1 or not est_worker_bytes:
+        return n
+    budget = _parse_mem(max_mem)
+    if budget is None:
+        avail = _available_memory_bytes()
+        if avail is None:
+            return n
+        budget = int(avail * 0.8)
+    fit = max(1, int((budget - parent_bytes) // est_worker_bytes))
+    if fit < n:
+        logger.warning(
+            f"[cytozip] jobs={n} would need ~{_fmt_bytes(n * est_worker_bytes)} "
+            f"(~{_fmt_bytes(est_worker_bytes)} per {what}) but the memory "
+            f"budget is {_fmt_bytes(budget)}; using jobs={fit}. Pass "
+            f"max_mem= to override the budget.")
+        return fit
+    return n
+
+
+def _make_pool(n_workers, initializer, initargs):
+    """``ProcessPoolExecutor`` preferring ``fork`` so the (possibly large)
+    read-only ``initargs`` are inherited copy-on-write instead of pickled
+    once per worker."""
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+    ctx = None
+    if "fork" in mp.get_all_start_methods():
+        ctx = mp.get_context("fork")
+    return ProcessPoolExecutor(max_workers=n_workers, initializer=initializer,
+                               initargs=initargs, mp_context=ctx)
+
+
+def _bounded_map(ex, fn, items, window):
+    """Ordered ``ex.map`` with at most ``window`` tasks in flight, so
+    finished-but-unconsumed results cannot pile up with ``len(items)``."""
+    from collections import deque
+    it = iter(items)
+    pending = deque()
+    for _ in range(max(1, int(window))):
+        try:
+            pending.append(ex.submit(fn, next(it)))
+        except StopIteration:
+            break
+    while pending:
+        res = pending.popleft().result()
+        try:
+            pending.append(ex.submit(fn, next(it)))
+        except StopIteration:
+            pass
+        yield res
+
+
+def _cgroup_usage_file() -> Optional[str]:
+    """Usage file of the tightest limited memory cgroup (see
+    :func:`_cgroup_memory_headroom`), or ``None``."""
+    try:
+        with open("/proc/self/cgroup") as fh:
+            lines = [ln.strip().split(":", 2) for ln in fh if ln.strip()]
+    except OSError:
+        return None
+    best = None
+    for parts in lines:
+        if len(parts) != 3:
+            continue
+        hid, ctrls, rel = parts
+        if hid == "0" and ctrls == "":
+            mount, lim_f, use_f = "/sys/fs/cgroup", "memory.max", "memory.current"
+        elif "memory" in ctrls.split(","):
+            mount, lim_f, use_f = ("/sys/fs/cgroup/memory",
+                                   "memory.limit_in_bytes",
+                                   "memory.usage_in_bytes")
+        else:
+            continue
+        comps = rel.strip("/").split("/") if rel.strip("/") else []
+        for depth in range(len(comps), -1, -1):
+            d = os.path.join(mount, *comps[:depth]) if depth else mount
+            lim = _read_int_file(os.path.join(d, lim_f))
+            if lim is not None and lim < (1 << 60):
+                f = os.path.join(d, use_f)
+                if best is None or best[0] > lim:
+                    best = (lim, f)
+    return best[1] if best else None
+
+
+def _child_pids(root_pid):
+    """Direct children of ``root_pid`` via ``/proc/<pid>/task/*/children``
+    (O(children)); falls back to scanning ``/proc`` on kernels without it."""
+    pids = []
+    try:
+        task_dir = f"/proc/{root_pid}/task"
+        for tid in os.listdir(task_dir):
+            with open(f"{task_dir}/{tid}/children") as fh:
+                pids.extend(int(x) for x in fh.read().split())
+        return pids
+    except (OSError, ValueError):
+        pass
+    try:
+        for d in os.listdir("/proc"):
+            if not d.isdigit():
+                continue
+            try:
+                with open(f"/proc/{d}/stat") as fh:
+                    st = fh.read()
+                # field 4 (after the parenthesised comm) is the ppid
+                ppid = int(st[st.rfind(")") + 2:].split()[1])
+            except (OSError, ValueError, IndexError):
+                continue
+            if ppid == root_pid:
+                pids.append(int(d))
+    except OSError:
+        pass
+    return pids
+
+
+def _proc_tree_pss_bytes(root_pid) -> int:
+    """Physical memory of ``root_pid`` + its direct children: the sum of
+    PSS (shared pages split between sharers, so forked workers are not
+    double counted); falls back to RSS when ``smaps_rollup`` is missing."""
+    pids = [root_pid] + _child_pids(root_pid)
+    total = 0
+    page = os.sysconf("SC_PAGE_SIZE") if hasattr(os, "sysconf") else 4096
+    for pid in pids:
+        try:
+            with open(f"/proc/{pid}/smaps_rollup") as fh:
+                for ln in fh:
+                    if ln.startswith("Pss:"):
+                        total += int(ln.split()[1]) * 1024
+                        break
+        except OSError:
+            try:
+                with open(f"/proc/{pid}/statm") as fh:
+                    total += int(fh.read().split()[1]) * page
+            except (OSError, ValueError, IndexError):
+                pass
+    return total
+
+
+def _progress(iterable=None, total=None, desc="", enabled=False, unit="it"):
+    """Progress bar over ``iterable`` (or a manual bar when ``iterable`` is
+    ``None``) shown only when ``enabled``. Uses ``tqdm`` when installed,
+    otherwise logs at ~10% steps; returns a plain iterator / no-op bar when
+    disabled, so call sites need no branching."""
+    if not enabled:
+        return _NullBar(iterable)
+    try:
+        from tqdm.auto import tqdm
+    except ImportError:
+        return _LogBar(iterable, total=total, desc=desc)
+    return tqdm(iterable, total=total, desc=f"[cytozip] {desc}", unit=unit,
+                dynamic_ncols=True, leave=True, mininterval=0.5)
+
+
+class _NullBar:
+    """No-op stand-in for a tqdm bar (iteration passes straight through)."""
+
+    def __init__(self, iterable=None):
+        self._it = iterable
+
+    def __iter__(self):
+        return iter(self._it if self._it is not None else ())
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def update(self, n=1):
+        pass
+
+    def set_description(self, desc=None, refresh=True):
+        pass
+
+    def set_postfix_str(self, s="", refresh=True):
+        pass
+
+    def close(self):
+        pass
+
+
+class _LogBar(_NullBar):
+    """Fallback progress reporter (no ``tqdm``): one ``logger.info`` line per
+    ~10% of ``total`` (or every 1000 items when ``total`` is unknown)."""
+
+    def __init__(self, iterable=None, total=None, desc=""):
+        super().__init__(iterable)
+        if total is None and iterable is not None and hasattr(iterable, "__len__"):
+            total = len(iterable)
+        self.total = total
+        self.desc = desc
+        self.n = 0
+        self._next = 0
+        self._last = None          # (desc, n) of the last emitted line
+        self._step = max(1, total // 10) if total else 1000
+
+    def __iter__(self):
+        for x in (self._it if self._it is not None else ()):
+            yield x
+            self.update(1)
+        self.close()
+
+    def update(self, n=1):
+        self.n += n
+        if self.n >= self._next:
+            self._emit()
+            self._next = self.n + self._step
+
+    def set_description(self, desc=None, refresh=True):
+        # tqdm-compatible: callers may pass the full "[cytozip] ..." label.
+        if desc:
+            self.desc = desc[len("[cytozip] "):] if desc.startswith("[cytozip] ") else desc
+        self._emit()
+
+    def set_postfix_str(self, s="", refresh=True):
+        pass
+
+    def _emit(self):
+        key = (self.desc, self.n)
+        if key == self._last:
+            return
+        self._last = key
+        if self.total:
+            logger.info(f"[cytozip] {self.desc}: {self.n}/{self.total} "
+                        f"({100.0 * self.n / self.total:.0f}%)")
+        else:
+            logger.info(f"[cytozip] {self.desc}: {self.n}")
+
+    def close(self):
+        if self.total and self.n < self.total:
+            self.n = self.total
+        self._emit()
+
+
+class _ResourceReport:
+    """Context manager that logs wall time and peak memory when ``enabled``.
+
+    Peak memory is sampled every ``interval`` seconds from a daemon thread:
+    the physical footprint of this process plus its worker children (PSS,
+    so pages shared through ``fork`` are counted once) and, when the job
+    runs under a limited memory cgroup (containers, SLURM), that cgroup's
+    usage -- the number the OOM killer actually compares against the
+    limit. ``ru_maxrss`` of the parent and of the largest worker are
+    reported as well.
+    """
+
+    def __init__(self, enabled, label, jobs=1, interval=0.5):
+        self.enabled = bool(enabled)
+        self.label = label
+        self.jobs = int(jobs) if jobs else 1
+        self.interval = float(interval)
+        self.elapsed = None
+        self.peak_parent = None
+        self.peak_child = None
+        self.peak_tree = 0
+        self.peak_cgroup = 0
+        self._stop = None
+        self._thread = None
+
+    @staticmethod
+    def _maxrss(who):
+        import resource
+        import sys
+        v = resource.getrusage(who).ru_maxrss
+        return int(v) if sys.platform == "darwin" else int(v) * 1024
+
+    def _sample(self, pid, cg_file):
+        self.peak_tree = max(self.peak_tree, _proc_tree_pss_bytes(pid))
+        if cg_file is not None:
+            self.peak_cgroup = max(self.peak_cgroup,
+                                   _read_int_file(cg_file) or 0)
+
+    def _run(self, pid, cg_file):
+        import time
+        interval = self.interval
+        while not self._stop.wait(interval):
+            try:
+                t0 = time.perf_counter()
+                self._sample(pid, cg_file)
+                # PSS of many large workers is a page-table walk; keep the
+                # sampler below ~5% of one core by backing off.
+                interval = max(self.interval, 20.0 * (time.perf_counter() - t0))
+            except Exception:  # sampling must never break the run
+                pass
+
+    def __enter__(self):
+        import threading
+        import time
+        self._t0 = time.perf_counter()
+        if self.enabled and os.path.isdir("/proc"):
+            self._cg_file = _cgroup_usage_file()
+            self._pid = os.getpid()
+            self._stop = threading.Event()
+            self._thread = threading.Thread(
+                target=self._run, args=(self._pid, self._cg_file),
+                name="cytozip-resource-sampler", daemon=True)
+            self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        import resource
+        import time
+        self.elapsed = time.perf_counter() - self._t0
+        self.peak_parent = self._maxrss(resource.RUSAGE_SELF)
+        self.peak_child = self._maxrss(resource.RUSAGE_CHILDREN)
+        if self._thread is not None:
+            self._stop.set()
+            self._thread.join(timeout=5)
+            try:
+                self._sample(self._pid, self._cg_file)
+            except Exception:
+                pass
+        if not self.enabled:
+            return False
+        mins, secs = divmod(self.elapsed, 60.0)
+        hrs, mins = divmod(int(mins), 60)
+        clock = (f"{hrs}h{mins:02d}m{secs:04.1f}s" if hrs
+                 else f"{mins}m{secs:04.1f}s")
+        parts = [f"elapsed {clock}"]
+        if self.peak_tree:
+            parts.append(
+                f"peak memory {_fmt_bytes(self.peak_tree)} "
+                f"(parent + {self.jobs} worker(s), PSS)")
+        if self.peak_cgroup:
+            parts.append(
+                f"cgroup peak {_fmt_bytes(self.peak_cgroup)} (incl. page cache)")
+        parts.append(f"parent max RSS {_fmt_bytes(self.peak_parent)}")
+        if self.jobs > 1 and self.peak_child:
+            parts.append(f"largest worker max RSS {_fmt_bytes(self.peak_child)}"
+                         " (includes pages shared with the parent)")
+        logger.info(f"[cytozip] {self.label}: " + "; ".join(parts))
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Site -> feature map (built once in the parent, shared read-only by workers)
+# ---------------------------------------------------------------------------
+# Rows are processed in slabs of this many records so the accumulator
+# up-cast of a whole chromosome (e.g. 8e7 rows -> 640 MB) is never
+# materialised; 2M keeps the per-slab buffers L2/L3-friendly.
+_RUN_SLAB = 2_000_000
+
+
+def _chrom_feature_intervals(info):
+    """``(starts, ends, feat_idx)`` int64 arrays for one chrom entry of
+    ``features_by_chrom`` (tiled or explicit intervals)."""
+    if info.get("tiled", False):
+        bs = int(info["bin_size"])
+        n = int(info["n_bins"])
+        first = int(info["first_index"])
+        starts = np.arange(n, dtype=np.int64) * bs
+        return starts, starts + bs, first + np.arange(n, dtype=np.int64)
+    return (np.asarray(info["starts"], dtype=np.int64),
+            np.asarray(info["ends"], dtype=np.int64),
+            np.asarray(info["indices"], dtype=np.int64))
+
+
+class _LazyIndexIds:
+    """Per-chrom 1-based IDs of a 1-D context index, read on demand (so a
+    genome-wide CH index -- ~1e9 IDs, 8 GB as int64 -- is never held whole).
+    Accepts a path, an open ``Reader`` or a pre-built ``{chrom: ids}``."""
+
+    def __init__(self, index):
+        self._dict = index if isinstance(index, dict) else None
+        self._own = False
+        self._reader = None
+        if isinstance(index, str):
+            self._reader = Reader(index, mmap_advise="sequential")
+            self._own = True
+        elif isinstance(index, Reader):
+            self._reader = index
+        elif self._dict is None:
+            raise TypeError(
+                f"index must be None, str path, Reader, or dict; got {type(index)}")
+        if self._reader is not None:
+            ir = self._reader
+            if not (ir.header["columns"] == ["ID"]
+                    and ir.header["formats"] == ["I"]):
+                raise ValueError(
+                    "index= requires a 1-D context index "
+                    "(columns=['ID'], formats=['I']); got "
+                    f"columns={ir.header['columns']}, "
+                    f"formats={ir.header['formats']}")
+            self._dims = {(d[0] if isinstance(d, tuple) else d): d
+                          for d in ir.chunk_key2offset.keys()}
+
+    def get(self, chrom):
+        if self._dict is not None:
+            v = self._dict.get(chrom)
+            return None if v is None else np.asarray(v)
+        dim = self._dims.get(chrom)
+        if dim is None:
+            return None
+        ids = self._reader.get_ids_from_index(dim)
+        self._reader.release_chunk(dim)
+        if ids.ndim != 1:
+            raise ValueError("index= requires a 1-D context index; got 2-D")
+        return ids
+
+    def close(self):
+        if self._own and self._reader is not None:
+            self._reader.close()
+            self._reader = None
+
+
+def _build_site_feature_map(reference, features_by_chrom,
+                            index_ids_by_chrom=None, verbose=False,
+                            index=None) -> dict:
+    """Pre-resolve, per chrom, which (index-selected) reference rows fall in
+    which feature, so workers never touch the reference positions.
+
+    For every chrom the result holds
+
+    * ``n_ref``: expected row count of the cell chunk (= reference rows),
+    * ``gather``: 0-based rows kept by the context index (``None`` = all);
+      for *dense* selections (> 50% of the rows, e.g. a CH index) the map
+      instead stores the excluded complement ``excl`` with each excluded
+      row's run id ``excl_run``: workers sum all rows and subtract the
+      complement, avoiding a near-full gather per cell and a per-row map,
+    * ``bounds``: sorted unique run boundaries in the kept-row space
+      (``bounds[0] == 0``, ``bounds[-1] == n_sel``). Summing mc / cov over
+      each run and taking a cumulative sum lets every feature (even
+      overlapping ones) be read off as ``cum[hi_run] - cum[lo_run]``,
+    * ``feat_idx`` / ``lo_run`` / ``hi_run``: per-feature output column and
+      run range.
+
+    Memory is ``O(n_features)`` per chrom plus the ``gather`` rows (int32
+    when they fit), typically tens of MB genome-wide instead of the ~4 GB
+    of cached positions a per-worker ``_LazyRefPositions`` ends up holding.
+    The reference is read one chrom at a time and released immediately.
+    """
+    from .bam import _LazyRefPositions
+    rpm = _LazyRefPositions(reference)
+    out = {"chroms": {}, "max_rows": 0, "reference": reference}
+    # ``index`` (path / Reader / dict) is read one chrom at a time; a
+    # pre-materialised ``index_ids_by_chrom`` dict is accepted for callers
+    # that already hold one.
+    lazy_ids = None
+    if index is not None:
+        lazy_ids = _LazyIndexIds(index)
+    elif index_ids_by_chrom is not None:
+        lazy_ids = _LazyIndexIds(index_ids_by_chrom)
+    try:
+        for chrom, info in _progress(list(features_by_chrom.items()),
+                                     desc="site -> feature map",
+                                     enabled=verbose, unit="chrom"):
+            if chrom not in rpm:
+                continue
+            pos = rpm.get(chrom)
+            if pos is None:
+                continue
+            n_ref = int(pos.size)
+            row_dtype = np.int32 if n_ref <= np.iinfo(np.int32).max else np.int64
+            gather = excl = None
+            if lazy_ids is not None:
+                ids = lazy_ids.get(chrom)
+                if ids is None or ids.size == 0:
+                    rpm.drop(chrom)
+                    continue
+                ids = np.asarray(ids, dtype=np.int64)
+                if ids.min() < 1 or ids.max() > n_ref:
+                    ids = ids[(ids >= 1) & (ids <= n_ref)]
+                    if ids.size == 0:
+                        rpm.drop(chrom)
+                        continue
+                rows = ids - 1
+                if rows.size * 2 > n_ref:
+                    # Dense selection (e.g. a CH index keeps ~96% of the
+                    # sites): sum ALL rows and subtract the small excluded
+                    # complement instead of gathering ~every row per cell.
+                    keep = np.zeros(n_ref, dtype=bool)
+                    keep[rows] = True
+                    excl = np.flatnonzero(~keep).astype(row_dtype)
+                    del keep, rows
+                    pos_sel = pos
+                else:
+                    gather = rows
+                    pos_sel = pos[gather]
+                    gather = gather.astype(row_dtype)
+            else:
+                pos_sel = pos
+            n_sel = int(pos_sel.size)
+            starts, ends, feat_idx = _chrom_feature_intervals(info)
+            # BED half-open [start, end) vs 1-based pos: start < pos <= end.
+            # Query in the positions' own dtype so searchsorted does not
+            # up-cast (copy) the whole position array to int64.
+            qdt = pos_sel.dtype
+            if (starts.size and starts.min() >= 0
+                    and ends.max() <= np.iinfo(qdt).max):
+                q_starts, q_ends = starts.astype(qdt), ends.astype(qdt)
+            else:
+                q_starts, q_ends = starts, ends
+            lo = np.searchsorted(pos_sel, q_starts, side="right")
+            hi = np.searchsorted(pos_sel, q_ends, side="right")
+            del pos_sel
+            rpm.drop(chrom)
+            bounds = np.unique(np.concatenate(
+                ([0, n_sel], lo, hi))).astype(np.int64)
+            run_dtype = (np.int32 if bounds.size <= np.iinfo(np.int32).max
+                         else np.int64)
+            entry = {
+                "n_ref": n_ref,
+                "gather": gather,
+                "bounds": bounds,
+                "feat_idx": feat_idx,
+                "lo_run": np.searchsorted(bounds, lo).astype(run_dtype),
+                "hi_run": np.searchsorted(bounds, hi).astype(run_dtype),
+                "excl": None,
+                "excl_run": None,
+            }
+            if excl is not None and excl.size:
+                # run id of every excluded row (full-row space == bounds space)
+                entry["excl"] = excl
+                entry["excl_run"] = (np.searchsorted(bounds, excl, side="right")
+                                     - 1).astype(run_dtype)
+            out["chroms"][chrom] = entry
+            out["max_rows"] = max(out["max_rows"], n_ref)
+    finally:
+        rpm.close()
+        if lazy_ids is not None:
+            lazy_ids.close()
+    return out
+
+
+try:  # optional Cython kernels (see cz_accel.c_run_sums / c_run_sums_rows)
+    from .cz_accel import c_run_sums as _c_run_sums
+    from .cz_accel import c_run_sums_rows as _c_run_sums_rows
+except Exception:  # pragma: no cover - pure-python fallback
+    _c_run_sums = _c_run_sums_rows = None
+
+
+def _kernel_layout(arr, mc_field, cov_field):
+    """``(buf, unit, mc_off, mc_size, cov_off, cov_size)`` for the Cython
+    kernels when ``arr`` is a C-contiguous record array whose two fields are
+    unsigned little-endian ints; ``None`` otherwise (-> numpy fallback)."""
+    dt = arr.dtype
+    if dt.fields is None or not arr.flags.c_contiguous:
+        return None
+    f_mc, f_cov = dt.fields[mc_field], dt.fields[cov_field]
+    for f in (f_mc, f_cov):
+        if not (f[0].kind == "u" and f[0].itemsize in (1, 2, 4, 8)
+                and f[0].byteorder in ("|", "=", "<")):
+            return None
+    return (arr.view(np.uint8).reshape(-1), dt.itemsize,
+            f_mc[1], f_mc[0].itemsize, f_cov[1], f_cov[0].itemsize)
+
+
+def _run_sums(arr, mc_field, cov_field, bounds, slab=_RUN_SLAB):
+    """Per-run int64 sums of ``arr[mc_field]`` / ``arr[cov_field]`` over the
+    runs ``[bounds[i], bounds[i+1])``.
+
+    Fast path: the Cython kernel ``c_run_sums`` walks the packed record
+    bytes once with both accumulators (no temporaries). Fallback:
+    ``reduceat`` straight on the (strided) record field with an explicit
+    accumulator dtype -- ``uint32`` for 1-byte counts (a 2M-row slab of
+    ``uint8`` sums to <= 5.1e8) and ``int64`` otherwise -- processed in
+    slabs so no up-cast copy of a whole chromosome is ever made.
+    """
+    n_runs = bounds.size - 1
+    mc_runs = np.zeros(n_runs, dtype=np.int64)
+    cov_runs = np.zeros(n_runs, dtype=np.int64)
+    n = int(arr.shape[0])
+    if n == 0 or n_runs <= 0:
+        return mc_runs, cov_runs
+    lay = _kernel_layout(arr, mc_field, cov_field) if _c_run_sums else None
+    if lay is not None:
+        bnd = np.ascontiguousarray(bounds, dtype=np.int64)
+        _c_run_sums(*lay, bnd, mc_runs, cov_runs)
+        return mc_runs, cov_runs
+    mc_v, cov_v = arr[mc_field], arr[cov_field]
+
+    def _acc(v):
+        return (np.uint32 if (v.dtype.kind == "u" and v.dtype.itemsize == 1
+                              and slab <= 1 << 24) else np.int64)
+    acc_mc, acc_cov = _acc(mc_v), _acc(cov_v)
+    a = 0
+    while a < n:
+        b = min(a + slab, n)
+        # Runs overlapping [a, b): the run containing a .. the last run
+        # starting before b.
+        lo = int(np.searchsorted(bounds, a, side="right")) - 1
+        hi = int(np.searchsorted(bounds, b, side="left"))
+        if hi <= lo:
+            a = b
+            continue
+        starts = bounds[lo:hi] - a
+        starts[0] = 0
+        mc_runs[lo:hi] += np.add.reduceat(mc_v[a:b], starts, dtype=acc_mc)
+        cov_runs[lo:hi] += np.add.reduceat(cov_v[a:b], starts, dtype=acc_cov)
+        a = b
+    return mc_runs, cov_runs
+
+
+def _subtract_rows(arr, mc_field, cov_field, rows, run_ids, mc_runs, cov_runs):
+    """``mc_runs[run_ids] -= arr[mc_field][rows]`` (and cov), in place."""
+    lay = _kernel_layout(arr, mc_field, cov_field) if _c_run_sums_rows else None
+    if lay is not None:
+        neg_mc = np.zeros_like(mc_runs)
+        neg_cov = np.zeros_like(cov_runs)
+        _c_run_sums_rows(*lay, np.ascontiguousarray(rows, dtype=np.int64),
+                         np.ascontiguousarray(run_ids, dtype=np.int64),
+                         neg_mc, neg_cov)
+        mc_runs -= neg_mc
+        cov_runs -= neg_cov
+        return
+    sub = arr[rows]
+    n_runs = mc_runs.size
+    mc_runs -= np.bincount(run_ids, weights=sub[mc_field],
+                           minlength=n_runs).astype(np.int64)
+    cov_runs -= np.bincount(run_ids, weights=sub[cov_field],
+                            minlength=n_runs).astype(np.int64)
+
+
+def _aggregate_mapped(reader, site_map, mc_col, cov_col, n_feat,
+                      cell_prefix=None, chrom_axis=None, record_dtype=None):
+    """``(n_features, 2)`` int64 ``[sum_mc, sum_cov]`` for one reference-
+    aligned cell using a pre-built :func:`_build_site_feature_map`.
+
+    Per chrom this decodes the cell chunk once, applies the context-index
+    gather on the raw (narrow) records, sums in slabs and releases the
+    chunk, so the transient footprint is ~ the decompressed chunk size.
+    """
+    out = np.zeros((n_feat, 2), dtype=np.int64)
+    chunk_dims = reader.header["chunk_dims"]
+    n_keys = len(chunk_dims)
+    if chrom_axis is None:
+        chrom_axis = n_keys - 1
+    if record_dtype is None:
+        record_dtype = _record_dtype_for(reader.header["formats"])
+    mc_field, cov_field = f"c{mc_col}", f"c{cov_col}"
+    for chrom, m in site_map["chroms"].items():
+        if n_keys == 1:
+            dim = (chrom,)
+        else:
+            if cell_prefix is None:
+                continue
+            dim_list = list(cell_prefix)
+            dim_list.insert(chrom_axis, chrom)
+            dim = tuple(dim_list)
+        if dim not in reader.chunk_key2offset:
+            continue
+        raw = reader.fetch_chunk_bytes(dim)
+        reader.release_chunk(dim)
+        if not raw:
+            continue
+        arr = np.frombuffer(raw, dtype=record_dtype)
+        if arr.shape[0] != m["n_ref"]:
+            key = (str(reader.input), dim)
+            if key not in _WARNED_MISMATCH:
+                _WARNED_MISMATCH.add(key)
+                logger.warning(
+                    f"{reader.input} {dim}: {arr.shape[0]} rows but "
+                    f"reference has {m['n_ref']}; chrom skipped")
+            continue
+        gather = m["gather"]
+        if gather is not None:
+            arr = arr[gather]
+        del raw
+        mc_runs, cov_runs = _run_sums(arr, mc_field, cov_field, m["bounds"])
+        excl = m.get("excl")
+        if excl is not None:
+            # dense index selection: subtract the excluded rows' contribution
+            _subtract_rows(arr, mc_field, cov_field, excl, m["excl_run"],
+                           mc_runs, cov_runs)
+        del arr
+        cum_mc = np.concatenate(([0], np.cumsum(mc_runs)))
+        cum_cov = np.concatenate(([0], np.cumsum(cov_runs)))
+        lo, hi = m["lo_run"], m["hi_run"]
+        fi = m["feat_idx"]
+        out[fi, 0] = cum_mc[hi] - cum_mc[lo]
+        out[fi, 1] = cum_cov[hi] - cum_cov[lo]
+    return out
+
+
+_U32_MAX = np.iinfo(np.uint32).max
+
+
+def _check_u32(cov_sums):
+    """Sparse layers store ``uint32``; warn (once) and clip if a feature's
+    coverage sum exceeds it (only plausible for bulk-like cells over huge
+    features)."""
+    if cov_sums.size and int(cov_sums.max()) > _U32_MAX:
+        if "u32" not in _WARNED_MISMATCH:
+            _WARNED_MISMATCH.add("u32")
+            logger.warning("[cytozip] per-feature counts exceed uint32; "
+                           "values are clipped to 4294967295 in the sparse "
+                           "mc / cov layers")
+        return True
+    return False
+
+
+def _to_sparse_triplet(out):
+    """``(n_feat, 2)`` int64 -> ``(cols int32, mc uint32, cov uint32)`` of
+    the covered (``cov > 0``) entries; what workers ship back."""
+    cov = out[:, 1]
+    nz = np.flatnonzero(cov).astype(np.int32, copy=False)
+    mc_nz, cov_nz = out[nz, 0], cov[nz]
+    if _check_u32(cov_nz):
+        mc_nz = np.minimum(mc_nz, _U32_MAX)
+        cov_nz = np.minimum(cov_nz, _U32_MAX)
+    return (nz, mc_nz.astype(np.uint32, copy=False),
+            cov_nz.astype(np.uint32, copy=False))
+
+
+def _worker_single_thread_inflate():
+    """Pin the Cython chunk inflate to one thread inside pool workers: the
+    default (up to 4 OpenMP threads per process) oversubscribes the node
+    when ``jobs`` workers inflate concurrently (measured ~1.8x slower)."""
+    os.environ.setdefault("CYTOZIP_INFLATE_THREADS", "1")
+    try:
+        from . import cz_accel
+        cz_accel.set_inflate_threads(1)
+    except (ImportError, AttributeError):
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Parallel worker (module-level so ProcessPoolExecutor can pickle it)
 # ---------------------------------------------------------------------------
 _WORKER_STATE: dict = {}
+# (reader.input, dim) pairs already reported as length-mismatched, so a
+# cohort with one odd chromosome does not emit one warning per cell.
+_WARNED_MISMATCH: set = set()
 
 
 def _pool_init(features_by_chrom, pos_col, mc_col, cov_col, reference,
-               index_ids_by_chrom=None):
+               index_ids_by_chrom=None, site_map=None, index_path=None):
     """Per-process initializer: stash shared read-only state.
 
-    Each worker loads the reference position map lazily (only if needed)
-    and then reuses it across every cell it receives.
+    ``site_map`` (see :func:`_build_site_feature_map`) is the normal path
+    for reference-aligned cells; the per-worker lazy reference loader is
+    only a fallback for cells without a ``pos`` column when no map was
+    built, and it drops each chrom right after use.
     """
+    _worker_single_thread_inflate()
     _WORKER_STATE.clear()
     _WORKER_STATE["features_by_chrom"] = features_by_chrom
     _WORKER_STATE["pos_col"] = pos_col
@@ -910,6 +1798,11 @@ def _pool_init(features_by_chrom, pos_col, mc_col, cov_col, reference,
     _WORKER_STATE["ref_pos_map"] = None
     _WORKER_STATE["chroms_set"] = set(features_by_chrom.keys())
     _WORKER_STATE["index_ids_by_chrom"] = index_ids_by_chrom
+    _WORKER_STATE["index_path"] = index_path
+    _WORKER_STATE["site_map"] = site_map
+    _WORKER_STATE["n_feat"] = sum(
+        v["n_bins"] if v.get("tiled") else len(v["indices"])
+        for v in features_by_chrom.values())
 
 
 def _pool_get_ref_pos_map(hint_path=None):
@@ -925,27 +1818,64 @@ def _pool_get_ref_pos_map(hint_path=None):
     return _WORKER_STATE["ref_pos_map"]
 
 
+def _pool_index_ids(pi):
+    """Raw index IDs for a position-column cell (``pi`` not None) in a
+    worker: the shared dict when the parent built one, else resolved once
+    per worker from the index path (rare mixed-input case)."""
+    st = _WORKER_STATE
+    if pi is None:
+        return st.get("index_ids_by_chrom")
+    if st.get("index_ids_by_chrom") is None and st.get("index_path"):
+        st["index_ids_by_chrom"] = _resolve_index_to_dict(
+            st["index_path"], chroms=st["chroms_set"])
+    return st.get("index_ids_by_chrom")
+
+
+def _aggregate_cell(reader, pi, mc_i, cov_i, cell_prefix=None,
+                    chrom_axis=None, site_map=None, ref_pos_map=None,
+                    features_by_chrom=None, index_ids_by_chrom=None,
+                    n_feat=None):
+    """Dispatch one cell to the mapped (reference-aligned) or the
+    position-column aggregation path; returns ``(n_feat, 2)`` int64."""
+    if pi is None and site_map is not None:
+        return _aggregate_mapped(reader, site_map, mc_i, cov_i, n_feat,
+                                 cell_prefix=cell_prefix,
+                                 chrom_axis=chrom_axis)
+    arr = _aggregate_one_reader(
+        reader, features_by_chrom, pi, mc_i, cov_i,
+        cell_prefix=cell_prefix, chrom_axis=chrom_axis,
+        ref_pos_map=ref_pos_map, index_ids_by_chrom=index_ids_by_chrom)
+    if pi is None and ref_pos_map is not None and hasattr(ref_pos_map, "drop"):
+        # Fallback path: do not let the per-worker position cache grow to
+        # the whole genome across cells.
+        for chrom in list(getattr(ref_pos_map, "_cache", {}).keys()):
+            ref_pos_map.drop(chrom)
+    return arr
+
+
 def _pool_process_file(cz_path):
-    """Worker entry: aggregate a whole per-cell ``.cz`` file."""
-    fbc = _WORKER_STATE["features_by_chrom"]
-    # Whole-file per-cell aggregation (all chroms once) -> sequential.
+    """Worker entry: aggregate a whole per-cell ``.cz`` file; returns the
+    covered entries as ``(cols, mc, cov)`` (see :func:`_to_sparse_triplet`)."""
+    st = _WORKER_STATE
     r = Reader(cz_path, mmap_advise="sequential")
     try:
         cols = r.header["columns"]
-        pi = cols.index(_WORKER_STATE["pos_col"]) \
-            if _WORKER_STATE["pos_col"] in cols else None
-        mc_i = cols.index(_WORKER_STATE["mc_col"])
-        cov_i = cols.index(_WORKER_STATE["cov_col"])
-        rpm = _pool_get_ref_pos_map(r.header.get("message")) \
-            if pi is None else None
-        chrom_axis = _detect_chrom_axis(r, _WORKER_STATE["chroms_set"])
-        arr = _aggregate_one_reader(
-            r, fbc, pi, mc_i, cov_i,
-            chrom_axis=chrom_axis, ref_pos_map=rpm,
-            index_ids_by_chrom=_WORKER_STATE.get("index_ids_by_chrom"))
+        pi = cols.index(st["pos_col"]) if st["pos_col"] in cols else None
+        mc_i = cols.index(st["mc_col"])
+        cov_i = cols.index(st["cov_col"])
+        site_map = st.get("site_map")
+        rpm = None
+        if pi is None and site_map is None:
+            rpm = _pool_get_ref_pos_map(r.header.get("message"))
+        chrom_axis = _detect_chrom_axis(r, st["chroms_set"])
+        arr = _aggregate_cell(
+            r, pi, mc_i, cov_i, chrom_axis=chrom_axis, site_map=site_map,
+            ref_pos_map=rpm, features_by_chrom=st["features_by_chrom"],
+            index_ids_by_chrom=_pool_index_ids(pi),
+            n_feat=st["n_feat"])
     finally:
         r.close()
-    return arr
+    return _to_sparse_triplet(arr)
 
 
 def _pool_process_prefix(args):
@@ -955,30 +1885,52 @@ def _pool_process_prefix(args):
     worker process and cached; cell prefixes streamed in reuse it.
     """
     cz_path, prefix = args
-    fbc = _WORKER_STATE["features_by_chrom"]
-    # Cache the merged Reader per worker.
-    r = _WORKER_STATE.get("_merged_reader")
-    if r is None or _WORKER_STATE.get("_merged_path") != cz_path:
+    st = _WORKER_STATE
+    r = st.get("_merged_reader")
+    if r is None or st.get("_merged_path") != cz_path:
         if r is not None:
             r.close()
         r = Reader(cz_path, mmap_advise="sequential")
-        _WORKER_STATE["_merged_reader"] = r
-        _WORKER_STATE["_merged_path"] = cz_path
+        st["_merged_reader"] = r
+        st["_merged_path"] = cz_path
         cols = r.header["columns"]
-        _WORKER_STATE["_pi"] = (cols.index(_WORKER_STATE["pos_col"])
-                                if _WORKER_STATE["pos_col"] in cols else None)
-        _WORKER_STATE["_mc_i"] = cols.index(_WORKER_STATE["mc_col"])
-        _WORKER_STATE["_cov_i"] = cols.index(_WORKER_STATE["cov_col"])
-        _WORKER_STATE["_chrom_axis"] = _detect_chrom_axis(
-            r, _WORKER_STATE["chroms_set"])
-    pi = _WORKER_STATE["_pi"]
-    rpm = _pool_get_ref_pos_map(r.header.get("message")) if pi is None else None
-    arr = _aggregate_one_reader(
-        r, fbc, pi, _WORKER_STATE["_mc_i"], _WORKER_STATE["_cov_i"],
-        cell_prefix=prefix, chrom_axis=_WORKER_STATE["_chrom_axis"],
-        ref_pos_map=rpm,
-        index_ids_by_chrom=_WORKER_STATE.get("index_ids_by_chrom"))
-    return arr
+        st["_pi"] = (cols.index(st["pos_col"])
+                     if st["pos_col"] in cols else None)
+        st["_mc_i"] = cols.index(st["mc_col"])
+        st["_cov_i"] = cols.index(st["cov_col"])
+        st["_chrom_axis"] = _detect_chrom_axis(r, st["chroms_set"])
+    pi = st["_pi"]
+    site_map = st.get("site_map")
+    rpm = None
+    if pi is None and site_map is None:
+        rpm = _pool_get_ref_pos_map(r.header.get("message"))
+    arr = _aggregate_cell(
+        r, pi, st["_mc_i"], st["_cov_i"], cell_prefix=prefix,
+        chrom_axis=st["_chrom_axis"], site_map=site_map, ref_pos_map=rpm,
+        features_by_chrom=st["features_by_chrom"],
+        index_ids_by_chrom=_pool_index_ids(pi), n_feat=st["n_feat"])
+    return _to_sparse_triplet(arr)
+
+
+def _estimate_worker_bytes(site_map, unit_size, paths=None) -> int:
+    """Rough per-worker peak for :func:`_cap_workers`: fixed base + the
+    largest decompressed cell chunk (+ slab / gather scratch)."""
+    est = _WORKER_BASE_BYTES
+    if site_map is not None and site_map.get("max_rows"):
+        chunk = int(site_map["max_rows"]) * max(1, int(unit_size))
+        gather = max((m["gather"].nbytes for m in site_map["chroms"].values()
+                      if m["gather"] is not None), default=0)
+        excl = max((m["excl"].nbytes for m in site_map["chroms"].values()
+                    if m.get("excl") is not None), default=0)
+        est += int(chunk * 1.25) + gather + excl + 2 * _RUN_SLAB * 8
+    elif paths:
+        # Position-column cells: compressed size x a generous inflate ratio.
+        try:
+            largest = max(os.path.getsize(p) for p in paths[:2000])
+        except OSError:
+            largest = 0
+        est += 6 * largest
+    return est
 
 
 # ---------------------------------------------------------------------------
@@ -1066,19 +2018,22 @@ def _prepare_feature_groups(features, chrom_size, exclude_chroms, blacklist,
         _starts = feat_df["start"].to_numpy()
         _ends = feat_df["end"].to_numpy()
         _index_labels = feat_df.index.to_numpy()
+        # numpy arrays (not Python lists): ~8 B per value instead of ~36 B,
+        # and every consumer goes through np.asarray anyway.
         for c in pd.unique(_chroms):
             sel = np.nonzero(_chroms == c)[0]
             features_by_chrom[c] = {
-                "starts": _starts[sel].astype(int).tolist(),
-                "ends": _ends[sel].astype(int).tolist(),
-                "indices": _index_labels[sel].tolist(),
+                "starts": _starts[sel].astype(np.int64),
+                "ends": _ends[sel].astype(np.int64),
+                "indices": _index_labels[sel].astype(np.int64),
             }
     return feat_df, features_by_chrom, n_feat, gtf_meta_df
 
 
 def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
                          score, score_cutoff, hvf_frac, obs, output,
-                         reference=None, nan_policy="auto"):
+                         reference=None, nan_policy="auto", max_mem=None,
+                         verbose=False):
     """Assemble an :class:`anndata.AnnData` from a filled streaming builder.
 
     Shared tail of :func:`cz_to_anndata` and :func:`cz_to_anndata_multiref`:
@@ -1089,7 +2044,9 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
     ``adata.uns['cytozip_reference']``.
 
     ``nan_policy`` controls how uncovered (``cov == 0``) entries appear in
-    ``.X`` (see :func:`_apply_nan_policy`).
+    ``.X`` (see :func:`_apply_nan_policy`); under ``'auto'`` the dense fill
+    is skipped (falls back to ``'zero'``) when the dense matrix would exceed
+    the memory budget (``max_mem`` or half of the detected free memory).
     """
     import anndata
 
@@ -1097,7 +2054,11 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
     # (n_cells, n_features) CSR uint32 matrices of methylated counts and total
     # coverage; only covered (cov > 0) entries are stored, so their shared
     # non-zero structure is the covered mask.
+    n_phase = 2 + (3 if score == "posterior_frac" else 1) + (1 if output else 0)
+    bar = _progress(total=n_phase, desc="finalize: sparse layers",
+                    enabled=verbose, unit="step")
     mc_sp, cov_sp = builder.finalize()
+    bar.update(1)
 
     # Build var_df. For GTF inputs we attach gene_id / gene_type /
     # strand alongside the coordinates; for BED / bins var carries just
@@ -1114,10 +2075,15 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
     obs_df = pd.DataFrame(index=obs_names)
     prior_mean = None
     if score == "posterior_frac":
+        bar.set_description("[cytozip] finalize: Beta prior")
         alpha, beta, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
+        bar.update(1)
+        bar.set_description(f"[cytozip] finalize: score {score}")
         X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
                                          score_cutoff=score_cutoff,
                                          alpha=alpha, beta=beta)
+        bar.update(1)
+        bar.set_description("[cytozip] finalize: HVF stats")
         # Per-feature additive HVF accumulators -> adata.var. Additive across
         # cells (and merged datasets), so mean / var / dispersion / normalized
         # dispersion can be reconstructed downstream (e.g. pym3c
@@ -1140,8 +2106,10 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
         obs_df["rho"] = (1.0 / (alpha.astype(np.float64)
                                 + beta.astype(np.float64) + 1.0)).astype(np.float32)
     else:
+        bar.set_description(f"[cytozip] finalize: score {score}")
         X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
                                          score_cutoff=score_cutoff)
+    bar.update(1)
     # Resolve nan_policy (incl. 'auto') to an effective per-score policy, then
     # apply it to uncovered (cov==0) entries of .X. 'zero' keeps the sparse
     # implicit 0; 'nan' / 'prior_mean' densify .X to float32.
@@ -1152,6 +2120,23 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
         elif score in ("frac", "umc"):
             eff_policy = "nan"
         else:  # hypo-score / hyper-score have no missing entries; stay sparse
+            eff_policy = "zero"
+    if eff_policy != "zero" and nan_policy == "auto":
+        # Dense .X is n_cells * n_features * 4 B; when that does not fit the
+        # memory budget comfortably, 'auto' keeps .X sparse instead of OOM.
+        dense_bytes = int(mc_sp.shape[0]) * int(mc_sp.shape[1]) * 4
+        budget = _parse_mem(max_mem)
+        if budget is None:
+            avail = _available_memory_bytes()
+            budget = None if avail is None else int(avail * 0.5)
+        if budget is not None and dense_bytes > budget:
+            logger.warning(
+                f"[cytozip] nan_policy='auto' would densify .X to "
+                f"{_fmt_bytes(dense_bytes)} (> budget {_fmt_bytes(budget)}); "
+                f"keeping .X sparse (nan_policy='zero'). Uncovered entries "
+                f"are implicit 0; restore NaN / prior_mean on demand with "
+                f"cytozip.features.to_dense(adata). Pass nan_policy="
+                f"{eff_policy!r} explicitly to force the dense matrix.")
             eff_policy = "zero"
     if eff_policy != "zero":
         if eff_policy in ("nan", "prior_mean"):
@@ -1165,9 +2150,11 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
                 f"both RAM and on-disk space, and you can restore NaN on "
                 f"demand / block-wise from layers['cov'] via "
                 f"cytozip.features.to_dense_nan(adata).")
+        bar.set_description(f"[cytozip] finalize: dense .X ({eff_policy})")
         if eff_policy == "prior_mean" and prior_mean is None:
             _, _, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
         X = _apply_nan_policy(X, cov_sp, eff_policy, prior_mean=prior_mean)
+    bar.set_description("[cytozip] finalize: AnnData")
     if obs is not None:
         obs_df = obs_df.join(obs, how="left")
 
@@ -1199,9 +2186,14 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
     }
     if reference is not None:
         adata.uns["cytozip_reference"] = reference
+    bar.update(1)
     if output:
+        bar.set_description(f"[cytozip] finalize: write {os.path.basename(output)}")
         adata.write_h5ad(os.path.abspath(os.path.expanduser(output)),
                          compression='lzf')
+        bar.update(1)
+    bar.set_description("[cytozip] finalize: done")
+    bar.close()
     return adata
 
 
@@ -1225,36 +2217,73 @@ def _uncovered_mask(cov_sp, shape):
     return np.asarray(cov_sp) == 0
 
 
+def _scatter_csr_rows(dense, csr, r0, r1):
+    """``dense[rows, cols] = data`` for the rows ``r0:r1`` of ``csr``."""
+    indptr = csr.indptr
+    s, e = int(indptr[r0]), int(indptr[r1])
+    if e == s:
+        return
+    rows = np.repeat(np.arange(r0, r1), np.diff(indptr[r0:r1 + 1]))
+    dense[rows, csr.indices[s:e]] = csr.data[s:e]
+
+
 def _apply_nan_policy(X, cov_sp, policy, prior_mean=None):
     """Densify ``X`` to ``float32`` filling uncovered (``cov == 0``) per policy.
 
     ``'nan'`` fills ``np.nan``; ``'prior_mean'`` fills each cell's Beta prior
     mean (per-row broadcast, NaN fallback for degenerate cells). ``'zero'`` is
     handled by the caller (keeps ``X`` sparse) and never reaches here.
+
+    The dense result is allocated once and pre-filled with the policy value
+    (a per-row broadcast), then the covered entries are scattered in row
+    blocks -- no dense boolean mask, no COO copy, so the peak is ~1x the
+    dense ``float32`` matrix instead of ~2.5x.
     """
     import scipy.sparse as ss
-    # X is the freshly-built sparse score matrix here, so toarray() already
-    # yields an owned float32 array — avoid a second redundant copy.
-    if ss.issparse(X):
-        dense = X.toarray()
-        if dense.dtype != np.float32:
-            dense = dense.astype(np.float32, copy=False)
-    else:
-        dense = np.array(X, dtype=np.float32)
-    uncovered = _uncovered_mask(cov_sp, dense.shape)
-    if policy == "nan":
-        dense[uncovered] = np.nan
-    elif policy == "prior_mean":
-        if prior_mean is None:
-            raise ValueError(
-                "nan_policy='prior_mean' requires per-cell prior_mean")
-        fill = np.broadcast_to(
-            np.asarray(prior_mean, dtype=np.float32).reshape(-1, 1),
-            dense.shape)
-        dense[uncovered] = fill[uncovered]
-    else:
+    if policy not in ("nan", "prior_mean"):
         raise ValueError(
             f"nan_policy must be one of {_VALID_NAN_POLICIES}, got {policy!r}")
+    if policy == "prior_mean" and prior_mean is None:
+        raise ValueError(
+            "nan_policy='prior_mean' requires per-cell prior_mean")
+    if not ss.issparse(X):
+        dense = np.array(X, dtype=np.float32, copy=True)
+        uncovered = _uncovered_mask(cov_sp, dense.shape)
+        if policy == "nan":
+            dense[uncovered] = np.nan
+        else:
+            fill = np.broadcast_to(
+                np.asarray(prior_mean, dtype=np.float32).reshape(-1, 1),
+                dense.shape)
+            dense[uncovered] = fill[uncovered]
+        return dense
+
+    X = X.tocsr()
+    cov = cov_sp.tocsr() if ss.issparse(cov_sp) else None
+    dense = np.empty(X.shape, dtype=np.float32)
+    if policy == "nan":
+        dense.fill(np.nan)
+    else:
+        dense[:] = np.asarray(prior_mean, dtype=np.float32).reshape(-1, 1)
+    same_structure = (cov is not None and cov.nnz == X.nnz
+                      and np.array_equal(cov.indptr, X.indptr)
+                      and np.array_equal(cov.indices, X.indices))
+    for r0, r1 in _row_blocks(X.indptr):
+        if cov is not None and not same_structure:
+            # covered entries missing from X are measured zeros, not NaN
+            zeros = cov[r0:r1].copy()
+            zeros.data = np.zeros_like(zeros.data, dtype=np.float32)
+            _scatter_csr_rows(dense[r0:r1], zeros, 0, r1 - r0)
+        _scatter_csr_rows(dense, X, r0, r1)
+    if cov is None:
+        uncovered = np.asarray(cov_sp) == 0
+        if policy == "nan":
+            dense[uncovered] = np.nan
+        else:
+            fill = np.broadcast_to(
+                np.asarray(prior_mean, dtype=np.float32).reshape(-1, 1),
+                dense.shape)
+            dense[uncovered] = fill[uncovered]
     return dense
 
 
@@ -1368,6 +2397,8 @@ def cz_to_anndata(
     hvf_frac: str = "posterior",
     nan_policy: str = "auto",
     jobs: int = 1,
+    max_mem: Optional[Union[str, int]] = None,
+    verbose: bool = False,
 ):
     """Build an :class:`anndata.AnnData` of shape ``(n_cells, n_features)``.
 
@@ -1428,11 +2459,13 @@ def cz_to_anndata(
         1-D context index built by :func:`cytozip.index_context`
         (e.g. ``mm10.allc.cz.CGN.index`` for CG-only or ``.CHN.index``
         for CH-only). When supplied, every per-cell aggregation is
-        restricted to the index-selected positions. The index file is
-        read **once** for the whole job (even with ``jobs>1`` it is
-        materialised to ``{chrom: int64 IDs}`` in the parent and shipped
-        to workers via the pool initializer), so the per-chrom cost is
-        a single zero-copy gather on top of the existing decode pipeline.
+        restricted to the index-selected positions. For reference-aligned
+        cells the index is streamed chrom by chrom into the parent's
+        site -> feature map (sparse selections such as CG become a row
+        gather, dense ones such as CH a small excluded complement), so even
+        a genome-wide CH index (~1e9 IDs) is never materialised whole; for
+        cells with their own ``pos`` column it is read once into a shared
+        ``{chrom: IDs}`` dict (copy-on-write across workers).
     chrom_size : str or DataFrame or dict, optional
         Required when ``features`` is an int: chrom-size / ``.fai`` for
         genome tiling.
@@ -1549,7 +2582,20 @@ def cz_to_anndata(
         per-cell ``.cz`` files each worker opens its own Reader and
         processes one cell; for a merged ``.cz`` each worker handles
         a subset of cell prefixes. ``0`` or negative falls back to
-        serial.
+        serial. The effective worker count is capped so that
+        ``jobs x (estimated per-worker peak)`` fits the memory budget (see
+        ``max_mem``); a warning reports the cap.
+    max_mem : str or int, optional
+        Memory budget (e.g. ``'200G'``, ``'512MB'`` or bytes) used to cap
+        ``jobs`` and to decide whether ``nan_policy='auto'`` may densify
+        ``.X``. Default: derived from the free RAM / cgroup limit at run
+        time (80% for the worker cap, 50% for the dense ``.X`` decision).
+    verbose : bool, default False
+        Show progress bars (site-map build, per-cell aggregation, finalize
+        phases, h5ad write; ``tqdm`` when installed, else periodic log
+        lines) and log the wall-clock time and peak memory (process tree
+        PSS, cgroup usage, parent / largest-worker RSS) when the run
+        finishes.
 
     Returns
     -------
@@ -1572,7 +2618,21 @@ def cz_to_anndata(
     feat_df, features_by_chrom, n_feat, gtf_meta_df = _prepare_feature_groups(
         features, chrom_size, exclude_chroms, blacklist, flank_bp, gtf_id_col)
 
-    # Lazily load reference positions when needed.
+    with _ResourceReport(verbose, "cz_to_anndata", jobs) as rep:
+        adata = _cz_to_anndata_impl(
+            cz_inputs, feat_df, features_by_chrom, n_feat, gtf_meta_df,
+            output, use_samples, ext, pos_col, mc_col, cov_col, obs,
+            reference, index, score, score_cutoff, hvf_frac, nan_policy,
+            jobs, max_mem, rep, verbose)
+    return adata
+
+
+def _cz_to_anndata_impl(cz_inputs, feat_df, features_by_chrom, n_feat,
+                        gtf_meta_df, output, use_samples, ext, pos_col,
+                        mc_col, cov_col, obs, reference, index, score,
+                        score_cutoff, hvf_frac, nan_policy, jobs, max_mem,
+                        rep, verbose=False):
+    # Lazily load reference positions when needed (serial fallback only).
     ref_pos_map_cache = {"loaded": False, "map": None}
 
     def _get_ref_pos_map(hint_path=None):
@@ -1600,53 +2660,96 @@ def cz_to_anndata(
 
     # Resolve input mode.
     paths = _resolve_inputs(cz_inputs)
-    n_workers = int(jobs) if jobs and int(jobs) > 1 else 1
+    if not paths:
+        raise ValueError(f"cz_to_anndata: no .cz inputs found in {cz_inputs!r}")
 
     # Pre-materialise the optional context index once for the whole job.
     # Reading the .cz index here means: (a) workers don't each re-open it,
-    # (b) the dict ships cleanly through ProcessPoolExecutor, (c) per-cell
+    # (b) the dict ships cleanly through the pool initializer, (c) per-cell
     # aggregation only pays a zero-copy gather (no extra I/O / decompress).
-    index_ids_by_chrom: Optional[dict] = None
-    if index is not None:
-        index_ids_by_chrom = _resolve_index_to_dict(
+    # Peek at the first input's header: cells without a ``pos`` column are
+    # row-aligned to a reference, for which the parent pre-resolves the
+    # site -> feature map ONCE (workers then never load reference
+    # positions; see _build_site_feature_map).
+    r0 = Reader(paths[0], mmap_advise="random")
+    try:
+        pi0, _, _ = _resolve_cols(r0)
+        unit_size = int(r0._unit_size)
+        hint_ref = r0.header.get("message")
+    finally:
+        r0.close()
+    site_map = None
+    index_for_workers: Optional[dict] = None
+    index_path_for_workers = index if isinstance(index, str) else None
+    if pi0 is None:
+        ref_path = reference or hint_ref
+        if ref_path is None or not os.path.isfile(str(ref_path)):
+            raise ValueError(
+                "Cell .cz has no 'pos' column; pass reference= to "
+                "provide the coordinate reference.")
+        logger.info("[cytozip] resolving site -> feature map from "
+                    f"{ref_path}")
+        # The index is streamed chrom by chrom into the map (a genome-wide
+        # CH index is ~1e9 IDs; it is never materialised as a dict here).
+        site_map = _build_site_feature_map(ref_path, features_by_chrom,
+                                           verbose=verbose, index=index)
+        if index is not None and not isinstance(index, str):
+            # Non-path index (Reader / dict) cannot be re-opened lazily by a
+            # worker, so keep a dict for any position-column cell.
+            index_for_workers = _resolve_index_to_dict(
+                index, chroms=set(features_by_chrom.keys()))
+    elif index is not None:
+        # Position-column cells filter by the index themselves; read it
+        # once in the parent and share it (fork -> copy-on-write).
+        index_for_workers = _resolve_index_to_dict(
             index, chroms=set(features_by_chrom.keys()))
 
-    # Streaming sparse builder: each cell's (n_feat, 2) array is appended
+    est_worker = _estimate_worker_bytes(site_map, unit_size, paths)
+    n_workers = _cap_workers(jobs, est_worker, max_mem=max_mem)
+    rep.jobs = n_workers
+
+    # Streaming sparse builder: each cell's covered entries are appended
     # immediately and dropped, so peak memory is dominated by the sparse
-    # CSRs (~nnz * 8 B) instead of n_cells * n_feat * 8 B.
+    # CSRs (~nnz * 12 B) instead of n_cells * n_feat * 8 B.
     builder = _StreamingSparseBuilder(n_feat)
     obs_names: List[str] = []
 
-    # Cap pool chunksize so the executor's in-flight buffer cannot scale
-    # with n_cells. Default ``len // (n_workers*4)`` blew up to thousands
-    # of arrays buffered for cohorts >100k cells. ``32`` keeps in-flight
-    # memory bounded at ~ ``n_workers * 32 * (n_feat * 16 B)``.
-    _POOL_CHUNK_CAP = 32
+    # Keep at most this many tasks in flight per worker so finished results
+    # waiting for in-order consumption stay bounded regardless of n_cells.
+    _INFLIGHT_PER_WORKER = 4
 
     def _run_parallel_files(paths_):
-        from concurrent.futures import ProcessPoolExecutor
-        with ProcessPoolExecutor(
-                max_workers=n_workers,
-                initializer=_pool_init,
-                initargs=(features_by_chrom, pos_col, mc_col, cov_col,
-                          reference, index_ids_by_chrom)) as ex:
-            chunk = max(1, min(_POOL_CHUNK_CAP,
-                               len(paths_) // (n_workers * 4) or 1))
-            for arr in ex.map(_pool_process_file, paths_, chunksize=chunk):
-                yield arr
+        with _make_pool(n_workers, _pool_init,
+                        (features_by_chrom, pos_col, mc_col, cov_col,
+                         reference, index_for_workers, site_map,
+                         index_path_for_workers)) as ex:
+            yield from _bounded_map(ex, _pool_process_file, paths_,
+                                    n_workers * _INFLIGHT_PER_WORKER)
 
     def _run_parallel_prefixes(cz_path, prefix_list):
-        from concurrent.futures import ProcessPoolExecutor
-        with ProcessPoolExecutor(
-                max_workers=n_workers,
-                initializer=_pool_init,
-                initargs=(features_by_chrom, pos_col, mc_col, cov_col,
-                          reference, index_ids_by_chrom)) as ex:
+        with _make_pool(n_workers, _pool_init,
+                        (features_by_chrom, pos_col, mc_col, cov_col,
+                         reference, index_for_workers, site_map,
+                         index_path_for_workers)) as ex:
             args = [(cz_path, pref) for pref in prefix_list]
-            chunk = max(1, min(_POOL_CHUNK_CAP,
-                               len(args) // (n_workers * 4) or 1))
-            for arr in ex.map(_pool_process_prefix, args, chunksize=chunk):
-                yield arr
+            yield from _bounded_map(ex, _pool_process_prefix, args,
+                                    n_workers * _INFLIGHT_PER_WORKER)
+
+    def _serial_cell(r, pi, mc_i, cov_i, chrom_axis, cell_prefix=None):
+        nonlocal index_for_workers
+        rpm = None
+        if pi is None and site_map is None:
+            rpm = _get_ref_pos_map(r.header.get("message"))
+        if (pi is not None and index_for_workers is None
+                and index_path_for_workers is not None):
+            # mixed inputs: a position-column cell needs the raw IDs
+            index_for_workers = _resolve_index_to_dict(
+                index_path_for_workers, chroms=set(features_by_chrom.keys()))
+        return _aggregate_cell(
+            r, pi, mc_i, cov_i, cell_prefix=cell_prefix,
+            chrom_axis=chrom_axis, site_map=site_map, ref_pos_map=rpm,
+            features_by_chrom=features_by_chrom,
+            index_ids_by_chrom=index_for_workers, n_feat=n_feat)
 
     # Whitelist set: O(1) membership tests; None = include all.
     sample_set = set(use_samples) if use_samples is not None else None
@@ -1662,7 +2765,6 @@ def cz_to_anndata(
         try:
             n_keys = len(r.header["chunk_dims"])
             pi, mc_i, cov_i = _resolve_cols(r)
-            rpm = _get_ref_pos_map(r.header.get("message")) if pi is None else None
             chrom_axis = _detect_chrom_axis(r, set(features_by_chrom.keys()))
             if n_keys >= 2:
                 # Merged file: enumerate cells, filter by whitelist.
@@ -1676,19 +2778,19 @@ def cz_to_anndata(
                     r = None
                     prefixes = [p for p, _ in cell_prefixes]
                     labels = [lab for _, lab in cell_prefixes]
-                    for arr, label in zip(
-                            _run_parallel_prefixes(paths[0], prefixes),
-                            labels):
-                        builder.append(arr)
+                    for (cols_, mc_, cov_), label in _progress(
+                            zip(_run_parallel_prefixes(paths[0], prefixes),
+                                labels),
+                            total=len(labels), desc="aggregating cells",
+                            enabled=verbose, unit="cell"):
+                        builder.append_sparse(cols_, mc_, cov_)
                         obs_names.append(label)
-                        del arr
                 else:
-                    for prefix, label in cell_prefixes:
-                        arr = _aggregate_one_reader(
-                            r, features_by_chrom, pi, mc_i, cov_i,
-                            cell_prefix=prefix, chrom_axis=chrom_axis,
-                            ref_pos_map=rpm,
-                            index_ids_by_chrom=index_ids_by_chrom)
+                    for prefix, label in _progress(
+                            cell_prefixes, desc="aggregating cells",
+                            enabled=verbose, unit="cell"):
+                        arr = _serial_cell(r, pi, mc_i, cov_i, chrom_axis,
+                                           cell_prefix=prefix)
                         builder.append(arr)
                         obs_names.append(label)
                         del arr
@@ -1696,10 +2798,7 @@ def cz_to_anndata(
                 # Single per-cell file: sample name from filename.
                 label = _basename_sample(paths[0])
                 if sample_set is None or label in sample_set:
-                    arr = _aggregate_one_reader(
-                        r, features_by_chrom, pi, mc_i, cov_i,
-                        chrom_axis=chrom_axis, ref_pos_map=rpm,
-                        index_ids_by_chrom=index_ids_by_chrom)
+                    arr = _serial_cell(r, pi, mc_i, cov_i, chrom_axis)
                     builder.append(arr)
                     obs_names.append(label)
                     del arr
@@ -1716,36 +2815,38 @@ def cz_to_anndata(
                 continue
             keep_paths.append(p)
             labels.append(lab)
-        if n_workers > 1:
-            for arr, label in zip(_run_parallel_files(keep_paths), labels):
-                builder.append(arr)
+        if n_workers > 1 and len(keep_paths) > 1:
+            for (cols_, mc_, cov_), label in _progress(
+                    zip(_run_parallel_files(keep_paths), labels),
+                    total=len(labels), desc="aggregating cells",
+                    enabled=verbose, unit="cell"):
+                builder.append_sparse(cols_, mc_, cov_)
                 obs_names.append(label)
-                del arr
         else:
-            for p, label in zip(keep_paths, labels):
+            for p, label in _progress(list(zip(keep_paths, labels)),
+                                      desc="aggregating cells",
+                                      enabled=verbose, unit="cell"):
                 r = Reader(p, mmap_advise="sequential")
                 try:
                     pi, mc_i, cov_i = _resolve_cols(r)
-                    rpm = _get_ref_pos_map(r.header.get("message")) \
-                        if pi is None else None
                     chrom_axis = _detect_chrom_axis(
                         r, set(features_by_chrom.keys()))
-                    arr = _aggregate_one_reader(
-                        r, features_by_chrom, pi, mc_i, cov_i,
-                        chrom_axis=chrom_axis, ref_pos_map=rpm,
-                        index_ids_by_chrom=index_ids_by_chrom)
+                    arr = _serial_cell(r, pi, mc_i, cov_i, chrom_axis)
                 finally:
                     r.close()
                 builder.append(arr)
                 obs_names.append(label)
                 del arr
+    if ref_pos_map_cache["map"] is not None:
+        ref_pos_map_cache["map"].close()
 
     return _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
                                 score, score_cutoff, hvf_frac, obs, output,
                                 reference=(os.path.abspath(
                                     os.path.expanduser(reference))
                                     if reference else None),
-                                nan_policy=nan_policy)
+                                nan_policy=nan_policy, max_mem=max_mem,
+                                verbose=verbose)
 
 
 # ---------------------------------------------------------------------------
@@ -1755,6 +2856,7 @@ _SITES_STATE: dict = {}
 
 
 def _sites_pool_init(state):
+    _worker_single_thread_inflate()
     _SITES_STATE.clear()
     _SITES_STATE.update(state)
 
@@ -1847,6 +2949,8 @@ def cz_to_anndata_sites(
     obs: Optional[pd.DataFrame] = None,
     var_names: str = "coord",
     jobs: int = 1,
+    max_mem: Optional[Union[str, int]] = None,
+    verbose: bool = False,
 ):
     """Single-cytosine resolution ``(n_cells, n_sites)`` AnnData.
 
@@ -1887,20 +2991,45 @@ def cz_to_anndata_sites(
         ``'coord'`` -> ``"chr1:10469"``; ``'pos'`` -> position only (unique
         only within one chromosome; use with ``chroms=[one]``).
     jobs : int
-        Worker processes (one cell per task).
+        Worker processes (one cell per task); capped to the memory budget
+        like :func:`cz_to_anndata`.
+    max_mem, verbose
+        See :func:`cz_to_anndata`.
 
     Returns
     -------
     anndata.AnnData
         ``obs`` = cells, ``var`` = sites (``chrom``, ``start``, ``end``,
-        ``pos`` + ``strand``/``context`` when present in the reference),
+        ``pos`` + ``strand``/``context`` when present in the reference;
+        string columns are stored as ``category`` to keep ``var`` small),
         ``layers['mc']`` / ``layers['cov']`` sparse counts, ``.X`` = score.
     """
     if score not in ("frac", "posterior_frac", "mc", "cov", "umc"):
         raise ValueError("score must be one of frac, posterior_frac, mc, cov, umc")
+    with _ResourceReport(verbose, "cz_to_anndata_sites", jobs) as rep:
+        adata = _cz_to_anndata_sites_impl(
+            cz_inputs, reference, output, index, chroms, use_samples, ext,
+            mc_col, cov_col, min_cov, score, nan_policy, obs, var_names,
+            jobs, max_mem, rep, verbose)
+    return adata
+
+
+def _bytes_to_categorical(v):
+    """``S``-dtype array -> ``pd.Categorical`` decoding only the uniques
+    (an object array of per-site Python strings costs ~60 B/site)."""
+    uniq, inv = np.unique(v, return_inverse=True)
+    cats = [u.decode("utf-8", "replace") for u in uniq.tolist()]
+    return pd.Categorical.from_codes(inv.astype(np.int64, copy=False), cats)
+
+
+def _cz_to_anndata_sites_impl(cz_inputs, reference, output, index, chroms,
+                              use_samples, ext, mc_col, cov_col, min_cov,
+                              score, nan_policy, obs, var_names, jobs,
+                              max_mem, rep, verbose=False):
     reference = os.path.abspath(os.path.expanduser(reference))
     paths = _resolve_inputs(cz_inputs)
-    n_workers = int(jobs) if jobs and int(jobs) > 1 else 1
+    if not paths:
+        raise ValueError(f"cz_to_anndata_sites: no .cz inputs in {cz_inputs!r}")
 
     # ---- site axis from the reference -----------------------------------
     rr = Reader(reference, mmap_advise="sequential")
@@ -1920,7 +3049,9 @@ def cz_to_anndata_sites(
         axis = []          # (chrom, offset, rows_or_None, n_ref_rows)
         var_parts = []
         offset = 0
-        for chrom in ref_chroms:
+        max_chunk_rows = 0
+        for chrom in _progress(ref_chroms, desc="site axis (reference)",
+                               enabled=verbose, unit="chrom"):
             raw = rr.fetch_chunk_bytes((chrom,))
             ref_arr = np.frombuffer(raw, dtype=ref_dt) if raw else np.empty(0, ref_dt)
             n_ref = ref_arr.shape[0]
@@ -1941,11 +3072,12 @@ def cz_to_anndata_sites(
                 if c == pos_name:
                     continue
                 v = sel[c]
-                part[c] = (pd.Series(v).str.decode('utf-8').to_numpy()
+                part[c] = (_bytes_to_categorical(v)
                            if v.dtype.kind == 'S' else np.asarray(v))
             var_parts.append(pd.DataFrame(part))
             axis.append((chrom, offset, rows, n_ref))
             offset += int(sel.shape[0])
+            max_chunk_rows = max(max_chunk_rows, n_ref)
             rr.release_chunk((chrom,))
     finally:
         rr.close()
@@ -1972,13 +3104,14 @@ def cz_to_anndata_sites(
 
     builder = _StreamingSparseBuilder(n_sites)
     obs_names: List[str] = []
-    _POOL_CHUNK_CAP = 32
+    _INFLIGHT_PER_WORKER = 4
 
     r0 = Reader(paths[0], mmap_advise="random")
     try:
         cols0 = r0.header['columns']
         if mc_col not in cols0 or cov_col not in cols0:
             raise ValueError(f"columns {cols0} lack {mc_col!r}/{cov_col!r}")
+        unit_size = int(r0._unit_size)
         n_keys = len(r0.header['chunk_dims'])
         chrom_axis = _detect_chrom_axis(r0, set(ref_chroms)) if n_keys >= 2 else 0
         cell_prefixes = None
@@ -1990,9 +3123,18 @@ def cz_to_anndata_sites(
         r0.close()
     state = dict(axis=axis, mc_col=mc_col, cov_col=cov_col,
                  min_cov=int(min_cov), chrom_axis=chrom_axis)
+    # Per-worker peak ~ decompressed chunk + the selected-rows copy.
+    sel_bytes = max((r.nbytes for _, _, r, _ in axis if r is not None),
+                    default=0)
+    est_worker = (_WORKER_BASE_BYTES + int(max_chunk_rows * unit_size * 1.25)
+                  + 2 * sel_bytes)
+    n_workers = _cap_workers(jobs, est_worker, max_mem=max_mem)
+    rep.jobs = n_workers
 
     def _consume(results, labels):
-        for (idx, mc, cov), label in zip(results, labels):
+        for (idx, mc, cov), label in _progress(
+                zip(results, labels), total=len(labels),
+                desc="reading cells", enabled=verbose, unit="cell"):
             builder.append_sparse(idx, mc, cov)
             obs_names.append(label)
 
@@ -2000,13 +3142,10 @@ def cz_to_anndata_sites(
         prefixes = [p for p, _ in cell_prefixes]
         labels = [lab for _, lab in cell_prefixes]
         if n_workers > 1 and len(prefixes) > 1:
-            from concurrent.futures import ProcessPoolExecutor
-            with ProcessPoolExecutor(max_workers=n_workers,
-                                     initializer=_sites_pool_init,
-                                     initargs=(state,)) as ex:
+            with _make_pool(n_workers, _sites_pool_init, (state,)) as ex:
                 args = [(paths[0], pref) for pref in prefixes]
-                chunk = max(1, min(_POOL_CHUNK_CAP, len(args) // (n_workers * 4) or 1))
-                _consume(ex.map(_sites_pool_prefix, args, chunksize=chunk), labels)
+                _consume(_bounded_map(ex, _sites_pool_prefix, args,
+                                      n_workers * _INFLIGHT_PER_WORKER), labels)
         else:
             r = Reader(paths[0], mmap_advise="random")
             try:
@@ -2023,12 +3162,9 @@ def cz_to_anndata_sites(
             keep.append(p)
             labels.append(lab)
         if n_workers > 1 and len(keep) > 1:
-            from concurrent.futures import ProcessPoolExecutor
-            with ProcessPoolExecutor(max_workers=n_workers,
-                                     initializer=_sites_pool_init,
-                                     initargs=(state,)) as ex:
-                chunk = max(1, min(_POOL_CHUNK_CAP, len(keep) // (n_workers * 4) or 1))
-                _consume(ex.map(_sites_pool_file, keep, chunksize=chunk), labels)
+            with _make_pool(n_workers, _sites_pool_init, (state,)) as ex:
+                _consume(_bounded_map(ex, _sites_pool_file, keep,
+                                      n_workers * _INFLIGHT_PER_WORKER), labels)
         else:
             def _gen():
                 for p in keep:
@@ -2041,7 +3177,8 @@ def cz_to_anndata_sites(
 
     return _finalize_cz_anndata(builder, obs_names, feat_df, None,
                                 score, 0.9, "posterior", obs, output,
-                                reference=reference, nan_policy=nan_policy)
+                                reference=reference, nan_policy=nan_policy,
+                                max_mem=max_mem, verbose=verbose)
 
 
 def cz_to_anndata_multiref(
@@ -2064,6 +3201,8 @@ def cz_to_anndata_multiref(
     hvf_frac: str = "posterior",
     nan_policy: str = "auto",
     jobs: int = 1,
+    max_mem: Optional[Union[str, int]] = None,
+    verbose: bool = False,
 ):
     """Build an ``AnnData`` from per-cell .cz with *different* references.
 
@@ -2099,7 +3238,7 @@ def cz_to_anndata_multiref(
         size). See there for details.
     output, use_samples, ext, pos_col, mc_col, cov_col, obs, chrom_size,
     exclude_chroms, blacklist, flank_bp, gtf_id_col, score, score_cutoff,
-    hvf_frac, nan_policy, jobs
+    hvf_frac, nan_policy, jobs, max_mem, verbose
         Same meaning as in :func:`cz_to_anndata`. ``use_samples`` filters on
         the table's ``cell_id`` column.
 
@@ -2129,6 +3268,49 @@ def cz_to_anndata_multiref(
         if not os.path.isfile(p):
             raise FileNotFoundError(f"cz_to_anndata_multiref: cell not found: {p}")
 
+    with _ResourceReport(verbose, "cz_to_anndata_multiref", jobs) as rep:
+        adata = _cz_to_anndata_multiref_impl(
+            df, feat_df, features_by_chrom, n_feat, gtf_meta_df, chroms_set,
+            output, pos_col, mc_col, cov_col, obs, score, score_cutoff,
+            hvf_frac, nan_policy, jobs, max_mem, rep, verbose)
+    return adata
+
+
+_MULTIREF_STATE: dict = {}
+
+
+def _multiref_pool_init(features_by_chrom, pos_col, mc_col, cov_col,
+                        group_maps, group_refs, group_idx, group_idx_paths=None):
+    """One pool for every (reference, index) group: ``group_maps[g]`` is
+    that group's site map (or ``None`` for position-column cells)."""
+    _worker_single_thread_inflate()
+    _MULTIREF_STATE.clear()
+    _MULTIREF_STATE.update(features_by_chrom=features_by_chrom,
+                           pos_col=pos_col, mc_col=mc_col, cov_col=cov_col,
+                           group_maps=group_maps, group_refs=group_refs,
+                           group_idx=group_idx,
+                           group_idx_paths=group_idx_paths
+                           or [None] * len(group_maps))
+
+
+def _multiref_pool_file(args):
+    cz_path, g = args
+    st = _MULTIREF_STATE
+    # Re-point the shared worker state at this cell's group (only when the
+    # group changes), then reuse the standard per-file worker.
+    if st.get("_group") != g:
+        _pool_init(st["features_by_chrom"], st["pos_col"], st["mc_col"],
+                   st["cov_col"], st["group_refs"][g], st["group_idx"][g],
+                   st["group_maps"][g], st["group_idx_paths"][g])
+        st["_group"] = g
+    return _pool_process_file(cz_path)
+
+
+def _cz_to_anndata_multiref_impl(df, feat_df, features_by_chrom, n_feat,
+                                 gtf_meta_df, chroms_set, output, pos_col,
+                                 mc_col, cov_col, obs, score, score_cutoff,
+                                 hvf_frac, nan_policy, jobs, max_mem, rep,
+                                 verbose=False):
     # Group cells by (reference, index) so each reference position map and
     # context index is resolved once and reused across its cells.
     idx_col = df["index"].tolist() if "index" in df.columns else [None] * len(df)
@@ -2137,42 +3319,70 @@ def cz_to_anndata_multiref(
                                 df["cell_id"]):
         groups.setdefault((ref, idx), []).append((p, lab))
 
-    from .bam import _LazyRefPositions
-
     builder = _StreamingSparseBuilder(n_feat)
     obs_names: List[str] = []
-    n_workers = int(jobs) if jobs and int(jobs) > 1 else 1
-    _POOL_CHUNK_CAP = 32
 
-    # Process each (reference, index) group so every cell uses its own
-    # reference / context index.
-    for (ref_path, idx_path), cells in groups.items():
-        idx_dict = None
-        if idx_path is not None:
+    # Resolve every group's context index + site map ONCE in the parent
+    # (one reference pass per group, released chrom by chrom); workers
+    # receive them read-only and never load reference positions.
+    group_keys = list(groups.keys())
+    group_refs, group_idx, group_maps = [], [], []
+    unit_size = 1
+    group_idx_paths = []
+    for ref_path, idx_path in _progress(group_keys, desc="reference groups",
+                                        enabled=verbose, unit="ref"):
+        first = groups[(ref_path, idx_path)][0][0]
+        r0 = Reader(first, mmap_advise="random")
+        try:
+            has_pos = pos_col in r0.header["columns"]
+            unit_size = max(unit_size, int(r0._unit_size))
+        finally:
+            r0.close()
+        site_map = idx_dict = None
+        if not has_pos:
+            logger.info("[cytozip] resolving site -> feature map from "
+                        f"{ref_path}")
+            # index streamed into the map; position-column cells of this
+            # group (mixed inputs) resolve the dict lazily in the worker
+            site_map = _build_site_feature_map(ref_path, features_by_chrom,
+                                               verbose=verbose, index=idx_path)
+        elif idx_path is not None:
             idx_dict = _resolve_index_to_dict(idx_path, chroms=chroms_set)
-        if n_workers > 1 and len(cells) > 1:
-            # Fresh pool per group: each worker's _pool_init pins THIS
-            # group's reference + index, so no cross-reference contamination.
-            from concurrent.futures import ProcessPoolExecutor
-            paths_ = [p for p, _ in cells]
-            labels_ = [lab for _, lab in cells]
-            with ProcessPoolExecutor(
-                    max_workers=n_workers,
-                    initializer=_pool_init,
-                    initargs=(features_by_chrom, pos_col, mc_col, cov_col,
-                              ref_path, idx_dict)) as ex:
-                chunk = max(1, min(_POOL_CHUNK_CAP,
-                                   len(paths_) // (n_workers * 4) or 1))
-                for arr, lab in zip(
-                        ex.map(_pool_process_file, paths_, chunksize=chunk),
-                        labels_):
-                    builder.append(arr)
-                    obs_names.append(lab)
-                    del arr
-        else:
-            rpm = _LazyRefPositions(ref_path)
+        group_refs.append(ref_path)
+        group_idx.append(idx_dict)
+        group_idx_paths.append(idx_path)
+        group_maps.append(site_map)
+
+    est_worker = max(_estimate_worker_bytes(m, unit_size,
+                                            [p for p, _ in groups[k]])
+                     for k, m in zip(group_keys, group_maps))
+    n_workers = _cap_workers(jobs, est_worker, max_mem=max_mem)
+    rep.jobs = n_workers
+    tasks = [(p, g) for g, k in enumerate(group_keys) for p, _ in groups[k]]
+    labels = [lab for k in group_keys for _, lab in groups[k]]
+
+    if n_workers > 1 and len(tasks) > 1:
+        with _make_pool(n_workers, _multiref_pool_init,
+                        (features_by_chrom, pos_col, mc_col, cov_col,
+                         group_maps, group_refs, group_idx,
+                         group_idx_paths)) as ex:
+            for (cols_, mc_, cov_), lab in _progress(
+                    zip(_bounded_map(ex, _multiref_pool_file, tasks,
+                                     n_workers * 4), labels),
+                    total=len(labels), desc="aggregating cells",
+                    enabled=verbose, unit="cell"):
+                builder.append_sparse(cols_, mc_, cov_)
+                obs_names.append(lab)
+    else:
+        from .bam import _LazyRefPositions
+        bar = _progress(total=len(labels), desc="aggregating cells",
+                        enabled=verbose, unit="cell")
+        for g, k in enumerate(group_keys):
+            ref_path, _ = k
+            site_map, idx_dict = group_maps[g], group_idx[g]
+            rpm = None
             try:
-                for p, label in cells:
+                for p, label in groups[k]:
                     r = Reader(p, mmap_advise="sequential")
                     try:
                         cols = r.header["columns"]
@@ -2180,23 +3390,33 @@ def cz_to_anndata_multiref(
                         mc_i = cols.index(mc_col)
                         cov_i = cols.index(cov_col)
                         chrom_axis = _detect_chrom_axis(r, chroms_set)
-                        arr = _aggregate_one_reader(
-                            r, features_by_chrom, pi, mc_i, cov_i,
-                            chrom_axis=chrom_axis,
-                            ref_pos_map=(rpm if pi is None else None),
-                            index_ids_by_chrom=idx_dict)
+                        if pi is None and site_map is None and rpm is None:
+                            rpm = _LazyRefPositions(ref_path)
+                        if (pi is not None and idx_dict is None
+                                and group_idx_paths[g] is not None):
+                            idx_dict = _resolve_index_to_dict(
+                                group_idx_paths[g], chroms=chroms_set)
+                        arr = _aggregate_cell(
+                            r, pi, mc_i, cov_i, chrom_axis=chrom_axis,
+                            site_map=site_map, ref_pos_map=rpm,
+                            features_by_chrom=features_by_chrom,
+                            index_ids_by_chrom=idx_dict, n_feat=n_feat)
                     finally:
                         r.close()
                     builder.append(arr)
                     obs_names.append(label)
+                    bar.update(1)
                     del arr
             finally:
-                rpm.close()
+                if rpm is not None:
+                    rpm.close()
+        bar.close()
 
     return _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
                                 score, score_cutoff, hvf_frac, obs, output,
                                 reference=sorted(set(df["reference"])),
-                                nan_policy=nan_policy)
+                                nan_policy=nan_policy, max_mem=max_mem,
+                                verbose=verbose)
 
 
 # ---------------------------------------------------------------------------
@@ -2213,7 +3433,7 @@ def _resolve_index_to_dict(index, chroms=None) -> dict:
     open ``Reader``, or pre-built dict).
     """
     if isinstance(index, dict):
-        return {k: np.asarray(v, dtype=np.int64) for k, v in index.items()}
+        return {k: np.asarray(v) for k, v in index.items()}
     close_after = False
     if isinstance(index, str):
         ir = Reader(index, mmap_advise="random")
@@ -2240,7 +3460,11 @@ def _resolve_index_to_dict(index, chroms=None) -> dict:
             if ids.ndim != 1:
                 raise ValueError(
                     "index= requires a 1-D context index; got 2-D")
-            out[chrom] = ids.astype(np.int64, copy=False)
+            # int32 halves the footprint of genome-wide (CH) indexes; every
+            # consumer re-casts / subtracts 1 in int64 anyway.
+            out[chrom] = ids.astype(np.int32 if ids.size == 0
+                                    or int(ids.max()) <= np.iinfo(np.int32).max
+                                    else np.int64, copy=False)
         return out
     finally:
         if close_after:

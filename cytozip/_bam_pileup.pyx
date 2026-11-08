@@ -40,6 +40,11 @@ cdef extern from "htslib/hts.h":
     int hts_close(htsFile *fp) nogil
 
 
+cdef extern from "htslib/hts_log.h":
+    # htslib log level: 0 off, 1 error, 3 warning, 4 info, 5 debug, 6 trace.
+    void hts_set_log_level(int level) nogil
+
+
 cdef extern from "htslib/sam.h":
     # Flag constants.
     int BAM_FUNMAP
@@ -282,6 +287,11 @@ cdef class PileupCounter:
             if isinstance(bam_path, str) else bam_path
         self._fasta_path = fasta_path.encode("utf-8") \
             if isinstance(fasta_path, str) else fasta_path
+
+        # Silence "[W::hts_idx_load3] The index file is older than the data
+        # file" and similar htslib warnings (see cytozip/_hts.py).
+        from ._hts import hts_log_level
+        hts_set_log_level(hts_log_level())
 
         self.fp = hts_open(self._bam_path, b"rb")
         if self.fp == NULL:

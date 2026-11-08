@@ -152,6 +152,19 @@ Build requirements:
 - `libdeflate.so` and `libdeflate.h` available (e.g. `conda install -c conda-forge libdeflate`)
 - `setup.py` links with `-ldeflate` from `$CONDA_PREFIX`
 
+## htslib log level (pysam / `_bam_pileup`)
+
+htslib warns `[W::hts_idx_load3] The index file is older than the data file: …`
+whenever a `.tbi` / `.bai` has an older mtime than its data file (typical after
+`cp` / `rsync`). cytozip silences this by setting the htslib log level to
+*errors only* in every place that opens such files: all `import pysam` calls go
+through `cytozip._hts.import_pysam()` (which calls `pysam.set_verbosity`), and
+the in-process `_bam_pileup` backend calls `hts_set_log_level()` before
+`sam_index_load()`. Override with the environment variable
+`CYTOZIP_HTS_LOG_LEVEL` (htslib scale: 0 off, 1 error [default], 3 warning,
+4 info, 5 debug), e.g. `CYTOZIP_HTS_LOG_LEVEL=3 czip bam_to_cz …` to see the
+warnings again. Alternatively `touch` the index files or re-index.
+
 ## Installation
 ```shell
 python setup.py build_ext --inplace 

@@ -8,10 +8,12 @@ A scalable, cloud-native ecosystem for single-cell and population DNA methylatio
 ### conda
 https://anaconda.org/bioconda/cytozip
 ```shell
-mamba install -c wubinding -c bioconda cytozip
+mamba install -c wubinding -c bioconda -c conda-forge cytozip
 # or
-conda install -c wubinding -c bioconda cytozip
+conda install -c wubinding -c bioconda -c conda-forge cytozip
 # -c wubinding is optional, which may be the latest version
+# keep -c conda-forge: without it the solver can pick bioconda's ancient
+# anndata-0.6.22 (ModuleNotFoundError: No module named 'pandas.core.index')
 ```
 
 ### pip

@@ -58,7 +58,10 @@ requirements:
     - samtools
     - fsspec
     - requests
-    - anndata
+    # Lower bound keeps the solver off bioconda's ancient anndata-0.6.22 (imports
+    # pandas.core.index, broken with pandas>=1.0) when conda-forge is not on the
+    # channel list. cytozip uses anndata.AnnData / layers / h5ad only.
+    - anndata >=0.8
     - scipy
     - biopython
     - htslib

@@ -990,6 +990,13 @@ def _build_parser():
                         'cell Beta prior mean)')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel processes (CPUs)')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs and to '
+                        'decide whether nan_policy=auto may densify .X '
+                        '(default: detected free RAM / cgroup limit)')
+    p.add_argument('--verbose', action='store_true',
+                   help='show progress bars and print wall time and peak '
+                        'memory when finished')
 
     # ---- cz_to_anndata_sites -------------------------------------------------
     p = sub.add_parser('cz_to_anndata_sites',
@@ -1030,6 +1037,13 @@ def _build_parser():
                    help='optional TSV with cell metadata (index = cell id)')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of worker processes')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs and to '
+                        'decide whether nan_policy=auto may densify .X '
+                        '(default: detected free RAM / cgroup limit)')
+    p.add_argument('--verbose', action='store_true',
+                   help='show progress bars and print wall time and peak '
+                        'memory when finished')
 
     # ---- cz_to_anndata_multiref ----------------------------------------------
     p = sub.add_parser(
@@ -1072,6 +1086,13 @@ def _build_parser():
                         'cz_to_anndata)')
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='number of parallel processes (CPUs)')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs and to '
+                        'decide whether nan_policy=auto may densify .X '
+                        '(default: detected free RAM / cgroup limit)')
+    p.add_argument('--verbose', action='store_true',
+                   help='show progress bars and print wall time and peak '
+                        'memory when finished')
 
     # ---- model.py: predict_cell_type ---------------------------------------
     p = sub.add_parser('predict_cell_type',
@@ -1621,7 +1642,8 @@ def main():
                             cov_col=args.cov_col, min_cov=args.min_cov,
                             score=args.score, nan_policy=args.nan_policy,
                             obs=obs_df, var_names=args.var_names,
-                            jobs=args.jobs)
+                            jobs=args.jobs, max_mem=args.max_mem,
+                            verbose=args.verbose)
 
     elif cmd == 'cz_to_anndata':
         from .features import cz_to_anndata
@@ -1651,7 +1673,8 @@ def main():
                       score=args.score,
                       score_cutoff=args.score_cutoff,
                       nan_policy=args.nan_policy,
-                      jobs=args.jobs)
+                      jobs=args.jobs, max_mem=args.max_mem,
+                      verbose=args.verbose)
 
     elif cmd == 'cz_to_anndata_multiref':
         from .features import cz_to_anndata_multiref
@@ -1672,7 +1695,8 @@ def main():
             exclude_chroms=args.exclude_chroms, blacklist=args.blacklist,
             flank_bp=args.flank_bp, gtf_id_col=args.gtf_id_col,
             score=args.score, score_cutoff=args.score_cutoff,
-            nan_policy=args.nan_policy, jobs=args.jobs)
+            nan_policy=args.nan_policy, jobs=args.jobs, max_mem=args.max_mem,
+            verbose=args.verbose)
 
     elif cmd == 'predict_cell_type':
         from .model import predict_cell_type

@@ -823,6 +823,128 @@ cdef int _get_inflate_threads_setting():
     return n
 
 
+cdef inline unsigned long long _rd_le(const unsigned char *p, int size) noexcept nogil:
+    """Little-endian unsigned read of 1 / 2 / 4 / 8 bytes."""
+    if size == 1:
+        return p[0]
+    if size == 2:
+        return p[0] | (<unsigned long long> p[1] << 8)
+    if size == 4:
+        return (p[0] | (<unsigned long long> p[1] << 8)
+                | (<unsigned long long> p[2] << 16)
+                | (<unsigned long long> p[3] << 24))
+    return (p[0] | (<unsigned long long> p[1] << 8)
+            | (<unsigned long long> p[2] << 16) | (<unsigned long long> p[3] << 24)
+            | (<unsigned long long> p[4] << 32) | (<unsigned long long> p[5] << 40)
+            | (<unsigned long long> p[6] << 48) | (<unsigned long long> p[7] << 56))
+
+
+def c_run_sums(const unsigned char[::1] buf, Py_ssize_t unit,
+               Py_ssize_t mc_off, int mc_size, Py_ssize_t cov_off, int cov_size,
+               const long long[::1] bounds, long long[::1] mc_out,
+               long long[::1] cov_out):
+    """Sum two unsigned little-endian record fields over row runs.
+
+    ``buf`` holds ``len(buf) // unit`` packed records; run ``r`` covers rows
+    ``[bounds[r], bounds[r+1])`` (clipped to the record count). ``mc_out`` /
+    ``cov_out`` (``len(bounds) - 1`` int64, pre-zeroed by the caller) receive
+    the per-run sums of the fields at byte offsets ``mc_off`` / ``cov_off``
+    of ``mc_size`` / ``cov_size`` bytes (1, 2, 4 or 8). One pass over the
+    bytes with both accumulators, no temporaries -- used by
+    ``cytozip.features`` for the per-cell feature aggregation.
+    """
+    cdef Py_ssize_t n = buf.shape[0] // unit if unit > 0 else 0
+    cdef Py_ssize_t n_runs = bounds.shape[0] - 1
+    cdef Py_ssize_t r, i, s, e
+    cdef unsigned long long acc_mc, acc_cov
+    cdef const unsigned char *base
+    cdef const unsigned char *p
+    if n == 0 or n_runs <= 0:
+        return
+    base = &buf[0]
+    with nogil:
+        for r in range(n_runs):
+            s = bounds[r]
+            e = bounds[r + 1]
+            if s < 0:
+                s = 0
+            if e > n:
+                e = n
+            if e <= s:
+                continue
+            acc_mc = 0
+            acc_cov = 0
+            p = base + s * unit
+            if mc_size == 1 and cov_size == 1:
+                for i in range(s, e):
+                    acc_mc += p[mc_off]
+                    acc_cov += p[cov_off]
+                    p += unit
+            else:
+                for i in range(s, e):
+                    acc_mc += _rd_le(p + mc_off, mc_size)
+                    acc_cov += _rd_le(p + cov_off, cov_size)
+                    p += unit
+            mc_out[r] += <long long> acc_mc
+            cov_out[r] += <long long> acc_cov
+
+
+def c_run_sums_rows(const unsigned char[::1] buf, Py_ssize_t unit,
+                    Py_ssize_t mc_off, int mc_size, Py_ssize_t cov_off, int cov_size,
+                    const long long[::1] rows, const long long[::1] run_ids,
+                    long long[::1] mc_out, long long[::1] cov_out):
+    """Scatter-add the two fields of the records at ``rows`` into
+    ``mc_out[run_ids[k]]`` / ``cov_out[run_ids[k]]`` (the complement step of
+    the dense-index mode in ``cytozip.features``). Rows / run ids outside
+    their arrays are skipped."""
+    cdef Py_ssize_t n = buf.shape[0] // unit if unit > 0 else 0
+    cdef Py_ssize_t n_out = mc_out.shape[0]
+    cdef Py_ssize_t k, r, row
+    cdef const unsigned char *base
+    cdef const unsigned char *p
+    if n == 0 or rows.shape[0] == 0:
+        return
+    base = &buf[0]
+    with nogil:
+        for k in range(rows.shape[0]):
+            row = rows[k]
+            r = run_ids[k]
+            if row < 0 or row >= n or r < 0 or r >= n_out:
+                continue
+            p = base + row * unit
+            mc_out[r] += <long long> _rd_le(p + mc_off, mc_size)
+            cov_out[r] += <long long> _rd_le(p + cov_off, cov_size)
+
+
+def set_deflate_threads(n):
+    """Override the per-process deflate (compress) thread count (see
+    ``CYTOZIP_DEFLATE_THREADS``); forked workers are pinned to 1 by
+    ``cytozip.cz`` so they never enter a libgomp parallel region."""
+    global _deflate_threads_cached
+    n = int(n)
+    _deflate_threads_cached = n if n >= 1 else 1
+
+
+def get_deflate_threads():
+    """Current effective deflate thread count (resolves the default)."""
+    return _get_deflate_threads_setting()
+
+
+def set_inflate_threads(n):
+    """Override the per-process inflate thread count (see
+    ``CYTOZIP_INFLATE_THREADS``). Worker processes of a multiprocessing pool
+    call this with ``1`` so ``jobs`` workers do not spawn ``4 * jobs`` OpenMP
+    threads (oversubscription roughly halves whole-cohort throughput)."""
+    global _inflate_threads_cached
+    n = int(n)
+    _inflate_threads_cached = n if n >= 1 else 1
+
+
+def get_inflate_threads():
+    """Current effective inflate thread count (resolves the default)."""
+    return _get_inflate_threads_setting()
+
+
 cdef libdeflate_decompressor **_alloc_decoms(int n) noexcept:
     """Allocate *n* private decompressors for one inflate call (NULL on OOM).
 

@@ -160,6 +160,50 @@ detected. For multi-file runs the aggregation is parallelised through
 a multiprocessing pool whose workers share the feature index via
 `_pool_init`.
 
+Memory model (per worker ≈ one decompressed cell chunk, independent of
+the genome / cohort size):
+
+* For reference-aligned cells (no `pos` column) the **parent** resolves
+  a *site → feature map* once (`_build_site_feature_map`): per chrom, run
+  boundaries / per-feature run ranges plus either the context-index rows
+  to gather (sparse selections, e.g. CG ≈ 4%) or the small excluded
+  complement (dense selections, e.g. CH ≈ 96%: sum everything, subtract
+  the complement). The index is streamed chrom by chrom (`_LazyIndexIds`),
+  never materialised whole. Workers only sum mc / cov over the runs
+  (`_run_sums` → Cython `cz_accel.c_run_sums`, one pass over the packed
+  record bytes; numpy slab-wise `reduceat` fallback) and read features
+  off a cumulative sum. Workers never open the reference, so there is no
+  per-worker genome-wide position cache.
+* The pool is created with the `fork` context (`_make_pool`) so the map /
+  index dict are inherited copy-on-write; tasks are submitted through a
+  bounded window (`_bounded_map`) so finished-but-unconsumed results
+  cannot pile up; `jobs` is capped to the memory budget (`_cap_workers`,
+  free RAM / cgroup headroom or `max_mem=`).
+* **Fork + OpenMP:** libgomp is not fork-safe — a child forked from a
+  process whose OpenMP thread pool is already live deadlocks on its first
+  multi-threaded parallel region. `cytozip.cz` registers an
+  `os.register_at_fork(after_in_child=...)` hook
+  (`_pin_openmp_in_forked_child`) that caps the OpenMP threads of every
+  Cython kernel (`cz_accel` inflate / deflate, `dmr_accel` permutation
+  test) to `CYTOZIP_FORK_THREADS` (default 1) in **every** forked child, so
+  all fork-based pools in the package (features, allc2cz, index, merge,
+  pivot, peaks, dmr comb-p) are covered without per-pool code; the
+  `features.py` pool initializers additionally pin explicitly (also under
+  `spawn`). The cap also stops `jobs` workers from running `4 × jobs`
+  threads. `dmr.py`'s main pools use the `spawn` context and are
+  unaffected either way.
+* Workers return only the covered `(col, mc, cov)` triplets
+  (`_StreamingSparseBuilder.append_sparse`).
+* The finalize stage (`_compute_beta_params_sparse`,
+  `_compute_score_matrix_sparse`, `_compute_hvf_var_stats_sparse`,
+  `_apply_nan_policy`) iterates over row blocks of ~`_BLOCK_NNZ` stored
+  entries, so float64 temporaries do not scale with `nnz`; under
+  `nan_policy='auto'` the dense fill is skipped when `n_cells × n_feat × 4 B`
+  exceeds the budget.
+* `verbose=True` (`--verbose`) shows progress bars (tqdm when installed)
+  and logs wall time plus the sampled peak memory (process tree PSS +
+  cgroup usage).
+
 `make_genome_bins` produces a fixed-width bin BED-like dataframe
 (used as the feature input for whole-genome 5kb / 100kb runs).
 

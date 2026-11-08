@@ -131,8 +131,8 @@ def _close_cached_readers():
     _READER_CACHE.clear()
 
 
-def _load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites):
-    """Load mc and cov as ``(n_cells, n_sites)`` int32 arrays for one chunk.
+def _load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites, sel_ids=None):
+    """Load mc and cov as ``(n_cells, n_out)`` int32 arrays for one chunk.
 
     ``specs`` is a list of ``(path, suffix)`` cell specs (see
     :func:`_expand_cell_specs`): a per-cell ``.cz`` gives ``suffix=()`` so the
@@ -140,26 +140,58 @@ def _load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites):
     ``catcz``'d file gives ``suffix=(cell_id,)`` so the key becomes
     ``dim + (cell_id,)``. Cells whose chunk is missing or has a different
     length contribute zeros.
+
+    ``sel_ids`` (0-based rows, e.g. from a CG context index) restricts the
+    columns to those rows; the gather is applied to the raw (narrow)
+    records of each cell *before* the int32 up-cast, so neither the output
+    nor any temporary scales with the full chromosome (``n_out =
+    len(sel_ids)``). Very sparse selections are block-gathered straight
+    from the compressed chunk.
     """
     n = len(specs)
-    mc = np.zeros((n, n_sites), dtype=np.int32)
-    cov = np.zeros((n, n_sites), dtype=np.int32)
+    if sel_ids is not None:
+        sel_ids = np.asarray(sel_ids, dtype=np.int64)
+        n_out = int(sel_ids.size)
+        # <~1.5% of rows: decompressing only the needed blocks beats
+        # inflating the whole chunk (same heuristic as cz_to_anndata_sites).
+        use_gather = n_out * 64 < n_sites
+    else:
+        n_out = n_sites
+        use_gather = False
+    mc = np.zeros((n, n_out), dtype=np.int32)
+    cov = np.zeros((n, n_out), dtype=np.int32)
+    if n_out == 0:
+        return mc, cov
     for i, (path, suffix) in enumerate(specs):
         r = _get_cached_reader(path)
         key = dim + suffix
         if key not in r.chunk_key2offset:
             continue
-        raw = r.fetch_chunk_bytes(key)
-        if not raw:
-            continue
         dt = _reader_np_dtype(r)
-        arr = np.frombuffer(raw, dtype=dt)
-        if arr.shape[0] != n_sites:
+        if use_gather:
+            # Mirror the inflate path: a cell whose chunk is not reference-
+            # aligned contributes zeros instead of raising on OOB rows.
+            if (not r._load_chunk(r.chunk_key2offset[key], jump=False)
+                    or r._chunk_data_len // r._unit_size != n_sites):
+                r.release_chunk(key)
+                continue
+            arr = r.gather_rows(key, sel_ids, dtype=dt)
             r.release_chunk(key)
-            continue
-        mc[i] = arr[mc_col].astype(np.int32, copy=False)
-        cov[i] = arr[cov_col].astype(np.int32, copy=False)
-        r.release_chunk(key)
+            if arr.shape[0] != n_out:
+                continue
+        else:
+            raw = r.fetch_chunk_bytes(key)
+            r.release_chunk(key)
+            if not raw:
+                continue
+            arr = np.frombuffer(raw, dtype=dt)
+            if arr.shape[0] != n_sites:
+                continue
+            if sel_ids is not None:
+                arr = arr[sel_ids]
+            del raw
+        mc[i] = arr[mc_col]
+        cov[i] = arr[cov_col]
     return mc, cov
 
 
@@ -367,11 +399,8 @@ def _load_dmr_chunk(ref_path, index_path, dim, spec_groups, mc_col, cov_col):
 
     mats = []
     for specs in spec_groups:
-        mc, cov = _load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites)
-        if sel_ids is not None:
-            mc = mc[:, sel_ids]
-            cov = cov[:, sel_ids]
-        mats.append((mc, cov))
+        mats.append(_load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites,
+                                       sel_ids=sel_ids))
     if sel_ids is not None:
         pos = pos[sel_ids]
     return pos, mats
@@ -959,11 +988,9 @@ def _scan_global_ch(args):
             if ids.ndim == 1:
                 # IDs in the index file are 1-based; convert to 0-based.
                 sel_ids = ids.astype(np.int64, copy=False) - 1
-    mc, cov = _load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites)
+    mc, cov = _load_chunk_matrix(specs, dim, mc_col, cov_col, n_sites,
+                                 sel_ids=sel_ids)
     ref.release_chunk(dim)
-    if sel_ids is not None:
-        mc = mc[:, sel_ids]
-        cov = cov[:, sel_ids]
     return mc.sum(axis=1, dtype=np.int64), cov.sum(axis=1, dtype=np.int64)
 
 
@@ -1077,15 +1104,13 @@ def _process_chunk_for_dmr_ch(args):
                 sel_ids = ids.astype(np.int64, copy=False) - 1
 
     n_sites = ref_arr.shape[0]
-    mc_a, cov_a = _load_chunk_matrix(group_a_specs, dim, mc_col, cov_col, n_sites)
-    mc_b, cov_b = _load_chunk_matrix(group_b_specs, dim, mc_col, cov_col, n_sites)
+    mc_a, cov_a = _load_chunk_matrix(group_a_specs, dim, mc_col, cov_col,
+                                     n_sites, sel_ids=sel_ids)
+    mc_b, cov_b = _load_chunk_matrix(group_b_specs, dim, mc_col, cov_col,
+                                     n_sites, sel_ids=sel_ids)
     ref.release_chunk(dim)
 
     if sel_ids is not None:
-        mc_a = mc_a[:, sel_ids]
-        cov_a = cov_a[:, sel_ids]
-        mc_b = mc_b[:, sel_ids]
-        cov_b = cov_b[:, sel_ids]
         pos = pos[sel_ids]
 
     if pos.size == 0:

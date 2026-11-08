@@ -134,7 +134,8 @@ def _fasta_names_lengths(genome):
     None when pysam cannot open / index it (callers fall back to
     Biopython parsing)."""
     try:
-        import pysam
+        from ._hts import import_pysam
+        pysam = import_pysam()
         with pysam.FastaFile(genome) as fa:
             return list(zip(fa.references, fa.lengths))
     except Exception as e:
@@ -145,7 +146,8 @@ def _fasta_names_lengths(genome):
 def _write_c_from_fasta(genome, chrom, outdir, batch_size=5000,
                         delta_cols=None):
     """Worker: fetch one chromosome via faidx and run :func:`WriteC`."""
-    import pysam
+    from ._hts import import_pysam
+    pysam = import_pysam()
     from Bio.Seq import Seq
     from Bio.SeqRecord import SeqRecord
     with pysam.FastaFile(genome) as fa:
@@ -461,7 +463,8 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     if not os.path.exists(allc_path + '.tbi'):
         raise ValueError("index file .tbi not existed, please create index first.")
     # logger.info(allc_path)
-    import pysam
+    from ._hts import import_pysam
+    pysam = import_pysam()
     tbi = pysam.TabixFile(allc_path)
     contigs = tbi.contigs
     if not chroms is None:
@@ -1116,7 +1119,8 @@ def _compare_allc_chrom_worker(args):
     fork-safe to share), so this runs standalone in a Pool process.
     """
     allc1, allc2, chrom, sep, max_value, drop_zero_cov = args
-    import pysam
+    from ._hts import import_pysam
+    pysam = import_pysam()
     from io import StringIO
 
     def _fetch_df(path, chrom):
@@ -1241,7 +1245,8 @@ def compare_allc(allc1, allc2, drop_zero_cov=True, dtype='B',
               'mc_diff': 0, 'cov_diff': 0}
 
     if use_tabix:
-        import pysam
+        from ._hts import import_pysam
+        pysam = import_pysam()
         from io import StringIO
         tbi1 = pysam.TabixFile(allc1)
         tbi2 = pysam.TabixFile(allc2)

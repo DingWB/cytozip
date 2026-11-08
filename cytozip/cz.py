@@ -224,6 +224,45 @@ def _ensure_cz_accel():
 	):
 		g['_' + _n] = getattr(_a, _n, None)
 
+def _pin_openmp_in_forked_child():
+	"""``os.register_at_fork`` hook: cap the OpenMP threads of every cytozip
+	Cython kernel to ``CYTOZIP_FORK_THREADS`` (default 1) in a forked child.
+
+	libgomp is not fork-safe: a child forked from a process whose OpenMP
+	thread pool is already live (any earlier multi-threaded inflate /
+	deflate / DMR permutation test in the parent) deadlocks on its first
+	multi-threaded parallel region. Pinning to one thread keeps the kernels
+	on their serial paths, and also stops ``jobs`` workers from running
+	``4 * jobs`` threads. Only modules already imported are touched.
+	"""
+	import sys
+	try:
+		n = max(1, int(os.environ.get("CYTOZIP_FORK_THREADS", "1")))
+	except ValueError:
+		n = 1
+	acc = sys.modules.get("cytozip.cz_accel")
+	if acc is not None:
+		for name in ("set_inflate_threads", "set_deflate_threads"):
+			f = getattr(acc, name, None)
+			if f is not None:
+				try:
+					f(n)
+				except Exception:
+					pass
+	dacc = sys.modules.get("cytozip.dmr_accel")
+	if dacc is not None:
+		f = getattr(dacc, "set_max_threads", None)
+		if f is not None:
+			try:
+				f(n)
+			except Exception:
+				pass
+
+
+if hasattr(os, "register_at_fork"):
+	os.register_at_fork(after_in_child=_pin_openmp_in_forked_child)
+
+
 def dtype_func(fmt_char):
 	"""Return a type-casting function for a given struct format character.
 
@@ -2767,7 +2806,8 @@ class Reader:
 		"""
 		# Whole-file scan: sequential readahead + drop-behind keeps RSS low.
 		self.advise_sequential()
-		import pysam
+		from ._hts import import_pysam
+		pysam = import_pysam()
 		output = os.path.abspath(os.path.expanduser(output))
 		if not output.endswith('.gz'):
 			output = output + '.gz'

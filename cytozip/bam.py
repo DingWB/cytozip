@@ -90,7 +90,8 @@ def _get_chromosome_sequence_upper(fasta_path, fai_df, query_chrom):
     fa = _FASTA_CACHE.get(key)
     if fa is None:
         try:
-            import pysam
+            from ._hts import import_pysam
+            pysam = import_pysam()
             fa = pysam.FastaFile(fasta_path)
         except Exception:
             fa = False
@@ -159,7 +160,8 @@ def _determine_ct_func(bam_path):
     A BAM lacking both cannot be strand-corrected (it is not a
     bismark/hisat-3n bisulfite BAM).
     """
-    import pysam
+    from ._hts import import_pysam
+    pysam = import_pysam()
     with pysam.AlignmentFile(bam_path) as f:
         read = next(iter(f))
     if read.has_tag("YZ"):
@@ -212,7 +214,8 @@ def _convert_bam_strandness(in_bam_path: str, out_bam_path: str,
         Build the ``.bai`` for ``out_bam_path`` via pysam (avoids a hard
         dependency on ``samtools`` being on ``$PATH``).
     """
-    import pysam
+    from ._hts import import_pysam
+    pysam = import_pysam()
     is_ct_func = _determine_ct_func(in_bam_path)
     with pysam.AlignmentFile(in_bam_path) as in_bam, \
             pysam.AlignmentFile(out_bam_path, header=in_bam.header, mode="wb") as out_bam:
@@ -253,7 +256,8 @@ def _start_mpileup(samtools_exe, genome, min_base_quality, min_mapq,
     feeder = None
     if strand_flip:
         import threading
-        import pysam
+        from ._hts import import_pysam
+        pysam = import_pysam()
         is_ct_func = _determine_ct_func(bam_path)
         proc = subprocess.Popen(
             cmd + ["-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,

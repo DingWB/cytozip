@@ -31,6 +31,22 @@ from libc.stdlib cimport malloc, free, rand, srand, RAND_MAX
 from libc.math cimport sqrt
 from libc.stdint cimport int64_t
 from cython.parallel cimport prange
+
+# Process-wide upper bound on OpenMP threads (0 = none). ``cytozip.cz`` sets
+# it to 1 in forked children: libgomp is not fork-safe, a child whose parent
+# already ran a parallel region deadlocks on its first multi-threaded one.
+cdef int _thread_cap = 0
+
+
+def set_max_threads(n):
+    """Cap the OpenMP threads used by this module's kernels (``0`` = no cap)."""
+    global _thread_cap
+    _thread_cap = int(n) if int(n) > 0 else 0
+
+
+def get_max_threads():
+    """Effective OpenMP thread cap (``0`` = none)."""
+    return _thread_cap
 # OpenMP runtime calls via a shim header: real <omp.h> when the extension is
 # compiled with OpenMP, serial stand-ins otherwise (e.g. Apple clang), so the
 # module builds everywhere and ``prange`` degrades to a plain loop.
@@ -285,6 +301,8 @@ def rms_run_sites(cnp.ndarray[cnp.int64_t, ndim=2, mode='c'] mc not None,
         max_threads = omp_get_max_threads()
     else:
         max_threads = n_threads
+    if _thread_cap > 0 and max_threads > _thread_cap:
+        max_threads = _thread_cap
     if max_threads < 1:
         max_threads = 1
 
