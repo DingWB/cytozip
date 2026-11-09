@@ -779,7 +779,7 @@ conda install -c bioconda cytozip
 conda create -y -p ~/Software/conda/czbuild -c conda-forge \
     conda-build conda-forge-pinning anaconda-client
 # update meta.yaml (version & sha256sum)
-curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.4.3.tar.gz | sha256sum
+curl -sL https://pypi.io/packages/source/c/cytozip/cytozip-0.4.5.tar.gz | sha256sum
 
 conda activate ~/Software/conda/czbuild
 rm -rf conda-build
@@ -790,10 +790,9 @@ done
 anaconda upload conda-build/*/cytozip-*.conda -u wubinding
 env m3c
 conda remove cytozip
-conda install -c wubinding -c bioconda cytozip
+conda install -y -c wubinding -c bioconda cytozip
 conda config --set solver libmamba
-conda install -c wubinding -c bioconda "cytozip=0.4.3"
-conda install --override-channels 
+conda install -y --override-channels 
   -c wubinding -c conda-forge -c bioconda "cytozip=0.4.3"
 ```
 
