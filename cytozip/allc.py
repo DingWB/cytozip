@@ -106,7 +106,6 @@ def WriteC(record, outdir, batch_size=5000, delta_cols=None):
             else:
                 context = context + 'N' * (3 - context_len)
 
-        # f.write(f"{chrom}\t{i}\t{i + 1}\t{context}\t{strand}\n")
         values = [func(v) for v, func in zip([i + 1, strand, context], dtfuncs)]
         rows_buf.append(values)
         # position is 0-based (start) 1-based (end position, i+1)
@@ -325,7 +324,7 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
            usecols=[4, 5], ref_pos_col=0, allc_pos_col=1, sep='\t', chroms=None,
            batch_size=5000, sort_col=None, delta_cols=None, cov_overflow='scale',
            jobs=1, pattern='*.allc.tsv.gz', skip_existing=True,
-           _ref_pos_dict=None):
+           max_mem=None, _ref_pos_dict=None):
     """
     convert allc.tsv.gz to .cz file.
 
@@ -350,6 +349,11 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
     jobs : int
         Number of parallel worker processes for batch mode (default: 1).
         Ignored when ``input`` is a single file.
+    max_mem : str or int, optional
+        Memory budget (e.g. ``'200G'``) used to cap ``jobs`` in batch mode
+        (default: 80% of free RAM / cgroup headroom). ALLC rows are streamed
+        in batches of ``_TABIX_BATCH_LINES`` lines, so a worker holds one
+        output chromosome plus one batch, never a whole chromosome of text.
     pattern : str
         Glob pattern used to discover allc files when ``input`` is a directory
         (default: ``'*.allc.tsv.gz'``). Ignored for allc_path table input.
@@ -424,30 +428,24 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
         single-file mode, or a directory of ``.cz`` files in batch mode).
         Nothing is returned; existing outputs are skipped.
     """
-    # ---- Batch mode: input is a directory --------------------------------
-    if isinstance(input, str) and os.path.isdir(os.path.expanduser(input)):
-        return _allc2cz_batch(
-            input_dir=input, output_dir=output, reference=reference,
-            missing_value=missing_value, formats=formats, columns=columns,
-            chunk_dims=chunk_dims, usecols=usecols,
-            ref_pos_col=ref_pos_col, allc_pos_col=allc_pos_col, sep=sep,
-            chroms=chroms, batch_size=batch_size,
-            sort_col=sort_col, delta_cols=delta_cols, cov_overflow=cov_overflow,
-            jobs=jobs, pattern=pattern, skip_existing=skip_existing,
-        )
-    # ---- Batch mode: input is an allc_path table (cell_id, allc_path) -----
-    if isinstance(input, str) and os.path.isfile(os.path.expanduser(input)) \
-            and _looks_like_allc_path_table(os.path.expanduser(input)):
-        return _allc2cz_batch(
-            input_dir=None, output_dir=output, reference=reference,
-            files_map=_read_allc_path_table(input),
-            missing_value=missing_value, formats=formats, columns=columns,
-            chunk_dims=chunk_dims, usecols=usecols,
-            ref_pos_col=ref_pos_col, allc_pos_col=allc_pos_col, sep=sep,
-            chroms=chroms, batch_size=batch_size,
-            sort_col=sort_col, delta_cols=delta_cols, cov_overflow=cov_overflow,
-            jobs=jobs, pattern=pattern, skip_existing=skip_existing,
-        )
+    # ---- Batch mode: a directory of allc files, or an allc_path table
+    # (cell_id, allc_path) -------------------------------------------------
+    if isinstance(input, str):
+        p_in = os.path.expanduser(input)
+        is_dir = os.path.isdir(p_in)
+        if is_dir or (os.path.isfile(p_in) and _looks_like_allc_path_table(p_in)):
+            return _allc2cz_batch(
+                input_dir=input if is_dir else None, output_dir=output,
+                files_map=None if is_dir else _read_allc_path_table(input),
+                reference=reference,
+                missing_value=missing_value, formats=formats, columns=columns,
+                chunk_dims=chunk_dims, usecols=usecols,
+                ref_pos_col=ref_pos_col, allc_pos_col=allc_pos_col, sep=sep,
+                chroms=chroms, batch_size=batch_size,
+                sort_col=sort_col, delta_cols=delta_cols, cov_overflow=cov_overflow,
+                jobs=jobs, pattern=pattern, skip_existing=skip_existing,
+                max_mem=max_mem,
+            )
     if skip_existing and os.path.exists(output):
         ok, reason = check_cz(output)
         if ok:
@@ -558,35 +556,33 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                     ref_pos_arr = ref_records[f'c{ref_pos_col}'].astype(np.int64)
                     if ref_pos_arr.size == 0:
                         continue
-                # Bulk-read allc query data
-                lines = list(tbi.fetch(chrom))
-                if not lines:
-                    # No query data: write all missing values
-                    out = np.full(ref_pos_arr.size, mv_arr, dtype=struct_dtype)
-                    _write_np_chunks(writer, out, chrom, batch_size, unit_size)
-                    continue
-                # Vectorized line parsing via pd.read_csv
-                parsed = _parse_tabix_lines(lines, parse_cols, parse_dtypes, sep)
-                query_pos = parsed[0].astype(np.int64)
-                query_cols = parsed[1:]
-                if do_scale:
-                    query_cols = list(query_cols)
-                    query_cols[mc_ci], query_cols[cov_ci] = _scale_mc_on_cov_clip(
-                        query_cols[mc_ci], query_cols[cov_ci],
-                        np_dtypes[mc_ci], np_dtypes[cov_ci])
-                # Vectorized matching: use searchsorted to find where each
-                # query position falls in the sorted reference position array.
-                # `valid` mask identifies which query positions have an exact
-                # match in the reference.
-                indices = np.searchsorted(ref_pos_arr, query_pos)
-                indices_clipped = np.minimum(indices, ref_pos_arr.size - 1)
-                valid = (indices < ref_pos_arr.size) & (ref_pos_arr[indices_clipped] == query_pos)
-                # Build output array initialized to missing_value
+                # Output array initialized to missing_value (one record per
+                # reference site); the ALLC rows are streamed in bounded
+                # batches and scattered into it, so the per-chrom peak is
+                # ~unit_size B/site + one batch, not the whole text.
                 out = np.full(ref_pos_arr.size, mv_arr, dtype=struct_dtype)
-                matched_ref_idx = indices_clipped[valid]
-                for ci in range(len(usecols)):
-                    out[f'f{ci}'][matched_ref_idx] = query_cols[ci][valid]
+                for lines in _iter_tabix_batches(tbi, chrom):
+                    # Vectorized line parsing via pd.read_csv
+                    parsed = _parse_tabix_lines(lines, parse_cols, parse_dtypes, sep)
+                    del lines
+                    query_pos = parsed[0].astype(np.int64)
+                    query_cols = parsed[1:]
+                    if do_scale:
+                        query_cols = list(query_cols)
+                        query_cols[mc_ci], query_cols[cov_ci] = _scale_mc_on_cov_clip(
+                            query_cols[mc_ci], query_cols[cov_ci],
+                            np_dtypes[mc_ci], np_dtypes[cov_ci])
+                    # Vectorized matching: use searchsorted to find where each
+                    # query position falls in the sorted reference position
+                    # array. `valid` marks exact matches.
+                    indices = np.searchsorted(ref_pos_arr, query_pos)
+                    indices_clipped = np.minimum(indices, ref_pos_arr.size - 1)
+                    valid = (indices < ref_pos_arr.size) & (ref_pos_arr[indices_clipped] == query_pos)
+                    matched_ref_idx = indices_clipped[valid]
+                    for ci in range(len(usecols)):
+                        out[f'f{ci}'][matched_ref_idx] = query_cols[ci][valid]
                 _write_np_chunks(writer, out, chrom, batch_size, unit_size)
+                del out
                 # Done with this chrom's ref pages: hand them back to
                 # the kernel so they don't accumulate in RSS.
                 if need_ref_reader:
@@ -648,21 +644,22 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                 data_dtypes[mc_ci] = '<i8'
                 data_dtypes[cov_ci] = '<i8'
             for chrom in all_chroms:
-                lines = list(tbi.fetch(chrom))
-                if not lines:
-                    continue
-                # Vectorized line parsing via pd.read_csv
-                parsed = _parse_tabix_lines(lines, list(usecols), data_dtypes, sep)
-                if do_scale:
-                    parsed = list(parsed)
-                    parsed[mc_ci], parsed[cov_ci] = _scale_mc_on_cov_clip(
-                        parsed[mc_ci], parsed[cov_ci],
-                        np_dtypes[mc_ci], np_dtypes[cov_ci])
-                n = len(lines)
-                out = np.empty(n, dtype=struct_dtype)
-                for ci in range(len(usecols)):
-                    out[f'f{ci}'] = parsed[ci]
-                _write_np_chunks(writer, out, chrom, batch_size, unit_size)
+                # Stream the (position-sorted) ALLC rows in bounded batches;
+                # each batch is parsed, packed and appended to the chrom chunk.
+                for lines in _iter_tabix_batches(tbi, chrom):
+                    n = len(lines)
+                    # Vectorized line parsing via pd.read_csv
+                    parsed = _parse_tabix_lines(lines, list(usecols), data_dtypes, sep)
+                    del lines
+                    if do_scale:
+                        parsed = list(parsed)
+                        parsed[mc_ci], parsed[cov_ci] = _scale_mc_on_cov_clip(
+                            parsed[mc_ci], parsed[cov_ci],
+                            np_dtypes[mc_ci], np_dtypes[cov_ci])
+                    out = np.empty(n, dtype=struct_dtype)
+                    for ci in range(len(usecols)):
+                        out[f'f{ci}'] = parsed[ci]
+                    _write_np_chunks(writer, out, chrom, batch_size, unit_size)
         else:
             dtfuncs = get_dtfuncs(formats, tobytes=False)
             for chrom in all_chroms:
@@ -680,6 +677,24 @@ def allc2cz(input, output, reference=None, missing_value=[0, 0],
                     writer.write_chunk(_pack_chunk_data(rows_buf, writer), [chrom])
     writer.close()
     tbi.close()
+
+
+# Lines per tabix batch in allc2cz / compare_allc: bounds the Python str
+# list + parsed arrays to ~2e6 rows (~300 MB) regardless of chrom size
+# (a bulk ALLC chr1 has ~8e7 rows; as one list that is >10 GB per worker).
+_TABIX_BATCH_LINES = 2_000_000
+
+
+def _iter_tabix_batches(tbi, chrom, n=_TABIX_BATCH_LINES):
+    """Yield ``tbi.fetch(chrom)`` as successive lists of at most ``n`` lines."""
+    buf = []
+    for line in tbi.fetch(chrom):
+        buf.append(line)
+        if len(buf) >= n:
+            yield buf
+            buf = []
+    if buf:
+        yield buf
 
 
 # ==========================================================
@@ -720,7 +735,12 @@ def _load_ref_pos_dict(reference, ref_pos_col=0):
         recs = np.frombuffer(raw, dtype=ref_record_dtype)
         if recs.size == 0:
             continue
-        ref_pos[chrom] = recs[f'c{ref_pos_col}'].astype(np.int64)
+        pos = recs[f'c{ref_pos_col}']
+        # uint32 halves the fork-shared footprint (1e9 sites: 4 GB vs 8 GB);
+        # per-chrom coordinates fit for every real genome, int64 otherwise.
+        pos = pos.astype(np.uint32 if pos.size and int(pos.max()) < (1 << 32)
+                         else np.int64)
+        ref_pos[chrom] = pos
         ref_reader.release_chunk(tuple([chrom]))
     ref_reader.close()
     return ref_pos
@@ -801,7 +821,7 @@ def _looks_like_allc_path_table(path):
 
 def _allc2cz_batch(input_dir, output_dir, reference=None, jobs=1,
                    pattern='*.allc.tsv.gz', skip_existing=True,
-                   files_map=None, **kwargs):
+                   files_map=None, max_mem=None, **kwargs):
     """Parallel allc -> cz over a directory (or an explicit table), sharing
     the decoded reference.
 
@@ -886,7 +906,15 @@ def _allc2cz_batch(input_dir, output_dir, reference=None, jobs=1,
 
         n_done = 0
         n_fail = 0
-        with ctx.Pool(processes=int(jobs)) as pool:
+        # Per-worker peak ~ one output chrom (unit_size B/site) + one tabix
+        # batch of parsed lines (~150 B/line); the reference is fork-shared.
+        from ._mem import WORKER_BASE_BYTES, cap_workers
+        max_sites = max((v.size for v in (_BATCH_REF_POS_DICT or {}).values()),
+                        default=1 << 20)
+        est = (WORKER_BASE_BYTES + 16 * max_sites
+               + 150 * _TABIX_BATCH_LINES)
+        n_workers = cap_workers(int(jobs), est, max_mem=max_mem)
+        with ctx.Pool(processes=n_workers) as pool:
             for inp, ok, err in pool.imap_unordered(_allc2cz_worker, job_args):
                 if ok:
                     n_done += 1
@@ -1112,6 +1140,22 @@ def _compare_allc_pair(df1, df2, max_value, drop_zero_cov):
     return merged[diff_mask].copy(), stats
 
 
+_ALLC_DTYPES = {'chrom': str, 'pos': 'int64', 'strand': str, 'context': str,
+                'mc': 'int64', 'cov': 'int64', 'methylated': 'int8'}
+
+
+def _tabix_chrom_df(tbi, chrom, sep='\t'):
+    """One chromosome of an ALLC as a DataFrame, parsed batch by batch
+    (never the whole chrom as one joined string + its parsed copy)."""
+    from io import StringIO
+    parts = [pd.read_csv(StringIO('\n'.join(lines)), sep=sep, header=None,
+                         names=_ALLC_COLS, dtype=_ALLC_DTYPES)
+             for lines in _iter_tabix_batches(tbi, chrom)]
+    if not parts:
+        return pd.DataFrame(columns=_ALLC_COLS)
+    return parts[0] if len(parts) == 1 else pd.concat(parts, ignore_index=True)
+
+
 def _compare_allc_chrom_worker(args):
     """Fetch one chromosome from both tabix files and compare it.
 
@@ -1121,23 +1165,15 @@ def _compare_allc_chrom_worker(args):
     allc1, allc2, chrom, sep, max_value, drop_zero_cov = args
     from ._hts import import_pysam
     pysam = import_pysam()
-    from io import StringIO
 
     def _fetch_df(path, chrom):
         tbi = pysam.TabixFile(path)
         try:
             if chrom not in tbi.contigs:
                 return pd.DataFrame(columns=_ALLC_COLS)
-            text = '\n'.join(tbi.fetch(chrom))
+            return _tabix_chrom_df(tbi, chrom, sep)
         finally:
             tbi.close()
-        if not text:
-            return pd.DataFrame(columns=_ALLC_COLS)
-        return pd.read_csv(
-            StringIO(text), sep=sep, header=None, names=_ALLC_COLS,
-            dtype={'chrom': str, 'pos': 'int64', 'strand': str,
-                   'context': str, 'mc': 'int64', 'cov': 'int64',
-                   'methylated': 'int8'})
 
     df1 = _fetch_df(allc1, chrom)
     df2 = _fetch_df(allc2, chrom)
@@ -1247,21 +1283,13 @@ def compare_allc(allc1, allc2, drop_zero_cov=True, dtype='B',
     if use_tabix:
         from ._hts import import_pysam
         pysam = import_pysam()
-        from io import StringIO
         tbi1 = pysam.TabixFile(allc1)
         tbi2 = pysam.TabixFile(allc2)
 
         def _fetch_df(tbi, chrom):
             if chrom not in tbi.contigs:
                 return pd.DataFrame(columns=_ALLC_COLS)
-            text = '\n'.join(tbi.fetch(chrom))
-            if not text:
-                return pd.DataFrame(columns=_ALLC_COLS)
-            return pd.read_csv(
-                StringIO(text), sep=sep, header=None, names=_ALLC_COLS,
-                dtype={'chrom': str, 'pos': 'int64', 'strand': str,
-                       'context': str, 'mc': 'int64', 'cov': 'int64',
-                       'methylated': 'int8'})
+            return _tabix_chrom_df(tbi, chrom, sep)
 
         try:
             if chrom_list is not None:

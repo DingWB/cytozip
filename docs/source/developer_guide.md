@@ -40,6 +40,7 @@ delta column per block.
 | Module | Lines | Purpose |
 | --- | --- | --- |
 | `cytozip/cz.py` | ~6000 | Core `Reader` / `Writer`, the on-disk format, `catcz` / `extract` / `aggregate` / `align_cz`, remote (HTTP range) reading |
+| `cytozip/_mem.py` | ~220 | Shared memory budget / pool helpers: `cap_workers`, `memory_budget` (cgroup-aware), `make_pool` (fork), `bounded_map` / `bounded_unordered` |
 | `cytozip/cz_accel.pyx` | ~2650 | Cython accelerators (libdeflate block (de)compression with OpenMP, delta encode/decode, record packing, region queries, chunk index parser, integer text ingestion) |
 | `cytozip/bam.py` | ~1370 | Pileup-based BAM → `.cz` methylation extraction (htslib Cython backend in `_bam_pileup.pyx`, `samtools mpileup` fallback) |
 | `cytozip/allc.py` | ~1320 | `allc.tsv(.gz)` → `.cz`, reference building (`AllC` / `build_ref`), `extractCG`, `compare_allc` |
@@ -154,11 +155,12 @@ Pseudo-reads / bedGraph export now live in `peaks.py`
 ### `features.py` — AnnData aggregation
 
 `cz_to_anndata(...)` aggregates one or many `.cz` files over a feature
-table (genes, fixed-width bins, peaks, …). Outputs an AnnData with
-`mc` and `cov` layers. The chrom axis of the feature index is auto-
-detected. For multi-file runs the aggregation is parallelised through
-a multiprocessing pool whose workers share the feature index via
-`_pool_init`.
+table (genes, fixed-width bins, peaks, …) and **streams** the result into
+the mandatory `output=` `.h5ad` (`mc` and `cov` layers + `.X`); it returns
+the path (or the AnnData read back with `return_adata=True`). The chrom
+axis of the feature index is auto-detected. For multi-file runs the
+aggregation is parallelised through a multiprocessing pool whose workers
+share the feature index via `_pool_init`.
 
 Memory model (per worker ≈ one decompressed cell chunk, independent of
 the genome / cohort size):
@@ -193,13 +195,20 @@ the genome / cohort size):
   threads. `dmr.py`'s main pools use the `spawn` context and are
   unaffected either way.
 * Workers return only the covered `(col, mc, cov)` triplets
-  (`_StreamingSparseBuilder.append_sparse`).
-* The finalize stage (`_compute_beta_params_sparse`,
+  (`_StreamingH5Writer.append_sparse`).
+* The parent never assembles the matrix: `_StreamingH5Writer` buffers
+  cells until ~`_STREAM_BATCH_NNZ` stored entries / `_STREAM_BATCH_CELLS`
+  cells, turns the batch into a small CSR, runs the per-cell Beta prior /
+  score / HVF accumulators on it (`_compute_beta_params_sparse`,
   `_compute_score_matrix_sparse`, `_compute_hvf_var_stats_sparse`,
-  `_apply_nan_policy`) iterates over row blocks of ~`_BLOCK_NNZ` stored
-  entries, so float64 temporaries do not scale with `nnz`; under
-  `nan_policy='auto'` the dense fill is skipped when `n_cells × n_feat × 4 B`
-  exceeds the budget.
+  `_apply_nan_policy` — all per-cell or additive, so batching is exact)
+  and appends `X` / `layers/mc` / `layers/cov` rows to resizable h5
+  datasets (`_CsrH5Group`, `_DenseH5Rows`). `_finalize_cz_anndata` then
+  writes `obs` / `var` / `uns` with `anndata.io.write_elem` and renames
+  `<output>.tmp` into place. Peak memory is therefore independent of
+  `n_cells` and `nnz`; under `nan_policy='auto'` the dense `.X` is skipped
+  when `n_cells × n_feat × 4 B` exceeds the budget (it is streamed in row
+  blocks, but reading it back would need that much RAM).
 * `verbose=True` (`--verbose`) shows progress bars (tqdm when installed)
   and logs wall time plus the sampled peak memory (process tree PSS +
   cgroup usage).
@@ -210,9 +219,10 @@ the genome / cohort size):
 `cz_to_anndata_sites(...)` builds the **single-cytosine** `(n_cells,
 n_sites)` matrix: each cell's chunk is inflated once (or block-gathered
 via `Reader.gather_rows` for very sparse indexes), restricted to the
-context index, and only covered sites are appended to the streaming CSR
-builder (`_StreamingSparseBuilder.append_sparse`). `.X` is the raw or
-per-cell posterior fraction (see `docs/Methods.md` §8).
+context index, and only covered sites are streamed to the `.h5ad`
+(`_StreamingH5Writer.append_sparse`). Only the site axis (`var`) lives in
+memory, so genome-wide CH matrices are built per chromosome (`chroms=`).
+`.X` is the raw or per-cell posterior fraction (see `docs/Methods.md` §8).
 
 ### `merge.py` — merge `.cz` files
 
@@ -232,6 +242,42 @@ inside the branch that needs them so `czip --help` stays fast.
 
 A few patterns appear repeatedly in the codebase; following them keeps
 RSS predictable on whole-genome runs.
+
+0. **Every parallel entry point sizes itself from the memory budget**
+   (`cytozip/_mem.py`). `cap_workers(jobs, est_per_worker, max_mem=)`
+   clamps the worker count so `jobs x (estimated per-worker peak)` fits
+   `max_mem` (default 80% of free RAM, further limited by the tightest
+   memory cgroup — e.g. a SLURM job limit, which sits on an *ancestor*
+   of the task cgroup); every `--jobs` CLI subcommand also takes
+   `--max_mem`. Pools use the `fork` context (`make_pool`) so large
+   read-only state is inherited copy-on-write, and tasks are fed through
+   a bounded window (`bounded_map` / `bounded_unordered`) so
+   finished-but-unconsumed results never pile up. Module-specific
+   per-worker estimates:
+   * `merge_cz` / `pivot_*`: ~10x (resp. ~40-70 B x n_cells per site) one
+     decompressed batch; the parent parses the catcz'd input's CZIX index
+     **once** and workers open it with `Reader(chunk_index=...)` (the
+     chrom's `{dims: offset}` only, fork-shared) — a plain `Reader()` on a
+     100k-cell catcz file costs ~1 GB of index dicts per process. `pivot`
+     additionally shrinks the batch to fit.
+   * `mc_summary`: the reference context is factorised to `uint8` codes
+     once in the parent (`_ref_context_codes`, fork-shared); workers only
+     hold one cell chromosome + a covered mask.
+   * `call_dmr*`: `_dmr_plan` splits `jobs` into processes x OpenMP
+     threads under the budget; a chunk whose `(n_cells, n_sites)` matrices
+     exceed the per-worker budget is processed in **site windows**
+     (`_iter_dmr_windows`, block-gathered from the compressed chunks, cut
+     on bin boundaries for CH) — statistically identical, memory bounded
+     by `n_cells x window x 48 B`.
+   * `allc2cz`: ALLC rows are streamed in `_TABIX_BATCH_LINES` batches
+     (never a whole chromosome of text); the fork-shared reference
+     positions are `uint32`.
+   * `index_context` / `index_regions` / `call_peaks*`: per-chromosome
+     workers, capped by the largest chunk's size.
+   * `cz_to_anndata*`: see `features.py` above (streamed `.h5ad`).
+   * `model.deconvolve*`: the `(covered sites x types)` design is folded
+     into `k x k` normal equations chunk by chunk (`_DeconvStats`);
+     `site_importance(top=)` keeps a running top-k.
 
 1. **Slim copies from structured arrays.** Slicing a column from a
    numpy structured-array view (`arr[blk]['pos']`) returns a *view*

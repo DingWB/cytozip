@@ -131,6 +131,31 @@ def _int_or_none(s):
     return int(s)
 
 
+def _col_or_index(s):
+    """argparse type for ``--mc_col`` / ``--cov_col``: a column name, or a
+    0-based column index when the value is all digits."""
+    if s is None:
+        return None
+    return int(s) if str(s).isdigit() else s
+
+
+def _int_or_str(s):
+    """argparse type for ``--features``: an int bin size when numeric, else
+    the BED / GTF path."""
+    try:
+        return int(s)
+    except (TypeError, ValueError):
+        return s
+
+
+def _read_obs(path):
+    """Optional per-cell metadata TSV (index column = cell id) or ``None``."""
+    if not path:
+        return None
+    import pandas as pd
+    return pd.read_csv(path, sep='\t', index_col=0)
+
+
 
 def _str2bool(s):
     """Parse 'true'/'false' (and common synonyms) → bool."""
@@ -328,6 +353,8 @@ def _build_parser():
                    help='number of parallel workers in batch mode (input is a '
                         'directory). Reference is decoded once and shared via '
                         'fork copy-on-write, so memory cost is paid only once.')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
     p.add_argument('--pattern', default='*.allc.tsv.gz',
                    help='glob pattern for batch mode file discovery')
     p.add_argument('--no_skip_existing', action='store_true',
@@ -369,6 +396,8 @@ def _build_parser():
                          '(e.g. CGN, CHN, +CGN, CAC, CAG, CHG, CWG)')
     sp.add_argument('-j', '--jobs', type=int, default=4,
                     help='number of parallel processes (one shard per chunk key)')
+    sp.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
     sp.add_argument('-k', '--chunk-keys', dest='chunk_keys', default=None,
                     help='restrict to chunk keys (typically chromosomes): '
                          'comma-separated list (chr1,chr2,...) or path to a '
@@ -383,6 +412,8 @@ def _build_parser():
     sp.add_argument('-O', '--output', default=None, help='output index .cz file')
     sp.add_argument('-b', '--bed', required=True, help='BED file with regions')
     sp.add_argument('-j', '--jobs', type=int, default=4, help='number of parallel processes (CPUs)')
+    sp.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
     sp.add_argument('-k', '--chunk-keys', dest='chunk_keys', default=None,
                     help='restrict to chunk keys (typically chromosomes): '
                          'comma-separated list (chr1,chr2,...) or path to a '
@@ -419,6 +450,8 @@ def _build_parser():
                    help='output filename prefix (used when -O/--output is unset)')
     p.add_argument('-j', '--jobs', type=int, default=12,
                    help='number of parallel worker processes')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
     p.add_argument('-F', '--formats', type=_csv_str, default=['H', 'H'],
                    help='per-column struct formats for the output .cz, '
                         'comma-separated (default H,H = uint16 mc,cov)')
@@ -477,6 +510,8 @@ def _build_parser():
                    help='per-column output struct formats (default H,H)')
     p.add_argument('-j', '--jobs', type=int, default=12,
                    help='parallel worker processes (across chromosomes)')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
     p.add_argument('--chroms', default=None,
                    help='chrom whitelist/order file (default: target ref order)')
     p.add_argument('--ext', default='.cz',
@@ -535,6 +570,8 @@ def _build_parser():
         p.add_argument('-O', '--output', default=None, help='output .txt file')
         p.add_argument('--prefix', default=None, help='output prefix')
         p.add_argument('-j', '--jobs', type=int, default=12, help='number of parallel processes (CPUs)')
+        p.add_argument('--max_mem', default=None,
+                       help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
         p.add_argument('--chroms', default=None, help='chrom order file')
         p.add_argument('-r', '--reference', default=None, help='reference .cz file (adds chrom/start/pos columns)')
         p.add_argument('--keep_cat', action='store_true', help='keep intermediate cat file')
@@ -603,6 +640,8 @@ def _build_parser():
                    help='regenerate <cell>.cz.count.csv from the .cz even if it exists '
                         '(keeps its genome_cov)')
     p.add_argument('-j', '--jobs', type=int, default=1, help='parallel processes (one file each)')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
 
     # ---- aggregate -----------------------------------------------------------
     p = sub.add_parser('aggregate', help='Aggregate records within regions', formatter_class=_fmt)
@@ -697,9 +736,9 @@ def _build_parser():
                    help='permutation early-stopping threshold (ALLCools default)')
     p.add_argument('--max_row_count', type=int, default=50)
     p.add_argument('--max_total_count', type=int, default=3000)
-    p.add_argument('--mc_col', default=None,
+    p.add_argument('--mc_col', default=None, type=_col_or_index,
                    help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
-    p.add_argument('--cov_col', default=None,
+    p.add_argument('--cov_col', default=None, type=_col_or_index,
                    help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
     p.add_argument('--chroms', default=None,
                    help='restrict to these chromosomes: a path to a '
@@ -709,6 +748,10 @@ def _build_parser():
     p.add_argument('-j', '--jobs', type=int, default=1,
                    help='total CPU cores to use (auto-split into '
                         'processes across chunks and OpenMP threads)')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
+    p.add_argument('--window_sites', type=int, default=None,
+                   help='sites per window when a chunk is loaded piecewise (default 2000000; memory only)')
     p.add_argument('--no-delta_prefilter', dest='delta_prefilter',
                    action='store_false', default=True,
                    help='disable the |Delta-frac| pre-filter (run RMS on '
@@ -754,9 +797,9 @@ def _build_parser():
     p.add_argument('--min_pvalue', type=float, default=0.001)
     p.add_argument('--max_row_count', type=int, default=200)
     p.add_argument('--max_total_count', type=int, default=10000)
-    p.add_argument('--mc_col', default=None,
+    p.add_argument('--mc_col', default=None, type=_col_or_index,
                    help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
-    p.add_argument('--cov_col', default=None,
+    p.add_argument('--cov_col', default=None, type=_col_or_index,
                    help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
     p.add_argument('--chroms', default=None,
                    help='restrict to these chromosomes: a path to a '
@@ -764,6 +807,10 @@ def _build_parser():
                         'column is the chromosome), OR a comma-separated list '
                         '(chr1,chr2,...)')
     p.add_argument('-j', '--jobs', type=int, default=1)
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
+    p.add_argument('--window_sites', type=int, default=None,
+                   help='sites per window when a chunk is loaded piecewise (default 2000000; memory only)')
     p.add_argument('--no-delta_prefilter', dest='delta_prefilter',
                    action='store_false', default=True,
                    help='disable the bin-level pre-filter (run RMS on every bin)')
@@ -796,6 +843,10 @@ def _build_parser():
     p.add_argument('--overwrite', action='store_true',
                    help='re-run even if the output TSV exists')
     p.add_argument('-j', '--jobs', type=int, default=1)
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
+    p.add_argument('--window_sites', type=int, default=None,
+                   help='sites per window when a chunk is loaded piecewise (default 2000000; memory only)')
     # forwarded knobs (kept minimal; users wanting full control can use the
     # Python API and **dmr_kwargs)
     p.add_argument('--p_value_cutoff', type=float, default=None)
@@ -850,9 +901,11 @@ def _build_parser():
     p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
     p.add_argument('--keep_bed', action='store_true', help='keep intermediate pseudo-reads BED')
     p.add_argument('--macs3_args', default='', help='additional MACS3 arguments (quoted string)')
-    p.add_argument('--mc_col', default=None, help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
-    p.add_argument('--cov_col', default=None, help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
+    p.add_argument('--mc_col', default=None, type=_col_or_index, help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
+    p.add_argument('--cov_col', default=None, type=_col_or_index, help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
     p.add_argument('--jobs', type=int, default=1, help='worker processes for pseudo-read generation + sort (macs3 callpeak stays single-threaded)')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
 
     # ---- call_peaks_bdg ------------------------------------------------------
     p = sub.add_parser('call_peaks_bdg', help='Call peaks from methylation .cz via MACS3 bedGraph back-end (memory-efficient O(n_sites), coverage-controlled Poisson; signal is always unmeth=cov-mc)', formatter_class=_fmt)
@@ -871,9 +924,11 @@ def _build_parser():
     p.add_argument('--llocal', type=int, default=10000, help='half-width (bp) of local-background window for the dynamic lambda; 0 disables (global rate only)')
     p.add_argument('--blacklist', default=None, help='BED(.gz) of blacklist regions; overlapping peaks are dropped')
     p.add_argument('--keep_bdg', action='store_true', help='keep intermediate bedGraph tracks')
-    p.add_argument('--mc_col', default=None, help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
-    p.add_argument('--cov_col', default=None, help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
+    p.add_argument('--mc_col', default=None, type=_col_or_index, help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
+    p.add_argument('--cov_col', default=None, type=_col_or_index, help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
     p.add_argument('--jobs', type=int, default=1, help='worker processes for the per-chromosome pileup/score/peak-call pass')
+    p.add_argument('--max_mem', default=None,
+                   help='memory budget (e.g. 200G) used to cap --jobs; default 80%% of free RAM / cgroup headroom')
 
     # ---- to_bedgraph ---------------------------------------------------------
     p = sub.add_parser('to_bedgraph', help='Export methylation signal as bedGraph', formatter_class=_fmt)
@@ -883,8 +938,8 @@ def _build_parser():
     p.add_argument('--signal', default='unmeth', choices=['unmeth', 'meth', 'frac_unmeth'], help='signal type')
     p.add_argument('--index', default=None, help='index file for context filtering')
     p.add_argument('--min_cov', type=int, default=1, help='minimum coverage to include a site')
-    p.add_argument('--mc_col', default=None, help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
-    p.add_argument('--cov_col', default=None, help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
+    p.add_argument('--mc_col', default=None, type=_col_or_index, help="mc column name (in .cz header['columns']) or 0-based index (default: first column)")
+    p.add_argument('--cov_col', default=None, type=_col_or_index, help="cov column name (in .cz header['columns']) or 0-based index (default: last column)")
 
     # ---- bam_to_cz -----------------------------------------------------------
     p = sub.add_parser('bam_to_cz', help='Convert position-sorted BAM directly to .cz (skip ALLC text)', formatter_class=_fmt)
@@ -942,9 +997,9 @@ def _build_parser():
     p = sub.add_parser('cz_to_anndata', help='Aggregate many single-cell .cz files over a feature BED into AnnData h5ad', formatter_class=_fmt)
     p.add_argument('-I', '--input', required=True, nargs='+',
                    help='input .cz file(s) or a directory; may also be one catcz-merged .cz with cell dim')
-    p.add_argument('-f', '--features', required=True,
+    p.add_argument('-f', '--features', required=True, type=_int_or_str,
                    help='BED / BED.gz / BED.bgz path, GTF / GTF.gz path, or an int bin size in bp (e.g. 5000) for genome-wide tiling (then --chrom_size is required)')
-    p.add_argument('-O', '--output', default=None, help='output .h5ad path')
+    p.add_argument('-O', '--output', required=True, help='output .h5ad path (the matrix is streamed to it)')
     p.add_argument('--use_samples', type=_csv_str, default=None,
                    help='comma-separated whitelist of sample names to '
                         'include (default: all)')
@@ -1008,7 +1063,7 @@ def _build_parser():
                         'catcz-merged .cz (chunk_dims chrom,cell_id)')
     p.add_argument('-r', '--reference', required=True,
                    help='reference .cz the cells are row-aligned to')
-    p.add_argument('-O', '--output', default=None, help='output .h5ad path')
+    p.add_argument('-O', '--output', required=True, help='output .h5ad path (the matrix is streamed to it)')
     p.add_argument('-s', '--index', default=None,
                    help='1-D context index .cz (e.g. hg38.CGN.cz) restricting '
                         'the site axis; strongly recommended')
@@ -1053,9 +1108,9 @@ def _build_parser():
     p.add_argument('--cz_table', required=True,
                    help='per-cell table (headered TSV) with columns path, '
                         'reference (+ optional cell_id, index)')
-    p.add_argument('-f', '--features', required=True,
+    p.add_argument('-f', '--features', required=True, type=_int_or_str,
                    help='BED / GTF path, or an int bin size (needs --chrom_size)')
-    p.add_argument('-O', '--output', default=None, help='output .h5ad path')
+    p.add_argument('-O', '--output', required=True, help='output .h5ad path (the matrix is streamed to it)')
     p.add_argument('--use_samples', type=_csv_str, default=None,
                    help='comma-separated whitelist of cell_id values')
     p.add_argument('--ext', default='.cz',
@@ -1306,7 +1361,8 @@ def main():
                sort_col=args.sort_col, delta_cols=args.delta_cols,
                cov_overflow=args.cov_overflow,
                jobs=args.jobs, pattern=args.pattern,
-               skip_existing=not args.no_skip_existing)
+               skip_existing=not args.no_skip_existing,
+               max_mem=args.max_mem)
 
     elif cmd == 'build_ref':
         from .allc import AllC
@@ -1325,12 +1381,14 @@ def main():
             from .index import index_context
             index_context(input=args.input, output=args.output,
                           pattern=args.pattern, jobs=args.jobs,
-                          chunk_keys=args.chunk_keys)
+                          chunk_keys=args.chunk_keys,
+                          max_mem=args.max_mem)
         elif kind == 'regions':
             from .index import index_regions
             index_regions(input=args.input, output=args.output,
                           bed=args.bed, jobs=args.jobs,
-                          chunk_keys=args.chunk_keys)
+                          chunk_keys=args.chunk_keys,
+                          max_mem=args.max_mem)
         elif kind == 'probes':
             raise NotImplementedError(
                 "`czip index probes` is not implemented yet. "
@@ -1355,7 +1413,7 @@ def main():
                  blocks_per_batch=args.blocks_per_batch, temp=args.temp,
                  bgzip=not args.no_bgzip, batch_size=args.batch_size,
                  ext=args.ext, level=args.level, agg=agg_arg,
-                 cov_overflow=args.cov_overflow)
+                 cov_overflow=args.cov_overflow, max_mem=args.max_mem)
 
     elif cmd == 'merge_cell_type':
         from .merge import merge_cell_type
@@ -1380,7 +1438,8 @@ def main():
             target_reference=args.target_reference, output=args.output,
             context_policy=args.context_policy, formats=args.formats,
             jobs=args.jobs, chroms=args.chroms, ext=args.ext,
-            level=args.level, temp=args.temp, cov_overflow=args.cov_overflow)
+            level=args.level, temp=args.temp, cov_overflow=args.cov_overflow,
+            max_mem=args.max_mem)
 
     elif cmd == 'pivot_fraction':
         from .pivot import pivot_fraction
@@ -1391,7 +1450,7 @@ def main():
             keep_cat=args.keep_cat,
             blocks_per_batch=args.blocks_per_batch, temp=args.temp,
             bgzip=not args.no_bgzip, batch_size=args.batch_size,
-            ext=args.ext)
+            ext=args.ext, max_mem=args.max_mem)
 
     elif cmd == 'pivot_fisher':
         from .pivot import pivot_fisher
@@ -1402,7 +1461,7 @@ def main():
             keep_cat=args.keep_cat,
             blocks_per_batch=args.blocks_per_batch, temp=args.temp,
             bgzip=not args.no_bgzip, batch_size=args.batch_size,
-            ext=args.ext)
+            ext=args.ext, max_mem=args.max_mem)
 
     elif cmd == 'extractCG':
         from .allc import extractCG
@@ -1426,7 +1485,8 @@ def main():
                         mc_stat_alias=args.mc_stat_alias,
                         num_upstr_bases=args.num_upstr_bases,
                         lambda_chrom=args.lambda_chrom,
-                        overwrite=args.overwrite, jobs=args.jobs)
+                        overwrite=args.overwrite, jobs=args.jobs,
+                        max_mem=args.max_mem)
         if args.output is None:
             print(df.to_csv(), end='')
 
@@ -1461,12 +1521,7 @@ def main():
 
     elif cmd == 'call_dmr':
         from .dmr import call_dmr
-        mc_col = args.mc_col
-        cov_col = args.cov_col
-        if mc_col is not None and isinstance(mc_col, str) and mc_col.isdigit():
-            mc_col = int(mc_col)
-        if cov_col is not None and isinstance(cov_col, str) and cov_col.isdigit():
-            cov_col = int(cov_col)
+        mc_col, cov_col = args.mc_col, args.cov_col
         gn = args.group_names.split(',') if args.group_names else ('A', 'B')
         call_dmr(group_a=args.group_a, group_b=args.group_b,
                  reference=args.reference, output=args.output,
@@ -1483,16 +1538,12 @@ def main():
                  index=args.index, dms_output=args.dms_output,
                  chroms=args.chroms, jobs=args.jobs,
                  delta_prefilter=args.delta_prefilter,
-                 use_fisher_1v1=args.use_fisher_1v1)
+                 use_fisher_1v1=args.use_fisher_1v1,
+                 max_mem=args.max_mem, window_sites=args.window_sites)
 
     elif cmd == 'call_dmr_ch':
         from .dmr import call_dmr_ch
-        mc_col = args.mc_col
-        cov_col = args.cov_col
-        if mc_col is not None and isinstance(mc_col, str) and mc_col.isdigit():
-            mc_col = int(mc_col)
-        if cov_col is not None and isinstance(cov_col, str) and cov_col.isdigit():
-            cov_col = int(cov_col)
+        mc_col, cov_col = args.mc_col, args.cov_col
         gn = args.group_names.split(',') if args.group_names else ('A', 'B')
         call_dmr_ch(group_a=args.group_a, group_b=args.group_b,
                     reference=args.reference, output=args.output,
@@ -1511,7 +1562,8 @@ def main():
                     mc_col=mc_col, cov_col=cov_col,
                     index=args.index, dms_output=args.dms_output,
                     chroms=args.chroms, jobs=args.jobs,
-                    delta_prefilter=args.delta_prefilter)
+                    delta_prefilter=args.delta_prefilter,
+                    max_mem=args.max_mem, window_sites=args.window_sites)
 
     elif cmd == 'call_dmr_one_vs_rest':
         from .dmr import call_dmr_one_vs_rest
@@ -1521,7 +1573,7 @@ def main():
         for k in ('p_value_cutoff', 'frac_delta_cutoff', 'log2fc_cutoff',
                   'abs_delta_cutoff', 'bin_size', 'min_cov',
                   'min_samples_per_group', 'max_dist', 'min_dms',
-                  'n_permute', 'chroms'):
+                  'n_permute', 'chroms', 'max_mem', 'window_sites'):
             v = getattr(args, k, None)
             if v is not None:
                 forward[k] = v
@@ -1548,12 +1600,7 @@ def main():
 
     elif cmd == 'call_peaks':
         from .peaks import call_peaks
-        mc_col = args.mc_col
-        cov_col = args.cov_col
-        if mc_col is not None and mc_col.isdigit():
-            mc_col = int(mc_col)
-        if cov_col is not None and cov_col.isdigit():
-            cov_col = int(cov_col)
+        mc_col, cov_col = args.mc_col, args.cov_col
         call_peaks(input=args.input, reference=args.reference,
                    output=args.output, name=args.name,
                    control=args.control,
@@ -1563,16 +1610,12 @@ def main():
                    qvalue=args.qvalue, broad=args.broad,
                    min_cov=args.min_cov, keep_bed=args.keep_bed,
                    macs3_args=args.macs3_args,
-                   mc_col=mc_col, cov_col=cov_col, jobs=args.jobs)
+                   mc_col=mc_col, cov_col=cov_col, jobs=args.jobs,
+                   max_mem=args.max_mem)
 
     elif cmd == 'call_peaks_bdg':
         from .peaks import call_peaks_bdg
-        mc_col = args.mc_col
-        cov_col = args.cov_col
-        if mc_col is not None and mc_col.isdigit():
-            mc_col = int(mc_col)
-        if cov_col is not None and cov_col.isdigit():
-            cov_col = int(cov_col)
+        mc_col, cov_col = args.mc_col, args.cov_col
         call_peaks_bdg(input=args.input, reference=args.reference,
                        output=args.output, name=args.name,
                        control=args.control,
@@ -1581,16 +1624,12 @@ def main():
                        max_gap=args.max_gap, min_cov=args.min_cov,
                        llocal=args.llocal, blacklist=args.blacklist,
                        keep_bdg=args.keep_bdg,
-                       mc_col=mc_col, cov_col=cov_col, jobs=args.jobs)
+                       mc_col=mc_col, cov_col=cov_col, jobs=args.jobs,
+                       max_mem=args.max_mem)
 
     elif cmd == 'to_bedgraph':
         from .peaks import to_bedgraph
-        mc_col = args.mc_col
-        cov_col = args.cov_col
-        if mc_col is not None and mc_col.isdigit():
-            mc_col = int(mc_col)
-        if cov_col is not None and cov_col.isdigit():
-            cov_col = int(cov_col)
+        mc_col, cov_col = args.mc_col, args.cov_col
         to_bedgraph(input=args.input, reference=args.reference,
                     output=args.output, signal=args.signal,
                     index=args.index, min_cov=args.min_cov,
@@ -1631,10 +1670,7 @@ def main():
     elif cmd == 'cz_to_anndata_sites':
         from .features import cz_to_anndata_sites
         inputs = args.input if len(args.input) > 1 else args.input[0]
-        obs_df = None
-        if args.obs:
-            import pandas as pd
-            obs_df = pd.read_csv(args.obs, sep='\t', index_col=0)
+        obs_df = _read_obs(args.obs)
         cz_to_anndata_sites(cz_inputs=inputs, reference=args.reference,
                             output=args.output, index=args.index,
                             chroms=args.chroms, use_samples=args.use_samples,
@@ -1648,16 +1684,8 @@ def main():
     elif cmd == 'cz_to_anndata':
         from .features import cz_to_anndata
         inputs = args.input if len(args.input) > 1 else args.input[0]
-        obs_df = None
-        if args.obs:
-            import pandas as pd
-            obs_df = pd.read_csv(args.obs, sep='\t', index_col=0)
-        # Allow --features <int> for genome-wide bin tiling.
+        obs_df = _read_obs(args.obs)
         feats = args.features
-        try:
-            feats = int(feats)
-        except (TypeError, ValueError):
-            pass
         cz_to_anndata(cz_inputs=inputs, features=feats,
                       output=args.output, use_samples=args.use_samples,
                       ext=args.ext,
@@ -1678,15 +1706,8 @@ def main():
 
     elif cmd == 'cz_to_anndata_multiref':
         from .features import cz_to_anndata_multiref
-        obs_df = None
-        if args.obs:
-            import pandas as pd
-            obs_df = pd.read_csv(args.obs, sep='\t', index_col=0)
+        obs_df = _read_obs(args.obs)
         feats = args.features
-        try:
-            feats = int(feats)
-        except (TypeError, ValueError):
-            pass
         cz_to_anndata_multiref(
             cz_table=args.cz_table, features=feats,
             output=args.output, use_samples=args.use_samples, ext=args.ext,

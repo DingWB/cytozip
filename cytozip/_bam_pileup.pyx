@@ -183,8 +183,8 @@ cdef const char *_TAG_XG = "XG"
 #   0 = use the read FLAG (BAM_FREVERSE) directly (default / bismark SE).
 #   1 = hisat-3n YZ tag: '+' -> C->T -> forward, '-' -> G->A -> reverse.
 #   2 = bismark  XG tag: 'CT' -> forward, 'GA' -> reverse.
-# Modes 1/2 replace the on-disk BAM rewrite done by
-# ``cytozip.bam._convert_bam_strandness`` for hisat-3n PE / bismark PE.
+# Modes 1/2 replace ALLCools' on-disk BAM rewrite
+# (``_bam_to_allc._convert_bam_strandness``) for hisat-3n PE / bismark PE.
 
 
 cdef inline int _read_is_forward(bam1_t *b, int strand_mode) noexcept nogil:

@@ -41,7 +41,6 @@ import collections
 import mmap
 from builtins import open as _open
 import gzip
-import math
 from loguru import logger
 
 
@@ -183,6 +182,47 @@ _c_delta_encode_block = None
 _c_delta_decode_block = None
 _c_parse_tab_lines_int = None
 _c_parse_tocz_int_slab = None
+
+
+def _parse_chrom_whitelist(chroms):
+	"""Normalize a ``chroms`` argument into a set of chromosome names or None.
+
+	Accepts:
+
+	* ``None`` -> ``None`` (no restriction).
+	* list / tuple / set of names -> a set of ``str``.
+	* a path to a chrom-size / ``.fai`` file (or any text file whose first
+	whitespace-separated column is the chromosome name) -> that column.
+	* a comma-separated string ``'chr1,chr2'`` -> the listed names.
+	* a single chromosome name -> ``{name}``.
+	"""
+	if chroms is None:
+		return None
+	if isinstance(chroms, (list, tuple, set)):
+		return {str(c) for c in chroms}
+	if isinstance(chroms, str):
+		path = os.path.abspath(os.path.expanduser(chroms))
+		if os.path.exists(path):
+			names = set()
+			with open(path) as fh:
+				for line in fh:
+					line = line.strip()
+					if line:
+						names.add(line.split()[0])
+			return names
+		if "," in chroms:
+			return {c for c in chroms.split(",") if c}
+		return {chroms}
+	raise TypeError(
+		f"chroms must be None, a list/tuple/set, or a str; got {type(chroms)}")
+
+
+def _mc_cov_columns(columns, mc_col=None, cov_col=None):
+	"""Resolve the ``mc`` / ``cov`` column names of a ``.cz`` header: an int
+	is a 0-based column index, ``None`` defaults to the first / last column."""
+	def _pick(c, default):
+		return default if c is None else (columns[c] if isinstance(c, int) else c)
+	return _pick(mc_col, columns[0]), _pick(cov_col, columns[-1])
 
 
 def _ensure_cz_accel():
@@ -338,12 +378,6 @@ def make_virtual_offset(block_start_offset, within_block_offset):
 
 
 # ==========================================================
-def split_virtual_offset(virtual_offset):
-	"""Decode a 64-bit virtual offset into (block_start_offset, within_block_offset)."""
-	start = virtual_offset >> _VO_OFFSET_BITS
-	return start, virtual_offset & _VO_OFFSET_MASK
-
-
 # ==========================================================
 def SummaryBczBlocks(handle):
 	"""Iterate over all blocks in the file, yielding per-block summary info.
@@ -999,7 +1033,7 @@ class Reader:
 	"""
 
 	def __init__(self, input, mode="rb", fileobj=None, max_cache=100,
-	             mmap_advise="normal"):
+	             mmap_advise="normal", chunk_index=None):
 		r"""Initialize a reader for a ``.cz`` (cytozip) file.
 
 		Parameters
@@ -1012,6 +1046,18 @@ class Reader:
 			An already-open **binary** handle to read from instead of ``input``.
 		max_cache : int, default 100
 			Maximum number of cached decompressed blocks kept in memory.
+		chunk_index : dict or None, default None
+			Pre-resolved ``{chunk_dims_tuple: chunk_start_offset}`` to use as
+			:attr:`chunk_key2offset` **instead of parsing the file's CZIX
+			index**. Opening a ``catcz``'d multi-cell file normally parses
+			every chunk entry into Python dicts (~430 B per chunk, i.e.
+			~1 GB for 100k cells x 25 chroms), which is paid again by every
+			worker process that opens the file. A parent that already holds
+			the index can hand each worker just the chunks it will read
+			(see :meth:`chunk_offsets`). Chunks absent from the dict are
+			invisible to this reader (``KeyError`` / "not found"); the full
+			index is still parsed lazily on first access to
+			:attr:`chunk_info` / ``len(reader)``.
 		mmap_advise : {"willneed", "sequential", "random", "normal", None}, default "normal"
 			``madvise`` hint applied to the whole-file memory map. It only
 			affects **how the kernel prefetches / retains file pages in the OS
@@ -1137,6 +1183,7 @@ class Reader:
 		self._is_remote = isinstance(handle, RemoteFile) or hasattr(self, '_fsspec_handle')
 		self.input = input
 		self._init_state(max_cache, mmap_advise)
+		self._preset_chunk_index = chunk_index
 		self.read_header()
 
 	def _init_state(self, max_cache=100, mmap_advise="normal"):
@@ -1317,17 +1364,42 @@ class Reader:
 		self.fmts = ''.join(formats)
 		self._unit_size = struct.calcsize(self.fmts)
 		self._struct_obj = struct.Struct(f"<{self.fmts}")
-		# Number of consecutive blocks needed before record boundaries
-		# realign with block boundaries.  Equals _unit_size / gcd, which
-		# is the same as lcm(_unit_size, _BLOCK_MAX_LEN) / _BLOCK_MAX_LEN.
-		# E.g. unit_size=6, _BLOCK_MAX_LEN=65535, gcd=3 → _unit_nblock=2, 每 2 个 block 为一个对齐周期
-		# math.gcd(_unit_size, _BLOCK_MAX_LEN)：The greatest common divisor of the two
-		self._unit_nblock = int(self._unit_size / (math.gcd(self._unit_size, _BLOCK_MAX_LEN)))
-		# _unit_nblock: 每隔多少个 block，record 边界会重新与 block 边界对齐
 		# Pre-compute which columns need bytes→str decoding.
 		# Avoids checking format strings on every record in _byte2real/_byte2str.
 		self._str_col_mask = tuple(f[-1] in ('s', 'c') for f in formats)
-		self._summary_from_chunk_index()
+		preset = getattr(self, '_preset_chunk_index', None)
+		if preset is None:
+			self._summary_from_chunk_index()
+		else:
+			# Caller-supplied subset of the CZIX index: skip parsing the
+			# (possibly huge) full index; ``_raw_chunk_index`` is parsed
+			# lazily if something (chunk_info, len) really needs it.
+			self.chunk_key2offset = dict(preset)
+			self._raw_chunk_index_cached = None
+
+	@property
+	def _raw_chunk_index(self):
+		cached = getattr(self, '_raw_chunk_index_cached', None)
+		if cached is None:
+			cached = self.read_chunk_index()
+			if cached is None:
+				raise ValueError(
+					f"No CZIX chunk index found in {self.input!r}: "
+					"file is truncated or corrupted.")
+			self._raw_chunk_index_cached = cached
+			self._czix_dim2cs = None
+		return cached
+
+	@_raw_chunk_index.setter
+	def _raw_chunk_index(self, value):
+		self._raw_chunk_index_cached = value
+
+	def chunk_offsets(self, dims):
+		"""``{dims_tuple: chunk_start_offset}`` for the given chunk keys --
+		the ``chunk_index=`` argument a worker :class:`Reader` needs to read
+		exactly those chunks without parsing the whole CZIX index."""
+		k2o = self.chunk_key2offset
+		return {tuple(d): k2o[tuple(d)] for d in dims}
 
 	@property
 	def _delta_np_dtype(self):
@@ -3804,7 +3876,6 @@ class Reader:
 	def seek(self, virtual_offset):
 		"""Seek to a 64-bit unsigned BGZF virtual offset."""
 		# Do this inline to avoid a function call,
-		# start_offset, within_block = split_virtual_offset(virtual_offset)
 		start_offset = virtual_offset >> _VO_OFFSET_BITS
 		within_block = virtual_offset & _VO_OFFSET_MASK
 		if start_offset != self._block_start_offset:
@@ -4061,18 +4132,13 @@ class Reader:
 # Struct format -> numpy dtype mapping for fast vectorized packing.
 # Used by allc2cz, merge_cz and aggregate when all columns are numeric.
 # ---------------------------------------------------------------------------
-_STRUCT_TO_NP_DTYPE = {
-	'B': '<u1', 'b': '<i1',
-	'H': '<u2', 'h': '<i2',
-	'I': '<u4', 'i': '<i4',
-	'Q': '<u8', 'q': '<i8',
-	'f': '<f4', 'd': '<f8',
-}
+# Same table as ``_NP_FMT_MAP`` (kept under its historical name for callers).
+_STRUCT_TO_NP_DTYPE = _NP_FMT_MAP
 
 
 def _fmt_to_np_dtype(fmt):
 	"""Map a single struct format char to numpy dtype, or None if unsupported."""
-	return _STRUCT_TO_NP_DTYPE.get(fmt)
+	return _NP_FMT_MAP.get(fmt)
 
 
 def _make_np_dtype(formats, columns):
@@ -5487,9 +5553,6 @@ class Writer:
 		self.batch_size = batch_size
 		self.header = header
 		self.skiprows = skiprows
-		# if self.verbose > 0:
-		#     print("input: ", type(input), input)
-
 		if input is None or (isinstance(input, str) and input == 'stdin'):
 			data_generator = self._parse_input_no_ref(sys.stdin)
 		elif isinstance(input, str):
@@ -5509,9 +5572,6 @@ class Writer:
 		else:
 			raise ValueError("Unknow input type")
 
-		# if self.verbose > 0:
-		#     print(self.usecols, self.key_cols)
-		#     print(type(self.usecols), type(self.key_cols))
 		# Pre-check whether all columns are numeric (no string/char).
 		# If so, use a numpy structured array for zero-copy packing
 		# which avoids df.values.tolist() and per-row struct.pack overhead.
@@ -5591,6 +5651,14 @@ class Writer:
 		"""
 		Cat multiple .cz files into one .cz file.
 
+		Chunks are copied as compressed bytes (no inflate / deflate). Inputs
+		may themselves be ``catcz`` outputs: to concatenate several
+		``['chrom', 'cell_id']`` files into one, create the Writer with
+		``chunk_dims=['chrom', 'cell_id']`` and pass ``key_added=None`` so no
+		extra dimension is appended (CLI: ``czip catcz -D chrom,cell_id
+		--key_added ""``). Every chunk key of the output must be unique --
+		a duplicate (e.g. the same ``cell_id`` in two inputs) raises.
+
 		Parameters
 		----------
 		input : str or list
@@ -5656,6 +5724,11 @@ class Writer:
 		# Filled by a thread pool started just below; the main loop pops
 		# each entry as it processes the corresponding file.
 		self._catcz_prefetched = {}
+		# Every chunk key of the output must be unique: the CZIX index is a
+		# ``dims -> offset`` map, so a repeated key (e.g. the same cell_id in
+		# two catcz'd inputs being concatenated) would silently shadow the
+		# earlier chunk.
+		seen_keys = {tuple(e['dims']) for e in self._chunk_index_entries}
 		if key_added is not None:
 			if isinstance(key_added, str):
 				title = key_added
@@ -5775,6 +5848,14 @@ class Writer:
 					self._handle.write(struct.pack(f"<{dname_len}s", bytes(title, 'utf-8')))
 					self._header_size = self._handle.tell()
 				while True:  # process each file (chunk)
+					merged_key = tuple(dims) + tuple(new_dim)
+					if merged_key in seen_keys:
+						raise ValueError(
+							f"catcz: duplicate chunk key {merged_key} from "
+							f"{file_path}; chunk keys must be unique in the "
+							f"output (pass key_added= to add a distinguishing "
+							f"dimension, or rename the inputs).")
+					seen_keys.add(merged_key)
 					reader._handle.seek(start_offset)  # chunk start offset
 					# write the enrire chunk
 					new_chunk_start_offset = self._handle.tell()

@@ -47,7 +47,7 @@ from loguru import logger
 from . import cz as _cz_mod
 from .cz import (
     Writer, Reader, _fmt_to_np_dtype,
-    _ensure_cz_accel,
+    _ensure_cz_accel, _parse_chrom_whitelist,
 )
 # Trigger Cython accel load so ``_cz_mod._load_bcz_block`` is the C
 # implementation (the symbol imported at module import time would be
@@ -175,73 +175,15 @@ def _determine_ct_func(bam_path):
     )
 
 
-def _convert_bam_strandness(in_bam_path: str, out_bam_path: str,
-                            index: bool = True) -> None:
-    """Rewrite a bismark/hisat-3n BAM so ``read.is_forward`` matches the
-    bisulfite conversion type (XG/YZ tag), not the alignment orientation.
-
-    Ported from ALLCools ``_bam_to_allc._convert_bam_strandness``.
-
-    Why this is needed
-    ------------------
-    Pileup-based methylation calling (both the htslib and ``samtools
-    mpileup`` backends) infers strand from the read FLAG:
-
-    * ref ``C`` sites are counted from forward reads (``.`` / ``T``),
-    * ref ``G`` sites are counted from reverse reads (``,`` / ``a``).
-
-    For **bismark SE**, the aligner already orients C->T reads to the
-    forward strand and G->A reads to the reverse strand, so the FLAG is
-    correct. For **hisat-3n PE / bismark PE**, R1 and R2 keep their
-    original orientation, so both C->T and G->A reads appear on either
-    strand and the FLAG no longer encodes the conversion type. Counting
-    then assigns coverage to the wrong-strand cytosines (e.g. the lambda
-    spike-in shows ~50% methylation instead of the conversion-error rate).
-
-    This function forces, per read (and its mate):
-
-    * C->T conversion (``YZ == '+'`` / ``XG == 'CT'``) -> ``is_forward = True``
-    * G->A conversion (``YZ == '-'`` / ``XG == 'GA'``) -> ``is_forward = False``
-
-    so downstream base counting stays unchanged and strand-correct.
-
-    Parameters
-    ----------
-    in_bam_path, out_bam_path : str
-        Input / output BAM paths. ``read.is_forward`` is only flipped, so
-        coordinate sort order is preserved.
-    index : bool, default True
-        Build the ``.bai`` for ``out_bam_path`` via pysam (avoids a hard
-        dependency on ``samtools`` being on ``$PATH``).
-    """
-    from ._hts import import_pysam
-    pysam = import_pysam()
-    is_ct_func = _determine_ct_func(in_bam_path)
-    with pysam.AlignmentFile(in_bam_path) as in_bam, \
-            pysam.AlignmentFile(out_bam_path, header=in_bam.header, mode="wb") as out_bam:
-        for read in in_bam:
-            if is_ct_func(read):
-                read.is_forward = True
-                if read.is_paired:
-                    read.mate_is_forward = True
-            else:
-                read.is_forward = False
-                if read.is_paired:
-                    read.mate_is_forward = False
-            out_bam.write(read)
-    if index:
-        pysam.index(out_bam_path)
-
-
 def _start_mpileup(samtools_exe, genome, min_base_quality, min_mapq,
                    bam_path, strand_flip=False):
     """Start ``samtools mpileup`` and return ``(proc, text_stdout, feeder)``.
 
     When ``strand_flip`` is True the input BAM is **streamed** to mpileup's
     stdin with each read's FLAG rewritten to match its bisulfite conversion
-    tag (XG/YZ) — the same strand correction as
-    :func:`_convert_bam_strandness`, but via a pipe so **no temporary BAM is
-    written** (and no ``samtools index`` is needed). Otherwise mpileup reads
+    tag (XG/YZ) — the strand correction ALLCools applies by rewriting the BAM
+    on disk (``_convert_bam_strandness``), but via a pipe so **no temporary
+    BAM is written** (and no ``samtools index`` is needed). Otherwise mpileup reads
     ``bam_path`` directly.
 
     The returned stdout is a latin-1 text stream: mpileup pileup strings can
@@ -701,39 +643,6 @@ def name_sort_bam_to_deduped(
         subprocess.check_call([samtools_exe, "index", output])
 
     return output
-
-
-def _parse_chrom_whitelist(chroms):
-    """Normalize a ``chroms`` argument into a set of chromosome names or None.
-
-    Accepts:
-
-    * ``None`` -> ``None`` (no restriction; every contig is piled up).
-    * list / tuple / set of names -> a set of ``str``.
-    * a path to a chrom-size / ``.fai`` file -> the first
-      (tab/whitespace-separated) column of each non-empty line.
-    * a comma-separated string ``'chr1,chr2'`` -> the listed names.
-    * a single chromosome name -> ``{name}``.
-    """
-    if chroms is None:
-        return None
-    if isinstance(chroms, (list, tuple, set)):
-        return {str(c) for c in chroms}
-    if isinstance(chroms, str):
-        path = os.path.abspath(os.path.expanduser(chroms))
-        if os.path.exists(path):
-            names = set()
-            with open(path) as fh:
-                for line in fh:
-                    line = line.strip()
-                    if line:
-                        names.add(line.split()[0])
-            return names
-        if "," in chroms:
-            return {c for c in chroms.split(",") if c}
-        return {chroms}
-    raise TypeError(
-        f"chroms must be None, a list/tuple/set, or a str; got {type(chroms)}")
 
 
 # ---------------------------------------------------------------------------

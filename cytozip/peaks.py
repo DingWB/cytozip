@@ -24,7 +24,30 @@ analyses (MACS3 integration) and therefore live outside the generic
 """
 import os
 from loguru import logger
-from .cz import Reader, _make_np_dtype, np, pd
+from .cz import Reader, _make_np_dtype, _mc_cov_columns, np, pd
+from ._mem import WORKER_BASE_BYTES, cap_workers
+
+
+# Per-worker peak of the per-chromosome workers: data + reference records
+# (~14 B/site), the int64 pos / int32 mc / cov / sig arrays (~20 B/site) and
+# the pileup / score float64 temporaries (~5 x 8 B/site) of the largest chunk.
+_PEAKS_BYTES_PER_SITE = 80
+
+
+def _cap_chrom_workers(jobs, cz_path, max_mem, what):
+    """Clamp ``jobs`` so ``jobs`` per-chromosome workers (each holding the
+    largest chunk's arrays) fit the memory budget."""
+    n = int(jobs or 1)
+    if n <= 1:
+        return n
+    r = Reader(cz_path, mmap_advise="random")
+    try:
+        max_rows = max((info['data_len'] // r._unit_size
+                        for info in r._raw_chunk_index.values()), default=1)
+    finally:
+        r.close()
+    return cap_workers(n, WORKER_BASE_BYTES + _PEAKS_BYTES_PER_SITE * max_rows,
+                       max_mem=max_mem, what=what)
 
 
 # ==========================================================================
@@ -58,6 +81,35 @@ def _write_pseudo_reads(fh, chrom, pos, sig, half):
     return int(sig.sum())
 
 
+def _load_chrom_sites(reader, ref_reader, index_reader, dim, mc_col, cov_col,
+                      min_cov, dtype=np.int32):
+    """``(pos, mc, cov)`` of chromosome chunk ``dim`` with ``cov >= min_cov``
+    (``pos`` int64 from the reference, counts cast to ``dtype``), restricted
+    to the context index when one is given. ``None`` when the chunk is
+    absent / empty in the data or the reference."""
+    if dim not in ref_reader.chunk_key2offset:
+        return None
+    raw = reader.fetch_chunk_bytes(dim)
+    if not raw:
+        return None
+    data_arr = np.frombuffer(raw, dtype=_make_np_dtype(
+        reader.header['formats'], reader.header['columns']))
+    ref_raw = ref_reader.fetch_chunk_bytes(dim)
+    if not ref_raw:
+        return None
+    ref_arr = np.frombuffer(ref_raw, dtype=_make_np_dtype(
+        ref_reader.header['formats'], ref_reader.header['columns']))
+    if index_reader is not None and dim in index_reader.chunk_key2offset:
+        rows = index_reader.get_index_rows(dim, n_rows=data_arr.shape[0])
+        data_arr = data_arr[rows]
+        ref_arr = ref_arr[rows]
+    pos = ref_arr['pos'].astype(np.int64)
+    mc = data_arr[mc_col].astype(dtype)
+    cov = data_arr[cov_col].astype(dtype)
+    mask = cov >= min_cov
+    return pos[mask], mc[mask], cov[mask]
+
+
 def _concat_files(paths, dest):
     """Concatenate ``paths`` into ``dest`` in order, deleting each piece."""
     import shutil
@@ -87,29 +139,11 @@ def _pseudo_reads_chrom_worker(dim, cz_path, ref_path, index_path,
     index_reader = Reader(index_path, mmap_advise="random") if index_path else None
     try:
         chrom = dim[0]
-        if dim not in ref_reader.chunk_key2offset:
+        loaded = _load_chrom_sites(reader, ref_reader, index_reader, dim,
+                                   mc_col, cov_col, min_cov)
+        if loaded is None:
             return chrom, None, 0, None, 0
-        data_dtype = _make_np_dtype(reader.header['formats'],
-                                    reader.header['columns'])
-        ref_dtype = _make_np_dtype(ref_reader.header['formats'],
-                                   ref_reader.header['columns'])
-        raw = reader.fetch_chunk_bytes(dim)
-        if not raw:
-            return chrom, None, 0, None, 0
-        data_arr = np.frombuffer(raw, dtype=data_dtype)
-        ref_raw = ref_reader.fetch_chunk_bytes(dim)
-        if not ref_raw:
-            return chrom, None, 0, None, 0
-        ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
-        if index_reader is not None and dim in index_reader.chunk_key2offset:
-            rows = index_reader.get_index_rows(dim, n_rows=data_arr.shape[0])
-            data_arr = data_arr[rows]
-            ref_arr = ref_arr[rows]
-        pos = ref_arr['pos'].astype(np.int64)
-        mc = data_arr[mc_col].astype(np.int32)
-        cov = data_arr[cov_col].astype(np.int32)
-        mask = cov >= min_cov
-        pos, mc, cov = pos[mask], mc[mask], cov[mask]
+        pos, mc, cov = loaded
         sig = cov - mc  # unmethylated count = ATAC-like signal
         bed_path = os.path.join(output, f'{name}.{chrom}.pseudo.bed')
         with open(bed_path, 'w') as fh:
@@ -136,9 +170,9 @@ def _pseudo_reads_chrom_worker(dim, cz_path, ref_path, index_path,
 
 
 def _gen_pseudo_reads(reader, ref_reader, index_reader, cz_path, ref_path,
-                      index, data_dtype, ref_dtype, mc_col, cov_col, min_cov,
+                      index, mc_col, cov_col, min_cov,
                       half, control, bed_path, ctrl_bed_path, output, name,
-                      jobs):
+                      jobs, max_mem=None):
     """Materialise pseudo-reads into ``bed_path`` (+ optional control BED).
 
     Serial (``jobs<=1``) walks chromosomes on the already-open readers;
@@ -147,6 +181,8 @@ def _gen_pseudo_reads(reader, ref_reader, index_reader, cz_path, ref_path,
     closed before returning. Returns ``(total_reads, total_ctrl)``.
     """
     dims = list(reader.chunk_key2offset)
+    if jobs and jobs > 1:
+        jobs = _cap_chrom_workers(jobs, cz_path, max_mem, "pseudo-read worker")
     if jobs and jobs > 1:
         idx_path = (os.path.abspath(os.path.expanduser(index))
                     if index else None)
@@ -187,27 +223,12 @@ def _gen_pseudo_reads(reader, ref_reader, index_reader, cz_path, ref_path,
         try:
             with open(bed_path, 'w') as fh:
                 for dim in dims:
-                    if dim not in ref_reader.chunk_key2offset:
-                        continue
                     chrom = dim[0]
-                    raw = reader.fetch_chunk_bytes(dim)
-                    if not raw:
+                    loaded = _load_chrom_sites(reader, ref_reader, index_reader,
+                                               dim, mc_col, cov_col, min_cov)
+                    if loaded is None:
                         continue
-                    data_arr = np.frombuffer(raw, dtype=data_dtype)
-                    ref_raw = ref_reader.fetch_chunk_bytes(dim)
-                    if not ref_raw:
-                        continue
-                    ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
-                    if index_reader is not None and dim in index_reader.chunk_key2offset:
-                        rows = index_reader.get_index_rows(
-                            dim, n_rows=data_arr.shape[0])
-                        data_arr = data_arr[rows]
-                        ref_arr = ref_arr[rows]
-                    pos = ref_arr['pos'].astype(np.int64)
-                    mc = data_arr[mc_col].astype(np.int32)
-                    cov = data_arr[cov_col].astype(np.int32)
-                    mask = cov >= min_cov
-                    pos, mc, cov = pos[mask], mc[mask], cov[mask]
+                    pos, mc, cov = loaded
                     sig = cov - mc  # unmethylated count = ATAC-like signal
                     total_reads += _write_pseudo_reads(fh, chrom, pos, sig, half)
                     if ctrl_fh is not None:
@@ -233,7 +254,7 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
                control=None, index=None, genome_size='mm',
                fragment_size=300, qvalue=0.05, broad=False,
                min_cov=1, keep_bed=False, macs3_args='',
-               mc_col=None, cov_col=None, jobs=1):
+               mc_col=None, cov_col=None, jobs=1, max_mem=None):
     """Call peaks from a methylation .cz file using MACS3 (pseudo-read route).
 
     Peak calling on a .cz always treats the **unmethylated count**
@@ -315,6 +336,10 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
         Generation is fanned out one chromosome per process and ``sort`` gets
         ``--parallel jobs``. The ``macs3 callpeak`` step itself is
         single-threaded and is not sped up by this.
+    max_mem : str or int, optional
+        Memory budget used to cap the worker count (each worker holds the
+        largest chromosome's arrays, ~80 B/site; default budget 80% of free
+        RAM / cgroup headroom).
 
     Returns
     -------
@@ -374,24 +399,10 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
         index_path = os.path.abspath(os.path.expanduser(index))
         index_reader = Reader(index_path, mmap_advise="random")
 
-    # ---- Step 2: Build numpy structured dtypes for zero-copy binary decoding ----
-    data_dtype = _make_np_dtype(reader.header['formats'],
-                                reader.header['columns'])
-    ref_dtype = _make_np_dtype(ref_reader.header['formats'],
-                               ref_reader.header['columns'])
-
-    # ---- Step 3: Generate pseudo-reads BED from methylation signal ----
+    # ---- Step 2: Generate pseudo-reads BED from methylation signal ----
     half = fragment_size // 2
     # Resolve mc/cov column names from user params or header defaults
-    _cols = reader.header['columns']
-    if mc_col is None:
-        mc_col = _cols[0]
-    elif isinstance(mc_col, int):
-        mc_col = _cols[mc_col]
-    if cov_col is None:
-        cov_col = _cols[-1]
-    elif isinstance(cov_col, int):
-        cov_col = _cols[cov_col]
+    mc_col, cov_col = _mc_cov_columns(reader.header['columns'], mc_col, cov_col)
 
     bed_path = os.path.join(output, f'{name}.pseudo_reads.bed')
 
@@ -419,10 +430,10 @@ def call_peaks(input=None, reference=None, output=None, name='peaks',
     else:
         _gen_pseudo_reads(
             reader, ref_reader, index_reader, cz_path, ref_path, index,
-            data_dtype, ref_dtype, mc_col, cov_col, min_cov, half, control,
-            bed_path, ctrl_bed_path, output, name, jobs)
+            mc_col, cov_col, min_cov, half, control,
+            bed_path, ctrl_bed_path, output, name, jobs, max_mem=max_mem)
 
-        # ---- Step 4: Sort BED (sort uses jobs threads) ----
+        # ---- Step 3: Sort BED (sort uses jobs threads) ----
         logger.info("Sorting BED file...")
         sort_cmd = ['sort', '-k1,1', '-k2,2n']
         if jobs and jobs > 1:
@@ -546,50 +557,16 @@ def to_bedgraph(input=None, reference=None, output=None,
         index_path = os.path.abspath(os.path.expanduser(index))
         index_reader = Reader(index_path, mmap_advise="random")
 
-    data_dtype = _make_np_dtype(reader.header['formats'],
-                                reader.header['columns'])
-    ref_dtype = _make_np_dtype(ref_reader.header['formats'],
-                               ref_reader.header['columns'])
-
-    _cols = reader.header['columns']
-    if mc_col is None:
-        mc_col = _cols[0]
-    elif isinstance(mc_col, int):
-        mc_col = _cols[mc_col]
-    if cov_col is None:
-        cov_col = _cols[-1]
-    elif isinstance(cov_col, int):
-        cov_col = _cols[cov_col]
+    mc_col, cov_col = _mc_cov_columns(reader.header['columns'], mc_col, cov_col)
 
     with open(output, 'w') as fh:
         for dim in reader.chunk_key2offset:
-            if dim not in ref_reader.chunk_key2offset:
-                continue
             chrom = dim[0]
-
-            raw = reader.fetch_chunk_bytes(dim)
-            if not raw:
+            loaded = _load_chrom_sites(reader, ref_reader, index_reader, dim,
+                                       mc_col, cov_col, min_cov, dtype=np.float64)
+            if loaded is None:
                 continue
-            data_arr = np.frombuffer(raw, dtype=data_dtype)
-
-            ref_raw = ref_reader.fetch_chunk_bytes(dim)
-            if not ref_raw:
-                continue
-            ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
-
-            if index_reader is not None and dim in index_reader.chunk_key2offset:
-                rows = index_reader.get_index_rows(dim, n_rows=data_arr.shape[0])
-                data_arr = data_arr[rows]
-                ref_arr = ref_arr[rows]
-
-            pos = ref_arr['pos'].astype(np.int64)
-            mc = data_arr[mc_col].astype(np.float64)
-            cov = data_arr[cov_col].astype(np.float64)
-
-            mask = cov >= min_cov
-            pos = pos[mask]
-            mc = mc[mask]
-            cov = cov[mask]
+            pos, mc, cov = loaded
 
             if signal == 'unmeth':
                 values = cov - mc
@@ -626,75 +603,6 @@ def to_bedgraph(input=None, reference=None, output=None,
 
     logger.info(f"bedGraph written to: {output}")
     return output
-
-
-def _pileup_from_sites(pos, sig, half):
-    """Piecewise-constant coverage pileup from extended point signals.
-
-    Each site at ``pos`` contributes ``sig`` over ``[pos-half, pos+half)``;
-    overlapping contributions are summed via a difference array (memory is
-    ``O(n_sites)``, never ``O(sum(sig))``). Returns ``(starts, ends, values)``
-    for the nonzero bedGraph segments, or ``None`` when empty.
-    """
-    pos = np.asarray(pos, dtype=np.int64)
-    sig = np.asarray(sig, dtype=np.float64)
-    keep = sig != 0
-    pos, sig = pos[keep], sig[keep]
-    if pos.size == 0:
-        return None
-    starts = np.maximum(0, pos - half)
-    ends = pos + half
-    idx = np.concatenate([starts, ends])
-    delta = np.concatenate([sig, -sig])
-    order = np.argsort(idx, kind='mergesort')
-    idx, delta = idx[order], delta[order]
-    uniq, inv = np.unique(idx, return_inverse=True)
-    agg = np.zeros(uniq.size, dtype=np.float64)
-    np.add.at(agg, inv, delta)
-    cum = np.cumsum(agg)
-    seg_start, seg_end, seg_val = uniq[:-1], uniq[1:], cum[:-1]
-    nz = seg_val > 0
-    if not nz.any():
-        return None
-    return seg_start[nz], seg_end[nz], seg_val[nz]
-
-
-def _pileup_control(pos, sig, half, floor=1.0):
-    """Continuous coverage pileup for the control lambda track.
-
-    Same difference-array pileup as :func:`_pileup_from_sites`, but returns a
-    **gap-free** track over ``[0, max(pos)+half]`` with every segment floored
-    at ``floor`` (> 0). ``macs3 bdgcmp -m ppois`` evaluates the Poisson score
-    at every base and requires the lambda to be strictly positive there; a
-    sparse (zero-gap) control makes ``ppois`` abort with
-    ``AssertionError: Lambda must > 0``. Returns ``(starts, ends, values)`` or
-    ``None`` when empty.
-    """
-    pos = np.asarray(pos, dtype=np.int64)
-    sig = np.asarray(sig, dtype=np.float64)
-    keep = sig != 0
-    pos, sig = pos[keep], sig[keep]
-    if pos.size == 0:
-        return None
-    starts = np.maximum(0, pos - half)
-    ends = pos + half
-    idx = np.concatenate([starts, ends])
-    delta = np.concatenate([sig, -sig])
-    order = np.argsort(idx, kind='mergesort')
-    idx, delta = idx[order], delta[order]
-    uniq, inv = np.unique(idx, return_inverse=True)
-    agg = np.zeros(uniq.size, dtype=np.float64)
-    np.add.at(agg, inv, delta)
-    cum = np.cumsum(agg)
-    seg_start, seg_end, seg_val = uniq[:-1], uniq[1:], cum[:-1]
-    # Prepend the leading [0, uniq[0]) gap so the track starts at base 0.
-    if uniq[0] > 0:
-        seg_start = np.concatenate([[0], seg_start])
-        seg_end = np.concatenate([[uniq[0]], seg_end])
-        seg_val = np.concatenate([[0.0], seg_val])
-    # Floor internal gaps (cum == 0) and the leading gap so lambda is never 0.
-    seg_val = np.maximum(seg_val, floor)
-    return seg_start, seg_end, seg_val
 
 
 def _joint_pileup(pos, sig, csig, half):
@@ -889,27 +797,11 @@ def _bdg_chrom_worker(dim, cz_path, ref_path, index_path, mc_col, cov_col,
     index_reader = Reader(index_path, mmap_advise="random") if index_path else None
     try:
         chrom = dim[0]
-        data_dtype = _make_np_dtype(reader.header['formats'],
-                                    reader.header['columns'])
-        ref_dtype = _make_np_dtype(ref_reader.header['formats'],
-                                   ref_reader.header['columns'])
-        raw = reader.fetch_chunk_bytes(dim)
-        if not raw:
+        loaded = _load_chrom_sites(reader, ref_reader, index_reader, dim,
+                                   mc_col, cov_col, min_cov, dtype=np.int64)
+        if loaded is None:
             return chrom, None, None, None
-        data_arr = np.frombuffer(raw, dtype=data_dtype)
-        ref_raw = ref_reader.fetch_chunk_bytes(dim)
-        if not ref_raw:
-            return chrom, None, None, None
-        ref_arr = np.frombuffer(ref_raw, dtype=ref_dtype)
-        if index_reader is not None and dim in index_reader.chunk_key2offset:
-            rows = index_reader.get_index_rows(dim, n_rows=data_arr.shape[0])
-            data_arr = data_arr[rows]
-            ref_arr = ref_arr[rows]
-        pos = ref_arr['pos'].astype(np.int64)
-        mc = data_arr[mc_col].astype(np.int64)
-        cov = data_arr[cov_col].astype(np.int64)
-        mask = cov >= min_cov
-        pos, mc, cov = pos[mask], mc[mask], cov[mask]
+        pos, mc, cov = loaded
         sig = cov - mc  # unmethylated count = ATAC-like signal
         csig = cov if control == 'cov' else mc
         jp = _joint_pileup(pos, sig, csig, half)
@@ -950,7 +842,7 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
                    ext=300, method='ppois', cutoff=2,
                    min_len=None, max_gap=None, min_cov=1, llocal=10000,
                    blacklist=None, keep_bdg=False, mc_col=None, cov_col=None,
-                   jobs=1):
+                   jobs=1, max_mem=None):
     """Call peaks from a methylation .cz (native vectorised Poisson).
 
     Like :func:`call_peaks`, the signal is always the **unmethylated count**
@@ -1046,6 +938,9 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
         near-linearly; each worker holds one chromosome's arrays in memory, so
         raise ``jobs`` only as far as RAM allows (the largest chromosomes are
         the heaviest). Pass 1 (global rate) stays serial and cheap.
+    max_mem : str or int, optional
+        Memory budget used to cap ``jobs`` (~80 B per site of the largest
+        chromosome per worker; default 80% of free RAM / cgroup headroom).
 
     Returns
     -------
@@ -1082,19 +977,7 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
     if index is not None:
         index_reader = Reader(os.path.abspath(os.path.expanduser(index)))
 
-    data_dtype = _make_np_dtype(reader.header['formats'],
-                                reader.header['columns'])
-    ref_dtype = _make_np_dtype(ref_reader.header['formats'],
-                               ref_reader.header['columns'])
-    _cols = reader.header['columns']
-    if mc_col is None:
-        mc_col = _cols[0]
-    elif isinstance(mc_col, int):
-        mc_col = _cols[mc_col]
-    if cov_col is None:
-        cov_col = _cols[-1]
-    elif isinstance(cov_col, int):
-        cov_col = _cols[cov_col]
+    mc_col, cov_col = _mc_cov_columns(reader.header['columns'], mc_col, cov_col)
 
     if int(ext) < 2:
         raise ValueError(f"ext must be >= 2 (got {ext}); ext=1 yields "
@@ -1111,19 +994,11 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
     total_sig = 0.0
     total_cov = 0.0
     for dim in reader.chunk_key2offset:
-        if dim not in ref_reader.chunk_key2offset:
+        loaded = _load_chrom_sites(reader, ref_reader, index_reader, dim,
+                                   mc_col, cov_col, min_cov, dtype=np.int64)
+        if loaded is None:
             continue
-        raw = reader.fetch_chunk_bytes(dim)
-        if not raw:
-            continue
-        data_arr = np.frombuffer(raw, dtype=data_dtype)
-        if index_reader is not None and dim in index_reader.chunk_key2offset:
-            rows = index_reader.get_index_rows(dim, n_rows=data_arr.shape[0])
-            data_arr = data_arr[rows]
-        mc = data_arr[mc_col].astype(np.int64)
-        cov = data_arr[cov_col].astype(np.int64)
-        mask = cov >= min_cov
-        mc, cov = mc[mask], cov[mask]
+        _, mc, cov = loaded
         total_sig += float((cov - mc).sum())
         total_cov += float((cov if control == 'cov' else mc).sum())
         reader.release_chunk(dim)
@@ -1158,6 +1033,8 @@ def call_peaks_bdg(input=None, reference=None, output=None, name='peaks',
                  output=output, name=name, llocal=llocal)
 
     results = {}
+    if jobs and jobs > 1:
+        jobs = _cap_chrom_workers(jobs, cz_path, max_mem, "peak-call worker")
     if jobs and jobs > 1:
         from concurrent.futures import ProcessPoolExecutor, as_completed
         with ProcessPoolExecutor(max_workers=jobs) as ex:

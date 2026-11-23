@@ -34,7 +34,6 @@ Design notes
 from __future__ import annotations
 
 import os
-import re
 import struct
 from typing import List, Optional, Sequence, Union
 
@@ -434,99 +433,313 @@ def _beta_binomial_alpha_beta(sum_mc, sum_cov, n_keep, X,
 # of cells). All scoring / Beta-prior estimation runs directly on the
 # streamed CSR mc/cov layers; there is no dense code path.
 # ---------------------------------------------------------------------------
-class _StreamingSparseBuilder:
-    """Append-one-cell-at-a-time CSR builder.
+# Streaming writer batch limits: a batch is flushed to disk once it holds
+# this many stored entries or this many cells, whichever comes first. The
+# parent's peak is ~a few x the batch (buffers + the batch CSRs + the
+# float64 block temporaries), independent of n_cells.
+_STREAM_BATCH_NNZ = 16_000_000
+_STREAM_BATCH_CELLS = 4096
+# Dense .X batches are capped so one row block stays <= this many bytes.
+_STREAM_DENSE_BATCH_BYTES = 512 << 20
+# h5 dataset chunk (elements) for the resizable 1-D csr arrays.
+_H5_CHUNK = 1 << 18
 
-    Avoids materialising the dense ``(n_cells, n_feat)`` matrices that
-    otherwise dominate memory for large cohorts. Each cell is appended
-    by passing its ``(n_feat, 2)`` int64 array; only the (mc, cov)
-    entries on positions where ``cov > 0`` are kept (single-cell
-    methylation is typically <5% covered, so this is the bulk of the
-    saving).
 
-    Build the final sparse layers with :meth:`finalize`.
+class _CsrH5Group:
+    """Append rows of a CSR matrix into an anndata-style h5 group
+    (``data`` / ``indices`` resizable datasets; ``indptr`` + ``shape``
+    written on :meth:`close`)."""
+
+    __slots__ = ("g", "n_cols", "data", "indices", "_indptr", "nnz")
+
+    def __init__(self, group, n_cols, dtype, compression="lzf"):
+        self.g = group
+        self.n_cols = int(n_cols)
+        group.attrs["encoding-type"] = "csr_matrix"
+        group.attrs["encoding-version"] = "0.1.0"
+        kw = dict(maxshape=(None,), chunks=(_H5_CHUNK,), compression=compression)
+        self.data = group.create_dataset("data", shape=(0,), dtype=dtype, **kw)
+        self.indices = group.create_dataset("indices", shape=(0,),
+                                            dtype=np.int32, **kw)
+        self._indptr = [np.zeros(1, dtype=np.int64)]
+        self.nnz = 0
+
+    def append(self, csr) -> None:
+        n = int(csr.nnz)
+        if n:
+            end = self.nnz + n
+            self.data.resize((end,))
+            self.indices.resize((end,))
+            self.data[self.nnz:end] = csr.data
+            self.indices[self.nnz:end] = csr.indices
+        # rows with no stored entry still advance indptr
+        self._indptr.append(np.asarray(csr.indptr[1:], dtype=np.int64) + self.nnz)
+        self.nnz += n
+
+    def close(self) -> None:
+        indptr = np.concatenate(self._indptr)
+        self.g.create_dataset("indptr", data=indptr)
+        self.g.attrs["shape"] = np.array([indptr.size - 1, self.n_cols],
+                                         dtype=np.int64)
+
+
+class _DenseH5Rows:
+    """Append row blocks of a dense ``float32`` matrix into a resizable
+    anndata-style ``array`` dataset."""
+
+    __slots__ = ("ds", "n_rows")
+
+    def __init__(self, parent, name, n_cols, compression="lzf"):
+        n_cols = int(n_cols)
+        rows = max(1, (1 << 20) // max(1, n_cols))
+        self.ds = parent.create_dataset(
+            name, shape=(0, n_cols), maxshape=(None, n_cols), dtype=np.float32,
+            chunks=(rows, n_cols), compression=compression)
+        self.ds.attrs["encoding-type"] = "array"
+        self.ds.attrs["encoding-version"] = "0.2.0"
+        self.n_rows = 0
+
+    def append(self, dense) -> None:
+        n = int(dense.shape[0])
+        if n:
+            self.ds.resize((self.n_rows + n, dense.shape[1]))
+            self.ds[self.n_rows:self.n_rows + n] = dense
+            self.n_rows += n
+
+    def close(self) -> None:
+        pass
+
+
+def _resolve_nan_policy(nan_policy, score, n_cells, n_feat, max_mem=None):
+    """Resolve ``nan_policy`` (incl. ``'auto'``) to the effective per-score
+    policy applied to uncovered (``cov == 0``) entries of ``.X``.
+
+    ``'zero'`` keeps ``.X`` a sparse CSR; ``'nan'`` / ``'prior_mean'`` write
+    a dense ``float32`` ``.X`` of ``n_cells * n_feat * 4`` bytes. Under
+    ``'auto'`` the dense form is skipped (falls back to ``'zero'``) when it
+    would exceed the memory budget (``max_mem`` or half of the detected
+    free memory), since that is what a downstream ``read_h5ad`` will need.
+    """
+    if nan_policy not in _VALID_NAN_POLICIES:
+        raise ValueError(
+            f"nan_policy must be one of {_VALID_NAN_POLICIES}, got {nan_policy!r}")
+    eff_policy = nan_policy
+    if nan_policy == "auto":
+        if score == "posterior_frac":
+            eff_policy = "prior_mean"
+        elif score in ("frac", "umc"):
+            eff_policy = "nan"
+        else:  # hypo-score / hyper-score have no missing entries; stay sparse
+            eff_policy = "zero"
+    dense_bytes = int(n_cells) * int(n_feat) * 4
+    if eff_policy != "zero" and nan_policy == "auto":
+        budget = _parse_mem(max_mem)
+        if budget is None:
+            avail = _available_memory_bytes()
+            budget = None if avail is None else int(avail * 0.5)
+        if budget is not None and dense_bytes > budget:
+            logger.warning(
+                f"[cytozip] nan_policy='auto' would write a dense .X of "
+                f"{_fmt_bytes(dense_bytes)} (> budget {_fmt_bytes(budget)}); "
+                f"keeping .X sparse (nan_policy='zero'). Uncovered entries "
+                f"are implicit 0; restore NaN / prior_mean on demand with "
+                f"cytozip.features.to_dense(adata). Pass nan_policy="
+                f"{eff_policy!r} explicitly to force the dense matrix.")
+            eff_policy = "zero"
+    if eff_policy != "zero":
+        logger.warning(
+            f"nan_policy={eff_policy!r} writes a dense float32 .X of "
+            f"{_fmt_bytes(dense_bytes)} (n_cells * n_features * 4 bytes). It "
+            f"is streamed to disk in row blocks, but reading the h5ad back "
+            f"needs that much RAM. For sparse single-cell data "
+            f"nan_policy='zero' is recommended: .X stays sparse (implicit 0) "
+            f"and NaN / prior_mean can be restored on demand from "
+            f"layers['cov'] via cytozip.features.to_dense(adata).")
+    return eff_policy
+
+
+class _StreamingH5Writer:
+    """Stream per-cell covered entries straight into an on-disk ``.h5ad``.
+
+    Cells are appended one at a time (``(n_feat, 2)`` int64 array via
+    :meth:`append`, or the covered ``(indices, mc, cov)`` triplet via
+    :meth:`append_sparse`) and buffered until ~``_STREAM_BATCH_NNZ`` stored
+    entries or ``_STREAM_BATCH_CELLS`` cells. Each batch is turned into a
+    small CSR, the per-cell Beta prior / score / HVF accumulators are
+    computed with the same block functions as a whole-matrix build
+    (every statistic is per-cell or additive, so batching is exact), and
+    the ``mc`` / ``cov`` / ``.X`` rows are appended to resizable h5
+    datasets. Nothing proportional to ``nnz`` or ``n_cells x n_feat`` is
+    held in memory. :func:`_finalize_cz_anndata` writes ``obs`` / ``var`` /
+    ``uns`` and renames the temporary file into place.
     """
 
-    __slots__ = ("n_feat", "_mc_data", "_cov_data", "_indices",
-                 "_indptr", "_n_rows")
-
-    def __init__(self, n_feat: int):
+    def __init__(self, output, n_feat, n_cells, score, score_cutoff,
+                 hvf_frac, nan_policy, max_mem=None, compression="lzf"):
+        import h5py
+        if not output:
+            raise ValueError("output= (an .h5ad path) is required")
+        self.output = os.path.abspath(os.path.expanduser(str(output)))
         self.n_feat = int(n_feat)
-        self._mc_data: list = []
-        self._cov_data: list = []
-        self._indices: list = []
-        # ``indptr`` always starts with 0 and grows by one entry per row.
-        self._indptr: list = [0]
-        self._n_rows = 0
+        if self.n_feat <= 0:
+            raise ValueError("no features to aggregate over (n_features == 0)")
+        self.score = score
+        self.score_cutoff = float(score_cutoff)
+        self.hvf_frac = hvf_frac
+        self.nan_policy_requested = nan_policy
+        self.eff_policy = _resolve_nan_policy(nan_policy, score, n_cells,
+                                              self.n_feat, max_mem)
+        self.posterior = score == "posterior_frac"
+        self.batch_nnz = int(_STREAM_BATCH_NNZ)
+        self.batch_cells = int(_STREAM_BATCH_CELLS)
+        if self.eff_policy != "zero":
+            self.batch_cells = min(self.batch_cells, max(
+                1, _STREAM_DENSE_BATCH_BYTES // (4 * self.n_feat)))
 
+        os.makedirs(os.path.dirname(self.output) or ".", exist_ok=True)
+        self.tmp = self.output + ".tmp"
+        self.f = h5py.File(self.tmp, "w")
+        self.f.attrs["encoding-type"] = "anndata"
+        self.f.attrs["encoding-version"] = "0.1.0"
+        layers = self.f.create_group("layers")
+        layers.attrs["encoding-type"] = "dict"
+        layers.attrs["encoding-version"] = "0.1.0"
+        self._mc = _CsrH5Group(layers.create_group("mc"), self.n_feat,
+                               np.uint32, compression)
+        self._cov = _CsrH5Group(layers.create_group("cov"), self.n_feat,
+                                np.uint32, compression)
+        if self.eff_policy == "zero":
+            self._x = _CsrH5Group(self.f.create_group("X"), self.n_feat,
+                                  np.float32, compression)
+        else:
+            self._x = _DenseH5Rows(self.f, "X", self.n_feat, compression)
+
+        self._buf_idx: list = []
+        self._buf_mc: list = []
+        self._buf_cov: list = []
+        self._buf_sizes: list = []
+        self._buf_nnz = 0
+        self.n_rows = 0
+        self._alpha: list = []
+        self._beta: list = []
+        self._prior_mean: list = []
+        if self.posterior:
+            self.hvf_n_cov = np.zeros(self.n_feat, dtype=np.float64)
+            self.hvf_sum = np.zeros(self.n_feat, dtype=np.float64)
+            self.hvf_sum_sq = np.zeros(self.n_feat, dtype=np.float64)
+        self._closed = False
+
+    # -- appending -----------------------------------------------------------
     def append(self, arr) -> None:
-        """Append one cell's ``(n_feat, 2)`` int64 array.
-
-        Only entries with ``cov > 0`` are stored. Since ``mc <= cov``,
-        the same sparsity pattern works for both layers.
-        """
+        """Append one cell's ``(n_feat, 2)`` int64 array (only ``cov > 0``
+        entries are stored; ``mc <= cov`` so one pattern serves both)."""
         nz, mc_nz, cov_nz = _to_sparse_triplet(np.asarray(arr))
-        if nz.size:
-            self._mc_data.append(mc_nz)
-            self._cov_data.append(cov_nz)
-            self._indices.append(nz)
-        self._n_rows += 1
-        self._indptr.append(self._indptr[-1] + int(nz.size))
+        self.append_sparse(nz, mc_nz, cov_nz)
 
     def append_sparse(self, indices, mc, cov) -> None:
         """Append one cell given only its covered entries: sorted column
         ``indices`` (int) with their ``mc`` / ``cov`` counts (``cov > 0``)."""
         n = int(len(indices))
         if n:
-            self._indices.append(np.asarray(indices, dtype=np.int32))
-            self._mc_data.append(np.asarray(mc, dtype=np.uint32))
-            self._cov_data.append(np.asarray(cov, dtype=np.uint32))
-        self._n_rows += 1
-        self._indptr.append(self._indptr[-1] + n)
+            self._buf_idx.append(np.asarray(indices, dtype=np.int32))
+            self._buf_mc.append(np.asarray(mc, dtype=np.uint32))
+            self._buf_cov.append(np.asarray(cov, dtype=np.uint32))
+            self._buf_nnz += n
+        self._buf_sizes.append(n)
+        if (self._buf_nnz >= self.batch_nnz
+                or len(self._buf_sizes) >= self.batch_cells):
+            self._flush()
 
-    def finalize(self):
-        """Materialise ``(mc_csr, cov_csr)`` shape ``(n_rows, n_feat)``.
-
-        The three output arrays are allocated once at their final size and
-        the per-cell chunks are copied in and released one by one, so the
-        peak is ~1x the result (not the 2x of ``np.concatenate``). After
-        this call the internal buffers are dropped so the builder cannot be
-        reused.
-        """
+    def _flush(self) -> None:
         import scipy.sparse as ss
-        n_rows = self._n_rows
-        shape = (n_rows, self.n_feat)
-        # ``indptr`` may exceed int32 for >2.1B nonzeros total — pick
-        # the narrowest dtype that still covers the value range.
-        last = self._indptr[-1]
-        indptr_dtype = np.int64 if last > np.iinfo(np.int32).max else np.int32
-        indptr = np.asarray(self._indptr, dtype=indptr_dtype)
-        indices = np.empty(last, dtype=np.int32)
-        mc_data = np.empty(last, dtype=np.uint32)
-        cov_data = np.empty(last, dtype=np.uint32)
-        off = 0
-        for k in range(len(self._indices)):
-            idx = self._indices[k]
-            n = idx.size
-            indices[off:off + n] = idx
-            mc_data[off:off + n] = self._mc_data[k]
-            cov_data[off:off + n] = self._cov_data[k]
-            off += n
-            # Release each chunk as soon as it has been copied.
-            self._indices[k] = self._mc_data[k] = self._cov_data[k] = None
-        self._mc_data.clear()
-        self._cov_data.clear()
-        self._indices.clear()
-        # Note: ``indices`` is shared between the two CSRs because both
-        # layers have the same sparsity pattern.
-        mc_csr = ss.csr_matrix((mc_data, indices, indptr), shape=shape)
-        cov_csr = ss.csr_matrix((cov_data, indices, indptr), shape=shape)
-        # Indicate the layers are already canonical (sorted, no dups).
-        mc_csr.has_sorted_indices = True
-        cov_csr.has_sorted_indices = True
-        mc_csr.has_canonical_format = True
-        cov_csr.has_canonical_format = True
-        return mc_csr, cov_csr
+        n = len(self._buf_sizes)
+        if n == 0:
+            return
+        shape = (n, self.n_feat)
+        indptr = np.zeros(n + 1, dtype=np.int64)
+        np.cumsum(self._buf_sizes, out=indptr[1:])
+        if self._buf_idx:
+            indices = np.concatenate(self._buf_idx)
+            mc = np.concatenate(self._buf_mc)
+            cov = np.concatenate(self._buf_cov)
+        else:
+            indices = np.empty(0, dtype=np.int32)
+            mc = np.empty(0, dtype=np.uint32)
+            cov = mc.copy()
+        self._buf_idx.clear(); self._buf_mc.clear(); self._buf_cov.clear()
+        self._buf_sizes.clear(); self._buf_nnz = 0
+        # ``indices`` is shared: both layers have the same sparsity pattern.
+        mc_sp = ss.csr_matrix((mc, indices, indptr), shape=shape)
+        cov_sp = ss.csr_matrix((cov, indices, indptr), shape=shape)
+        for m in (mc_sp, cov_sp):
+            m.has_sorted_indices = True
+            m.has_canonical_format = True
+
+        alpha = beta = prior_mean = None
+        if self.posterior:
+            alpha, beta, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
+            X = _compute_score_matrix_sparse(mc_sp, cov_sp, self.score,
+                                             score_cutoff=self.score_cutoff,
+                                             alpha=alpha, beta=beta)
+            n_cov, s1, s2 = _compute_hvf_var_stats_sparse(
+                mc_sp, cov_sp, alpha=alpha, beta=beta, method=self.hvf_frac)
+            self.hvf_n_cov += n_cov
+            self.hvf_sum += s1
+            self.hvf_sum_sq += s2
+            self._alpha.append(alpha)
+            self._beta.append(beta)
+            self._prior_mean.append(prior_mean)
+        else:
+            X = _compute_score_matrix_sparse(mc_sp, cov_sp, self.score,
+                                             score_cutoff=self.score_cutoff)
+        if self.eff_policy != "zero":
+            if self.eff_policy == "prior_mean" and prior_mean is None:
+                _, _, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
+            X = _apply_nan_policy(X, cov_sp, self.eff_policy,
+                                  prior_mean=prior_mean)
+        self._x.append(X)
+        self._mc.append(mc_sp)
+        self._cov.append(cov_sp)
+        self.n_rows += n
+
+    # -- finishing -----------------------------------------------------------
+    def close_matrices(self) -> None:
+        """Flush the pending batch and finish the ``X`` / layer datasets."""
+        if self._closed:
+            return
+        self._flush()
+        self._x.close()
+        self._mc.close()
+        self._cov.close()
+        self._closed = True
+
+    def obs_stats(self) -> dict:
+        """Per-cell Beta prior columns (``posterior_frac`` only)."""
+        if not self.posterior:
+            return {}
+        if self._alpha:
+            alpha = np.concatenate(self._alpha)
+            beta = np.concatenate(self._beta)
+            pm = np.concatenate(self._prior_mean)
+        else:
+            alpha = beta = pm = np.empty(0, dtype=np.float32)
+        # rho = 1 / (alpha + beta + 1) == 1/(kappa+1): the intra-class
+        # correlation (over-dispersion) of the per-cell Beta-Binomial fit; a
+        # coverage-independent per-cell QC handle. NaN on degenerate rows.
+        rho = (1.0 / (alpha.astype(np.float64) + beta.astype(np.float64)
+                      + 1.0)).astype(np.float32)
+        return {"alpha": alpha, "beta": beta, "prior_mean": pm, "rho": rho}
+
+    def abort(self) -> None:
+        """Close the h5 handle and delete the temporary file."""
+        try:
+            self.f.close()
+        except Exception:
+            pass
+        try:
+            os.remove(self.tmp)
+        except OSError:
+            pass
 
 
 # Target number of stored entries handled per row block in the finalize
@@ -959,184 +1172,20 @@ def _aggregate_one_reader(
 
 
 # ---------------------------------------------------------------------------
-# Memory / process-pool helpers
+# Memory / process-pool helpers (shared implementation in cytozip._mem; the
+# underscore aliases keep this module's internal call sites unchanged)
 # ---------------------------------------------------------------------------
-_MEM_UNITS = {"": 1, "b": 1, "k": 1 << 10, "kb": 1 << 10, "m": 1 << 20,
-              "mb": 1 << 20, "g": 1 << 30, "gb": 1 << 30, "t": 1 << 40,
-              "tb": 1 << 40}
-
-
-def _parse_mem(value) -> Optional[int]:
-    """``'200G'`` / ``'512MB'`` / ``int`` bytes -> bytes (``None`` passthrough)."""
-    if value is None:
-        return None
-    if isinstance(value, (int, np.integer, float)):
-        return int(value)
-    m = re.fullmatch(r"\s*([0-9.]+)\s*([a-zA-Z]*)\s*", str(value))
-    if not m or m.group(2).lower() not in _MEM_UNITS:
-        raise ValueError(f"cannot parse memory size {value!r} (e.g. '200G')")
-    return int(float(m.group(1)) * _MEM_UNITS[m.group(2).lower()])
-
-
-def _read_int_file(path) -> Optional[int]:
-    try:
-        with open(path) as fh:
-            txt = fh.read().strip()
-        return None if txt in ("max", "") else int(txt)
-    except (OSError, ValueError):
-        return None
-
-
-def _cgroup_memory_headroom() -> Optional[int]:
-    """``limit - usage`` of the tightest memory cgroup this process sits in
-    (v2 or v1, walking up the hierarchy -- e.g. SLURM sets the job limit on
-    a parent of the task cgroup). ``None`` when unlimited / unknown."""
-    try:
-        with open("/proc/self/cgroup") as fh:
-            lines = [ln.strip().split(":", 2) for ln in fh if ln.strip()]
-    except OSError:
-        return None
-    paths = []   # (mount_dir, rel_path, limit_file, usage_file)
-    for parts in lines:
-        if len(parts) != 3:
-            continue
-        hid, ctrls, rel = parts
-        if hid == "0" and ctrls == "":           # cgroup v2 unified
-            paths.append(("/sys/fs/cgroup", rel, "memory.max",
-                          "memory.current"))
-        elif "memory" in ctrls.split(","):       # cgroup v1
-            paths.append(("/sys/fs/cgroup/memory", rel,
-                          "memory.limit_in_bytes", "memory.usage_in_bytes"))
-    best = None
-    for mount, rel, lim_f, use_f in paths:
-        rel = rel.strip("/")
-        comps = rel.split("/") if rel else []
-        # Walk from the leaf up to the mount root.
-        for depth in range(len(comps), -1, -1):
-            d = os.path.join(mount, *comps[:depth]) if depth else mount
-            lim = _read_int_file(os.path.join(d, lim_f))
-            if lim is None or lim >= (1 << 60):
-                continue
-            use = _read_int_file(os.path.join(d, use_f)) or 0
-            head = max(0, lim - use)
-            best = head if best is None else min(best, head)
-    return best
-
-
-def _available_memory_bytes() -> Optional[int]:
-    """Best-effort free-memory estimate: min(free physical RAM, cgroup
-    headroom). Returns ``None`` when nothing can be determined."""
-    cands = []
-    try:
-        cands.append(os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE"))
-    except (ValueError, OSError, AttributeError):
-        pass
-    head = _cgroup_memory_headroom()
-    if head is not None:
-        cands.append(head)
-    return min(cands) if cands else None
-
-
-def _fmt_bytes(n) -> str:
-    n = float(n)
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if n < 1024 or unit == "TB":
-            return f"{n:.1f} {unit}"
-        n /= 1024
-    return f"{n:.1f} TB"
-
-
-# Rough fixed per-process cost of a worker (interpreter + numpy + cytozip).
-_WORKER_BASE_BYTES = 150 << 20
-
-
-def _cap_workers(jobs, est_worker_bytes, max_mem=None, parent_bytes=0,
-                 what="worker") -> int:
-    """Clamp ``jobs`` so ``jobs * est_worker_bytes + parent_bytes`` fits in
-    the memory budget (``max_mem`` or 80% of detected free memory)."""
-    n = int(jobs) if jobs and int(jobs) > 1 else 1
-    if n <= 1 or not est_worker_bytes:
-        return n
-    budget = _parse_mem(max_mem)
-    if budget is None:
-        avail = _available_memory_bytes()
-        if avail is None:
-            return n
-        budget = int(avail * 0.8)
-    fit = max(1, int((budget - parent_bytes) // est_worker_bytes))
-    if fit < n:
-        logger.warning(
-            f"[cytozip] jobs={n} would need ~{_fmt_bytes(n * est_worker_bytes)} "
-            f"(~{_fmt_bytes(est_worker_bytes)} per {what}) but the memory "
-            f"budget is {_fmt_bytes(budget)}; using jobs={fit}. Pass "
-            f"max_mem= to override the budget.")
-        return fit
-    return n
-
-
-def _make_pool(n_workers, initializer, initargs):
-    """``ProcessPoolExecutor`` preferring ``fork`` so the (possibly large)
-    read-only ``initargs`` are inherited copy-on-write instead of pickled
-    once per worker."""
-    import multiprocessing as mp
-    from concurrent.futures import ProcessPoolExecutor
-    ctx = None
-    if "fork" in mp.get_all_start_methods():
-        ctx = mp.get_context("fork")
-    return ProcessPoolExecutor(max_workers=n_workers, initializer=initializer,
-                               initargs=initargs, mp_context=ctx)
-
-
-def _bounded_map(ex, fn, items, window):
-    """Ordered ``ex.map`` with at most ``window`` tasks in flight, so
-    finished-but-unconsumed results cannot pile up with ``len(items)``."""
-    from collections import deque
-    it = iter(items)
-    pending = deque()
-    for _ in range(max(1, int(window))):
-        try:
-            pending.append(ex.submit(fn, next(it)))
-        except StopIteration:
-            break
-    while pending:
-        res = pending.popleft().result()
-        try:
-            pending.append(ex.submit(fn, next(it)))
-        except StopIteration:
-            pass
-        yield res
-
-
-def _cgroup_usage_file() -> Optional[str]:
-    """Usage file of the tightest limited memory cgroup (see
-    :func:`_cgroup_memory_headroom`), or ``None``."""
-    try:
-        with open("/proc/self/cgroup") as fh:
-            lines = [ln.strip().split(":", 2) for ln in fh if ln.strip()]
-    except OSError:
-        return None
-    best = None
-    for parts in lines:
-        if len(parts) != 3:
-            continue
-        hid, ctrls, rel = parts
-        if hid == "0" and ctrls == "":
-            mount, lim_f, use_f = "/sys/fs/cgroup", "memory.max", "memory.current"
-        elif "memory" in ctrls.split(","):
-            mount, lim_f, use_f = ("/sys/fs/cgroup/memory",
-                                   "memory.limit_in_bytes",
-                                   "memory.usage_in_bytes")
-        else:
-            continue
-        comps = rel.strip("/").split("/") if rel.strip("/") else []
-        for depth in range(len(comps), -1, -1):
-            d = os.path.join(mount, *comps[:depth]) if depth else mount
-            lim = _read_int_file(os.path.join(d, lim_f))
-            if lim is not None and lim < (1 << 60):
-                f = os.path.join(d, use_f)
-                if best is None or best[0] > lim:
-                    best = (lim, f)
-    return best[1] if best else None
+from ._mem import (  # noqa: E402
+    WORKER_BASE_BYTES as _WORKER_BASE_BYTES,
+    parse_mem as _parse_mem,
+    cgroup_usage_file as _cgroup_usage_file,
+    available_memory_bytes as _available_memory_bytes,
+    fmt_bytes as _fmt_bytes,
+    cap_workers as _cap_workers,
+    make_pool as _make_pool,
+    _read_int_file,
+    bounded_map as _bounded_map,
+)
 
 
 def _child_pids(root_pid):
@@ -1225,10 +1274,7 @@ class _NullBar:
     def update(self, n=1):
         pass
 
-    def set_description(self, desc=None, refresh=True):
-        pass
-
-    def set_postfix_str(self, s="", refresh=True):
+    def set_description(self, desc=None):
         pass
 
     def close(self):
@@ -1262,14 +1308,11 @@ class _LogBar(_NullBar):
             self._emit()
             self._next = self.n + self._step
 
-    def set_description(self, desc=None, refresh=True):
+    def set_description(self, desc=None):
         # tqdm-compatible: callers may pass the full "[cytozip] ..." label.
         if desc:
             self.desc = desc[len("[cytozip] "):] if desc.startswith("[cytozip] ") else desc
         self._emit()
-
-    def set_postfix_str(self, s="", refresh=True):
-        pass
 
     def _emit(self):
         key = (self.desc, self.n)
@@ -1881,18 +1924,14 @@ def _pool_process_file(cz_path):
 def _pool_process_prefix(args):
     """Worker entry: aggregate one cell prefix inside a merged ``.cz``.
 
-    ``args = (cz_path, prefix_tuple)``. The Reader is opened once per
-    worker process and cached; cell prefixes streamed in reuse it.
+    ``args = (cz_path, prefix_tuple, offsets)``. The Reader is opened once
+    per worker process (with the cell's chunk offsets, never the whole CZIX
+    index) and cached; cell prefixes streamed in reuse it.
     """
-    cz_path, prefix = args
+    cz_path, prefix, offsets = args
     st = _WORKER_STATE
-    r = st.get("_merged_reader")
-    if r is None or st.get("_merged_path") != cz_path:
-        if r is not None:
-            r.close()
-        r = Reader(cz_path, mmap_advise="sequential")
-        st["_merged_reader"] = r
-        st["_merged_path"] = cz_path
+    r, is_new = _merged_worker_reader(st, cz_path, offsets, key="_merged_reader")
+    if is_new:
         cols = r.header["columns"]
         st["_pi"] = (cols.index(st["pos_col"])
                      if st["pos_col"] in cols else None)
@@ -2030,34 +2069,31 @@ def _prepare_feature_groups(features, chrom_size, exclude_chroms, blacklist,
     return feat_df, features_by_chrom, n_feat, gtf_meta_df
 
 
-def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
-                         score, score_cutoff, hvf_frac, obs, output,
-                         reference=None, nan_policy="auto", max_mem=None,
-                         verbose=False):
-    """Assemble an :class:`anndata.AnnData` from a filled streaming builder.
+def _finalize_cz_anndata(writer, obs_names, feat_df, gtf_meta_df, obs,
+                         reference=None, verbose=False, return_adata=False):
+    """Finish the streamed ``.h5ad`` behind a :class:`_StreamingH5Writer`.
 
-    Shared tail of :func:`cz_to_anndata` and :func:`cz_to_anndata_multiref`:
-    materialises the sparse mc/cov layers, computes the requested ``.X``
-    score (plus the per-cell Beta prior / per-feature HVF accumulators for
-    ``posterior_frac``), and writes the ``.h5ad`` when ``output`` is given.
-    ``reference`` (a path or list of paths) is recorded in
-    ``adata.uns['cytozip_reference']``.
+    Shared tail of :func:`cz_to_anndata`, :func:`cz_to_anndata_sites` and
+    :func:`cz_to_anndata_multiref`: flushes the last batch, writes ``obs``
+    (cell ids + the per-cell Beta prior for ``posterior_frac`` + the
+    user's ``obs`` joined on cell id), ``var`` (features + the per-feature
+    HVF accumulators for ``posterior_frac``) and ``uns``, closes the file
+    and renames the temporary file into place. ``reference`` (a path or
+    list of paths) is recorded in ``uns['cytozip_reference']``.
 
-    ``nan_policy`` controls how uncovered (``cov == 0``) entries appear in
-    ``.X`` (see :func:`_apply_nan_policy`); under ``'auto'`` the dense fill
-    is skipped (falls back to ``'zero'``) when the dense matrix would exceed
-    the memory budget (``max_mem`` or half of the detected free memory).
+    Returns the output path, or the AnnData read back from it when
+    ``return_adata`` is true.
     """
     import anndata
+    try:
+        from anndata.io import write_elem
+    except ImportError:  # anndata < 0.11
+        from anndata.experimental import write_elem
 
-    # Materialise sparse layers (no dense intermediate). mc_sp / cov_sp are the
-    # (n_cells, n_features) CSR uint32 matrices of methylated counts and total
-    # coverage; only covered (cov > 0) entries are stored, so their shared
-    # non-zero structure is the covered mask.
-    n_phase = 2 + (3 if score == "posterior_frac" else 1) + (1 if output else 0)
-    bar = _progress(total=n_phase, desc="finalize: sparse layers",
+    n_phase = 3 + (1 if return_adata else 0)
+    bar = _progress(total=n_phase, desc="finalize: flush matrices",
                     enabled=verbose, unit="step")
-    mc_sp, cov_sp = builder.finalize()
+    writer.close_matrices()
     bar.update(1)
 
     # Build var_df. For GTF inputs we attach gene_id / gene_type /
@@ -2066,135 +2102,68 @@ def _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
     var_df = feat_df.set_index("name")
     if gtf_meta_df is not None:
         var_df = var_df.join(gtf_meta_df)
-
-    # The per-cell Beta prior (alpha, beta) and the per-feature HVF
-    # accumulators are only needed for the posterior_frac score, so they are
-    # computed *only* in that branch to avoid wasted work on the other scores.
-    # alpha/beta are estimated once here and shared by the score transform, the
-    # HVF accumulators and adata.obs (no double estimation).
-    obs_df = pd.DataFrame(index=obs_names)
-    prior_mean = None
-    if score == "posterior_frac":
-        bar.set_description("[cytozip] finalize: Beta prior")
-        alpha, beta, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
-        bar.update(1)
-        bar.set_description(f"[cytozip] finalize: score {score}")
-        X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
-                                         score_cutoff=score_cutoff,
-                                         alpha=alpha, beta=beta)
-        bar.update(1)
-        bar.set_description("[cytozip] finalize: HVF stats")
-        # Per-feature additive HVF accumulators -> adata.var. Additive across
-        # cells (and merged datasets), so mean / var / dispersion / normalized
-        # dispersion can be reconstructed downstream (e.g. pym3c
+    obs_df = pd.DataFrame(index=pd.Index([str(n) for n in obs_names]))
+    if writer.posterior:
+        # Per-feature additive HVF accumulators -> var. Additive across
+        # cells (and merged datasets), so mean / var / dispersion /
+        # normalized dispersion can be reconstructed downstream (e.g. pym3c
         # MultiAdata.select_hvf) without re-reading the matrix.
-        hvf_n_cov, hvf_sum, hvf_sum_sq = _compute_hvf_var_stats_sparse(
-            mc_sp, cov_sp, alpha=alpha, beta=beta, method=hvf_frac)
-        var_df["hvf_n_cov"] = hvf_n_cov
-        var_df["hvf_sum"] = hvf_sum
-        var_df["hvf_sum_sq"] = hvf_sum_sq
-        # per-cell Beta prior + prior_mean + rho for downstream posterior use.
-        obs_df["alpha"] = alpha
-        obs_df["beta"] = beta
-        obs_df["prior_mean"] = prior_mean
-        # rho = 1 / (alpha + beta + 1)  == 1/(kappa+1): the intra-class
-        # correlation (over-dispersion) of the per-cell Beta-Binomial fit. It
-        # is coverage-independent (unlike a raw variance), so it doubles as a
-        # per-cell QC handle (flag degenerate/low-complexity cells) and lets
-        # downstream code recover the shrinkage strength kappa = (1 - rho)/rho.
-        # NaN wherever alpha/beta are NaN (degenerate rows).
-        obs_df["rho"] = (1.0 / (alpha.astype(np.float64)
-                                + beta.astype(np.float64) + 1.0)).astype(np.float32)
-    else:
-        bar.set_description(f"[cytozip] finalize: score {score}")
-        X = _compute_score_matrix_sparse(mc_sp, cov_sp, score,
-                                         score_cutoff=score_cutoff)
-    bar.update(1)
-    # Resolve nan_policy (incl. 'auto') to an effective per-score policy, then
-    # apply it to uncovered (cov==0) entries of .X. 'zero' keeps the sparse
-    # implicit 0; 'nan' / 'prior_mean' densify .X to float32.
-    eff_policy = nan_policy
-    if nan_policy == "auto":
-        if score == "posterior_frac":
-            eff_policy = "prior_mean"
-        elif score in ("frac", "umc"):
-            eff_policy = "nan"
-        else:  # hypo-score / hyper-score have no missing entries; stay sparse
-            eff_policy = "zero"
-    if eff_policy != "zero" and nan_policy == "auto":
-        # Dense .X is n_cells * n_features * 4 B; when that does not fit the
-        # memory budget comfortably, 'auto' keeps .X sparse instead of OOM.
-        dense_bytes = int(mc_sp.shape[0]) * int(mc_sp.shape[1]) * 4
-        budget = _parse_mem(max_mem)
-        if budget is None:
-            avail = _available_memory_bytes()
-            budget = None if avail is None else int(avail * 0.5)
-        if budget is not None and dense_bytes > budget:
-            logger.warning(
-                f"[cytozip] nan_policy='auto' would densify .X to "
-                f"{_fmt_bytes(dense_bytes)} (> budget {_fmt_bytes(budget)}); "
-                f"keeping .X sparse (nan_policy='zero'). Uncovered entries "
-                f"are implicit 0; restore NaN / prior_mean on demand with "
-                f"cytozip.features.to_dense(adata). Pass nan_policy="
-                f"{eff_policy!r} explicitly to force the dense matrix.")
-            eff_policy = "zero"
-    if eff_policy != "zero":
-        if eff_policy in ("nan", "prior_mean"):
-            logger.warning(
-                f"nan_policy={eff_policy!r} densifies .X to float32 "
-                f"(n_cells * n_features * 4 bytes, peak ~1.5-2x during build "
-                f"and h5ad write) and can OOM for large cohorts / genome-wide "
-                f"bins. If you hit an out-of-memory error, switch to "
-                f"nan_policy='zero', which keeps .X sparse (implicit 0). For "
-                f"sparse single-cell data 'zero' is recommended: it saves "
-                f"both RAM and on-disk space, and you can restore NaN on "
-                f"demand / block-wise from layers['cov'] via "
-                f"cytozip.features.to_dense_nan(adata).")
-        bar.set_description(f"[cytozip] finalize: dense .X ({eff_policy})")
-        if eff_policy == "prior_mean" and prior_mean is None:
-            _, _, prior_mean = _compute_beta_params_sparse(mc_sp, cov_sp)
-        X = _apply_nan_policy(X, cov_sp, eff_policy, prior_mean=prior_mean)
-    bar.set_description("[cytozip] finalize: AnnData")
+        var_df["hvf_n_cov"] = writer.hvf_n_cov
+        var_df["hvf_sum"] = writer.hvf_sum
+        var_df["hvf_sum_sq"] = writer.hvf_sum_sq
+        for k, v in writer.obs_stats().items():
+            obs_df[k] = v
     if obs is not None:
         obs_df = obs_df.join(obs, how="left")
 
-    adata = anndata.AnnData(
-        X=X,
-        obs=obs_df,
-        var=var_df,
-        layers={"mc": mc_sp, "cov": cov_sp},
-    )
-    adata.uns["cytozip_score"] = {
-        "score": score,
-        "score_cutoff": float(score_cutoff),
-        "hvf_frac": hvf_frac,
-    }
-    # Uncovered (cov==0) features carry no measurement. How they appear in .X
-    # depends on nan_policy (resolved to eff_policy); the raw layers['mc'] /
-    # ['cov'] always keep the sparse implicit 0, so the covered mask is exactly
-    # the non-zero structure of layers['cov'] (covered iff cov>0). Restore NaN
-    # on demand with :func:`covered_mask` / :func:`to_dense_nan`.
-    adata.uns["cytozip_coverage"] = {
-        "nan_policy": eff_policy,
-        "nan_policy_requested": nan_policy,
-        "covered_mask": "layers['cov'] != 0",
-        "note": ("Uncovered (cov==0) entries in layers are implicit 0 (not "
-                 "real zeros). In .X they follow nan_policy. For posterior_frac "
-                 "the uncovered posterior equals obs['prior_mean']. Covered "
-                 "mask == nonzero structure of layers['cov']. Restore NaN with "
-                 "cytozip.features.to_dense_nan(adata)."),
+    bar.set_description("[cytozip] finalize: obs / var / uns")
+    f = writer.f
+    write_elem(f, "obs", obs_df)
+    write_elem(f, "var", var_df)
+    uns = {
+        "cytozip_score": {
+            "score": writer.score,
+            "score_cutoff": float(writer.score_cutoff),
+            "hvf_frac": writer.hvf_frac,
+        },
+        # Uncovered (cov==0) features carry no measurement. How they appear
+        # in .X depends on nan_policy (resolved to eff_policy); the raw
+        # layers['mc'] / ['cov'] always keep the sparse implicit 0, so the
+        # covered mask is exactly the non-zero structure of layers['cov'].
+        # Restore NaN on demand with covered_mask / to_dense_nan.
+        "cytozip_coverage": {
+            "nan_policy": writer.eff_policy,
+            "nan_policy_requested": writer.nan_policy_requested,
+            "covered_mask": "layers['cov'] != 0",
+            "note": ("Uncovered (cov==0) entries in layers are implicit 0 (not "
+                     "real zeros). In .X they follow nan_policy. For "
+                     "posterior_frac the uncovered posterior equals "
+                     "obs['prior_mean']. Covered mask == nonzero structure of "
+                     "layers['cov']. Restore NaN with "
+                     "cytozip.features.to_dense_nan(adata)."),
+        },
     }
     if reference is not None:
-        adata.uns["cytozip_reference"] = reference
+        uns["cytozip_reference"] = reference
+    write_elem(f, "uns", uns)
+    for name in ("obsm", "varm", "obsp", "varp"):
+        write_elem(f, name, {})
+    f.close()
     bar.update(1)
-    if output:
-        bar.set_description(f"[cytozip] finalize: write {os.path.basename(output)}")
-        adata.write_h5ad(os.path.abspath(os.path.expanduser(output)),
-                         compression='lzf')
+    bar.set_description(f"[cytozip] finalize: rename -> "
+                        f"{os.path.basename(writer.output)}")
+    os.replace(writer.tmp, writer.output)
+    bar.update(1)
+    logger.info(f"[cytozip] wrote {writer.output}: "
+                f"{writer.n_rows:,} cells x {writer.n_feat:,} features")
+    result = writer.output
+    if return_adata:
+        bar.set_description("[cytozip] finalize: read_h5ad")
+        result = anndata.read_h5ad(writer.output)
         bar.update(1)
     bar.set_description("[cytozip] finalize: done")
     bar.close()
-    return adata
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -2375,6 +2344,43 @@ def to_dense(adata, fill="prior_mean", layer=None):
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+def _sample_name(path: str, ext: str) -> str:
+    """Sample name of a per-cell ``.cz`` path: basename with ``ext`` stripped."""
+    b = os.path.basename(path)
+    return b[:-len(ext)] if ext and b.endswith(ext) else b
+
+
+def _require_output(output, fn_name: str) -> str:
+    """Validate the mandatory ``output=`` ``.h5ad`` path of the streaming
+    AnnData builders and return it normalised."""
+    if output is None or not str(output).strip():
+        raise ValueError(
+            f"{fn_name}: output= (an .h5ad path) is required -- the matrix "
+            f"is streamed to disk cell by cell instead of being assembled in "
+            f"memory. Pass return_adata=True to read it back afterwards.")
+    return os.path.abspath(os.path.expanduser(str(output)))
+
+
+def _remove_tmp_output(output: str) -> None:
+    """Delete the ``<output>.tmp`` left behind by a failed streaming run."""
+    try:
+        os.remove(output + ".tmp")
+    except OSError:
+        pass
+
+
+def _run_streaming(name, jobs, verbose, output, run):
+    """Shared tail of the ``cz_to_anndata*`` entry points: time / measure the
+    run under :class:`_ResourceReport` and drop ``<output>.tmp`` on failure.
+    ``run(rep)`` performs the actual build and returns its result."""
+    try:
+        with _ResourceReport(verbose, name, jobs) as rep:
+            return run(rep)
+    except BaseException:
+        _remove_tmp_output(output)
+        raise
+
+
 def cz_to_anndata(
     cz_inputs: Union[str, Sequence[str]],
     features: Union[str, pd.DataFrame, int],
@@ -2399,8 +2405,16 @@ def cz_to_anndata(
     jobs: int = 1,
     max_mem: Optional[Union[str, int]] = None,
     verbose: bool = False,
+    return_adata: bool = False,
 ):
-    """Build an :class:`anndata.AnnData` of shape ``(n_cells, n_features)``.
+    """Stream a ``(n_cells, n_features)`` AnnData ``.h5ad`` to ``output``.
+
+    Cells are aggregated one at a time and appended straight to the
+    ``.h5ad`` on disk (``.X`` / ``layers['mc']`` / ``layers['cov']`` as
+    resizable CSR datasets); the per-cell Beta prior, score and HVF
+    accumulators are computed per batch, so peak memory is independent of
+    the number of cells / stored entries (see
+    :class:`_StreamingH5Writer`).
 
     Parameters
     ----------
@@ -2429,8 +2443,9 @@ def cz_to_anndata(
 
         Parsed via :func:`parse_features` / :func:`make_genome_bins` /
         :func:`parse_gtf`.
-    output : str, optional
-        If given, write the AnnData to this ``.h5ad`` path.
+    output : str
+        **Required.** ``.h5ad`` path the matrix is streamed into (written
+        to ``<output>.tmp`` and renamed into place on success).
     use_samples : list of str, optional
         Whitelist of sample names to include. ``None`` (default) merges
         ALL samples found in ``cz_inputs``. Sample names are matched
@@ -2563,13 +2578,13 @@ def cz_to_anndata(
 
         .. warning::
            ``'nan'`` / ``'prior_mean'`` (and the ``'auto'`` cases that resolve
-           to them) force a **dense** ``float32`` ``.X`` of
-           ``n_cells * n_features * 4`` bytes (peak ~1.5-2x that during
-           construction and h5ad write), so they can easily **OOM** for large
-           cell counts or genome-wide bins (e.g. 1M cells x 540k 5kb bins ≈
-           2 TB dense). A warning is emitted when a dense policy is used. If
-           you hit OOM, rebuild with ``nan_policy='zero'`` (sparse ``.X``) and
-           materialise NaN lazily / block-wise from ``layers['cov']`` via
+           to them) write a **dense** ``float32`` ``.X`` of
+           ``n_cells * n_features * 4`` bytes. It is streamed to disk in row
+           blocks (no OOM while building), but the file is that large and
+           reading it back needs that much RAM (e.g. 1M cells x 540k 5kb
+           bins ≈ 2 TB dense). A warning is emitted when a dense policy is
+           used. For large cohorts use ``nan_policy='zero'`` (sparse ``.X``)
+           and materialise NaN lazily / block-wise from ``layers['cov']`` via
            :func:`to_dense` / :func:`to_dense_nan`.
 
         ``.layers['mc']`` / ``.layers['cov']`` always stay sparse with implicit
@@ -2587,21 +2602,27 @@ def cz_to_anndata(
         ``max_mem``); a warning reports the cap.
     max_mem : str or int, optional
         Memory budget (e.g. ``'200G'``, ``'512MB'`` or bytes) used to cap
-        ``jobs`` and to decide whether ``nan_policy='auto'`` may densify
-        ``.X``. Default: derived from the free RAM / cgroup limit at run
-        time (80% for the worker cap, 50% for the dense ``.X`` decision).
+        ``jobs`` and to decide whether ``nan_policy='auto'`` may write a
+        dense ``.X``. Default: derived from the free RAM / cgroup limit at
+        run time (80% for the worker cap, 50% for the dense ``.X``
+        decision).
     verbose : bool, default False
         Show progress bars (site-map build, per-cell aggregation, finalize
-        phases, h5ad write; ``tqdm`` when installed, else periodic log
-        lines) and log the wall-clock time and peak memory (process tree
-        PSS, cgroup usage, parent / largest-worker RSS) when the run
-        finishes.
+        phases; ``tqdm`` when installed, else periodic log lines) and log
+        the wall-clock time and peak memory (process tree PSS, cgroup
+        usage, parent / largest-worker RSS) when the run finishes.
+    return_adata : bool, default False
+        Read the finished ``.h5ad`` back and return it as an
+        :class:`anndata.AnnData` (loads the whole matrix into memory --
+        only for matrices that fit). By default the output path is
+        returned instead.
 
     Returns
     -------
-    anndata.AnnData
-        ``.X`` holds the requested score as ``float32``. Under the default
-        ``nan_policy='auto'`` uncovered entries are filled per score
+    str or anndata.AnnData
+        The ``output`` path, or (``return_adata=True``) the AnnData read
+        from it. ``.X`` holds the requested score as ``float32``. Under the
+        default ``nan_policy='auto'`` uncovered entries are filled per score
         (``prior_mean`` for ``posterior_frac``, ``np.nan`` for ``frac`` /
         ``umc``, implicit ``0`` kept sparse for hypo/hyper scores); ``'zero'``
         keeps ``.X`` a CSR sparse matrix with implicit-``0`` uncovered
@@ -2614,24 +2635,25 @@ def cz_to_anndata(
     if nan_policy not in _VALID_NAN_POLICIES:
         raise ValueError(
             f"nan_policy must be one of {_VALID_NAN_POLICIES}, got {nan_policy!r}")
+    output = _require_output(output, "cz_to_anndata")
 
     feat_df, features_by_chrom, n_feat, gtf_meta_df = _prepare_feature_groups(
         features, chrom_size, exclude_chroms, blacklist, flank_bp, gtf_id_col)
 
-    with _ResourceReport(verbose, "cz_to_anndata", jobs) as rep:
-        adata = _cz_to_anndata_impl(
+    return _run_streaming(
+        "cz_to_anndata", jobs, verbose, output,
+        lambda rep: _cz_to_anndata_impl(
             cz_inputs, feat_df, features_by_chrom, n_feat, gtf_meta_df,
             output, use_samples, ext, pos_col, mc_col, cov_col, obs,
             reference, index, score, score_cutoff, hvf_frac, nan_policy,
-            jobs, max_mem, rep, verbose)
-    return adata
+            jobs, max_mem, rep, verbose, return_adata))
 
 
 def _cz_to_anndata_impl(cz_inputs, feat_df, features_by_chrom, n_feat,
                         gtf_meta_df, output, use_samples, ext, pos_col,
                         mc_col, cov_col, obs, reference, index, score,
                         score_cutoff, hvf_frac, nan_policy, jobs, max_mem,
-                        rep, verbose=False):
+                        rep, verbose=False, return_adata=False):
     # Lazily load reference positions when needed (serial fallback only).
     ref_pos_map_cache = {"loaded": False, "map": None}
 
@@ -2708,10 +2730,13 @@ def _cz_to_anndata_impl(cz_inputs, feat_df, features_by_chrom, n_feat,
     n_workers = _cap_workers(jobs, est_worker, max_mem=max_mem)
     rep.jobs = n_workers
 
-    # Streaming sparse builder: each cell's covered entries are appended
-    # immediately and dropped, so peak memory is dominated by the sparse
-    # CSRs (~nnz * 12 B) instead of n_cells * n_feat * 8 B.
-    builder = _StreamingSparseBuilder(n_feat)
+    # Streaming writer: each cell's covered entries are appended to the
+    # on-disk h5ad in batches and dropped, so peak memory is independent of
+    # n_cells / nnz. Created once the cell count is known (nan_policy='auto'
+    # needs it to size the dense .X decision).
+    def _make_writer(n_cells):
+        return _StreamingH5Writer(output, n_feat, n_cells, score, score_cutoff,
+                                  hvf_frac, nan_policy, max_mem=max_mem)
     obs_names: List[str] = []
 
     # Keep at most this many tasks in flight per worker so finished results
@@ -2726,12 +2751,12 @@ def _cz_to_anndata_impl(cz_inputs, feat_df, features_by_chrom, n_feat,
             yield from _bounded_map(ex, _pool_process_file, paths_,
                                     n_workers * _INFLIGHT_PER_WORKER)
 
-    def _run_parallel_prefixes(cz_path, prefix_list):
+    def _run_parallel_prefixes(cz_path, cell_prefixes):
         with _make_pool(n_workers, _pool_init,
                         (features_by_chrom, pos_col, mc_col, cov_col,
                          reference, index_for_workers, site_map,
                          index_path_for_workers)) as ex:
-            args = [(cz_path, pref) for pref in prefix_list]
+            args = [(cz_path, pref, offs) for pref, _, offs in cell_prefixes]
             yield from _bounded_map(ex, _pool_process_prefix, args,
                                     n_workers * _INFLIGHT_PER_WORKER)
 
@@ -2754,11 +2779,6 @@ def _cz_to_anndata_impl(cz_inputs, feat_df, features_by_chrom, n_feat,
     # Whitelist set: O(1) membership tests; None = include all.
     sample_set = set(use_samples) if use_samples is not None else None
 
-    def _basename_sample(p: str) -> str:
-        """Derive sample name from a per-cell .cz path: strip ``ext``."""
-        b = os.path.basename(p)
-        return b[:-len(ext)] if ext and b.endswith(ext) else b
-
     if len(paths) == 1:
         # ---- Single-file mode: per-cell or pre-catcz'd merged file.
         r = Reader(paths[0], mmap_advise="sequential")
@@ -2769,24 +2789,23 @@ def _cz_to_anndata_impl(cz_inputs, feat_df, features_by_chrom, n_feat,
             if n_keys >= 2:
                 # Merged file: enumerate cells, filter by whitelist.
                 cell_prefixes = [
-                    (pref, lab) for pref, lab in
-                    _enumerate_cell_prefixes(r, chrom_axis)
-                    if sample_set is None or lab in sample_set
+                    t for t in _enumerate_cell_prefixes(r, chrom_axis)
+                    if sample_set is None or t[1] in sample_set
                 ]
+                builder = _make_writer(len(cell_prefixes))
                 if n_workers > 1 and len(cell_prefixes) > 1:
                     r.close()  # workers reopen independently
                     r = None
-                    prefixes = [p for p, _ in cell_prefixes]
-                    labels = [lab for _, lab in cell_prefixes]
+                    labels = [lab for _, lab, _ in cell_prefixes]
                     for (cols_, mc_, cov_), label in _progress(
-                            zip(_run_parallel_prefixes(paths[0], prefixes),
+                            zip(_run_parallel_prefixes(paths[0], cell_prefixes),
                                 labels),
                             total=len(labels), desc="aggregating cells",
                             enabled=verbose, unit="cell"):
                         builder.append_sparse(cols_, mc_, cov_)
                         obs_names.append(label)
                 else:
-                    for prefix, label in _progress(
+                    for prefix, label, _ in _progress(
                             cell_prefixes, desc="aggregating cells",
                             enabled=verbose, unit="cell"):
                         arr = _serial_cell(r, pi, mc_i, cov_i, chrom_axis,
@@ -2796,8 +2815,10 @@ def _cz_to_anndata_impl(cz_inputs, feat_df, features_by_chrom, n_feat,
                         del arr
             else:
                 # Single per-cell file: sample name from filename.
-                label = _basename_sample(paths[0])
-                if sample_set is None or label in sample_set:
+                label = _sample_name(paths[0], ext)
+                keep = sample_set is None or label in sample_set
+                builder = _make_writer(int(keep))
+                if keep:
                     arr = _serial_cell(r, pi, mc_i, cov_i, chrom_axis)
                     builder.append(arr)
                     obs_names.append(label)
@@ -2810,11 +2831,12 @@ def _cz_to_anndata_impl(cz_inputs, feat_df, features_by_chrom, n_feat,
         keep_paths = []
         labels = []
         for p in paths:
-            lab = _basename_sample(p)
+            lab = _sample_name(p, ext)
             if sample_set is not None and lab not in sample_set:
                 continue
             keep_paths.append(p)
             labels.append(lab)
+        builder = _make_writer(len(keep_paths))
         if n_workers > 1 and len(keep_paths) > 1:
             for (cols_, mc_, cov_), label in _progress(
                     zip(_run_parallel_files(keep_paths), labels),
@@ -2840,13 +2862,11 @@ def _cz_to_anndata_impl(cz_inputs, feat_df, features_by_chrom, n_feat,
     if ref_pos_map_cache["map"] is not None:
         ref_pos_map_cache["map"].close()
 
-    return _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
-                                score, score_cutoff, hvf_frac, obs, output,
+    return _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df, obs,
                                 reference=(os.path.abspath(
                                     os.path.expanduser(reference))
                                     if reference else None),
-                                nan_policy=nan_policy, max_mem=max_mem,
-                                verbose=verbose)
+                                verbose=verbose, return_adata=return_adata)
 
 
 # ---------------------------------------------------------------------------
@@ -2923,13 +2943,8 @@ def _sites_pool_file(path):
 
 
 def _sites_pool_prefix(args):
-    path, prefix = args
-    r = _SITES_STATE.get('_reader')
-    if r is None or r.input != path:
-        if r is not None:
-            r.close()
-        r = Reader(path, mmap_advise="random")
-        _SITES_STATE['_reader'] = r
+    path, prefix, offsets = args
+    r, _ = _merged_worker_reader(_SITES_STATE, path, offsets)
     return _sites_read_cell(r, prefix, _SITES_STATE)
 
 
@@ -2951,15 +2966,18 @@ def cz_to_anndata_sites(
     jobs: int = 1,
     max_mem: Optional[Union[str, int]] = None,
     verbose: bool = False,
+    return_adata: bool = False,
 ):
-    """Single-cytosine resolution ``(n_cells, n_sites)`` AnnData.
+    """Single-cytosine resolution ``(n_cells, n_sites)`` AnnData ``.h5ad``.
 
     The fastest way to get per-site methylation levels for many cells: each
     cell's chunk is bulk-decompressed once (or block-gathered when the
     context index is sparse), only **covered** sites are kept, and the
-    result is assembled as sparse CSR layers — no dense ``n_cells x n_sites``
-    intermediate. Single-cell data is typically <5-10% covered, so memory is
-    ``~ nnz * 12 B`` (int32 index + uint32 mc + uint32 cov).
+    result is streamed to ``output`` as sparse CSR layers — no dense
+    ``n_cells x n_sites`` intermediate and nothing proportional to the
+    stored entries in memory (see :class:`_StreamingH5Writer`). What does
+    stay in memory is the site axis (``var``: one row per site, ~100 B per
+    site), so build genome-wide CH matrices per chromosome (``chroms=``).
 
     Parameters
     ----------
@@ -2969,13 +2987,15 @@ def cz_to_anndata_sites(
         must be row-aligned to ``reference``.
     reference : str
         Reference ``.cz`` (``pos`` + optional ``strand`` / ``context``).
+    output : str
+        **Required.** ``.h5ad`` path the matrix is streamed into.
     index : str / Reader / dict, optional
         1-D context index (e.g. ``*.CGN.cz``) restricting the site axis to
         those cytosines. Strongly recommended (CG only is ~10x fewer sites).
     chroms : list of str, optional
         Restrict to these chromosomes (in this order). Default: all
         reference chunks. Use this to build the matrix per chromosome when
-        the whole genome does not fit in memory.
+        the site axis (``var``) does not fit in memory.
     min_cov : int, default 1
         Sites with ``cov < min_cov`` are treated as uncovered (not stored).
     score : {'frac', 'posterior_frac', 'mc', 'cov', 'umc'}
@@ -2986,32 +3006,35 @@ def cz_to_anndata_sites(
     nan_policy : {'zero', 'nan', 'prior_mean'}, default 'zero'
         ``'zero'`` keeps ``.X`` sparse (uncovered = implicit 0; the covered
         mask is ``layers['cov'] != 0``, see :func:`to_dense`). The other two
-        densify ``.X`` -- only sensible for small matrices.
+        write a dense ``.X`` -- only sensible for small matrices.
     var_names : {'coord', 'pos'}
         ``'coord'`` -> ``"chr1:10469"``; ``'pos'`` -> position only (unique
         only within one chromosome; use with ``chroms=[one]``).
     jobs : int
         Worker processes (one cell per task); capped to the memory budget
         like :func:`cz_to_anndata`.
-    max_mem, verbose
+    max_mem, verbose, return_adata
         See :func:`cz_to_anndata`.
 
     Returns
     -------
-    anndata.AnnData
-        ``obs`` = cells, ``var`` = sites (``chrom``, ``start``, ``end``,
-        ``pos`` + ``strand``/``context`` when present in the reference;
-        string columns are stored as ``category`` to keep ``var`` small),
-        ``layers['mc']`` / ``layers['cov']`` sparse counts, ``.X`` = score.
+    str or anndata.AnnData
+        The ``output`` path, or (``return_adata=True``) the AnnData read
+        from it: ``obs`` = cells, ``var`` = sites (``chrom``, ``start``,
+        ``end``, ``pos`` + ``strand``/``context`` when present in the
+        reference; string columns are stored as ``category`` to keep ``var``
+        small), ``layers['mc']`` / ``layers['cov']`` sparse counts, ``.X`` =
+        score.
     """
     if score not in ("frac", "posterior_frac", "mc", "cov", "umc"):
         raise ValueError("score must be one of frac, posterior_frac, mc, cov, umc")
-    with _ResourceReport(verbose, "cz_to_anndata_sites", jobs) as rep:
-        adata = _cz_to_anndata_sites_impl(
+    output = _require_output(output, "cz_to_anndata_sites")
+    return _run_streaming(
+        "cz_to_anndata_sites", jobs, verbose, output,
+        lambda rep: _cz_to_anndata_sites_impl(
             cz_inputs, reference, output, index, chroms, use_samples, ext,
             mc_col, cov_col, min_cov, score, nan_policy, obs, var_names,
-            jobs, max_mem, rep, verbose)
-    return adata
+            jobs, max_mem, rep, verbose, return_adata))
 
 
 def _bytes_to_categorical(v):
@@ -3025,7 +3048,7 @@ def _bytes_to_categorical(v):
 def _cz_to_anndata_sites_impl(cz_inputs, reference, output, index, chroms,
                               use_samples, ext, mc_col, cov_col, min_cov,
                               score, nan_policy, obs, var_names, jobs,
-                              max_mem, rep, verbose=False):
+                              max_mem, rep, verbose=False, return_adata=False):
     reference = os.path.abspath(os.path.expanduser(reference))
     paths = _resolve_inputs(cz_inputs)
     if not paths:
@@ -3098,11 +3121,6 @@ def _cz_to_anndata_sites_impl(cz_inputs, reference, output, index, chroms,
     # ---- cells ------------------------------------------------------------
     sample_set = set(use_samples) if use_samples is not None else None
 
-    def _basename_sample(p):
-        b = os.path.basename(p)
-        return b[:-len(ext)] if ext and b.endswith(ext) else b
-
-    builder = _StreamingSparseBuilder(n_sites)
     obs_names: List[str] = []
     _INFLIGHT_PER_WORKER = 4
 
@@ -3116,9 +3134,8 @@ def _cz_to_anndata_sites_impl(cz_inputs, reference, output, index, chroms,
         chrom_axis = _detect_chrom_axis(r0, set(ref_chroms)) if n_keys >= 2 else 0
         cell_prefixes = None
         if len(paths) == 1 and n_keys >= 2:
-            cell_prefixes = [(pref, lab) for pref, lab in
-                             _enumerate_cell_prefixes(r0, chrom_axis)
-                             if sample_set is None or lab in sample_set]
+            cell_prefixes = [t for t in _enumerate_cell_prefixes(r0, chrom_axis)
+                             if sample_set is None or t[1] in sample_set]
     finally:
         r0.close()
     state = dict(axis=axis, mc_col=mc_col, cov_col=cov_col,
@@ -3131,40 +3148,47 @@ def _cz_to_anndata_sites_impl(cz_inputs, reference, output, index, chroms,
     n_workers = _cap_workers(jobs, est_worker, max_mem=max_mem)
     rep.jobs = n_workers
 
-    def _consume(results, labels):
+    if cell_prefixes is not None:
+        labels = [lab for _, lab, _ in cell_prefixes]
+        keep = None
+    else:
+        keep, labels = [], []
+        for p in paths:
+            lab = _sample_name(p, ext)
+            if sample_set is not None and lab not in sample_set:
+                continue
+            keep.append(p)
+            labels.append(lab)
+    # Streaming writer (see _StreamingH5Writer): covered entries go straight
+    # to the on-disk h5ad in batches; nothing proportional to nnz is kept.
+    builder = _StreamingH5Writer(output, n_sites, len(labels), score, 0.9,
+                                 "posterior", nan_policy, max_mem=max_mem)
+
+    def _consume(results):
         for (idx, mc, cov), label in _progress(
                 zip(results, labels), total=len(labels),
                 desc="reading cells", enabled=verbose, unit="cell"):
             builder.append_sparse(idx, mc, cov)
             obs_names.append(label)
 
-    if cell_prefixes is not None:
-        prefixes = [p for p, _ in cell_prefixes]
-        labels = [lab for _, lab in cell_prefixes]
-        if n_workers > 1 and len(prefixes) > 1:
+    if keep is None:
+        if n_workers > 1 and len(cell_prefixes) > 1:
             with _make_pool(n_workers, _sites_pool_init, (state,)) as ex:
-                args = [(paths[0], pref) for pref in prefixes]
+                args = [(paths[0], pref, offs) for pref, _, offs in cell_prefixes]
                 _consume(_bounded_map(ex, _sites_pool_prefix, args,
-                                      n_workers * _INFLIGHT_PER_WORKER), labels)
+                                      n_workers * _INFLIGHT_PER_WORKER))
         else:
             r = Reader(paths[0], mmap_advise="random")
             try:
-                _consume((_sites_read_cell(r, pref, state) for pref in prefixes),
-                         labels)
+                _consume(_sites_read_cell(r, pref, state)
+                         for pref, _, _ in cell_prefixes)
             finally:
                 r.close()
     else:
-        keep, labels = [], []
-        for p in paths:
-            lab = _basename_sample(p)
-            if sample_set is not None and lab not in sample_set:
-                continue
-            keep.append(p)
-            labels.append(lab)
         if n_workers > 1 and len(keep) > 1:
             with _make_pool(n_workers, _sites_pool_init, (state,)) as ex:
                 _consume(_bounded_map(ex, _sites_pool_file, keep,
-                                      n_workers * _INFLIGHT_PER_WORKER), labels)
+                                      n_workers * _INFLIGHT_PER_WORKER))
         else:
             def _gen():
                 for p in keep:
@@ -3173,12 +3197,11 @@ def _cz_to_anndata_sites_impl(cz_inputs, reference, output, index, chroms,
                         yield _sites_read_cell(r, None, state)
                     finally:
                         r.close()
-            _consume(_gen(), labels)
+            _consume(_gen())
 
-    return _finalize_cz_anndata(builder, obs_names, feat_df, None,
-                                score, 0.9, "posterior", obs, output,
-                                reference=reference, nan_policy=nan_policy,
-                                max_mem=max_mem, verbose=verbose)
+    return _finalize_cz_anndata(builder, obs_names, feat_df, None, obs,
+                                reference=reference, verbose=verbose,
+                                return_adata=return_adata)
 
 
 def cz_to_anndata_multiref(
@@ -3203,8 +3226,9 @@ def cz_to_anndata_multiref(
     jobs: int = 1,
     max_mem: Optional[Union[str, int]] = None,
     verbose: bool = False,
+    return_adata: bool = False,
 ):
-    """Build an ``AnnData`` from per-cell .cz with *different* references.
+    """Stream an AnnData ``.h5ad`` from per-cell .cz with *different* references.
 
     The multi-reference analogue of :func:`cz_to_anndata`. When cells come
     from different donors, each was mapped to a donor-specific genome and is
@@ -3238,20 +3262,22 @@ def cz_to_anndata_multiref(
         size). See there for details.
     output, use_samples, ext, pos_col, mc_col, cov_col, obs, chrom_size,
     exclude_chroms, blacklist, flank_bp, gtf_id_col, score, score_cutoff,
-    hvf_frac, nan_policy, jobs, max_mem, verbose
-        Same meaning as in :func:`cz_to_anndata`. ``use_samples`` filters on
-        the table's ``cell_id`` column.
+    hvf_frac, nan_policy, jobs, max_mem, verbose, return_adata
+        Same meaning as in :func:`cz_to_anndata` (``output`` is required).
+        ``use_samples`` filters on the table's ``cell_id`` column.
 
     Returns
     -------
-    anndata.AnnData
-        Same layout as :func:`cz_to_anndata`.
+    str or anndata.AnnData
+        The ``output`` path, or (``return_adata=True``) the AnnData read
+        from it; same layout as :func:`cz_to_anndata`.
     """
     if score not in _VALID_SCORES:
         raise ValueError(f"score must be one of {_VALID_SCORES}, got {score!r}")
     if nan_policy not in _VALID_NAN_POLICIES:
         raise ValueError(
             f"nan_policy must be one of {_VALID_NAN_POLICIES}, got {nan_policy!r}")
+    output = _require_output(output, "cz_to_anndata_multiref")
 
     feat_df, features_by_chrom, n_feat, gtf_meta_df = _prepare_feature_groups(
         features, chrom_size, exclude_chroms, blacklist, flank_bp, gtf_id_col)
@@ -3268,12 +3294,12 @@ def cz_to_anndata_multiref(
         if not os.path.isfile(p):
             raise FileNotFoundError(f"cz_to_anndata_multiref: cell not found: {p}")
 
-    with _ResourceReport(verbose, "cz_to_anndata_multiref", jobs) as rep:
-        adata = _cz_to_anndata_multiref_impl(
+    return _run_streaming(
+        "cz_to_anndata_multiref", jobs, verbose, output,
+        lambda rep: _cz_to_anndata_multiref_impl(
             df, feat_df, features_by_chrom, n_feat, gtf_meta_df, chroms_set,
             output, pos_col, mc_col, cov_col, obs, score, score_cutoff,
-            hvf_frac, nan_policy, jobs, max_mem, rep, verbose)
-    return adata
+            hvf_frac, nan_policy, jobs, max_mem, rep, verbose, return_adata))
 
 
 _MULTIREF_STATE: dict = {}
@@ -3310,7 +3336,7 @@ def _cz_to_anndata_multiref_impl(df, feat_df, features_by_chrom, n_feat,
                                  gtf_meta_df, chroms_set, output, pos_col,
                                  mc_col, cov_col, obs, score, score_cutoff,
                                  hvf_frac, nan_policy, jobs, max_mem, rep,
-                                 verbose=False):
+                                 verbose=False, return_adata=False):
     # Group cells by (reference, index) so each reference position map and
     # context index is resolved once and reused across its cells.
     idx_col = df["index"].tolist() if "index" in df.columns else [None] * len(df)
@@ -3319,7 +3345,10 @@ def _cz_to_anndata_multiref_impl(df, feat_df, features_by_chrom, n_feat,
                                 df["cell_id"]):
         groups.setdefault((ref, idx), []).append((p, lab))
 
-    builder = _StreamingSparseBuilder(n_feat)
+    # Streaming writer (see _StreamingH5Writer): covered entries go straight
+    # to the on-disk h5ad in batches; nothing proportional to nnz is kept.
+    builder = _StreamingH5Writer(output, n_feat, len(df), score, score_cutoff,
+                                 hvf_frac, nan_policy, max_mem=max_mem)
     obs_names: List[str] = []
 
     # Resolve every group's context index + site map ONCE in the parent
@@ -3412,11 +3441,9 @@ def _cz_to_anndata_multiref_impl(df, feat_df, features_by_chrom, n_feat,
                     rpm.close()
         bar.close()
 
-    return _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df,
-                                score, score_cutoff, hvf_frac, obs, output,
+    return _finalize_cz_anndata(builder, obs_names, feat_df, gtf_meta_df, obs,
                                 reference=sorted(set(df["reference"])),
-                                nan_policy=nan_policy, max_mem=max_mem,
-                                verbose=verbose)
+                                verbose=verbose, return_adata=return_adata)
 
 
 # ---------------------------------------------------------------------------
@@ -3482,21 +3509,40 @@ def _resolve_inputs(cz_inputs) -> List[str]:
 
 
 def _enumerate_cell_prefixes(reader: Reader, chrom_axis: int):
-    """Yield ``(cell_prefix_tuple, label)`` pairs for each cell.
+    """Yield ``(cell_prefix_tuple, label, offsets)`` for each cell of a
+    merged ``.cz``.
 
     The cell prefix is the dim tuple with the ``chrom_axis`` slot removed,
     preserving the original ordering of the other slots. ``label`` is
     the prefix joined with ``/`` when there are >1 non-chrom dims, or
-    the single value otherwise. Sample-name filtering is the caller's
-    responsibility.
+    the single value otherwise. ``offsets`` is that cell's
+    ``{dim: chunk_start_offset}`` (one entry per chrom) -- what a worker
+    needs to open the merged file with ``Reader(chunk_index=offsets)``
+    instead of parsing the whole CZIX index. Sample-name filtering is the
+    caller's responsibility.
     """
     n_keys = len(reader.header["chunk_dims"])
     if n_keys < 2:
         return
-    seen = set()
-    for dim in reader.chunk_key2offset.keys():
+    by_prefix: dict = {}
+    for dim, off in reader.chunk_key2offset.items():
         prefix = tuple(v for j, v in enumerate(dim) if j != chrom_axis)
-        seen.add(prefix)
-    for prefix in sorted(seen):
+        by_prefix.setdefault(prefix, {})[dim] = off
+    for prefix in sorted(by_prefix):
         label = "/".join(prefix) if len(prefix) > 1 else prefix[0]
-        yield prefix, label
+        yield prefix, label, by_prefix[prefix]
+
+
+def _merged_worker_reader(state, cz_path, offsets, key="_reader"):
+    """Per-worker :class:`Reader` of a merged ``.cz`` cached in ``state``,
+    opened with the current cell's chunk offsets (``Reader(chunk_index=...)``)
+    and re-pointed at them for every task. Returns ``(reader, is_new)``."""
+    r = state.get(key)
+    if r is None or r.input != cz_path:
+        if r is not None:
+            r.close()
+        r = Reader(cz_path, mmap_advise="sequential", chunk_index=offsets)
+        state[key] = r
+        return r, True
+    r.chunk_key2offset = dict(offsets)
+    return r, False

@@ -53,14 +53,28 @@ Speedups compared to the legacy in-merge implementation:
 import os
 import shutil
 import struct
-import math
-import multiprocessing
+import itertools
 from loguru import logger
 
-from .cz import (Reader, Writer, _BLOCK_MAX_LEN, _VO_OFFSET_BITS,
-                 _VO_OFFSET_MASK, _NP_FMT_MAP, _unique_int_rows,
-                 _make_np_dtype, np, pd)
-from .merge import _structured_dtype_for, _bg_rmtree, _bgzip_tabix
+from .cz import (Reader, Writer, _BLOCK_MAX_LEN, _NP_FMT_MAP,
+                 _unique_int_rows, _make_np_dtype, _build_record_dtype, np, pd)
+from .merge import (_bg_rmtree, _bgzip_tabix, _read_block_batch,
+                    _catcz_layout, _batch_nblock)
+from ._mem import (WORKER_BASE_BYTES, cap_workers, memory_budget, make_pool,
+                   bounded_unordered, fmt_bytes, PerProcessReader)
+
+# Per-worker bytes per (cell, site) of a pivot batch: two int64 columns plus
+# the formatted object strings / fisher result columns and the to_csv text.
+_PIVOT_BYTES_PER_CELL_SITE = {'fraction': 40, 'fisher': 72}
+
+# Per-process reader of the catcz'd input (see PerProcessReader): the parent
+# parses the CZIX index once and workers only ever see their chrom's chunks.
+_PIVOT_READERS = PerProcessReader()
+_pivot_pool_init = _PIVOT_READERS.init
+
+
+def _pivot_worker_star(args):
+    return _pivot_worker(*args)
 
 
 # ==========================================================
@@ -157,11 +171,19 @@ def _pivot_worker(outfile_cat, outdir, chrom, dims, mode,
     """
     assert mode in ('fraction', 'fisher')
     outname = os.path.join(outdir, chrom + f'.{block_idx_start}.txt')
+    dim_offsets = _PIVOT_READERS.offsets(chrom)
+    if dims is None:
+        if dim_offsets is None:
+            raise ValueError("_pivot_worker: dims=None requires a pool "
+                             "initialised by _pivot_pool_init")
+        dims = list(dim_offsets)
     # Whole per-chrom block-range scan across all cells -> sequential.
-    reader1 = Reader(outfile_cat, mmap_advise="sequential")
+    reader1 = (_PIVOT_READERS.get(outfile_cat, dim_offsets)
+               if dim_offsets is not None
+               else Reader(outfile_cat, mmap_advise="sequential"))
     in_fmts = reader1.fmts
     in_unit_size = sum(struct.calcsize(c) for c in in_fmts)
-    in_dt_struct = _structured_dtype_for(in_fmts)
+    in_dt_struct = _build_record_dtype(in_fmts)
     # Vectorised fast path: when both columns are the same numeric
     # dtype (mc/cov 'BB'/'HH'), view the raw block bytes as (n, 2)
     # native dtype directly — no structured-dtype splitting.
@@ -173,32 +195,8 @@ def _pivot_worker(outfile_cat, outdir, chrom, dims, mode,
     cell_mc = []
     cell_cov = []
     for dim in dims:
-        reader1._load_chunk(reader1.chunk_key2offset[dim], jump=False)
-        vos = reader1._chunk_block_1st_record_virtual_offsets
-        # See merge_cz_worker for the alignment invariant: batch
-        # boundaries must land on a record boundary because records
-        # straddle internal block boundaries (block size 2**18-1 is
-        # coprime with most unit_sizes). Validate defensively.
-        leading_skip = vos[block_idx_start] & _VO_OFFSET_MASK
-        if leading_skip != 0:
-            reader1.close()
-            raise RuntimeError(
-                f"_pivot_worker: batch start at block {block_idx_start} "
-                f"is not record-aligned (within_block_offset={leading_skip}, "
-                f"unit_size={in_unit_size}).")
-        block_start_offset = vos[block_idx_start] >> _VO_OFFSET_BITS
-        buf_parts = []
-        for _ in range(batch_nblock):
-            reader1._load_block(start_offset=block_start_offset)
-            buf_parts.append(reader1._buffer)
-            block_start_offset = None
-        buffer = b''.join(buf_parts)
-        if len(buffer) % in_unit_size != 0:
-            reader1.close()
-            raise RuntimeError(
-                f"_pivot_worker: batch byte length {len(buffer)} for chrom "
-                f"{chrom!r} dim {dim!r} is not a multiple of unit_size "
-                f"{in_unit_size}; record alignment broken.")
+        buffer = _read_block_batch(reader1, dim, block_idx_start, batch_nblock,
+                                   in_unit_size, who='_pivot_worker')
         if fast_dtype is not None:
             arr = np.frombuffer(buffer, dtype=fast_dtype).reshape(-1, 2)
             cell_mc.append(arr[:, 0].astype(np.int64))
@@ -207,7 +205,8 @@ def _pivot_worker(outfile_cat, outdir, chrom, dims, mode,
             rec = np.frombuffer(buffer, dtype=in_dt_struct)
             cell_mc.append(np.asarray(rec['f0'], dtype=np.int64))
             cell_cov.append(np.asarray(rec['f1'], dtype=np.int64))
-    reader1.close()
+    if dim_offsets is None:
+        reader1.close()
 
     snames = [dim[1] for dim in dims]
     if mode == 'fraction':
@@ -284,26 +283,34 @@ def _ref_frame(ref_reader, chrom, chrom_col):
     return df_ref
 
 
+_STITCH_LINES = 20_000
+
+
 def _stitch_with_ref(fout, shards, df_ref):
-    """Write ``ref_row + '\\t' + shard_row`` lines, one shard at a time."""
+    """Write ``ref_row + '\\t' + shard_row`` lines, streaming each shard in
+    blocks of ``_STITCH_LINES`` rows (a shard holds ``sites x n_cells``
+    fields, so it is never read whole)."""
     off = 0
     for path in shards:
         with open(path) as fh:
             fh.readline()  # header
-            body = fh.read().split('\n')
-        if body and body[-1] == '':
-            body.pop()
-        n = len(body)
-        ref_txt = df_ref.iloc[off:off + n].to_csv(None, sep='\t',
-                                                  header=False, index=False)
-        ref_lines = ref_txt.split('\n')
-        if len(ref_lines) - 1 != n:
-            raise RuntimeError(
-                f"pivot: {path} has {n} rows but only {len(ref_lines) - 1} "
-                f"reference rows remain at offset {off}.")
-        fout.write(''.join([r + '\t' + d + '\n'
-                            for r, d in zip(ref_lines, body)]))
-        off += n
+            while True:
+                body = [ln.rstrip('\n') for ln in
+                        itertools.islice(fh, _STITCH_LINES)]
+                if not body:
+                    break
+                n = len(body)
+                ref_txt = df_ref.iloc[off:off + n].to_csv(
+                    None, sep='\t', header=False, index=False)
+                ref_lines = ref_txt.split('\n')
+                if len(ref_lines) - 1 != n:
+                    raise RuntimeError(
+                        f"pivot: {path} has more rows than the "
+                        f"{len(ref_lines) - 1} reference rows remaining at "
+                        f"offset {off}.")
+                fout.write(''.join([r + '\t' + d + '\n'
+                                    for r, d in zip(ref_lines, body)]))
+                off += n
 
 
 def _stitch_with_ref_reindex(fout, shards, df_ref, usecols, batch_size):
@@ -325,8 +332,14 @@ def _stitch_with_ref_reindex(fout, shards, df_ref, usecols, batch_size):
 def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
            jobs=12, chroms=None, reference=None,
            keep_cat=False, blocks_per_batch=None, temp=False, bgzip=True,
-           batch_size=50000, ext='.cz'):
-    """Shared pivot pipeline for fraction / fisher modes."""
+           batch_size=50000, ext='.cz', max_mem=None):
+    """Shared pivot pipeline for fraction / fisher modes.
+
+    Memory: a worker holds ``n_cells x sites_per_batch x ~40-70 B`` (the
+    wide per-cell columns of one batch); the batch is shrunk and ``jobs``
+    capped so ``jobs x that`` fits ``max_mem`` (default 80% of free RAM /
+    cgroup headroom). Workers never parse the catcz'd input's chunk index.
+    """
     assert mode in ('fraction', 'fisher')
     if output is None:
         if prefix is None:
@@ -351,23 +364,10 @@ def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
                     message="catcz")
     writer.catcz(input=[os.path.join(indir, p) for p in cz_paths])
 
-    reader = Reader(outfile_cat, mmap_advise="random")
-    chrom_col = reader.header['chunk_dims'][0]
-    chunk_info = reader.chunk_info
-    reader.close()
-
-    input_chroms = chunk_info[chrom_col].unique().tolist()
-    if chroms is not None:
-        chroms = os.path.abspath(os.path.expanduser(chroms))
-        df_order = pd.read_csv(chroms, sep='\t', header=None, usecols=[0])
-        chroms = [c for c in df_order.iloc[:, 0].tolist() if c in input_chroms]
-    else:
-        chroms = sorted(input_chroms)
-    chrom_nblocks = chunk_info.reset_index().loc[
-        :, [chrom_col, 'chunk_nblocks']
-    ].drop_duplicates().set_index(chrom_col).chunk_nblocks.to_dict()
-    unit_size = struct.calcsize(''.join(header['formats']))
-    unit_nblock = int(unit_size / math.gcd(unit_size, _BLOCK_MAX_LEN))
+    chrom_col = header['chunk_dims'][0]
+    chrom_offsets, chrom_nblocks, chroms, filenames = _catcz_layout(
+        outfile_cat, chroms, who=f"pivot_{mode}")
+    n_cells = len(filenames)
     if blocks_per_batch is None:
         # For fisher mode the kernel is heavy, so prefer many small
         # batches per chrom for better load balancing across jobs. For
@@ -376,40 +376,76 @@ def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
             blocks_per_batch = max(1, int(np.ceil(jobs * 4 / max(len(chroms), 1))))
         else:
             blocks_per_batch = max(1, int(np.ceil(jobs * 2 / max(len(chroms), 1))))
-    nunit_perbatch = int(np.ceil(
-        (chunk_info.chunk_nblocks.max() / blocks_per_batch) / unit_nblock))
-    batch_nblock = nunit_perbatch * unit_nblock
+    max_nblocks = max((chrom_nblocks[c] for c in chroms), default=1)
+    batch_nblock, unit_nblock = _batch_nblock(header['formats'], max_nblocks,
+                                              blocks_per_batch)
+    unit_size = struct.calcsize(''.join(header['formats']))
+    # Memory: a batch of ``batch_nblock`` blocks holds ~batch_nblock *
+    # _BLOCK_MAX_LEN / unit_size sites for every cell. Shrink the batch (in
+    # whole ``unit_nblock`` alignment periods) and cap ``jobs`` so
+    # ``jobs x n_cells x sites x bytes`` fits the budget.
+    per_cell_site = _PIVOT_BYTES_PER_CELL_SITE[mode]
+    sites_per_block = _BLOCK_MAX_LEN / unit_size
+    budget = memory_budget(max_mem, 0.8)
+    n_workers = max(1, int(jobs))
+    if budget is not None:
+        per_batch = lambda nb: WORKER_BASE_BYTES + nb * sites_per_block * n_cells * per_cell_site
+        while n_workers > 1 and per_batch(unit_nblock) * n_workers > budget:
+            n_workers -= 1
+        fit_nb = int((budget / n_workers - WORKER_BASE_BYTES)
+                     / (sites_per_block * n_cells * per_cell_site))
+        fit_nb = max(unit_nblock, (fit_nb // unit_nblock) * unit_nblock)
+        if fit_nb < batch_nblock:
+            logger.info(
+                f"pivot_{mode}: {n_cells} cells -> batch shrunk from "
+                f"{batch_nblock} to {fit_nb} blocks "
+                f"(~{fmt_bytes(per_batch(fit_nb))} per worker) to fit the "
+                f"{fmt_bytes(budget)} budget with jobs={n_workers}")
+            batch_nblock = fit_nb
+        if n_workers < int(jobs):
+            logger.warning(
+                f"pivot_{mode}: jobs={jobs} capped to {n_workers} by the "
+                f"memory budget {fmt_bytes(budget)} (pass max_mem= to override)")
+    n_workers = cap_workers(n_workers, WORKER_BASE_BYTES + int(
+        batch_nblock * sites_per_block * n_cells * per_cell_site),
+        max_mem=max_mem, what=f"pivot_{mode} worker")
 
-    pool = multiprocessing.Pool(jobs)
-    tasks = []
     jobs_args = []
     outdir = output + '.tmp'
     if not os.path.exists(outdir):
         os.mkdir(outdir)
     for chrom in chroms:
-        dims = chunk_info.loc[chunk_info[chrom_col] == chrom].index.tolist()
-        if not dims:
+        if not chrom_offsets.get(chrom):
             continue
         block_idx_start = 0
         while block_idx_start < chrom_nblocks[chrom]:
             n_blk = min(batch_nblock, chrom_nblocks[chrom] - block_idx_start)
-            jobs_args.append((n_blk, (outfile_cat, outdir, chrom, dims, mode,
+            # dims=None: the worker takes the chrom's chunk keys / offsets
+            # from the fork-shared pool state.
+            jobs_args.append((n_blk, (outfile_cat, outdir, chrom, None, mode,
                                       block_idx_start, batch_nblock)))
             block_idx_start += batch_nblock
     # Largest batches first (LPT); shards are named by (chrom, block index)
     # so completion order does not matter.
     jobs_args.sort(key=lambda x: -x[0])
-    for _, args in jobs_args:
-        tasks.append(pool.apply_async(_pivot_worker, args))
-    for task in tasks:
-        task.get()
-    pool.close()
-    pool.join()
+    if n_workers > 1 and len(jobs_args) > 1:
+        with make_pool(n_workers, _pivot_pool_init, (chrom_offsets,)) as ex:
+            for _ in bounded_unordered(ex, _pivot_worker_star,
+                                       (a for _, a in jobs_args),
+                                       n_workers * 2):
+                pass
+    else:
+        _pivot_pool_init(chrom_offsets)
+        try:
+            for _, args in jobs_args:
+                _pivot_worker(*args)
+        finally:
+            _PIVOT_READERS.init({})
+    del chrom_offsets
 
     # Final stitch: stream every chrom's batch shards straight into the
     # output (text kept verbatim, no pandas re-parse / re-format), optionally
     # prefixing the reference (chrom, start, pos, ...) columns.
-    filenames = chunk_info.cell_id.unique().tolist()
     if mode == 'fraction':
         columns = filenames
     else:  # fisher
@@ -462,7 +498,7 @@ def _pivot(mode, indir=None, cz_paths=None, output=None, prefix=None,
 def pivot_fraction(indir=None, cz_paths=None, output=None, prefix=None,
                    jobs=12, chroms=None, reference=None,
                    keep_cat=False, blocks_per_batch=None, temp=False,
-                   bgzip=True, batch_size=50000, ext='.cz'):
+                   bgzip=True, batch_size=50000, ext='.cz', max_mem=None):
     """Pivot per-cell .cz files into a wide per-cell methylation
     fraction TSV.
 
@@ -471,18 +507,24 @@ def pivot_fraction(indir=None, cz_paths=None, output=None, prefix=None,
     ``mc/cov`` formatted ``%.3g`` (zero-cov rows become ``0``). With
     ``bgzip=True`` the output is bgzipped, and tabix-indexed when a
     ``reference`` supplies coordinate columns.
+
+    The output is a dense ``sites x cells`` text matrix; ``max_mem`` caps
+    the worker count / batch size (see :func:`_pivot`). For large cohorts
+    prefer the sparse, streamed
+    :func:`cytozip.features.cz_to_anndata_sites` (``.h5ad``).
     """
     return _pivot('fraction', indir=indir, cz_paths=cz_paths,
                   output=output, prefix=prefix, jobs=jobs,
                   chroms=chroms, reference=reference,
                   keep_cat=keep_cat, blocks_per_batch=blocks_per_batch,
-                  temp=temp, bgzip=bgzip, batch_size=batch_size, ext=ext)
+                  temp=temp, bgzip=bgzip, batch_size=batch_size, ext=ext,
+                  max_mem=max_mem)
 
 
 def pivot_fisher(indir=None, cz_paths=None, output=None, prefix=None,
                  jobs=12, chroms=None, reference=None,
                  keep_cat=False, blocks_per_batch=None, temp=False,
-                 bgzip=True, batch_size=50000, ext='.cz'):
+                 bgzip=True, batch_size=50000, ext='.cz', max_mem=None):
     """Pivot per-cell .cz files into a one-vs-rest Fisher exact-test
     TSV.
 
@@ -494,7 +536,8 @@ def pivot_fisher(indir=None, cz_paths=None, output=None, prefix=None,
                   output=output, prefix=prefix, jobs=jobs,
                   chroms=chroms, reference=reference,
                   keep_cat=keep_cat, blocks_per_batch=blocks_per_batch,
-                  temp=temp, bgzip=bgzip, batch_size=batch_size, ext=ext)
+                  temp=temp, bgzip=bgzip, batch_size=batch_size, ext=ext,
+                  max_mem=max_mem)
 
 
 if __name__ == "__main__":

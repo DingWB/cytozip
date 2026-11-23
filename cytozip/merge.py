@@ -27,6 +27,8 @@ from .cz import (Reader, Writer,
                  _BLOCK_MAX_LEN, _VO_OFFSET_BITS, _VO_OFFSET_MASK,
                  _chunk_magic, _NP_FMT_MAP, _build_record_dtype,
                  _scale_mc_cov_pair, np, pd)
+from ._mem import (WORKER_BASE_BYTES, cap_workers, make_pool,
+                   bounded_map, bounded_unordered, PerProcessReader)
 
 
 # Per-format-char numpy max value (used to clip sums before packing).
@@ -35,11 +37,6 @@ _NP_FMT_MAX = {
     'Q': 0xFFFFFFFFFFFFFFFF, 'b': 0x7F, 'h': 0x7FFF,
     'i': 0x7FFFFFFF, 'l': 0x7FFFFFFF, 'q': 0x7FFFFFFFFFFFFFFF,
 }
-
-
-def _structured_dtype_for(fmts):
-    """Build a numpy structured dtype tiling one record (numeric only)."""
-    return np.dtype([(f'f{i}', _NP_FMT_MAP[c]) for i, c in enumerate(fmts)])
 
 
 def _is_merged_cz(path):
@@ -215,9 +212,100 @@ def _bg_rmtree(path):
 
 
 # ==========================================================
+def _catcz_layout(outfile_cat, chroms=None, who="merge_cz"):
+    """One pass over a catcz'd file's CZIX index (the only full parse of a
+    merge / pivot run): ``(chrom_offsets, chrom_nblocks, chrom_order,
+    cell_ids)`` with ``chrom_offsets[chrom] = {dims: chunk_start_offset}``,
+    the per-chrom block count shared by every cell's chunk (cells are
+    row-aligned to one reference, so a mismatch is an input error),
+    the chrom order (``chroms`` file's first column, else sorted) and the
+    second chunk-key values in file order. No per-(cell, chrom) DataFrame
+    is built."""
+    reader = Reader(outfile_cat, mmap_advise="random")
+    raw_index = reader._raw_chunk_index
+    reader.close()
+    chrom_offsets, chrom_nblocks, cell_ids, seen = {}, {}, [], set()
+    for dims, info in raw_index.items():
+        c = dims[0]
+        chrom_offsets.setdefault(c, {})[dims] = info['start']
+        nb = int(info['nblocks'])
+        if chrom_nblocks.setdefault(c, nb) != nb:
+            raise ValueError(
+                f"{who}: chrom {c!r} has chunks with different block counts "
+                f"({chrom_nblocks[c]} vs {nb}); cells are not row-aligned to "
+                f"one reference.")
+        if len(dims) > 1 and dims[1] not in seen:
+            seen.add(dims[1])
+            cell_ids.append(dims[1])
+    del raw_index
+    if chroms is not None:
+        chroms = os.path.abspath(os.path.expanduser(chroms))
+        df = pd.read_csv(chroms, sep='\t', header=None, usecols=[0])
+        order = [c for c in df.iloc[:, 0].tolist() if c in chrom_offsets]
+    else:
+        order = sorted(chrom_offsets)
+    return chrom_offsets, chrom_nblocks, order, cell_ids
+
+
+def _batch_nblock(formats, max_nblocks, blocks_per_batch):
+    """Blocks per worker batch: the largest chrom split into
+    ``blocks_per_batch`` batches, rounded up to whole ``unit_nblock``
+    alignment periods so every batch boundary is a record boundary."""
+    unit_size = struct.calcsize(''.join(formats))
+    unit_nblock = int(unit_size / math.gcd(unit_size, _BLOCK_MAX_LEN))
+    nunit = int(np.ceil((max_nblocks / blocks_per_batch) / unit_nblock))
+    return max(1, nunit) * unit_nblock, unit_nblock
+
+
+def _read_block_batch(reader, dim, block_idx_start, batch_nblock, unit_size,
+                      who="merge_cz_worker"):
+    """Decompressed bytes of blocks ``[block_idx_start, block_idx_start +
+    batch_nblock)`` of chunk ``dim`` (a whole number of records).
+
+    Records may straddle block boundaries because the catcz writer uses
+    ``_block_size = _BLOCK_MAX_LEN`` (not a multiple of ``unit_size`` for
+    typical mc/cov record sizes). The ``batch_nblock = nunit_perbatch *
+    unit_nblock`` choice of the callers guarantees that batch boundaries
+    (multiples of ``unit_nblock``) land on record boundaries, so the bytes
+    start with a complete record (``within_block_offset == 0``) and end on a
+    record boundary; both are validated so a future change raises clearly
+    instead of silently corrupting output.
+    """
+    reader._load_chunk(reader.chunk_key2offset[dim], jump=False)
+    vos = reader._chunk_block_1st_record_virtual_offsets
+    leading_skip = vos[block_idx_start] & _VO_OFFSET_MASK
+    if leading_skip != 0:
+        raise RuntimeError(
+            f"{who}: batch start at block {block_idx_start} is not "
+            f"record-aligned (within_block_offset={leading_skip}, "
+            f"unit_size={unit_size}). Check that batch_nblock is a multiple "
+            f"of unit_nblock.")
+    # Decompress the blocks and concatenate so records straddling internal
+    # block boundaries are reassembled before decode.
+    block_start_offset = vos[block_idx_start] >> _VO_OFFSET_BITS
+    buf_parts = []
+    for _ in range(batch_nblock):
+        reader._load_block(start_offset=block_start_offset)
+        buf_parts.append(reader._buffer)
+        block_start_offset = None
+    buffer = b''.join(buf_parts)
+    if len(buffer) % unit_size != 0:
+        raise RuntimeError(
+            f"{who}: batch byte length {len(buffer)} for dim {dim!r} is not a "
+            f"multiple of unit_size {unit_size}; record alignment broken.")
+    return buffer
+
+
+# Per-process reader of the catcz'd input (see PerProcessReader): the parent
+# parses the CZIX index once and workers only ever see their chrom's chunks.
+_MERGE_READERS = PerProcessReader()
+_merge_pool_init = _MERGE_READERS.init
+
+
 def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
                     block_idx_start, batch_nblock, batch_size=5000,
-                    level=6, agg='sum', cov_overflow='scale'):
+                    level=6, agg='sum', cov_overflow='scale',
+                    dim_offsets=None):
     """Worker function for parallel merge of per-cell .cz data.
 
     Reads a batch of blocks (``batch_nblock`` blocks starting at
@@ -225,6 +313,11 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
     in ``outfile_cat`` and aggregates their values column-wise,
     writing the result as a per-chrom .cz shard
     ``chrom.{block_idx_start}.cz`` in ``outdir``.
+
+    ``dim_offsets`` (``{dims: chunk_start_offset}`` for ``dims``, from
+    :meth:`Reader.chunk_offsets`) lets the worker open ``outfile_cat``
+    without parsing its full CZIX index (~1 GB for 100k cells); the
+    reader is cached per process and reused by later tasks.
 
     Aggregation
     -----------
@@ -246,8 +339,20 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
     :mod:`cytozip.pivot`.
     """
     outname = os.path.join(outdir, chrom + f'.{block_idx_start}.cz')
-    # Whole per-chrom block-range scan across all cells -> sequential.
-    reader1 = Reader(outfile_cat, mmap_advise="sequential")
+    if dim_offsets is None:
+        dim_offsets = _MERGE_READERS.offsets(chrom)
+    if dims is None:
+        if dim_offsets is None:
+            raise ValueError("merge_cz_worker: dims=None requires dim_offsets "
+                             "(or a pool initialised by _merge_pool_init)")
+        dims = list(dim_offsets)
+    # Whole per-chrom block-range scan across all cells -> sequential. With
+    # offsets the per-process reader is reused; a bare call (no pool state)
+    # opens and closes its own reader as before.
+    if dim_offsets is not None:
+        reader1 = _MERGE_READERS.get(outfile_cat, dim_offsets)
+    else:
+        reader1 = Reader(outfile_cat, mmap_advise="sequential")
     in_fmts = reader1.fmts
     in_unit_size = sum(struct.calcsize(c) for c in in_fmts)
     n_cols = len(in_fmts)
@@ -287,7 +392,7 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         if fast_dtype.itemsize <= 2 and \
                 len(dims) * int(np.iinfo(fast_dtype).max) < 2 ** 32:
             accum_dtype = np.uint32
-    in_dt_struct = None if fast_dtype is not None else _structured_dtype_for(in_fmts)
+    in_dt_struct = None if fast_dtype is not None else _build_record_dtype(in_fmts)
 
     if fast_dtype is not None:
         data_mc = None
@@ -300,44 +405,8 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
         accum_cols = [None] * n_cols
     n_cells_used = 0
     for dim in dims:  # each dim is a per-cell .cz chunk for this chrom
-        reader1._load_chunk(reader1.chunk_key2offset[dim], jump=False)
-        vos = reader1._chunk_block_1st_record_virtual_offsets
-        # Records may straddle block boundaries because the catcz writer
-        # uses _block_size = _BLOCK_MAX_LEN (which is *not* a multiple of
-        # unit_size for typical mc/cov record sizes). The
-        # ``batch_nblock = nunit_perbatch * unit_nblock`` choice in
-        # ``merge_cz`` guarantees that batch boundaries (multiples of
-        # ``unit_nblock``) always land on a record boundary, so the
-        # decompressed bytes for ``[block_idx_start, block_idx_start +
-        # batch_nblock)`` start with a complete record
-        # (``within_block_offset == 0``) and end on a record boundary.
-        # Validate that invariant defensively so a future change that
-        # breaks it raises clearly here instead of silently corrupting
-        # output.
-        leading_skip = vos[block_idx_start] & _VO_OFFSET_MASK
-        if leading_skip != 0:
-            reader1.close()
-            raise RuntimeError(
-                f"merge_cz_worker: batch start at block {block_idx_start} "
-                f"is not record-aligned (within_block_offset={leading_skip}, "
-                f"unit_size={in_unit_size}). Check that batch_nblock is a "
-                f"multiple of unit_nblock.")
-        # Decompress ``batch_nblock`` blocks and concatenate so records
-        # straddling internal block boundaries are reassembled before
-        # decode.
-        block_start_offset = vos[block_idx_start] >> _VO_OFFSET_BITS
-        buf_parts = []
-        for _ in range(batch_nblock):
-            reader1._load_block(start_offset=block_start_offset)
-            buf_parts.append(reader1._buffer)
-            block_start_offset = None
-        buffer = b''.join(buf_parts)
-        if len(buffer) % in_unit_size != 0:
-            reader1.close()
-            raise RuntimeError(
-                f"merge_cz_worker: batch byte length {len(buffer)} for chrom "
-                f"{chrom!r} dim {dim!r} is not a multiple of unit_size "
-                f"{in_unit_size}; record alignment broken.")
+        buffer = _read_block_batch(reader1, dim, block_idx_start, batch_nblock,
+                                   in_unit_size)
         # Decode this cell's batch and accumulate. The fast path
         # views the raw bytes as a (n, 2) homogeneous array and uses
         # 1-D ``+=`` directly. The general path goes through a
@@ -368,7 +437,7 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
                      chunk_dims=reader1.header['chunk_dims'][:1],
                      message=outfile_cat, level=level)
     out_fmts = ''.join(writer1.formats)
-    out_dt = _structured_dtype_for(out_fmts)
+    out_dt = _build_record_dtype(out_fmts)
     # Fraction-preserving overflow: cap cov to its output max and scale mc by
     # the same ratio (see _scale_mc_cov_pair). Only for the mc/cov summed
     # layout; otherwise fall back to independent per-column clipping.
@@ -422,7 +491,12 @@ def merge_cz_worker(outfile_cat, outdir, chrom, dims, formats,
     for s in range(0, len(out_bytes), chunk_step):
         writer1.write_chunk(out_bytes[s:s + chunk_step], [chrom])
     writer1.close()
-    reader1.close()
+    if dim_offsets is None:
+        reader1.close()
+
+
+def _merge_cz_worker_star(args):
+    return merge_cz_worker(*args)
 
 
 def merge_cz(input=None, class_table=None,
@@ -430,7 +504,7 @@ def merge_cz(input=None, class_table=None,
              chroms=None, reference=None,
              keep_cat=False, blocks_per_batch=None, temp=False, bgzip=True,
              batch_size=50000, ext='.cz', level=6, agg='sum',
-             cov_overflow='scale'):
+             cov_overflow='scale', max_mem=None):
     """
     Merge multiple per-cell .cz files into one summed .cz. Example:
 
@@ -524,6 +598,13 @@ def merge_cz(input=None, class_table=None,
         and scales ``mc`` by the same ``cap/cov`` ratio so the pseudobulk
         methylation fraction survives; ``'clip'`` truncates ``mc`` and ``cov``
         independently. No effect for non-mc/cov or ``'mean'`` columns.
+    max_mem : str or int, optional
+        Memory budget (e.g. ``'200G'``) used to cap ``jobs``: each worker
+        holds ~10x one decompressed batch (``batch_nblock`` blocks), so
+        ``jobs`` is clamped to fit (default budget: 80% of free RAM /
+        cgroup headroom). Workers never parse the catcz'd file's chunk
+        index (the parent passes each chrom's chunk offsets), so per-worker
+        memory is independent of the number of cells.
 
     Returns
     -------
@@ -567,7 +648,8 @@ def merge_cz(input=None, class_table=None,
                      formats=formats, chroms=chroms,
                      reference=reference, keep_cat=keep_cat,
                      blocks_per_batch=blocks_per_batch, temp=temp, bgzip=bgzip,
-                     batch_size=batch_size, ext=ext, level=level)
+                     batch_size=batch_size, ext=ext, level=level, agg=agg,
+                     cov_overflow=cov_overflow, max_mem=max_mem)
         return None
     if output is None:
         output = 'merged.cz' if prefix is None else f'{prefix}.cz'
@@ -606,24 +688,7 @@ def merge_cz(input=None, class_table=None,
                         message="catcz")
         writer.catcz(input=cz_paths_abs)
 
-    reader = Reader(outfile_cat, mmap_advise="random")
-    chrom_col = reader.header['chunk_dims'][0]
-    chunk_info = reader.chunk_info
-    reader.close()
-
-    # get chromosomes order
-    input_chroms = chunk_info[chrom_col].unique().tolist()
-    if not chroms is None:
-        chroms = os.path.abspath(os.path.expanduser(chroms))
-        df = pd.read_csv(chroms, sep='\t', header=None, usecols=[0])
-        chroms = [chrom for chrom in df.iloc[:, 0].tolist() if chrom in input_chroms]
-    else:
-        chroms = sorted(input_chroms)
-    chrom_nblocks = chunk_info.reset_index().loc[:, [chrom_col, 'chunk_nblocks']
-                    ].drop_duplicates().set_index(chrom_col).chunk_nblocks.to_dict()
-    # how many blocks can be multiplied by self.unit_size
-    in_unit_size = sum(struct.calcsize(c) for c in header['formats'])
-    unit_nblock = int(in_unit_size / (math.gcd(in_unit_size, _BLOCK_MAX_LEN)))
+    chrom_offsets, chrom_nblocks, chroms, _ = _catcz_layout(outfile_cat, chroms)
     # Auto-pick ``blocks_per_batch``. Now that the per-chrom shard merge
     # is a raw byte-copy splice (no decompress + re-deflate), oversharding
     # has near-zero overhead, so we aim to give the *largest* chrom enough
@@ -632,23 +697,26 @@ def merge_cz(input=None, class_table=None,
     # batches the LARGEST chrom is split into.
     if blocks_per_batch is None:
         blocks_per_batch = max(1, jobs)
-    nunit_perbatch = int(np.ceil((chunk_info.chunk_nblocks.max() / blocks_per_batch
-                                  ) / unit_nblock))
-    batch_nblock = nunit_perbatch * unit_nblock  # how many block for each batch
-    pool = multiprocessing.Pool(jobs)
-    tasks = []
+    max_nblocks = max((chrom_nblocks[c] for c in chroms), default=1)
+    batch_nblock, _ = _batch_nblock(header['formats'], max_nblocks, blocks_per_batch)
+    # Per-worker peak ~ the decompressed batch (buffer + joined copy) plus
+    # the two accumulators and the packed output (~10x the batch bytes).
+    est_worker = WORKER_BASE_BYTES + 10 * batch_nblock * _BLOCK_MAX_LEN
+    n_workers = cap_workers(jobs, est_worker, max_mem=max_mem)
     jobs_args = []
     outdir = output + '.tmp'
     if not os.path.exists(outdir):
         os.mkdir(outdir)
     for chrom in chroms:
-        dims = chunk_info.loc[chunk_info[chrom_col] == chrom].index.tolist()
-        if len(dims) == 0:
+        if not chrom_offsets.get(chrom):
             continue
         block_idx_start = 0
         while block_idx_start < chrom_nblocks[chrom]:
             n_blk = min(batch_nblock, chrom_nblocks[chrom] - block_idx_start)
-            jobs_args.append((n_blk, (outfile_cat, outdir, chrom, dims,
+            # ``dims=None``: the worker takes the chunk keys + offsets of
+            # this chrom from the fork-shared pool state (no per-task pickle
+            # of 100k chunk keys, no CZIX parse in the worker).
+            jobs_args.append((n_blk, (outfile_cat, outdir, chrom, None,
                                       formats, block_idx_start, batch_nblock,
                                       5000, level, agg, cov_overflow)))
             block_idx_start += batch_nblock
@@ -656,12 +724,20 @@ def merge_cz(input=None, class_table=None,
     # the end; shard files are named by (chrom, block_idx_start), so the
     # result does not depend on completion order.
     jobs_args.sort(key=lambda x: -x[0])
-    for _, args in jobs_args:
-        tasks.append(pool.apply_async(merge_cz_worker, args))
-    for task in tasks:
-        task.get()
-    pool.close()
-    pool.join()
+    if n_workers > 1 and len(jobs_args) > 1:
+        with make_pool(n_workers, _merge_pool_init, (chrom_offsets,)) as ex:
+            for _ in bounded_unordered(ex, _merge_cz_worker_star,
+                                       (a for _, a in jobs_args),
+                                       n_workers * 2):
+                pass
+    else:
+        _merge_pool_init(chrom_offsets)
+        try:
+            for _, args in jobs_args:
+                merge_cz_worker(*args)
+        finally:
+            _MERGE_READERS.init({})
+    del chrom_offsets
 
     # First, merge per-batch shards into one .cz per chrom.
     # When >1 shard exists for a chrom we splice their compressed blocks
@@ -960,7 +1036,7 @@ def _merge_multiref_chrom_worker(chrom):
         cov_sum[tgt_idx] += donor_cov
 
     out_fmts = ''.join(formats)
-    out_dt = _structured_dtype_for(out_fmts)
+    out_dt = _build_record_dtype(out_fmts)
     # Fraction-preserving overflow for the summed mc/cov target axis.
     if (st.get('cov_overflow', 'scale') == 'scale' and len(columns) >= 2
             and columns[0] == 'mc' and columns[1] == 'cov'
@@ -987,7 +1063,8 @@ def _merge_multiref_chrom_worker(chrom):
 def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
                       context_policy='strict', formats=['H', 'H'], jobs=12,
                       chroms=None, ext='.cz', level=6, temp=False,
-                      cov_overflow='scale', accum_dtype='uint32'):
+                      cov_overflow='scale', accum_dtype='uint32',
+                      max_mem=None):
     """Merge per-cell .cz files with *different* references into one
     pseudobulk .cz aligned to a common target reference.
 
@@ -1053,6 +1130,10 @@ def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
         int64 and is safe for any realistic cell count (each cell adds
         uint16 mc/cov). Widen to ``'int64'`` only for extreme pooled depths
         where a single site's summed cov could exceed ~4.29e9.
+    max_mem : str or int, optional
+        Memory budget used to cap ``jobs``; each chrom worker holds the
+        target / donor positions + contexts and two accumulators
+        (~30 B per target site of the largest chrom).
     """
     if context_policy not in ('strict', 'category', 'ignore'):
         raise ValueError(
@@ -1089,6 +1170,8 @@ def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
     # by a user chrom file.
     tref = Reader(target_reference)
     target_chroms = [k[0] for k in tref.chunk_key2offset.keys()]
+    max_rows = max((info['data_len'] // tref._unit_size
+                    for info in tref._raw_chunk_index.values()), default=1)
     tref.close()
     if chroms is not None:
         chroms = os.path.abspath(os.path.expanduser(chroms))
@@ -1104,8 +1187,10 @@ def merge_cz_multiref(cz_table=None, target_reference=None, output=None,
     init_args = (target_reference, ref_to_cells, list(formats), columns,
                  context_policy, level, outdir, cov_overflow, accum_dtype)
     written = []
-    if jobs and int(jobs) > 1 and len(chrom_list) > 1:
-        with multiprocessing.Pool(int(jobs), initializer=_merge_mr_init,
+    n_workers = cap_workers(min(int(jobs or 1), max(1, len(chrom_list))),
+                            WORKER_BASE_BYTES + 30 * max_rows, max_mem=max_mem)
+    if n_workers > 1 and len(chrom_list) > 1:
+        with multiprocessing.Pool(n_workers, initializer=_merge_mr_init,
                                   initargs=init_args) as pool:
             for res in pool.imap_unordered(_merge_multiref_chrom_worker,
                                            chrom_list):
@@ -1240,21 +1325,46 @@ def _resolve_mc_inputs(input):
     return paths
 
 
-def _context_sums(ctx, mc, cov):
-    """Sum mc / cov per context; ``ctx`` is a fixed-width bytes (void/S) array."""
-    if len(ctx) == 0:
-        return pd.DataFrame(columns=['mc', 'cov'], dtype='int64')
+def _pack_context_codes(ctx):
+    """Fixed-width bytes (``S``/void) context array -> ``(codes, names)``:
+    small-integer code per site (``uint8`` when <= 256 distinct contexts,
+    else ``uint16``) and the decoded context string of every code. One
+    hash-based factorize per chrom; the per-site strings are never built."""
     w = ctx.dtype.itemsize
+    if len(ctx) == 0:
+        return np.zeros(0, dtype=np.uint8), []
     b = np.frombuffer(ctx.tobytes(), dtype=np.uint8).reshape(-1, w)
-    code = np.zeros(len(b), dtype=np.int64)
+    packed = np.zeros(len(b), dtype=np.uint64)
     for i in range(w):
-        code = (code << 8) | b[:, i].astype(np.int64)
-    inv, uniq = pd.factorize(code)
-    mc_sum = np.bincount(inv, weights=mc, minlength=len(uniq)).astype(np.int64)
-    cov_sum = np.bincount(inv, weights=cov, minlength=len(uniq)).astype(np.int64)
+        packed = (packed << np.uint64(8)) | b[:, i].astype(np.uint64)
+    inv, uniq = pd.factorize(packed)
     names = [bytes((int(c) >> (8 * (w - 1 - i))) & 0xFF for i in range(w)).decode()
              for c in uniq]
-    return pd.DataFrame({'mc': mc_sum, 'cov': cov_sum}, index=names)
+    codes = inv.astype(np.uint8 if len(names) <= 256 else np.uint16, copy=False)
+    return codes, names
+
+
+def _context_sums_coded(codes, names, mc, cov, nz=None):
+    """Per-context mc / cov sums from pre-factorized context ``codes``.
+
+    ``mc`` / ``cov`` may be zero-copy integer views of the cell chunk; only
+    the covered subset (``nz``, default ``cov > 0``) is cast to float64 for
+    ``bincount``, so the peak is ~1 B/site (mask) instead of several int64
+    copies of the whole chromosome.
+    """
+    if nz is None:
+        nz = cov != 0
+    n = len(names)
+    if n == 0:
+        return pd.DataFrame(columns=['mc', 'cov'], dtype='int64')
+    sel = codes[nz]
+    mc_sum = np.bincount(sel, weights=mc[nz], minlength=n).astype(np.int64)
+    cov_sum = np.bincount(sel, weights=cov[nz], minlength=n).astype(np.int64)
+    # only contexts this cell actually covers (as when the table is built
+    # from the covered sites alone)
+    hit = cov_sum > 0
+    return pd.DataFrame({'mc': mc_sum[hit], 'cov': cov_sum[hit]},
+                        index=[nm for nm, h in zip(names, hit) if h])
 
 
 def _add_sums(frames):
@@ -1263,39 +1373,87 @@ def _add_sums(frames):
     return pd.concat(frames).groupby(level=0).sum().astype('int64')
 
 
+# Fork-shared reference context codes for :func:`mc_summary` workers:
+# ``{'reference': path, 'codes': {chrom: (codes, names)}}``. Built once in
+# the parent (one decode of the reference), inherited copy-on-write, so no
+# worker re-reads / re-factorizes a reference chromosome per cell.
+_CTX_CODES_STATE = {}
+
+
+def _ctx_codes_init(reference, codes):
+    _CTX_CODES_STATE.clear()
+    _CTX_CODES_STATE.update(reference=reference, codes=codes)
+
+
+def _ref_context_codes(reference, chroms=None):
+    """``{chrom: (codes, names)}`` of a reference ``.cz`` (all chroms, or
+    only ``chroms``); each chrom is decoded once and released."""
+    ref = Reader(os.path.abspath(os.path.expanduser(reference)),
+                 mmap_advise="sequential")
+    try:
+        ctx_f = f"f{ref.header['columns'].index('context')}"
+        out = {}
+        for key in ref.chunk_key2offset:
+            chrom = key[0]
+            if chroms is not None and chrom not in chroms:
+                continue
+            r = ref.chunk2numpy(key)
+            out[chrom] = _pack_context_codes(r[ctx_f])
+            del r
+    finally:
+        ref.close()
+    return out
+
+
 def _cz_context_counts(path, reference, lambda_chrom, lambda_only=False):
     """Per-context (all chroms, lambda chrom) mc / cov sums of one single-cell .cz."""
     if reference is None:
         raise ValueError(f"reference .cz is required to summarize {path} "
                          f"(no {os.path.basename(path)}.count.csv found)")
+    reference = os.path.abspath(os.path.expanduser(reference))
+    shared = (_CTX_CODES_STATE.get('codes')
+              if _CTX_CODES_STATE.get('reference') == reference else None)
     cell = Reader(path)
-    ref = Reader(os.path.abspath(os.path.expanduser(reference)))
+    ref = None
     try:
         if len(cell.header['chunk_dims']) != 1:
             raise ValueError(f"{path}: expected a per-cell .cz (chunk_dims=['chrom']), "
                              f"got {cell.header['chunk_dims']}")
         cols = cell.header['columns']
         mc_f, cov_f = f"f{cols.index('mc')}", f"f{cols.index('cov')}"
-        ctx_f = f"f{ref.header['columns'].index('context')}"
+        cell_dt = _build_record_dtype(cell.header['formats'])
         parts, lam_parts = [], []
         for key in cell.chunk_key2offset:
             chrom = key[0]
             if lambda_only and chrom != lambda_chrom:
                 continue
-            c = cell.chunk2numpy(key)
-            r = ref.chunk2numpy((chrom,))
-            if len(c) != len(r):
+            if shared is not None and chrom in shared:
+                codes, names = shared[chrom]
+            else:
+                if ref is None:
+                    ref = Reader(reference, mmap_advise="random")
+                    ctx_f = f"f{ref.header['columns'].index('context')}"
+                if key not in ref.chunk_key2offset:
+                    raise ValueError(f"{path}: chunk {chrom} is absent from the "
+                                     f"reference {reference}; wrong reference?")
+                r = ref.chunk2numpy(key)
+                codes, names = _pack_context_codes(r[ctx_f])
+                del r
+            raw = cell.fetch_chunk_bytes(key)
+            c = np.frombuffer(raw, dtype=cell_dt) if raw else np.empty(0, cell_dt)
+            if len(c) != len(codes):
                 raise ValueError(f"{path}: chunk {chrom} has {len(c)} rows but the "
-                                 f"reference has {len(r)}; wrong reference?")
-            cov = c[cov_f].astype(np.int64)
-            nz = cov > 0
-            sums = _context_sums(r[ctx_f][nz], c[mc_f][nz].astype(np.int64), cov[nz])
+                                 f"reference has {len(codes)}; wrong reference?")
+            sums = _context_sums_coded(codes, names, c[mc_f], c[cov_f])
+            del c, raw
+            cell.release_chunk(key)
             parts.append(sums)
             if chrom == lambda_chrom:
                 lam_parts.append(sums)
     finally:
         cell.close()
-        ref.close()
+        if ref is not None:
+            ref.close()
     return _add_sums(parts), _add_sums(lam_parts)
 
 
@@ -1433,7 +1591,8 @@ def _context_counts_worker(args):
 
 def mc_summary(input, reference=None, output=None,
                mc_stat_feature='CHN CGN CCC', mc_stat_alias='mCH mCG mCCC',
-               num_upstr_bases=0, lambda_chrom='chrL', overwrite=False, jobs=1):
+               num_upstr_bases=0, lambda_chrom='chrL', overwrite=False, jobs=1,
+               max_mem=None):
     """
     Per-cell methylation summary table for many single-cell .cz files.
 
@@ -1470,7 +1629,13 @@ def mc_summary(input, reference=None, output=None,
         Regenerate every ``.count.csv`` from its .cz even if it exists (see
         :func:`context_counts`).
     jobs : int, default 1
-        Number of parallel worker processes (one file per task).
+        Number of parallel worker processes (one file per task). The
+        reference context is decoded once in the parent and shared with
+        the workers (fork copy-on-write), so each worker only holds one
+        cell chromosome at a time.
+    max_mem : str or int, optional
+        Memory budget used to cap ``jobs`` (default: 80% of free RAM /
+        cgroup headroom).
 
     Returns
     -------
@@ -1490,11 +1655,29 @@ def mc_summary(input, reference=None, output=None,
         raise ValueError(f"duplicated cell ids in input: {dup[:5]}")
 
     tasks = [(p, reference, lambda_chrom, overwrite) for p in paths]
-    if jobs and int(jobs) > 1 and len(tasks) > 1:
-        with multiprocessing.Pool(min(int(jobs), len(tasks))) as pool:
-            all_counts = pool.map(_context_counts_worker, tasks)
-    else:
-        all_counts = [_context_counts_worker(t) for t in tasks]
+    # Decode the reference context ONCE here (one chromosome at a time ->
+    # ~1 B/site codes) when any cell has to be (re)counted; workers inherit
+    # the codes copy-on-write instead of re-reading the reference per cell.
+    codes = {}
+    ref_abs = None
+    if reference is not None and (overwrite or any(
+            not os.path.exists(p + '.count.csv') for p in paths)):
+        ref_abs = os.path.abspath(os.path.expanduser(reference))
+        codes = _ref_context_codes(ref_abs)
+    _ctx_codes_init(ref_abs, codes)
+    try:
+        if jobs and int(jobs) > 1 and len(tasks) > 1:
+            # Per-worker peak ~ one cell chromosome (records + covered mask).
+            est = WORKER_BASE_BYTES + 4 * max(
+                (len(c) for c, _ in codes.values()), default=1 << 20)
+            n_workers = cap_workers(min(int(jobs), len(tasks)), est, max_mem=max_mem)
+            with make_pool(n_workers, _ctx_codes_init, (ref_abs, codes)) as ex:
+                all_counts = list(bounded_map(ex, _context_counts_worker, tasks,
+                                              n_workers * 4))
+        else:
+            all_counts = [_context_counts_worker(t) for t in tasks]
+    finally:
+        _CTX_CODES_STATE.clear()
 
     df = pd.DataFrame.from_dict(
         {cid: _summarize_counts(c, features, aliases, num_upstr_bases)

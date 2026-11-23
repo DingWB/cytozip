@@ -248,73 +248,6 @@ def _beta_prior_from_moments(S1, S2, S3, N, df_correction=True, eps=1e-6):
 
 
 # ==========================================================
-def _read_mc_cov(path, mc_col='mc', cov_col='cov', chunk_keys=None,
-                 chunk_lens=None):
-    """Read (mc, cov) as 1-D arrays concatenated over ``chunk_keys``.
-
-    Parameters
-    ----------
-    path : str
-        Path to a ``.cz`` file with ``mc_col`` / ``cov_col`` columns.
-    mc_col, cov_col : str
-        Column names (in the .cz ``header['columns']``) holding the
-        methylated count and coverage.
-    chunk_keys : list of tuple or None
-        Chunk keys (e.g. ``[('chr1',), ('chr2',), ...]``) in the desired
-        concatenation order. ``None`` uses ``sorted(chunk_key2offset)``.
-    chunk_lens : dict {chunk_key: int} or None
-        Per-chunk row counts from the reference axis. When given, a chunk
-        that is *absent* from this ``.cz`` (e.g. ``chrL`` present in the
-        reference but empty in a single cell) is zero-filled to that length
-        instead of raising, so all files stay aligned to the reference axis.
-
-    Returns
-    -------
-    (chunk_keys, mc, cov) : (list, np.ndarray float64, np.ndarray float64)
-        The keys actually used and the concatenated arrays.
-    """
-    path = _abspath(path)
-    # Concatenates the whole reference axis (all chunks) -> sequential.
-    r = Reader(path, mmap_advise="sequential")
-    try:
-        cols = list(r.header['columns'])
-        if mc_col not in cols or cov_col not in cols:
-            raise ValueError(
-                f"{path}: expected columns {mc_col!r} and {cov_col!r}, "
-                f"got {cols!r}")
-        mi, ci = cols.index(mc_col), cols.index(cov_col)
-        mc_dt = _np_dtype_for(r.header['formats'][mi])
-        cov_dt = _np_dtype_for(r.header['formats'][ci])
-        if chunk_keys is None:
-            chunk_keys = sorted(r.chunk_key2offset.keys())
-        mc_parts, cov_parts = [], []
-        for k in chunk_keys:
-            if k not in r.chunk_key2offset:
-                # Missing chunk: zero-fill to the reference length if known,
-                # otherwise it is a genuine misalignment -> error. Zero-fill in
-                # the native dtype so the concatenation stays compact.
-                if chunk_lens is not None and k in chunk_lens:
-                    nrow = int(chunk_lens[k])
-                    mc_parts.append(np.zeros(nrow, dtype=mc_dt))
-                    cov_parts.append(np.zeros(nrow, dtype=cov_dt))
-                    continue
-                raise ValueError(f"{path}: missing chunk {k!r}")
-            arr = r.chunk2numpy(k)
-            mc_parts.append(np.asarray(arr[f'f{mi}']))
-            cov_parts.append(np.asarray(arr[f'f{ci}']))
-    finally:
-        r.close()
-    # Keep the native (small-int) dtype — do NOT upcast to float64. The theta /
-    # prior math converts only the small masked/selected subsets it touches.
-    if mc_parts:
-        mc = np.concatenate(mc_parts)
-        cov = np.concatenate(cov_parts)
-    else:
-        mc = np.zeros(0, dtype=mc_dt)
-        cov = np.zeros(0, dtype=cov_dt)
-    return chunk_keys, mc, cov
-
-
 def _read_context(path, context_col='context', chunk_keys=None):
     """Read the per-row ``context`` bytes concatenated over ``chunk_keys``.
 
@@ -670,50 +603,92 @@ def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
         with both sums weighted by ``weight`` and ``SS_tot`` taken around the
         weight-weighted mean of ``beta`` (plain R^2 when ``weight`` is None).
     """
-    from scipy.optimize import nnls, minimize
-
     theta = np.asarray(theta)
-    if theta.dtype.kind != 'f':
-        theta = theta.astype(np.float64)
-    beta = np.asarray(beta, dtype=np.float64)
     if theta.ndim != 2:
         raise ValueError("theta must be a 2-D (n_sites, n_types) matrix.")
-    n_sites, n_types = theta.shape
-    if beta.shape[0] != n_sites:
+    beta = np.asarray(beta, dtype=np.float64)
+    if beta.shape[0] != theta.shape[0]:
         raise ValueError("theta and beta must share the site axis length.")
-    if n_sites == 0:
-        raise ValueError("no sites to deconvolve.")
-    sw = None
-    if weight is not None:
-        sw = np.sqrt(np.clip(np.asarray(weight, dtype=np.float64), 0.0, None))
-    b = beta if sw is None else beta * sw
+    st = _DeconvStats(theta.shape[1])
+    st.add(theta, beta, weight)
+    return _solve_fractions_stats(st, sum_to_one=sum_to_one,
+                                  allow_unknown=allow_unknown)
 
-    # Normal equations, accumulated in row blocks: the weighted design
-    # A = theta * sqrt(w) is never materialised as one (n_sites, n_types)
-    # float64 copy, and every solve below only touches k x k matrices.
-    AtA = np.zeros((n_types, n_types), dtype=np.float64)
-    Atb = np.zeros(n_types, dtype=np.float64)
-    for s0 in range(0, n_sites, _GRAM_BLOCK):
-        Ab = theta[s0:s0 + _GRAM_BLOCK].astype(np.float64)
-        if sw is not None:
-            Ab *= sw[s0:s0 + _GRAM_BLOCK, None]
-        AtA += Ab.T @ Ab
-        Atb += Ab.T @ b[s0:s0 + _GRAM_BLOCK]
+
+class _DeconvStats:
+    """Sufficient statistics of the weighted least-squares deconvolution.
+
+    Accumulated block by block (:meth:`add`) so the weighted design
+    ``A = theta * sqrt(w)`` of shape ``(n_sites, n_types)`` is never held
+    whole -- a bulk WGBS query over a whole-genome model has 1e8-1e9 covered
+    sites. Everything :func:`_solve_fractions_stats` needs is ``k x k``:
+    ``AtA = A'A``, ``Atb = A'b``, ``btb = b'b`` (with ``b = beta * sqrt(w)``)
+    plus ``w_sum`` / ``wb_sum`` for the weighted R^2 and ``n_sites``.
+    """
+
+    __slots__ = ('AtA', 'Atb', 'btb', 'w_sum', 'wb_sum', 'n_sites')
+
+    def __init__(self, n_types):
+        self.AtA = np.zeros((n_types, n_types), dtype=np.float64)
+        self.Atb = np.zeros(n_types, dtype=np.float64)
+        self.btb = 0.0
+        self.w_sum = 0.0
+        self.wb_sum = 0.0
+        self.n_sites = 0
+
+    def add(self, theta, beta, weight=None):
+        theta = np.asarray(theta)
+        beta = np.asarray(beta, dtype=np.float64)
+        n = int(theta.shape[0])
+        if n == 0:
+            return
+        sw = None
+        if weight is not None:
+            sw = np.sqrt(np.clip(np.asarray(weight, dtype=np.float64), 0.0, None))
+        for s0 in range(0, n, _GRAM_BLOCK):
+            Ab = theta[s0:s0 + _GRAM_BLOCK].astype(np.float64)
+            bb = beta[s0:s0 + _GRAM_BLOCK]
+            if sw is not None:
+                swb = sw[s0:s0 + _GRAM_BLOCK]
+                Ab *= swb[:, None]
+                bb = bb * swb
+                w = swb * swb
+                self.w_sum += float(w.sum())
+                self.wb_sum += float(w @ beta[s0:s0 + _GRAM_BLOCK])
+            else:
+                self.w_sum += float(bb.shape[0])
+                self.wb_sum += float(bb.sum())
+            self.AtA += Ab.T @ Ab
+            self.Atb += Ab.T @ bb
+            self.btb += float(bb @ bb)
+        self.n_sites += n
+
+
+def _solve_fractions_stats(st, sum_to_one=True, allow_unknown=False):
+    """:func:`_solve_fractions` on accumulated :class:`_DeconvStats`."""
+    from scipy.optimize import nnls, minimize
+    AtA, Atb = st.AtA, st.Atb
+    n_types = AtA.shape[0]
+    if st.n_sites == 0:
+        raise ValueError("no sites to deconvolve.")
 
     def _nnls():
         # min ||A f - b|| s.t. f >= 0  ==  min ||R f - d|| with AtA = R'R,
-        # R' d = Atb (same minimiser, k x k instead of n_sites x k). Falls
-        # back to the tall problem if AtA is not positive definite.
+        # R' d = Atb (same minimiser, k x k instead of n_sites x k). A
+        # rank-deficient Gram matrix gets a tiny ridge instead of the tall
+        # problem (which would need the whole design in memory).
         from scipy.linalg import cholesky, solve_triangular, LinAlgError
-        try:
-            R = cholesky(AtA, lower=False)
-            d = solve_triangular(R, Atb, trans='T', lower=False)
-            return nnls(R, d)[0]
-        except (LinAlgError, ValueError):
-            A = theta.astype(np.float64)
-            if sw is not None:
-                A = A * sw[:, None]
-            return nnls(A, b)[0]
+        G = AtA
+        for ridge in (0.0, 1e-10, 1e-8, 1e-6):
+            try:
+                if ridge:
+                    G = AtA + np.eye(n_types) * (ridge * max(np.trace(AtA), 1e-300))
+                R = cholesky(G, lower=False)
+                d = solve_triangular(R, Atb, trans='T', lower=False)
+                return nnls(R, d)[0]
+            except (LinAlgError, ValueError):
+                continue
+        return np.full(n_types, 1.0 / n_types)
 
     if n_types == 1:
         frac = np.array([1.0] if sum_to_one else
@@ -745,19 +720,13 @@ def _solve_fractions(theta, beta, weight=None, sum_to_one=True,
         if not allow_unknown and frac.sum() > 0:
             frac = frac / frac.sum()
 
-    resid = theta @ frac - beta
-    if sw is not None:
-        resid *= sw
-    ss_res = float(resid @ resid)
+    # ||A f - b||^2 = f'AtA f - 2 f'Atb + b'b (exact, from the statistics).
+    ss_res = max(0.0, float(frac @ (AtA @ frac) - 2.0 * (Atb @ frac) + st.btb))
     # Weighted R^2: total variance around the *weighted* mean of beta,
-    # sum_c w_c (beta_c - mean_w)^2 (= plain R^2 when weight is None).
-    if sw is None:
-        ss_tot = float(((beta - beta.mean()) ** 2).sum())
-    else:
-        w = sw * sw
-        wsum = float(w.sum())
-        mean_w = float((w @ beta) / wsum) if wsum > 0 else 0.0
-        ss_tot = float((w @ ((beta - mean_w) ** 2)))
+    # sum_c w_c (beta_c - mean_w)^2 = sum w beta^2 - (sum w beta)^2 / sum w
+    # (= plain R^2 when weight is None).
+    ss_tot = (st.btb - st.wb_sum * st.wb_sum / st.w_sum
+              if st.w_sum > 0 else 0.0)
     r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float('nan')
     return frac.astype(np.float64), r2
 
@@ -2570,6 +2539,18 @@ class CellTypeClassifier:
                 f"{len(types)} theta columns; pass top= to bound memory.")
         ref_reader = Reader(_abspath(reference), mmap_advise="sequential") if reference is not None else None
         parts = []
+        top_n = int(top) if top is not None else None
+
+        def _fold(df):
+            # Streaming top-k: with ``top`` only the current best ``top`` rows
+            # are retained across chunks, so memory is O(top + one chunk)
+            # instead of O(all kept sites).
+            parts.append(df)
+            if top_n is not None and (len(parts) > 1 or len(df) > top_n):
+                best = pd.concat(parts, ignore_index=True)
+                best = best.sort_values('importance', ascending=False,
+                                        ignore_index=True, kind='stable')
+                parts[:] = [best.head(top_n)]
         try:
             for cname, chan in (('CG', self._cg), ('CH', self._ch)):
                 if chan is None:
@@ -2594,13 +2575,16 @@ class CellTypeClassifier:
                                          ('context', 'ref_context')):
                             if src in arr:
                                 cols[dst] = np.asarray(arr[src])[rows]
+                        del arr
+                        ref_reader.release_chunk(k)
                     df = pd.DataFrame(cols)
                     if include_theta:
                         df = pd.concat(
                             [df, pd.DataFrame(theta.astype(np.float32),
                                               columns=types, index=df.index)],
                             axis=1)
-                    parts.append(df)
+                    del theta
+                    _fold(df)
         finally:
             if ref_reader is not None:
                 ref_reader.close()
@@ -2666,18 +2650,22 @@ class CellTypeClassifier:
         return th[gidx - lo]
 
     def _deconv_design(self, hits, contexts, weight_by_cov, min_cov):
-        """Assemble the deconvolution design ``(theta, beta, weight)``.
+        """Accumulate the deconvolution statistics (:class:`_DeconvStats`).
 
         Gathers, over the requested ``contexts`` (``'cg'``/``'ch'``), the
         reference frequencies ``theta`` at the model's selected sites together
         with the bulk query's per-site methylation level ``beta = mc / cov``
-        and weight (``cov`` when ``weight_by_cov`` else 1). ``hits`` is the
+        and weight (``cov`` when ``weight_by_cov`` else 1), folding them into
+        the ``k x k`` normal equations block by block. ``hits`` is the
         :meth:`_collect_hits` output (covered model sites per channel); only
         sites with ``cov >= min_cov`` are kept, and a chunk absent from the
         query is skipped.
         """
         chan_map = {'cg': self._cg, 'ch': self._ch}
-        thetas, betas, weights = [], [], []
+        # Accumulate the k x k normal equations chunk by chunk: the design
+        # (covered sites x types) is never concatenated, so a whole-genome
+        # bulk query costs O(n_types^2) memory instead of O(n_sites x n_types).
+        st = _DeconvStats(len(self.cell_types))
         for name in contexts:
             chan = chan_map[name]
             if chan is None:
@@ -2692,17 +2680,17 @@ class CellTypeClassifier:
                     mc_k = mc_k[obs]
                     cov = cov[obs]
                 mc = np.asarray(mc_k, dtype=np.float64)
-                thetas.append(self._chunk_theta(name, k, chan, gidx))
-                betas.append(np.clip(mc / cov, 0.0, 1.0))
-                weights.append(cov if weight_by_cov
-                               else np.ones(cov.shape[0], dtype=np.float64))
-        if not thetas:
+                for s0 in range(0, gidx.shape[0], _GRAM_BLOCK):
+                    sl = slice(s0, s0 + _GRAM_BLOCK)
+                    st.add(self._chunk_theta(name, k, chan, gidx[sl]),
+                           np.clip(mc[sl] / cov[sl], 0.0, 1.0),
+                           cov[sl] if weight_by_cov else None)
+        if st.n_sites == 0:
             raise ValueError(
                 "no covered sites overlap the model's markers; is the query "
                 "aligned to the same reference axis and covered at the "
                 "selected sites?")
-        return (np.concatenate(thetas, axis=0), np.concatenate(betas),
-                np.concatenate(weights))
+        return st
 
     @staticmethod
     def _is_beta_query(query):
@@ -2770,17 +2758,16 @@ class CellTypeClassifier:
         contexts = self._check_contexts(contexts)
         is_beta = self._is_beta_query(query)
         hits = self._deconv_hits(query, contexts)
-        theta, beta, weight = self._deconv_design(
+        st = self._deconv_design(
             hits, contexts,
             weight_by_cov=weight_by_cov and not is_beta, min_cov=min_cov)
-        frac, r2 = _solve_fractions(
-            theta, beta, weight if not is_beta else None,
-            sum_to_one=sum_to_one, allow_unknown=allow_unknown)
+        frac, r2 = _solve_fractions_stats(
+            st, sum_to_one=sum_to_one, allow_unknown=allow_unknown)
         out = pd.Series(frac, index=self.cell_types, dtype=np.float64)
         if allow_unknown:
             out['unknown'] = max(0.0, 1.0 - float(frac.sum()))
         out.attrs['r2'] = r2
-        out.attrs['n_sites'] = int(theta.shape[0])
+        out.attrs['n_sites'] = int(st.n_sites)
         return out
 
     def deconvolve_batch(self, queries, contexts='cg', weight_by_cov=True,
@@ -2855,18 +2842,17 @@ class CellTypeClassifier:
                 hits = self._collect_hits_multicell(rr, keymap, mc_i, cov_i, use)
             finally:
                 rr.close()
-            theta, beta, weight = self._deconv_design(
+            st = self._deconv_design(
                 hits, use, weight_by_cov=weight_by_cov, min_cov=min_cov)
-            frac, r2 = _solve_fractions(
-                theta, beta, weight, sum_to_one=sum_to_one,
-                allow_unknown=allow_unknown)
+            frac, r2 = _solve_fractions_stats(
+                st, sum_to_one=sum_to_one, allow_unknown=allow_unknown)
             sid = ('_'.join(str(v) for v in cell)
                    if isinstance(cell, tuple) else str(cell))
             row = pd.Series(frac, index=self.cell_types, dtype=np.float64)
             if allow_unknown:
                 row['unknown'] = max(0.0, 1.0 - float(frac.sum()))
             row['r2'] = r2
-            row['n_sites'] = int(theta.shape[0])
+            row['n_sites'] = int(st.n_sites)
             return row.rename(sid)
 
         n_workers = _resolve_n_jobs(n_jobs)

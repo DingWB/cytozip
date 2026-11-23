@@ -645,6 +645,32 @@ def test_catcz_skips_empty_source(dataset, tmp_path):
     r.close()
 
 
+def test_catcz_of_catcz_files(dataset, tmp_path):
+    """Several catcz'd ['chrom', 'cell_id'] files concatenate into one
+    (``key_added=None``) with every chunk byte-identical, and a repeated
+    chunk key is rejected instead of silently shadowing a chunk."""
+    cells = dataset["cells"]
+
+    def cat(out, inputs, key_added):
+        w = Writer(str(out), formats=["B", "B"], columns=["mc", "cov"],
+                   chunk_dims=["chrom"] + (["cell_id"] if key_added is None else []))
+        w.catcz(input=inputs, key_added=key_added)
+        return str(out)
+
+    a = cat(tmp_path / "a.cz", cells[:2], "cell_id")
+    b = cat(tmp_path / "b.cz", cells[2:], "cell_id")
+    c = cat(tmp_path / "c.cz", [a, b], None)
+    ra, rb, rc = Reader(a), Reader(b), Reader(c)
+    assert rc.header["chunk_dims"] == ["chrom", "cell_id"]
+    assert set(rc.chunk_key2offset) == set(ra.chunk_key2offset) | set(rb.chunk_key2offset)
+    for src in (ra, rb):
+        for k in src.chunk_key2offset:
+            assert rc.fetch_chunk_bytes(k) == src.fetch_chunk_bytes(k)
+    ra.close(); rb.close(); rc.close()
+    with pytest.raises(ValueError, match="duplicate chunk key"):
+        cat(tmp_path / "dup.cz", [a, a], None)
+
+
 def test_merge_dms_to_dmr_carries_rates():
     from cytozip.dmr import _merge_dms_to_dmr
     df = pd.DataFrame({"chrom": ["c"] * 3, "pos": [1, 10, 500], "p": [.1, .2, .3],
@@ -739,7 +765,8 @@ def test_cz_to_anndata_sites(dataset, tmp_path):
     labels = [os.path.basename(c)[:-3] for c in cells]
 
     ad = cz_to_anndata_sites(cells, dataset["ref"], index=idx, chroms=["chr1", "chr2"],
-                             score="frac", jobs=1)
+                             score="frac", jobs=1,
+                             output=str(tmp_path / "s1.h5ad"), return_adata=True)
     assert list(ad.obs_names) == labels and list(ad.var_names) == list(names)
     assert ad.var["context"].str.startswith("CG").all()
     assert np.array_equal(ad.layers["mc"].toarray(), MC)
@@ -753,7 +780,7 @@ def test_cz_to_anndata_sites(dataset, tmp_path):
     w.catcz(input=cells, key_added="cell_id")
     ad2 = cz_to_anndata_sites(cat, dataset["ref"], index=idx, chroms=["chr1", "chr2"],
                               score="posterior_frac", min_cov=2, jobs=2,
-                              output=str(tmp_path / "sites.h5ad"))
+                              output=str(tmp_path / "sites.h5ad"), return_adata=True)
     assert sorted(ad2.obs_names) == sorted(labels)
     order = [list(ad2.obs_names).index(l) for l in labels]
     COV2 = np.where(COV >= 2, COV, 0); MC2 = np.where(COV >= 2, MC, 0)
@@ -766,7 +793,8 @@ def test_cz_to_anndata_sites(dataset, tmp_path):
     assert os.path.exists(str(tmp_path / "sites.h5ad"))
     # no index -> all cytosines, single chrom, pos var_names
     ad3 = cz_to_anndata_sites(cells[:2], dataset["ref"], chroms=["chrM"], score="cov",
-                              var_names="pos")
+                              var_names="pos", output=str(tmp_path / "s3.h5ad"),
+                              return_adata=True)
     rc = Reader(cells[0]); n = len(rc.fetch_chunk_bytes(("chrM",))) // 2; rc.close()
     assert ad3.shape == (2, n) and ad3.var_names[0].isdigit()
 
@@ -816,7 +844,8 @@ def test_cz_to_anndata_matches_bruteforce(dataset, tmp_path):
         MC, COV = truth(use_index)
         ad = cz_to_anndata(cells, bs, chrom_size=sizes, exclude_chroms=["chrM"],
                            reference=dataset["ref"], index=idx if use_index else None,
-                           score="frac", nan_policy="zero", jobs=jobs)
+                           score="frac", nan_policy="zero", jobs=jobs,
+                           output=str(tmp_path / "a.h5ad"), return_adata=True)
         assert list(ad.obs_names) == labels
         assert np.array_equal(ad.layers["mc"].toarray(), MC)
         assert np.array_equal(ad.layers["cov"].toarray(), COV)
@@ -826,7 +855,8 @@ def test_cz_to_anndata_matches_bruteforce(dataset, tmp_path):
     MC, COV = truth(True)
     ad = cz_to_anndata(cells, bs, chrom_size=sizes, exclude_chroms=["chrM"],
                        reference=dataset["ref"], index=idx, blacklist=bl,
-                       score="posterior_frac", jobs=2)
+                       score="posterior_frac", jobs=2,
+                       output=str(tmp_path / "bl.h5ad"), return_adata=True)
     name2i = {n: i for i, n in enumerate(bins["name"])}
     keep = [name2i[n] for n in ad.var_names]
     assert 0 < len(keep) < len(bins) and ad.shape == (len(cells), len(keep))
@@ -836,7 +866,8 @@ def test_cz_to_anndata_matches_bruteforce(dataset, tmp_path):
     # position-column cells (no reference needed) agree with the mapped path
     ad_pos = cz_to_anndata(dataset["noref_cells"], bs, chrom_size=sizes,
                            exclude_chroms=["chrM"], score="frac",
-                           nan_policy="zero", jobs=2)
+                           nan_policy="zero", jobs=2,
+                           output=str(tmp_path / "pos.h5ad"), return_adata=True)
     MC, COV = truth(False)
     assert np.array_equal(ad_pos.layers["cov"].toarray(), COV)
     assert np.array_equal(ad_pos.layers["mc"].toarray(), MC)
@@ -846,10 +877,154 @@ def test_cz_to_anndata_matches_bruteforce(dataset, tmp_path):
     w.catcz(input=cells, key_added="cell_id")
     ad_cat = cz_to_anndata(cat, bs, chrom_size=sizes, exclude_chroms=["chrM"],
                            reference=dataset["ref"], score="frac",
-                           nan_policy="zero", jobs=2, verbose=True)
+                           nan_policy="zero", jobs=2, verbose=True,
+                           output=str(tmp_path / "cat.h5ad"), return_adata=True)
     order = [list(ad_cat.obs_names).index(l) for l in labels]
     assert np.array_equal(ad_cat.layers["cov"].toarray()[order], COV)
     rr.close(); ir.close()
+
+
+def test_allc2cz_batched_tabix(dataset, tmp_path, monkeypatch):
+    """ALLC rows are streamed in bounded tabix batches; forcing many tiny
+    batches must give byte-identical .cz output (reference-aligned,
+    reference-less, and directory batch mode)."""
+    from cytozip import allc as allc_mod
+    from cytozip.allc import allc2cz
+    gz = dataset["allcs"][0]
+    ref = dataset["ref"]
+
+    def decoded(p):
+        r = Reader(p)
+        out = {k: r.fetch_chunk_bytes(k) for k in r.chunk_key2offset}
+        r.close()
+        return out
+
+    one_ref = str(tmp_path / "one_ref.cz"); one_pos = str(tmp_path / "one_pos.cz")
+    allc2cz(gz, one_ref, reference=ref, formats=["B", "B"])
+    allc2cz(gz, one_pos, formats=["Q", "H", "H"], columns=["pos", "mc", "cov"],
+            usecols=[1, 4, 5])
+    monkeypatch.setattr(allc_mod, "_TABIX_BATCH_LINES", 700)
+    many_ref = str(tmp_path / "many_ref.cz"); many_pos = str(tmp_path / "many_pos.cz")
+    allc2cz(gz, many_ref, reference=ref, formats=["B", "B"])
+    allc2cz(gz, many_pos, formats=["Q", "H", "H"], columns=["pos", "mc", "cov"],
+            usecols=[1, 4, 5])
+    assert decoded(many_ref) == decoded(one_ref)
+    assert decoded(many_pos) == decoded(one_pos)
+    assert sum(len(v) for v in decoded(one_pos).values()) > 700 * 18  # >1 batch
+    # batch (directory) mode with the fork-shared reference + worker cap
+    indir = tmp_path / "allcs"; indir.mkdir()
+    for p in dataset["allcs"]:
+        os.symlink(p, indir / os.path.basename(p)); os.symlink(p + ".tbi", indir / (os.path.basename(p) + ".tbi"))
+    outdir = tmp_path / "czs"
+    allc2cz(str(indir), str(outdir), reference=ref, formats=["B", "B"], jobs=2,
+            max_mem="4G", pattern="*.allc.tsv.gz")
+    for c in dataset["cells"]:
+        got = str(outdir / os.path.basename(c))
+        assert os.path.exists(got), got
+        assert decoded(got) == decoded(c)
+
+
+def test_call_dmr_site_windows(dataset, tmp_path):
+    """Chunks larger than the site window are loaded piecewise by block
+    gather; the windowed path must reproduce the whole-chunk path (exactly
+    for the deterministic 1-vs-1 Fisher test and for the CH bin axis /
+    rates / deltas), for serial and multi-process runs."""
+    pytest.importorskip("cytozip.dmr_accel")
+    from cytozip.index import index_context
+    from cytozip import dmr as dmr_mod
+    from cytozip.dmr import call_dmr, _process_chunk_for_dmr_ch, _window_cuts
+    idx = str(tmp_path / "cgn.cz")
+    index_context(dataset["ref"], idx, pattern="CGN", jobs=1)
+    cells = dataset["cells"]
+
+    def run(tag, **kw):
+        out = str(tmp_path / f"{tag}.dmr.tsv"); dms = str(tmp_path / f"{tag}.dms.tsv")
+        call_dmr([cells[0]], [cells[1]], dataset["ref"], out, index=idx,
+                 dms_output=dms, p_value_cutoff=0.5, frac_delta_cutoff=0.1,
+                 min_cov=1, **kw)
+        return pd.read_csv(dms, sep="\t"), pd.read_csv(out, sep="\t")
+
+    dms0, dmr0 = run("whole", jobs=1)
+    assert len(dms0) > 50
+    for tag, kw in (("w1", dict(jobs=1, window_sites=257)),
+                    ("w2", dict(jobs=2, window_sites=301, max_mem="8G"))):
+        dms, dmr = run(tag, **kw)
+        pd.testing.assert_frame_equal(dms.sort_values(["chrom", "pos"]).reset_index(drop=True),
+                                      dms0.sort_values(["chrom", "pos"]).reset_index(drop=True))
+        pd.testing.assert_frame_equal(dmr, dmr0)
+
+    # window cuts never split a bin
+    pos = np.sort(np.random.default_rng(0).choice(np.arange(1, 200_000), 5000, replace=False))
+    cuts = _window_cuts(pos.size, 700, pos=pos, bin_size=500)
+    assert cuts[0] == 0 and cuts[-1] == pos.size and len(cuts) > 4
+    b = (pos - 1) // 500
+    assert all(b[c - 1] != b[c] for c in cuts[1:-1])
+
+    # CH: bin axis, rates and observed deltas identical; p-values are
+    # Monte-Carlo estimates (per-site RNG stream) -> only approximately equal
+    a_specs = [(cells[0], ()), (cells[2], ())]; b_specs = [(cells[1], ()), (cells[3], ())]
+    base = (a_specs, b_specs, dataset["ref"], None, ("chr1",), "mc", "cov", 500,
+            None, None, 1, 1, 2000, 0.001, 200, 10000, 1, False, 0.0, 0.0)
+    try:
+        whole = _process_chunk_for_dmr_ch(base + (10 ** 9,))
+        win = _process_chunk_for_dmr_ch(base + (333,))
+    finally:
+        dmr_mod._close_cached_readers()
+    assert whole[1].size > 20
+    for i in (1, 3, 4, 5):
+        np.testing.assert_array_equal(whole[i], win[i])
+    assert np.allclose(np.log10(whole[2] + 1e-4), np.log10(win[2] + 1e-4), atol=0.6)
+
+
+def test_cz_to_anndata_streaming_batches(dataset, tmp_path, monkeypatch):
+    """The streamed h5ad is independent of how cells are batched to disk
+    (per-cell statistics are exact; the additive HVF accumulators only
+    differ by float summation order), ``output`` is mandatory, the default
+    return value is the path, and a failed run leaves no ``.tmp`` behind."""
+    pytest.importorskip("anndata")
+    import anndata
+    from cytozip import features
+    from cytozip.features import cz_to_anndata
+    sizes = str(tmp_path / "chrom.sizes")
+    with open(sizes, "w") as fh:
+        for c, n in CHROM_SIZES.items():
+            fh.write(f"{c}\t{n}\n")
+    cells = dataset["noref_cells"]
+    kw = dict(chrom_size=sizes, exclude_chroms=["chrM"], score="posterior_frac",
+              nan_policy="zero", jobs=1)
+    one = str(tmp_path / "one.h5ad")
+    assert cz_to_anndata(cells, 5000, output=one, **kw) == one      # one batch
+    monkeypatch.setattr(features, "_STREAM_BATCH_CELLS", 1)         # one flush per cell
+    many = cz_to_anndata(cells, 5000, output=str(tmp_path / "many.h5ad"),
+                         return_adata=True, **kw)
+    ref = anndata.read_h5ad(one)
+    assert many.shape == ref.shape == (len(cells), ref.n_vars)
+    assert list(many.obs_names) == list(ref.obs_names)
+    for lay in ("mc", "cov"):
+        assert np.array_equal(many.layers[lay].toarray(), ref.layers[lay].toarray())
+        assert many.layers[lay].dtype == np.uint32
+    assert np.array_equal(many.X.toarray(), ref.X.toarray())
+    for c in ("alpha", "beta", "prior_mean", "rho"):
+        np.testing.assert_array_equal(many.obs[c].to_numpy(), ref.obs[c].to_numpy())
+    for c in ("hvf_n_cov", "hvf_sum", "hvf_sum_sq"):
+        np.testing.assert_allclose(many.var[c].to_numpy(), ref.var[c].to_numpy(),
+                                   rtol=1e-10)
+    assert many.uns["cytozip_coverage"]["nan_policy"] == "zero"
+    assert many.uns["cytozip_score"]["score"] == "posterior_frac"
+    # dense .X policy is streamed in row blocks too
+    dense = cz_to_anndata(cells, 5000, output=str(tmp_path / "dense.h5ad"),
+                          return_adata=True, **{**kw, "nan_policy": "prior_mean"})
+    assert isinstance(dense.X, np.ndarray) and dense.X.dtype == np.float32
+    cov = ref.layers["cov"].toarray()
+    pm = ref.obs["prior_mean"].to_numpy()[:, None]
+    assert np.allclose(np.where(cov > 0, ref.X.toarray(), pm), dense.X, atol=1e-6)
+    # output is mandatory; a failing run must not leave <output>.tmp
+    with pytest.raises(ValueError, match="output="):
+        cz_to_anndata(cells, 5000, **kw)
+    bad = str(tmp_path / "bad.h5ad")
+    with pytest.raises(Exception):
+        cz_to_anndata(cells + [str(tmp_path / "missing.cz")], 5000, output=bad, **kw)
+    assert not os.path.exists(bad) and not os.path.exists(bad + ".tmp")
 
 
 def test_cz_to_anndata_workers_after_parent_openmp(tmp_path):
@@ -873,7 +1048,8 @@ from cytozip.features import cz_to_anndata
 cz_accel.set_inflate_threads(4)          # parent: live gomp pool before fork
 r = Reader({cells[0]!r}); r.fetch_chunk_bytes(("chr1",)); r.close()
 ad = cz_to_anndata({cells!r}, 5000, chrom_size={sizes!r}, score="frac",
-                   nan_policy="zero", jobs=2)
+                   nan_policy="zero", jobs=2, output={str(tmp_path / "omp.h5ad")!r},
+                   return_adata=True)
 assert ad.shape == (3, 200) and int(ad.layers["cov"].sum()) > 0
 print("OK")
 """

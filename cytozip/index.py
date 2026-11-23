@@ -30,6 +30,20 @@ import pandas as pd
 from loguru import logger
 
 from .cz import Reader, Writer, get_dtfuncs, _make_np_dtype
+from ._mem import WORKER_BASE_BYTES, cap_workers
+
+
+def _cap_index_workers(reader, jobs, max_mem, what):
+	"""Clamp ``jobs`` to the memory budget: each per-chromosome worker holds
+	the largest chunk's records (~unit_size B/site) plus the match mask and
+	the packed IDs (~6 B/site)."""
+	n = int(jobs or 1)
+	if n <= 1:
+		return n
+	max_rows = max((info['data_len'] // reader._unit_size
+	                for info in reader._raw_chunk_index.values()), default=1)
+	est = WORKER_BASE_BYTES + (int(reader._unit_size) + 6) * max_rows
+	return cap_workers(n, est, max_mem=max_mem, what=what)
 
 
 # ---------------------------------------------------------------------------
@@ -308,7 +322,8 @@ def _build_region_index_worker(input, output, dim, df1, formats, columns,
 # ===========================================================================
 # Module-level convenience wrappers (CLI entry points)
 # ===========================================================================
-def index_context(input, output=None, pattern="CGN", jobs=4, chunk_keys=None):
+def index_context(input, output=None, pattern="CGN", jobs=4, chunk_keys=None,
+                  max_mem=None):
 	"""
 	Build a 1-D *context* coordinate index (.cz) over a reference .cz.
 
@@ -356,6 +371,9 @@ def index_context(input, output=None, pattern="CGN", jobs=4, chunk_keys=None):
 		Number of parallel worker processes (one shard per chunk key,
 		merged via ``catcz``). Use ``jobs >= 8`` for large mammalian
 		references — typical 5-10x wall-clock speedup over serial.
+	max_mem : str or int, optional
+		Memory budget used to cap ``jobs`` (each worker holds the largest
+		chunk's records; default 80% of free RAM / cgroup headroom).
 	chunk_keys : list / str / path, optional
 		Restrict to a subset of chunk keys (typically chromosomes for a
 		reference .cz). Accepts a Python iterable, a comma-separated
@@ -412,6 +430,8 @@ def index_context(input, output=None, pattern="CGN", jobs=4, chunk_keys=None):
 
 		# Multi-process per-chunk-key path.
 		if jobs > 1 and len(dims) > 1:
+			jobs = _cap_index_workers(reader, jobs, max_mem, "index_context worker")
+		if jobs > 1 and len(dims) > 1:
 			outdir = output + '.tmp'
 			os.makedirs(outdir, exist_ok=True)
 			pool = multiprocessing.Pool(jobs)
@@ -459,7 +479,8 @@ def index_context(input, output=None, pattern="CGN", jobs=4, chunk_keys=None):
 		reader.close()
 
 
-def index_regions(input, output=None, bed=None, jobs=4, chunk_keys=None):
+def index_regions(input, output=None, bed=None, jobs=4, chunk_keys=None,
+                  max_mem=None):
 	"""
 	Build a 2-D *region* coordinate index (.cz) over a reference .cz from
 	a BED file.
@@ -496,6 +517,8 @@ def index_regions(input, output=None, bed=None, jobs=4, chunk_keys=None):
 		columns are ignored).
 	jobs : int
 		Number of parallel worker processes (one per chunk-key shard).
+	max_mem : str or int, optional
+		Memory budget used to cap ``jobs`` (see :func:`index_context`).
 	chunk_keys : list / str / path, optional
 		Restrict to a subset of chunk keys (typically chromosomes for a
 		reference .cz). Accepts a Python iterable, a comma-separated
@@ -546,6 +569,7 @@ def index_regions(input, output=None, bed=None, jobs=4, chunk_keys=None):
 	try:
 		outdir = output + '.tmp'
 		os.makedirs(outdir, exist_ok=True)
+		jobs = _cap_index_workers(reader, jobs, max_mem, "index_regions worker")
 		pool = multiprocessing.Pool(jobs)
 		tasks = []
 		for chrom, df1 in df.groupby('chrom'):

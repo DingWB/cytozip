@@ -68,15 +68,24 @@ def quantize_uniform(values, lo, hi, bits=8):
     if bits not in _QUANT_FMT:
         raise ValueError(f"bits must be 8 or 16, got {bits}")
     fmt, vmax = _QUANT_FMT[bits]
-    arr = np.asarray(values, dtype=np.float64)
-    # Clip then linearly scale.
-    np.clip(arr, lo, hi, out=arr)
     if hi <= lo:
         raise ValueError(f"need hi > lo, got lo={lo} hi={hi}")
-    scaled = (arr - lo) * (vmax / (hi - lo))
-    np.rint(scaled, out=scaled)
+    values = np.asarray(values)
     np_dtype = '<u1' if bits == 8 else '<u2'
-    return scaled.astype(np_dtype)
+    out = np.empty(values.shape, dtype=np_dtype)
+    # Slice-wise: the float64 clip / scale temporaries are bounded to one
+    # slice instead of three full-length copies of the input.
+    step = 1 << 20
+    flat_in, flat_out = values.reshape(-1), out.reshape(-1)
+    scale = vmax / (hi - lo)
+    for s0 in range(0, flat_in.size, step):
+        arr = np.asarray(flat_in[s0:s0 + step], dtype=np.float64)
+        arr = np.clip(arr, lo, hi)
+        arr -= lo
+        arr *= scale
+        np.rint(arr, out=arr)
+        flat_out[s0:s0 + step] = arr
+    return out
 
 
 def dequantize_uniform(values, lo, hi, bits=8):
@@ -84,8 +93,16 @@ def dequantize_uniform(values, lo, hi, bits=8):
     if bits not in _QUANT_FMT:
         raise ValueError(f"bits must be 8 or 16, got {bits}")
     _, vmax = _QUANT_FMT[bits]
-    arr = np.asarray(values, dtype=np.float64)
-    return arr * ((hi - lo) / vmax) + lo
+    values = np.asarray(values)
+    out = np.empty(values.shape, dtype=np.float64)
+    step = 1 << 20
+    flat_in, flat_out = values.reshape(-1), out.reshape(-1)
+    scale = (hi - lo) / vmax
+    for s0 in range(0, flat_in.size, step):
+        np.multiply(flat_in[s0:s0 + step], scale, out=flat_out[s0:s0 + step],
+                    casting='unsafe')
+        flat_out[s0:s0 + step] += lo
+    return out
 
 
 def _parse_quant_message(message):
@@ -150,21 +167,24 @@ def _pick_storage_format(series):
         "only numeric (int/float) value columns are supported")
 
 
-def _pack_struct_records(df, fmts):
-    """Pack rows of ``df`` into a contiguous bytes buffer matching
-    ``''.join(fmts)``. Uses numpy structured dtype for speed when
-    every field is a simple numeric scalar.
-    """
+_PACK_ROWS = 1 << 18
+
+
+def _iter_struct_records(df, fmts, rows=_PACK_ROWS):
+    """Yield the rows of ``df`` packed as bytes matching ``''.join(fmts)``,
+    ``rows`` rows at a time (numpy structured dtype; every field a simple
+    numeric scalar), so neither the structured array nor its bytes copy is
+    ever built for the whole frame."""
     from .cz import _NP_FMT_MAP
     cols = df.columns.tolist()
-    # All-numeric fast path via structured numpy.
-    np_dtype = []
-    for fmt, col in zip(fmts, cols):
-        np_dtype.append((col, _NP_FMT_MAP[fmt[-1]]))
-    arr = np.empty(len(df), dtype=np.dtype(np_dtype))
-    for col in cols:
-        arr[col] = df[col].values
-    return arr.tobytes()
+    np_dtype = np.dtype([(col, _NP_FMT_MAP[fmt[-1]])
+                         for fmt, col in zip(fmts, cols)])
+    n = len(df)
+    for s0 in range(0, n, rows):
+        arr = np.empty(min(rows, n - s0), dtype=np_dtype)
+        for col in cols:
+            arr[col] = df[col].values[s0:s0 + rows]
+        yield arr.tobytes()
 
 
 def array2cz(
@@ -327,9 +347,9 @@ def array2cz(
         for chrom, mf_chrom in chrom_groups:
             chrom_idx = manifest_probe_to_pos.loc[mf_chrom[probe_col].values].values
             chrom_df = out_df.iloc[chrom_idx]
-            data = _pack_struct_records(chrom_df, formats)
-            if data:
-                writer.write_chunk(data, [chrom])
+            for data in _iter_struct_records(chrom_df, formats):
+                if data:
+                    writer.write_chunk(data, [chrom])
         writer.close()
         out_paths.append(out_path)
     return out_paths
