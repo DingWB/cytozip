@@ -204,7 +204,8 @@ def _parse_chrom_whitelist(chroms):
 		path = os.path.abspath(os.path.expanduser(chroms))
 		if os.path.exists(path):
 			names = set()
-			with open(path) as fh:
+			# builtin open: the bare name is shadowed by cytozip.open() below
+			with _open(path) as fh:
 				for line in fh:
 					line = line.strip()
 					if line:
